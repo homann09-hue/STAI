@@ -86,23 +86,26 @@ export function DashboardView({ data }: { data: DashboardData }) {
             </div>
           </div>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-muted">{data.aiSentiment.summary}</p>
-          <div className="mt-5 grid grid-cols-3 gap-2">
-            {data.marketOverview.slice(0, 3).map((item) => (
-              <div key={item.label} className="rounded-md border border-stroke bg-ink/40 p-3">
-                <p className="text-xs text-muted">{item.label}</p>
-                <p className="mt-1 font-mono text-lg font-semibold">{item.value}</p>
-                <p className={item.changePercent >= 0 ? "text-xs text-profit" : "text-xs text-loss"}>
-                  {formatPercent(item.changePercent)}
-                </p>
-              </div>
-            ))}
+          <div className="mt-5">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted">Marktübersicht</p>
+            <div className="grid grid-cols-3 gap-2">
+              {data.marketOverview.slice(0, 3).map((item) => (
+                <div key={item.label} className="rounded-md border border-stroke bg-ink/40 p-3">
+                  <p className="text-xs text-muted">{item.label}</p>
+                  <p className="mt-1 font-mono text-lg font-semibold">{item.value}</p>
+                  <p className={item.changePercent >= 0 ? "text-xs text-profit" : "text-xs text-loss"}>
+                    {formatPercent(item.changePercent)}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="space-y-3">
           <ScoreMeter score={data.aiSentiment.score} label="Markt Score" />
           <div className="rounded-md border border-cyan/25 bg-cyan/10 p-4">
-            <p className="text-sm font-semibold text-cyan">Datenqualitaet</p>
+            <p className="text-sm font-semibold text-cyan">Datenqualität</p>
             <p className="mt-2 font-mono text-2xl font-semibold">{data.dataQualitySummary.score}/100</p>
             <p className="mt-2 text-xs leading-5 text-muted">
               {data.dataQualitySummary.label}, {data.dataQualitySummary.mockSources} Mock-Quellen,

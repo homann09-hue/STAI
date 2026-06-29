@@ -1,10 +1,10 @@
 # Security Checklist
 
-Status: umgesetzt als technische Basis fuer das Mock-MVP. Vor Produktion sind Provider-spezifische Audits noetig.
+Status: umgesetzt als technische Basis für das Mock-MVP. Vor Produktion sind Provider-spezifische Audits noetig.
 
 ## API und Server
 
-- Eingaben fuer Symbole, Alerts und Portfolio-Transaktionen werden mit `zod` validiert.
+- Eingaben für Symbole, Alerts und Portfolio-Transaktionen werden mit `zod` validiert.
 - Route Handler geben nur sanitizte Fehler mit Request-ID aus.
 - Server-seitige API-Fassade schuetzt zukuenftige Provider-Keys vor Frontend-Leaks.
 - Ein einfaches In-Memory Rate Limit reduziert Missbrauch im lokalen/Serverless-Kontext.
@@ -14,10 +14,10 @@ Status: umgesetzt als technische Basis fuer das Mock-MVP. Vor Produktion sind Pr
 
 ## Supabase
 
-- RLS ist fuer `profiles`, `watchlists`, `alert_rules`, `portfolio_positions` und `analysis_snapshots` aktiv.
+- RLS ist für `profiles`, `watchlists`, `alert_rules`, `portfolio_positions` und `analysis_snapshots` aktiv.
 - Policies erlauben Nutzern nur eigene Datensaetze.
 - `analysis_snapshots.user_id` ist nicht mehr nullable, damit keine fremden Analyse-Snapshots public lesbar werden.
-- Indizes fuer Nutzer/Symbol-Zugriffe sind vorbereitet.
+- Indizes für Nutzer/Symbol-Zugriffe sind vorbereitet.
 - Alert- und Asset-Typen sind per Check Constraints begrenzt.
 
 ## Frontend und PWA
@@ -31,7 +31,7 @@ Status: umgesetzt als technische Basis fuer das Mock-MVP. Vor Produktion sind Pr
 
 - Provider-spezifische Rate Limits und Abuse Detection.
 - Auth-Flows mit Supabase Session Handling und Server Actions.
-- CSRF-Pruefung fuer Cookie-basierte Mutationen, falls spaeter Cookies genutzt werden.
+- CSRF-Prüfung für Cookie-basierte Mutationen, falls später Cookies genutzt werden.
 - Zentrale strukturierte Logs ohne personenbezogene oder finanzielle Detaildaten.
 - SAST/DAST und Dependency Policy in CI.
-- Moderate `next`/`postcss` Audit-Findings weiter beobachten, bis eine stabile Next-Version mit gepatchter transitiver Abhaengigkeit verfuegbar ist.
+- Moderate `next`/`postcss` Audit-Findings weiter beobachten, bis eine stabile Next-Version mit gepatchter transitiver Abhängigkeit verfuegbar ist.

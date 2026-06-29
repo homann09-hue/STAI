@@ -11,13 +11,13 @@ import type {
 } from "./types";
 
 export const legalDisclaimer =
-  "Keine Anlageberatung. Alle Analysen sind modellbasierte Einschatzungen, konnen falsch sein und ersetzen keine eigene Prufung. Investieren ist mit Risiko verbunden.";
+  "Keine Anlageberatung. Alle Analysen sind modellbasierte Einschätzungen, können falsch sein und ersetzen keine eigene Prüfung. Investieren ist mit Risiko verbunden.";
 
 export const probabilityDisclaimer =
   "Diese Wahrscheinlichkeit ist keine Garantie und kann falsch sein.";
 
 export const mockDataDisclaimer =
-  "Mock-Daten: Werte dienen der Produktentwicklung und durfen nicht als reale Marktdaten interpretiert werden.";
+  "Mock-Daten: Werte dienen der Produktentwicklung und dürfen nicht als reale Marktdaten interpretiert werden.";
 
 export function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
@@ -44,8 +44,8 @@ export function formatPercent(value: number) {
 }
 
 export function scoreLabel(score: number) {
-  if (score >= 80) return "Moegliche Chance hoch, Risiko streng pruefen";
-  if (score >= 60) return "Moegliche Chance erhoeht";
+  if (score >= 80) return "Mögliche Chance hoch, Risiko streng prüfen";
+  if (score >= 60) return "Mögliche Chance erhöht";
   if (score >= 40) return "Unklar / neutral";
   if (score >= 20) return "Schwaches Chancenprofil";
   return "Sehr schwaches Chancenprofil";

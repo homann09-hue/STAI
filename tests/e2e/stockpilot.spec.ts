@@ -12,7 +12,7 @@ test("dashboard exposes market, data quality and disclaimer", async ({ page }) =
   await acceptRiskNotice(page);
 
   await expect(page.getByRole("link", { name: /StockPilot AI/ })).toBeVisible();
-  await expect(page.getByText("Datenqualitaet", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Datenqualität", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Keine Anlageberatung").first()).toBeVisible();
 });
 

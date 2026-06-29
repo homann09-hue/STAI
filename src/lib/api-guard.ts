@@ -82,7 +82,7 @@ export async function parseJsonBody<T>(request: Request, schema: z.ZodSchema<T>)
   } catch {
     return {
       ok: false as const,
-      response: jsonError("Ungueltiger JSON-Body.", 400)
+      response: jsonError("Ungültiger JSON-Body.", 400)
     };
   }
 }

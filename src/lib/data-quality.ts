@@ -20,7 +20,7 @@ export function validateAssetData(detail: Pick<AssetDetail, "asset" | "quote" | 
   const issues: string[] = [];
   const quote = quoteSchema.safeParse(detail.quote);
 
-  if (!quote.success) issues.push("Kursdaten sind unvollstaendig oder ungueltig.");
+  if (!quote.success) issues.push("Kursdaten sind unvollstaendig oder ungültig.");
   if (!detail.asset.symbol || !detail.asset.name) issues.push("Asset-Stammdaten fehlen.");
   if (!Object.values(detail.candles).every((items) => items.length >= 10)) {
     issues.push("Mindestens ein Chart-Zeitraum hat zu wenige Kerzen.");
@@ -29,7 +29,7 @@ export function validateAssetData(detail: Pick<AssetDetail, "asset" | "quote" | 
     issues.push("Mindestens eine News-Quelle ist unvollstaendig.");
   }
   if (detail.asset.type !== "crypto" && detail.fundamentals.peRatio === null) {
-    issues.push("KGV fehlt fuer ein nicht-krypto Asset.");
+    issues.push("KGV fehlt für ein nicht-krypto Asset.");
   }
 
   return {
@@ -80,7 +80,7 @@ export function assessDataQuality(
   const warnings = [
     ...(stale ? ["Daten sind veraltet und sollten vor Entscheidungen aktualisiert werden."] : []),
     ...(delayed && !stale ? ["Daten sind verzogert und nicht als Live-Kurs geeignet."] : []),
-    ...(missingNews ? ["Keine verwertbaren News fuer dieses Symbol gefunden."] : []),
+    ...(missingNews ? ["Keine verwertbaren News für dieses Symbol gefunden."] : []),
     ...(cryptoFundamentalGap ? ["Krypto-Fundamentaldaten sind strukturell nicht mit Aktien-Kennzahlen vergleichbar."] : [])
   ];
   const penalty =

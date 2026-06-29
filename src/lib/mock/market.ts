@@ -45,7 +45,7 @@ const assets: Asset[] = [
     currency: "USD",
     sector: "Halbleiter / KI",
     description:
-      "NVIDIA liefert GPU-, Netzwerk- und Software-Plattformen fur KI-Rechenzentren, Gaming und professionelle Visualisierung."
+      "NVIDIA liefert GPU-, Netzwerk- und Software-Plattformen für KI-Rechenzentren, Gaming und professionelle Visualisierung."
   },
   {
     symbol: "AAPL",
@@ -85,7 +85,7 @@ const assets: Asset[] = [
     currency: "USD",
     sector: "Digital Asset",
     description:
-      "Bitcoin ist ein knappes, dezentrales digitales Asset mit zyklischer Liquiditats- und Risiko-Sensitivitat."
+      "Bitcoin ist ein knappes, dezentrales digitales Asset mit zyklischer Liquiditäts- und Risiko-Sensitivität."
   },
   {
     symbol: "ETH-USD",
@@ -95,7 +95,7 @@ const assets: Asset[] = [
     currency: "USD",
     sector: "Smart Contracts",
     description:
-      "Ethereum ist eine programmierbare Blockchain-Plattform fur DeFi, Tokenisierung und dezentrale Anwendungen."
+      "Ethereum ist eine programmierbare Blockchain-Plattform für DeFi, Tokenisierung und dezentrale Anwendungen."
   }
 ];
 
@@ -245,14 +245,14 @@ const newsItems: NewsItem[] = [
   {
     id: "n2",
     symbol: "AAPL",
-    title: "Regulatorische Prufung belastet Service-Margen",
+    title: "Regulatorische Prüfung belastet Service-Margen",
     source: "FinBrief Mock",
     publishedAt: "2026-06-27T07:48:00+02:00",
     relevance: 81,
     sentiment: "negative",
     impactScore: -41,
     summary:
-      "Neue Vorgaben konnten App-Store-Gebuhren in mehreren Regionen reduzieren. Kurzfristig steigt die Unsicherheit fur Margenannahmen.",
+      "Neue Vorgaben könnten App-Store-Gebühren in mehreren Regionen reduzieren. Kurzfristig steigt die Unsicherheit für Margenannahmen.",
     url: "#"
   },
   {
@@ -271,27 +271,27 @@ const newsItems: NewsItem[] = [
   {
     id: "n4",
     symbol: "BTC-USD",
-    title: "ETF-Zuflusse nehmen zu, Volatilitat bleibt erhoht",
+    title: "ETF-Zuflüsse nehmen zu, Volatilität bleibt erhöht",
     source: "ChainDesk Mock",
     publishedAt: "2026-06-27T05:54:00+02:00",
     relevance: 90,
     sentiment: "neutral",
     impactScore: 18,
     summary:
-      "Institutionelle Zuflusse sprechen fur Nachfrage, wahrend Hebelpositionen das Ruckschlagrisiko erhohen.",
+      "Institutionelle Zuflüsse sprechen für Nachfrage, während Hebelpositionen das Rückschlagrisiko erhöhen.",
     url: "#"
   },
   {
     id: "n5",
     symbol: "ETH-USD",
-    title: "On-chain Aktivitat schwacht sich gegenuber Vorwoche ab",
+    title: "On-chain Aktivität schwächt sich gegenüber Vorwoche ab",
     source: "BlockSignal Mock",
     publishedAt: "2026-06-26T21:10:00+02:00",
     relevance: 76,
     sentiment: "negative",
     impactScore: -33,
     summary:
-      "Geringere Gebuhreneinnahmen und schwachere DeFi-Aktivitat belasten das kurzfristige Momentum.",
+      "Geringere Gebühreneinnahmen und schwächere DeFi-Aktivität belasten das kurzfristige Momentum.",
     url: "#"
   }
 ];
@@ -316,7 +316,7 @@ const analysisMap: Record<string, AiAnalysisBase> = {
       "Capex-Wachstum kuhlt ab, Kunden optimieren Bestande und die Bewertung kontrahiert.",
     neutralCase:
       "Gewinne wachsen weiter, aber der Kurs konsolidiert, bis die Bewertung wieder mehr Puffer bietet.",
-    shortTerm: "Positiv, aber anfällig fur Gewinnmitnahmen.",
+    shortTerm: "Positiv, aber anfällig für Gewinnmitnahmen.",
     mediumTerm: "Positiv, solange Rechenzentrumsumsatze uber Konsens wachsen.",
     longTerm: "Strukturell attraktiv, mit hoher Bewertungs- und Zykliksensitivitat.",
     riskLevel: "hoch",
@@ -353,16 +353,16 @@ const analysisMap: Record<string, AiAnalysisBase> = {
       "Microsoft kombiniert Cloud-Wachstum, KI-Monetarisierung und robuste Margen. Der Score ist positiv mit vergleichsweise moderatem Risiko.",
     upsideDrivers: [
       "Azure und Security wachsen robust",
-      "Copilot-Umsatze konnten Margen erweitern",
+      "Copilot-Umsätze könnten Margen erweitern",
       "Diversifiziertes Enterprise-Geschaft"
     ],
     downsideDrivers: [
-      "Hohe Capex-Anforderungen fur KI",
+      "Hohe Capex-Anforderungen für KI",
       "Bewertung oberhalb historischer Durchschnitte",
       "Cloud-Wachstum konnte normalisieren"
     ],
     bullCase: "KI-Produkte werden breit monetarisiert und Azure gewinnt Marktanteile.",
-    bearCase: "KI-Capex belastet Cashflow, wahrend Wachstumserwartungen sinken.",
+    bearCase: "KI-Capex belastet Cashflow, während Wachstumserwartungen sinken.",
     neutralCase: "Solides Wachstum wird von hoher Bewertung ausgeglichen.",
     shortTerm: "Leicht positiv.",
     mediumTerm: "Positiv bei stabilen Cloud-Signalen.",
@@ -385,9 +385,9 @@ const analysisMap: Record<string, AiAnalysisBase> = {
       "Zins- und Bewertungsrisiko",
       "Index kann Drawdowns nicht aktiv begrenzen"
     ],
-    bullCase: "US-Gewinne steigen breit und Liquiditat bleibt freundlich.",
+    bullCase: "US-Gewinne steigen breit und Liquidität bleibt freundlich.",
     bearCase: "Bewertung sinkt bei hoheren Realzinsen oder Gewinnrevisionen.",
-    neutralCase: "Index lauft seitwarts, wahrend Sektoren rotieren.",
+    neutralCase: "Index läuft seitwärts, während Sektoren rotieren.",
     shortTerm: "Neutral bis positiv.",
     mediumTerm: "Positiv, wenn Marktbreite zunimmt.",
     longTerm: "Breit diversifiziert, aber marktabhangig.",
@@ -398,18 +398,18 @@ const analysisMap: Record<string, AiAnalysisBase> = {
   },
   "BTC-USD": {
     summary:
-      "Bitcoin profitiert von ETF-Nachfrage und knapper Angebotslogik, bleibt aber stark von Liquiditat, Hebel und Regulatorik beeinflusst.",
+      "Bitcoin profitiert von ETF-Nachfrage und knapper Angebotslogik, bleibt aber stark von Liquidität, Hebel und Regulatorik beeinflusst.",
     upsideDrivers: [
-      "ETF-Zuflusse und institutionelle Nachfrage",
-      "Makro-Liquiditat",
+      "ETF-Zuflüsse und institutionelle Nachfrage",
+      "Makro-Liquidität",
       "Narrativ als knappes digitales Asset"
     ],
     downsideDrivers: [
-      "Hohe Volatilitat und Liquidationscluster",
+      "Hohe Volatilität und Liquidationscluster",
       "Regulatorische Schlagzeilen",
       "Starke Korrelation mit Risikoassets"
     ],
-    bullCase: "ETF-Zuflusse beschleunigen und Liquiditat bleibt risikofreundlich.",
+    bullCase: "ETF-Zuflüsse beschleunigen und Liquidität bleibt risikofreundlich.",
     bearCase: "Hebelabbau lost schnelle Korrektur aus.",
     neutralCase: "Kurs konsolidiert in breiter Range.",
     shortTerm: "Positiv, aber sehr volatil.",
@@ -422,7 +422,7 @@ const analysisMap: Record<string, AiAnalysisBase> = {
   },
   "ETH-USD": {
     summary:
-      "Ethereum zeigt schwaches kurzfristiges Momentum. Die langfristige Plattformthese bleibt intakt, braucht aber wieder bessere On-chain Aktivitat.",
+      "Ethereum zeigt schwaches kurzfristiges Momentum. Die langfristige Plattformthese bleibt intakt, braucht aber wieder bessere On-chain Aktivität.",
     upsideDrivers: [
       "Tokenisierung und Layer-2-Wachstum",
       "Staking-Ertrage",
@@ -431,13 +431,13 @@ const analysisMap: Record<string, AiAnalysisBase> = {
     downsideDrivers: [
       "Schwache Netzwerkgebuhren",
       "Konkurrenz durch alternative Chains",
-      "Hohe Beta-Sensitivitat bei Kryptomarktstress"
+      "Hohe Beta-Sensitivität bei Kryptomarktstress"
     ],
     bullCase: "On-chain Nachfrage kehrt zuruck und ETH profitiert von Angebotsdynamik.",
-    bearCase: "Aktivitat bleibt schwach und Kapital rotiert in andere Assets.",
+    bearCase: "Aktivität bleibt schwach und Kapital rotiert in andere Assets.",
     neutralCase: "ETH folgt Bitcoin, ohne eigene relative Starke.",
     shortTerm: "Schwach.",
-    mediumTerm: "Neutral, bis Aktivitat und Momentum drehen.",
+    mediumTerm: "Neutral, bis Aktivität und Momentum drehen.",
     longTerm: "Potenzialreich, aber mit hohem Ausfuhrungsrisiko.",
     riskLevel: "hoch",
     probabilities: { up: 30, down: 42, sideways: 28 },
@@ -544,15 +544,15 @@ function makeMacroFactors(symbol: string): MacroFactor[] {
       label: crypto ? "US-Dollar Liquiditaet" : "Zinsniveau",
       impact: crypto ? "neutral" : "negative",
       detail: crypto
-        ? "Liquiditaetsbedingungen bleiben ein zentraler Treiber fuer digitale Assets."
-        : "Hoehere Realzinsen koennen Bewertungsmultiples belasten.",
+        ? "Liquiditätsbedingungen bleiben ein zentraler Treiber für digitale Assets."
+        : "Höhere Realzinsen können Bewertungsmultiples belasten.",
       source: "StockPilot Macro Mock"
     },
     {
       label: crypto ? "Regulatorik" : "US-Konsum / Enterprise IT",
       impact: symbol === "BTC-USD" ? "neutral" : "positive",
       detail: crypto
-        ? "Regulatorische Schlagzeilen koennen kurzfristig hohe Volatilitaet erzeugen."
+        ? "Regulatorische Schlagzeilen können kurzfristig hohe Volatilität erzeugen."
         : "Nachfrageindikatoren bleiben im Mock-Szenario grundsaetzlich stabil.",
       source: "StockPilot Macro Mock"
     }
@@ -611,8 +611,8 @@ function enrichAnalysis(symbol: string, base: AiAnalysisBase, dataQualityScore: 
     ...base,
     counterArguments: [
       "Das Modell kann Kausalitaet aus Nachrichten und Kursbewegungen nicht beweisen.",
-      "Mock-Daten koennen echte Marktbreite, Orderbuch und Intraday-Liquiditaet nicht ersetzen.",
-      "Makro- und Sektorannahmen koennen sich schnell aendern."
+      "Mock-Daten können echte Marktbreite, Orderbuch und Intraday-Liquidität nicht ersetzen.",
+      "Makro- und Sektorannahmen können sich schnell ändern."
     ],
     dataGaps: [
       "Echte Realtime-Kurse fehlen noch.",
@@ -724,10 +724,10 @@ export function getMockDashboard(): DashboardData {
     ],
     trends: [
       "KI-Infrastruktur",
-      "ETF-Zuflusse",
+      "ETF-Zuflüsse",
       "Cloud-Security",
       "Mega-Cap Rotation",
-      "Volatilitat bei Krypto"
+      "Volatilität bei Krypto"
     ],
     dataQualitySummary: {
       label: "Mock-validiert",
@@ -739,7 +739,7 @@ export function getMockDashboard(): DashboardData {
       label: "Vorsichtig positiv",
       score: 66,
       summary:
-        "Momentum und News sind freundlich, aber Bewertungen und Krypto-Volatilitat erhohen das Ruckschlagrisiko."
+        "Momentum und News sind freundlich, aber Bewertungen und Krypto-Volatilität erhöhen das Rückschlagrisiko."
     },
     riskWarnings: [
       {
@@ -849,7 +849,7 @@ export const mockAlerts: AlertRule[] = [
     id: "a5",
     symbol: "NVDA",
     type: "ai-shift",
-    label: "KI-Einschaetzung veraendert",
+    label: "KI-Einschätzung verändert",
     condition: "Chancen-Score +/- 12 Punkte",
     enabled: true
   },

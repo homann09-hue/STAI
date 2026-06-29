@@ -1,6 +1,15 @@
-const STATIC_CACHE = "stockpilot-static-v1";
-const API_CACHE = "stockpilot-api-v1";
+const STATIC_CACHE = "stockpilot-static-v2";
+const API_CACHE = "stockpilot-api-v2";
 const STATIC_ASSETS = ["/", "/offline", "/icons/icon.svg"];
+
+async function cacheResponse(cacheName, request, response) {
+  if (response.ok) {
+    const clone = response.clone();
+    const cache = await caches.open(cacheName);
+    await cache.put(request, clone);
+  }
+  return response;
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -26,6 +35,12 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
@@ -36,13 +51,7 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
+        .then((response) => cacheResponse(STATIC_CACHE, request, response))
         .catch(() => caches.match(request).then((cached) => cached || caches.match("/offline")))
     );
     return;
@@ -51,13 +60,7 @@ self.addEventListener("fetch", (event) => {
   if (sameOrigin && url.pathname.startsWith("/api/")) {
     event.respondWith(
       fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(API_CACHE).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
+        .then((response) => cacheResponse(API_CACHE, request, response))
         .catch(() => caches.match(request))
     );
     return;
@@ -65,16 +68,9 @@ self.addEventListener("fetch", (event) => {
 
   if (sameOrigin) {
     event.respondWith(
-      caches.match(request).then((cached) => {
-        const network = fetch(request).then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        });
-        return cached || network;
-      })
+      fetch(request)
+        .then((response) => cacheResponse(STATIC_CACHE, request, response))
+        .catch(() => caches.match(request))
     );
   }
 });

@@ -55,7 +55,7 @@ export function ProfessionalScoresPanel({ scores }: { scores: ProfessionalScores
         <div className="rounded-md border border-loss/25 bg-loss/10 p-4">
           <p className="text-sm text-muted">Gesamt-Risiko-Score</p>
           <p className="mt-2 font-mono text-3xl font-semibold text-loss">{scores.riskTotal}/100</p>
-          <p className="mt-2 text-xs text-muted">Hoeherer Wert bedeutet hoeheres Modellrisiko.</p>
+          <p className="mt-2 text-xs text-muted">Höherer Wert bedeutet hoeheres Modellrisiko.</p>
         </div>
       </div>
     </div>
@@ -92,7 +92,7 @@ export function DataQualityPanel({ quality }: { quality: DataQualityReport }) {
         <div>
           <div className="flex items-center gap-2">
             <DatabaseZap className="h-4 w-4 text-cyan" />
-            <p className="text-sm font-semibold">Datenqualitaet</p>
+            <p className="text-sm font-semibold">Datenqualität</p>
           </div>
           <p className="mt-1 text-xs text-muted">
             {quality.sourceLabel}, Vertrauen {quality.confidence}/100, Status {quality.freshness}
@@ -140,7 +140,7 @@ export function RiskEnginePanel({ report }: { report: RiskEngineReport }) {
       <div className="space-y-3">
         {report.findings.length === 0 ? (
           <p className="rounded-md bg-panel2 p-3 text-sm text-muted">
-            Keine kritischen Modellwarnungen erkannt. Weiterhin Quellen und Risiko selbst pruefen.
+            Keine kritischen Modellwarnungen erkannt. Weiterhin Quellen und Risiko selbst prüfen.
           </p>
         ) : (
           report.findings.map((finding) => (
@@ -153,7 +153,7 @@ export function RiskEnginePanel({ report }: { report: RiskEngineReport }) {
               </div>
               <p className="mt-1 text-xs leading-5 text-muted">{finding.detail}</p>
               <p className="mt-2 text-xs text-amber">Beleg: {finding.evidence}</p>
-              <p className="mt-1 text-xs text-muted">Pruefung: {finding.action}</p>
+              <p className="mt-1 text-xs text-muted">Prüfung: {finding.action}</p>
             </div>
           ))
         )}
@@ -161,7 +161,7 @@ export function RiskEnginePanel({ report }: { report: RiskEngineReport }) {
       {report.blockedAnalysis ? (
         <div className="mt-4 flex gap-2 rounded-md border border-loss/30 bg-loss/10 p-3 text-xs leading-5 text-loss">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          Datenlage oder Risiko ist zu kritisch. Keine belastbare Analyse ableiten, bevor Quellen geprueft wurden.
+          Datenlage oder Risiko ist zu kritisch. Keine belastbare Analyse ableiten, bevor Quellen geprüft wurden.
         </div>
       ) : null}
     </div>

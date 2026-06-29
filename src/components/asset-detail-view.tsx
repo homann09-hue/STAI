@@ -203,7 +203,7 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
         <div>
           <div className="mb-3 flex items-center gap-2">
             <Brain className="h-5 w-5 text-amber" />
-            <h2 className="text-lg font-semibold">KI-Analyse</h2>
+            <h2 className="text-lg font-semibold">KI-Einschätzung</h2>
           </div>
           <div className="rounded-md border border-stroke bg-panel p-4">
             <p className="text-sm leading-6 text-muted">{detail.aiAnalysis.summary}</p>
@@ -295,18 +295,18 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
                 <p className="text-sm font-semibold">Earnings / Kursziele / Insider</p>
               </div>
               <div className="mt-3 space-y-2 text-sm text-muted">
-                <p>Earnings: {detail.earningsDate ?? "nicht verfugbar"}</p>
+                <p>Earnings: {detail.earningsDate ?? "nicht verfügbar"}</p>
                 <p>
                   Provider-Rating:{" "}
                   {detail.analystOpinion
                     ? `${detail.analystOpinion.consensus}, Median ${formatCurrency(detail.analystOpinion.targetMedian, detail.asset.currency)}`
-                    : "nicht verfugbar"}
+                    : "nicht verfügbar"}
                 </p>
                 <p>
                   Insiderdaten:{" "}
                   {detail.insiderActivity.length
                     ? `Transaktion gemeldet, Volumen ${formatCompact(detail.insiderActivity[0].value)}`
-                    : "nicht verfugbar"}
+                    : "nicht verfügbar"}
                 </p>
               </div>
             </div>

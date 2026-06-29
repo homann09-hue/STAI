@@ -5,7 +5,7 @@ export const symbolSchema = z
   .trim()
   .min(1, "Symbol fehlt")
   .max(18, "Symbol ist zu lang")
-  .regex(/^[A-Za-z0-9.-]+$/, "Symbol enthaelt ungueltige Zeichen")
+  .regex(/^[A-Za-z0-9.-]+$/, "Symbol enthaelt ungültige Zeichen")
   .transform((value) => value.toUpperCase());
 
 export const alertInputSchema = z.object({

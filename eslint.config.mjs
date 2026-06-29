@@ -43,5 +43,18 @@ export default [
     languageOptions: {
       globals: browserGlobals
     }
+  },
+  {
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        fetch: "readonly",
+        performance: "readonly",
+        process: "readonly",
+        setTimeout: "readonly",
+        URL: "readonly"
+      }
+    }
   }
 ];

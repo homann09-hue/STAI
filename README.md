@@ -1,16 +1,16 @@
 # StockPilot AI
 
-Mobile-first PWA fuer Aktien-, ETF- und Krypto-Analyse. Die App kombiniert Watchlist, Marktueberblick, Charts, technische Indikatoren, Fundamentaldaten, News, Alerts, Portfolio-Risiko, Datenqualitaet, Risiko-Engine und modellbasierte KI-Einschaetzungen.
+Mobile-first PWA für Aktien-, ETF- und Krypto-Analyse. Die App kombiniert Watchlist, Marktüberblick, Charts, technische Indikatoren, Fundamentaldaten, News, Alerts, Portfolio-Risiko, Datenqualität, Risiko-Engine und modellbasierte KI-Einschätzungen.
 
-Wichtig: Keine Anlageberatung. Alle Analysen sind algorithmische Einschaetzungen und koennen falsch sein. Investieren ist mit Risiko verbunden.
+Wichtig: Keine Anlageberatung. Alle Analysen sind algorithmische Einschätzungen und können falsch sein. Investieren ist mit Risiko verbunden.
 
 ## Stack
 
 - Next.js App Router, React, TypeScript
 - TailwindCSS
 - PWA mit `public/sw.js`, Manifest und Offline-Fallback
-- Supabase vorbereitet fuer Auth, Watchlists, Alerts, Portfolio und Analyse-Snapshots
-- Mock-Provider fuer Kurse, News, Fundamentals und KI-Analyse
+- Supabase vorbereitet für Auth, Watchlists, Alerts, Portfolio und Analyse-Snapshots
+- Mock-Provider für Kurse, News, Fundamentals und KI-Analyse
 
 ## Setup
 
@@ -19,9 +19,9 @@ npm install
 npm run dev
 ```
 
-Die App laeuft lokal unter `http://localhost:3000`.
+Die App läuft lokal unter `http://localhost:3000`.
 
-## Pruefskripte
+## Prüfskripte
 
 ```bash
 npm run typecheck
@@ -29,14 +29,19 @@ npm run lint
 npm run test
 npm run build
 npm run test:e2e
+npm run test:e2e:deep
+npm run test:load
+npm run qa:grammar
+npm run qa:redteam
 npm run audit:safe
 ```
 
-`npm run audit:safe` bricht erst bei hohen oder kritischen Findings ab. Moderate Findings werden im Security Report dokumentiert und nicht mit `--force` automatisch aufgeloest.
+`npm run audit:safe` bricht erst bei hohen oder kritischen Findings ab. Moderate Findings werden im Security Report dokumentiert und nicht mit `--force` automatisch aufgelöst.
+`npm run qa:redteam` bündelt Typecheck, Lint, Unit-Tests, Production-Build, Browser-E2E, Lasttest, Sprachprüfung und den sicheren Audit.
 
 ## ENV
 
-Kopiere `.env.example` nach `.env.local` und fuelle bei Bedarf:
+Kopiere `.env.example` nach `.env.local` und fülle bei Bedarf:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
@@ -59,24 +64,24 @@ OPENAI_API_KEY=
 
 ## Architektur
 
-- `src/app/page.tsx`: Dashboard mit Watchlist, Gewinnern, Verlierern, Marktueberblick, Trends, News und KI-Marktsentiment.
+- `src/app/page.tsx`: Dashboard mit Watchlist, Gewinnern, Verlierern, Marktüberblick, Trends, News und KI-Marktsentiment.
 - `src/app/assets/[symbol]/page.tsx`: Detailseite mit Kurs, Line-Chart, Candlesticks, Volumen, Indikatoren, Fundamentals, News, Analysten, Insider, Earnings und KI-Cases.
 - `src/app/portfolio/page.tsx`: Portfolio mit lokalen Kauf-Eingaben, Durchschnittskurs, P/L, Gewichtung und Risiko.
 - `src/app/alerts/page.tsx`: Kurs-, RSI-, News-, Volumen-, Earnings- und KI-Risikoalarme.
-- `src/app/api/*`: API-Fassade fuer spaetere echte Anbieter.
+- `src/app/api/*`: API-Fassade für spätere echte Anbieter.
 - `src/lib/providers/*`: austauschbare Provider-Interfaces.
-- `src/lib/mock/market.ts`: Mock-Daten fuer MVP und Offline-Demo.
-- `src/lib/data-quality.ts`: Datenvalidierung, Quellenranking, Aktualitaet, Mock-Kennzeichnung und Warnungen.
-- `src/lib/risk-engine.ts`: Warnsystem fuer Volatilitaet, Liquiditaet, News, Earnings, technische Risiken, Makro-/Sektorrisiken und Datenqualitaet.
+- `src/lib/mock/market.ts`: Mock-Daten für MVP und Offline-Demo.
+- `src/lib/data-quality.ts`: Datenvalidierung, Quellenranking, Aktualität, Mock-Kennzeichnung und Warnungen.
+- `src/lib/risk-engine.ts`: Warnsystem für Volatilität, Liquidität, News, Earnings, technische Risiken, Makro-/Sektorrisiken und Datenqualität.
 - `src/lib/scoring.ts`: transparentes Chancen-/Risiko-Scoremodell und modellbasierte Wahrscheinlichkeiten.
 - `src/lib/portfolio-analytics.ts`: Portfolio-Gewichtung, Diversifikation, Szenarioanalyse und Klumpenrisiko.
 - `src/lib/api-guard.ts`: Rate Limit, sichere JSON-Fehler, Security Header und Body-Parsing.
-- `src/lib/supabase/*`: Supabase-Clients fuer Browser und serverseitige Service-Aufgaben.
-- `supabase/schema.sql`: Tabellen und RLS-Policies fuer Nutzerprofile, Watchlists, Alerts, Portfolio und Analyse-Snapshots.
+- `src/lib/supabase/*`: Supabase-Clients für Browser und serverseitige Service-Aufgaben.
+- `supabase/schema.sql`: Tabellen und RLS-Policies für Nutzerprofile, Watchlists, Alerts, Portfolio und Analyse-Snapshots.
 
-## API-Anbieter spaeter anbinden
+## API-Anbieter später anbinden
 
-Die Provider sind bewusst schmal gehalten. Fuer echte Daten kann je Provider eine Klasse ergaenzt werden:
+Die Provider sind bewusst schmal gehalten. Für echte Daten kann je Provider eine Klasse ergänzt werden:
 
 - Kurse und Candles: Finnhub, Alpha Vantage, Polygon.io, Twelve Data, Yahoo Finance
 - News: NewsAPI, Finnhub News, Polygon News
@@ -107,26 +112,38 @@ Der Service Worker cached:
 - GET-Antworten unter `/api/*`
 - statische Assets
 
-Zusätzlich speichern Dashboard, Watchlist, letzte KI-Analysen, Alerts und Portfolio lokale Snapshots in `localStorage`, damit mobile Nutzer bei schlechter Verbindung weiterarbeiten koennen.
+Zusätzlich speichern Dashboard, Watchlist, letzte KI-Analysen, Alerts und Portfolio lokale Snapshots in `localStorage`, damit mobile Nutzer bei schlechter Verbindung weiterarbeiten können.
 
-## Risiko- und Datenqualitaetslogik
+## Risiko- und Datenqualitätslogik
 
 Jede Detailanalyse zeigt:
 
-- Datenqualitaet inklusive Quellenranking, Zeitstempel, Mock-Kennzeichnung und Warnungen.
-- Multi-Layer-Analyse fuer Markttrend, Sektortrend, Sentiment, Volatilitaet und Makro-Faktoren.
-- Risiko-Engine mit konkretem Beleg und Pruefhinweis je Warnung.
+- Datenqualität inklusive Quellenranking, Zeitstempel, Mock-Kennzeichnung und Warnungen.
+- Multi-Layer-Analyse für Markttrend, Sektortrend, Sentiment, Volatilität und Makro-Faktoren.
+- Risiko-Engine mit konkretem Beleg und Prüfhinweis je Warnung.
 - Professional Scores: Technical, Fundamental, News, Sentiment, Momentum, Volatility Risk, Liquidity Risk, Event Risk, Gesamt-Chancen-Score und Gesamt-Risiko-Score.
 - Modellbasierte Wahrscheinlichkeiten mit dem Hinweis: "Diese Wahrscheinlichkeit ist keine Garantie und kann falsch sein."
 
-Wenn Datenqualitaet zu schwach ist, wird die Analyse als nicht belastbar markiert.
+Wenn Datenqualität zu schwach ist, wird die Analyse als nicht belastbar markiert.
+
+## GitHub und Vercel
+
+Das Projekt ist für ein eigenes GitHub-Repository und ein eigenes Vercel-Projekt vorbereitet. BauPro oder andere Projekte dürfen dafür nicht verlinkt oder deployed werden.
+
+- GitHub CI: `.github/workflows/ci.yml`
+- Manueller Red-Team-Lauf: `.github/workflows/redteam.yml`
+- Manueller Vercel-Deploy: `.github/workflows/vercel-manual.yml`
+- Vercel-Projektconfig: `vercel.json`
+- Deployment-Anleitung: [GitHub und Vercel Deployment](./docs/GITHUB_VERCEL_DEPLOYMENT.md)
+
+Der Vercel-Workflow läuft bewusst nur manuell und nutzt StockPilot-spezifische Secrets mit `STOCKPILOT_`-Präfix.
 
 ## Supabase
 
 1. Supabase-Projekt erstellen.
-2. SQL aus `supabase/schema.sql` im SQL Editor ausfuehren.
-3. `.env.local` mit Supabase URL und Keys befuellen.
-4. Auth-UI und echte Persistenz koennen auf den vorhandenen Tabellen aufgebaut werden.
+2. SQL aus `supabase/schema.sql` im SQL Editor ausführen.
+3. `.env.local` mit Supabase URL und Keys befüllen.
+4. Auth-UI und echte Persistenz können auf den vorhandenen Tabellen aufgebaut werden.
 
 ## Security, Red Team und Grenzen
 

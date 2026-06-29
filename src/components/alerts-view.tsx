@@ -12,7 +12,7 @@ const alertTypes: { value: AlertType; label: string }[] = [
   { value: "volume", label: "Volumenanstieg" },
   { value: "earnings", label: "Earnings Reminder" },
   { value: "ai-risk", label: "KI-Risikoalarm" },
-  { value: "ai-shift", label: "KI-Einschaetzung veraendert" },
+  { value: "ai-shift", label: "KI-Einschätzung veraendert" },
   { value: "portfolio-risk", label: "Portfolio-Risikoalarm" }
 ];
 
@@ -49,7 +49,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
             <p className="text-sm text-muted">Alerts</p>
             <h1 className="mt-2 text-3xl font-semibold">Signal- und Risikoalarme</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-              Kurs, RSI, News, Volumen, Earnings und KI-Risiko sind als Regeln modelliert und konnen spater uber Supabase gespeichert werden.
+              Kurs, RSI, News, Volumen, Earnings und KI-Risiko sind als Regeln modelliert und können spater uber Supabase gespeichert werden.
             </p>
           </div>
           <div className="grid h-12 w-12 place-items-center rounded-md border border-amber/30 bg-amber/10 text-amber">
@@ -111,9 +111,9 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
 
         <div>
           <h2 className="mb-3 text-lg font-semibold">Aktive Regeln</h2>
-          <div className="space-y-3">
+          <div className="space-y-3" data-testid="alert-list">
             {alerts.map((alert) => (
-              <div key={alert.id} className="rounded-md border border-stroke bg-panel p-4">
+              <div key={alert.id} className="rounded-md border border-stroke bg-panel p-4" data-testid="alert-rule">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-semibold">{alert.symbol}</p>

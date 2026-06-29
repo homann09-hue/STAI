@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     template: "%s | StockPilot AI"
   },
   description:
-    "Mobile-first PWA fur Aktien-, ETF- und Krypto-Analyse mit Watchlists, Alerts, Portfolio, Scores und KI-Einschatzungen.",
+    "Mobile-first PWA für Aktien-, ETF- und Krypto-Analyse mit Watchlists, Alerts, Portfolio, Scores und KI-Einschätzungen.",
   applicationName: "StockPilot AI",
   appleWebApp: {
     capable: true,

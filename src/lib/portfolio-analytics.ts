@@ -71,7 +71,7 @@ export function analyzePortfolio(positions: PortfolioPosition[]): PortfolioSumma
     warnings.push({
       id: "portfolio-risk",
       severity: totalRisk > 80 ? "hoch" : "mittel",
-      title: "Gesamtportfolio-Risiko erhoeht",
+      title: "Gesamtportfolio-Risiko erhöht",
       detail: `Gewichtetes Risiko liegt bei ${Math.round(totalRisk)}/100.`
     });
   }

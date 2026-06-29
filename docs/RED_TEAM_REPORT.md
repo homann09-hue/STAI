@@ -1,73 +1,63 @@
 # Red-Team Report
 
-## Runde 1: Codequalitaet
+Stand: 2026-06-29
 
-Gefunden:
+## Prüfziel
 
-- MVP-Scores waren zu grob fuer professionelle Analyse.
-- Detailseite zeigte zu wenig Datenqualitaet und Unsicherheit.
-- Fehlergrenzen waren noch nicht explizit.
+StockPilot AI wurde auf Funktion, PWA-Verhalten, Mobile/Desktop-Navigation, API-Robustheit, Performance, Sprachqualität, rechtliche Hinweise und Börsendaten-Darstellung geprüft. Ziel war nicht nur ein grüner Testlauf, sondern das Finden von Produktfehlern, stale Zuständen und missverständlichen Finanzsignalen.
 
-Fix:
+## Gefundene und behobene Punkte
 
-- `ProfessionalScores`, `DataQualityReport`, `RiskEngineReport` und Tests eingefuehrt.
-- `src/app/error.tsx` fuer sichere, nutzerfreundliche Fehleranzeige ergaenzt.
+1. Stale Dev-Server/Hydration-Risiko
 
-## Runde 2: Finanzlogik
+Ein alter Dev-Server auf Port `3000` lieferte eine Hydration-Abweichung zwischen altem Server-HTML und neuer Client-Version. Der Server wurde beendet, frisch gestartet und danach erneut geprüft.
 
-Gefunden:
+2. PWA-Cache konnte statische Assets zu lange halten
 
-- Legacy-Gesamtscore vermischte Chance und Risiko.
-- Wahrscheinlichkeiten waren nicht als eigenstaendige, unsichere Modellwerte abgesichert.
-- Portfolio hatte keine Szenarioanalyse und keine Klumpenrisiko-Warnung.
+Der Service Worker war für gleichoriginige statische Assets cache-first. Das konnte in Dev/PWA-Update-Szenarien alte Texte oder alte Client-Komponenten sichtbar halten. Behoben durch network-first Asset-Fetching mit Cache-Fallback, neue Cache-Versionen und Service-Worker-Update beim `online`-Event.
 
-Fix:
+3. Dashboard-Beschriftung war nicht eindeutig genug
 
-- Getrennte Gesamt-Chance und Gesamt-Risiko eingefuehrt.
-- Wahrscheinlichkeitssumme wird auf 100 normalisiert und immer mit Garantie-Warnung angezeigt.
-- Portfolio-Engine fuer Allokation, Diversifikation, Szenarien und Warnungen ergaenzt.
+Die Marktübersichtsdaten waren vorhanden, aber es fehlte eine klare sichtbare Überschrift. Ergänzt wurde die Section-Beschriftung `Marktübersicht`.
 
-## Runde 3: Security
+4. Alert-E2E war zu wenig eindeutig
 
-Gefunden:
+Die Alert-Liste konnte im Test mit anderen Textstellen kollidieren. Ergänzt wurden stabile `data-testid`-Anker für Alert-Liste und Alert-Regeln.
 
-- API-Routen nahmen Symbole und POST-Bodies ohne Schema-Validation.
-- Fehlerantworten waren noch nicht zentral sanitizt.
-- Supabase-Snapshots konnten nullable `user_id` haben.
+5. Lasttest war anfällig für vorhandene Dev-Server-Zustände
 
-Fix:
+Der Lasttest prüft jetzt isoliert auf Port `3010` gegen den Production-Server, statt versehentlich einen bereits laufenden Dev-Server auf `3000` zu messen.
 
-- `zod`-Validation, `api-guard`, Rate Limit und sichere JSON-Responses eingefuehrt.
-- Supabase-Schema mit strengeren Constraints, RLS-Policies und Indizes verbessert.
-- Security Header in `next.config.ts` gesetzt.
+6. Sprachqualität hatte ASCII-Umlautreste
 
-## Runde 4: UI/UX
+Mehrere sichtbare Texte in Scoring, Manifest, Mock-News und KI-Cases hatten ASCII-Umlautformen. Diese wurden korrigiert und der Grammatik-Audit wurde um Layout, Manifest und weitere Blockwörter erweitert.
 
-Gefunden:
+7. Börsendaten könnten falsch verstanden werden
 
-- Dashboard zeigte nicht klar genug, dass Daten Mock-Daten sind.
-- Risiko-Warnungen waren nur allgemein sichtbar.
-- Portfolio-Workflow war nur auf Eintraege ausgerichtet.
+Da Mock-Daten genutzt werden, darf die App keine echte Kursdatenrichtigkeit behaupten. Die UI zeigt Mock-/Delay-/modellbasierte Hinweise und den rechtlichen Hinweis. Echte Kursvalidierung bleibt abhängig von späteren Datenanbietern.
 
-Fix:
+## Finale Testergebnisse
 
-- Datenqualitaet im Dashboard und Detail sichtbar.
-- Risiko-Engine mit Belegen und Pruefhinweisen eingebaut.
-- Transaktionsformular fuer Einbuchung und Reduktion erweitert.
+- `npm run qa:redteam`: bestanden
+- TypeScript: bestanden
+- ESLint: bestanden ohne Warnungen
+- Vitest: 6 Dateien, 10 Tests bestanden
+- Next Production Build: bestanden
+- Playwright: 18 Tests bestanden auf Mobile und Desktop
+- Lasttest: bis 200 gleichzeitige Requests, 0 Rejections, 0 HTTP/Slow Failures, p95 bei 200 Requests: 533 ms
+- Grammatik/Umlaut-Audit: bestanden
+- Sicherer Dependency-Audit: keine High/Critical Findings
 
-## Runde 5: Legal/Risk
+## Manuelle Browserbefunde
 
-Gefunden:
+- Dashboard: Disclaimer, Watchlist, KI-Marktsentiment und Marktübersicht sichtbar.
+- Detailseite: Kurs-/Chart-Zeiträume, Scores, technische/fundamentale Blöcke, KI-Einschätzung und Mock-/Delay-Hinweise sichtbar.
+- Navigation: keine kaputten lokalen Links in geprüften Browser- und E2E-Routen.
+- Buttons: keine deaktivierten oder zu kleinen geprüften Touch-Ziele in den geprüften Views.
 
-- Einige Labels konnten wie Empfehlungssprache wirken.
-- KI-Analyse brauchte Gegenargumente, Datenluecken und Unsicherheitsgrad.
+## Nicht als erledigt behaupten
 
-Fix:
-
-- Rechtliche Formulierungen geschaerft: keine Anlageberatung, keine Garantie, selbst pruefen.
-- Sichtbare Wahrscheinlichkeitswarnung und Mock-Daten-Hinweis eingefuehrt.
-- Analystenlabel neutralisiert zu Provider-Rating.
-
-## Ergebnis
-
-Das Projekt ist deutlich transparenter, defensiver und professioneller. Es bleibt ein Mock-MVP und darf ohne echte Provider, Auth-Flows und Produktions-Security-Audit nicht als reales Trading-System eingesetzt werden.
+- Keine echte Live-Kursdatenprüfung, solange keine realen Provider-Keys angebunden sind.
+- Keine echte Anlageberatung. Alle Scores und KI-Wahrscheinlichkeiten bleiben algorithmische Schätzungen ohne Garantie.
+- Kein Cloud-Loadtest mit Supabase, echten Finanz-APIs und CDN-Kanten. Der aktuelle Lasttest ist lokal und isoliert.
+- Moderate transitive `postcss`-Advisory über `next` bleibt beobachtet; ein erzwungener Fix würde aktuell einen gefährlichen Next-Downgrade auslösen.

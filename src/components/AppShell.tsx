@@ -97,8 +97,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <p className="text-sm font-semibold text-amber">Wichtiger Risiko-Hinweis</p>
           <p className="mt-2 text-xs leading-5 text-muted">
             StockPilot AI liefert keine Finanzberatung, keine Garantie und keine sicheren Signale.
-            Scores und KI-Auswertungen sind modellbasierte Entscheidungsunterstuetzung und koennen falsch sein.
-            Pruefe Quellen, Datenqualitaet und dein Risiko immer selbst.
+            Scores und KI-Auswertungen sind modellbasierte Entscheidungsunterstuetzung und können falsch sein.
+            Prüfe Quellen, Datenqualität und dein Risiko immer selbst.
           </p>
           <button
             type="button"

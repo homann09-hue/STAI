@@ -12,7 +12,7 @@ export default function Error({
         <p className="text-sm text-loss">Fehler</p>
         <h1 className="mt-2 text-2xl font-semibold">Analyse konnte nicht geladen werden</h1>
         <p className="mt-3 text-sm leading-6 text-muted">
-          Es wurde keine sensible Fehlermeldung angezeigt. Bitte erneut versuchen oder Datenquelle pruefen.
+          Es wurde keine sensible Fehlermeldung angezeigt. Bitte erneut versuchen oder Datenquelle prüfen.
         </p>
         <button
           type="button"

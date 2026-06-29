@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Mobile-first PWA for stock, ETF and crypto analysis with mockable market data providers.",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -12,6 +15,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:deep": "playwright test tests/e2e/deep-stockpilot.spec.ts",
+    "test:load": "node scripts/qa/load-test.mjs",
+    "qa:grammar": "node scripts/qa/grammar-audit.mjs",
+    "qa:redteam": "npm run typecheck && npm run lint && npm run test && npm run build && npm run test:e2e && npm run test:load && npm run qa:grammar && npm run audit:safe",
     "audit:safe": "npm audit --audit-level=high"
   },
   "dependencies": {

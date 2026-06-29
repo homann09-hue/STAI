@@ -1,0 +1,58 @@
+name: StockPilot CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: stockpilot-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Typecheck, lint, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      STOCKPILOT_MARKET_PROVIDER: mock
+      STOCKPILOT_NEWS_PROVIDER: mock
+      STOCKPILOT_FUNDAMENTALS_PROVIDER: mock
+      STOCKPILOT_AI_PROVIDER: mock
+    steps:
+      - name: Checkout StockPilot AI only
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Production build
+        run: npm run build
+
+      - name: German wording and legal language audit
+        run: npm run qa:grammar
+
+      - name: Safe dependency audit
+        run: npm run audit:safe
