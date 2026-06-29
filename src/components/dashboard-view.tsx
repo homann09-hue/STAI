@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Activity, ChevronRight, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect } from "react";
 import { Sparkline, ScoreMeter } from "@/components/charts";
+import { CapitalCommandCenter } from "@/components/capital-command-center";
 import { NewsList } from "@/components/news-list";
 import { OFFLINE_KEYS, saveOfflineValue } from "@/lib/offline";
 import {
@@ -76,7 +77,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
         <div className="rounded-md border border-stroke bg-[linear-gradient(145deg,#101712,#07100d_65%,#122019)] p-5 shadow-panel">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm text-muted">KI-Marktsentiment</p>
+              <p className="text-sm text-muted">KI-Marktsentiment und Kapitalradar</p>
               <h1 className="mt-2 text-3xl font-semibold leading-tight sm:text-4xl">
                 {data.aiSentiment.label}
               </h1>
@@ -135,6 +136,8 @@ export function DashboardView({ data }: { data: DashboardData }) {
           </div>
         </div>
       </section>
+
+      <CapitalCommandCenter data={data} />
 
       <section>
         <div className="mb-3 flex items-center justify-between">

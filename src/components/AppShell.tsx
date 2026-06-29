@@ -58,7 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <div className="min-w-0">
               <p className="truncate text-base font-semibold leading-tight">StockPilot AI</p>
-              <p className="truncate text-xs text-muted">Aktien, ETF und Krypto Radar</p>
+              <p className="truncate text-xs text-muted">Von 1 € bis Profi-Portfolio</p>
             </div>
           </Link>
 

@@ -21,6 +21,8 @@ body {
   min-height: 100%;
   margin: 0;
   background:
+    radial-gradient(circle at 18% 12%, rgba(120, 231, 255, 0.16), transparent 30%),
+    radial-gradient(circle at 82% 4%, rgba(245, 201, 107, 0.08), transparent 24%),
     linear-gradient(135deg, rgba(53, 208, 127, 0.08), transparent 28%),
     linear-gradient(180deg, #050706 0%, #07100d 48%, #050706 100%);
   color: #dff5e8;
@@ -39,6 +41,19 @@ body::before {
     linear-gradient(90deg, rgba(120, 231, 255, 0.04) 1px, transparent 1px);
   background-size: 38px 38px;
   mask-image: linear-gradient(to bottom, black, transparent 82%);
+}
+
+body::after {
+  pointer-events: none;
+  position: fixed;
+  inset: auto -20% 0;
+  z-index: -1;
+  height: 42vh;
+  content: "";
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(53, 208, 127, 0.18), transparent 58%),
+    linear-gradient(90deg, transparent, rgba(120, 231, 255, 0.06), transparent);
+  filter: blur(18px);
 }
 
 button,
