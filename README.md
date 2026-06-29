@@ -50,11 +50,14 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 STOCKPILOT_MARKET_PROVIDER=mock
 STOCKPILOT_QUOTE_PROVIDER=mock
+STOCKPILOT_CRYPTO_PROVIDER=binance
 STOCKPILOT_NEWS_PROVIDER=mock
 STOCKPILOT_FUNDAMENTALS_PROVIDER=mock
 STOCKPILOT_AI_PROVIDER=mock
 FINNHUB_DATA_QUALITY=near_realtime
 FINNHUB_STREAM_ENABLED=false
+BINANCE_DATA_QUALITY=near_realtime
+COINBASE_DATA_QUALITY=near_realtime
 TWELVE_DATA_QUALITY=near_realtime
 EODHD_DATA_QUALITY=delayed
 MASSIVE_DATA_QUALITY=delayed
@@ -106,8 +109,12 @@ Aktuell vorbereitet:
 - `massive`/`polygon`: Snapshot-Adapter für US-Aktien/ETFs, optional mit `MASSIVE_SNAPSHOT_URL`.
 - `alpha_vantage`: nur Fallback, nicht als professioneller Hauptfeed.
 - `databento`: reserviert für professionelle Tick-/Historical-Integration.
+- `binance`: kostenloser Public-REST-Provider fuer Krypto-Bid/Ask/Spread, ohne API-Key.
+- `coinbase`: kostenloser Public-REST-Provider fuer Krypto-Bid/Ask/Spread, ohne API-Key.
 
 Yahoo oder inoffizielle Quellen sind bewusst nicht als professionelle Hauptquelle vorgesehen.
+
+`STOCKPILOT_CRYPTO_PROVIDER=binance` ist der Default fuer Krypto-Symbole wie `BTC-USD` und `ETH-USD`. Aktien/ETFs laufen weiter ueber den gewaehlten Marktanbieter, z. B. Finnhub. Wenn Aktienanbieter keine Bid/Ask-Daten liefern, zeigt die UI bewusst „vom Anbieter nicht geliefert“ statt geschaetzte Spreads zu erfinden.
 
 Jeder Kurs führt `provider`, `quality`, `marketStatus`, `timestamp`, `latencyMs`, `bid`, `ask`, `spread`, `high`, `low`, `open`, `previousClose` und `volume`, soweit der Anbieter diese Felder liefert.
 

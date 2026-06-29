@@ -220,7 +220,12 @@ export function MarketTerminalDashboard({ data, liveQuotes }: { data: DashboardD
                 <div>
                   <p className="text-xs text-muted lg:hidden">Preis</p>
                   <p className="font-mono text-xl font-semibold">{formatCurrency(quote.price, item.asset.currency)}</p>
-                  <p className="mt-1 text-xs text-muted">Bid/Ask {quote.bid ? formatCurrency(quote.bid, item.asset.currency) : "n/a"} / {quote.ask ? formatCurrency(quote.ask, item.asset.currency) : "n/a"}</p>
+                  <p className="mt-1 text-xs text-muted">
+                    Bid/Ask{" "}
+                    {quote.bid !== undefined && quote.ask !== undefined
+                      ? `${formatCurrency(quote.bid, item.asset.currency)} / ${formatCurrency(quote.ask, item.asset.currency)}`
+                      : "nicht geliefert"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted lg:hidden">Bewegung</p>
@@ -230,7 +235,9 @@ export function MarketTerminalDashboard({ data, liveQuotes }: { data: DashboardD
                 <div>
                   <p className="text-xs text-muted lg:hidden">Volumen</p>
                   <p className="font-mono text-sm font-semibold">{formatCompact(quote.volume)}</p>
-                  <p className="text-xs text-muted">Spread {quote.spread !== undefined ? formatCurrency(quote.spread, item.asset.currency) : "n/a"}</p>
+                  <p className="text-xs text-muted">
+                    Spread {quote.spread !== undefined ? formatCurrency(quote.spread, item.asset.currency) : "nicht geliefert"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted lg:hidden">Trend</p>

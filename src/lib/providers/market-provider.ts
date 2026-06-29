@@ -20,7 +20,9 @@ export type MarketProviderId =
   | "massive"
   | "polygon"
   | "alpha_vantage"
-  | "databento";
+  | "databento"
+  | "binance"
+  | "coinbase";
 
 export type StreamMode = "provider_websocket" | "rest_polling" | "mock_stream";
 
@@ -111,6 +113,14 @@ function inferAssetType(symbol: string, fallback?: Asset["type"]): Asset["type"]
 function symbolForProvider(symbol: string, provider: MarketProviderId) {
   const normalized = decodeURIComponent(symbol).toUpperCase();
 
+  if (provider === "binance") {
+    return normalized.replace("-USD", "USDT").replace("/", "");
+  }
+
+  if (provider === "coinbase") {
+    return normalized.replace("/", "-");
+  }
+
   if (provider === "finnhub" && normalized.endsWith("-USD")) {
     return `BINANCE:${normalized.replace("-USD", "USDT")}`;
   }
@@ -120,6 +130,11 @@ function symbolForProvider(symbol: string, provider: MarketProviderId) {
   }
 
   return normalized;
+}
+
+function isCryptoSymbol(symbol: string) {
+  const normalized = decodeURIComponent(symbol).toUpperCase();
+  return normalized.includes("-USD") || normalized.includes("/USD") || normalized.endsWith("USDT");
 }
 
 function envQuality(name: string, fallback: MarketDataQuality) {
@@ -679,12 +694,105 @@ class AlphaVantageQuoteProvider extends HttpQuoteProvider {
   }
 }
 
+class BinanceQuoteProvider extends HttpQuoteProvider {
+  readonly providerName = "Binance Spot";
+  readonly providerId = "binance" as const;
+  readonly quality = envQuality("BINANCE_DATA_QUALITY", "near_realtime");
+
+  async getQuote(symbol: string) {
+    if (!isCryptoSymbol(symbol)) return null;
+
+    const providerSymbol = symbolForProvider(symbol, this.providerId);
+    const url = new URL("https://api.binance.com/api/v3/ticker/24hr");
+    url.searchParams.set("symbol", providerSymbol);
+
+    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(url, this.providerName, 4500);
+    const price = parseNumber(data.lastPrice);
+    if (!price) return null;
+
+    return toNormalizedQuote({
+      symbol,
+      assetType: "crypto",
+      price,
+      currency: "USD",
+      change: parseNumber(data.priceChange),
+      changePercent: parseNumber(data.priceChangePercent),
+      bid: parseNumber(data.bidPrice),
+      ask: parseNumber(data.askPrice),
+      volume: parseNumber(data.quoteVolume ?? data.volume),
+      high: parseNumber(data.highPrice),
+      low: parseNumber(data.lowPrice),
+      open: parseNumber(data.openPrice),
+      previousClose: parseNumber(data.prevClosePrice),
+      timestamp: parseNumber(data.closeTime) ? new Date(Number(data.closeTime)).toISOString() : nowIso(),
+      provider: this.providerName,
+      quality: this.quality,
+      latencyMs,
+      marketStatus: "open"
+    });
+  }
+}
+
+class CoinbaseQuoteProvider extends HttpQuoteProvider {
+  readonly providerName = "Coinbase Exchange";
+  readonly providerId = "coinbase" as const;
+  readonly quality = envQuality("COINBASE_DATA_QUALITY", "near_realtime");
+
+  async getQuote(symbol: string) {
+    if (!isCryptoSymbol(symbol)) return null;
+
+    const providerSymbol = symbolForProvider(symbol, this.providerId);
+    const url = new URL(`https://api.exchange.coinbase.com/products/${encodeURIComponent(providerSymbol)}/ticker`);
+
+    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(url, this.providerName, 4500);
+    const price = parseNumber(data.price);
+    if (!price) return null;
+
+    return toNormalizedQuote({
+      symbol,
+      assetType: "crypto",
+      price,
+      currency: "USD",
+      bid: parseNumber(data.bid),
+      ask: parseNumber(data.ask),
+      volume: parseNumber(data.volume),
+      timestamp: typeof data.time === "string" ? new Date(data.time).toISOString() : nowIso(),
+      provider: this.providerName,
+      quality: this.quality,
+      latencyMs,
+      marketStatus: "open"
+    });
+  }
+}
+
+function selectedCryptoProviderId(): MarketProviderId | null {
+  const provider = (process.env.STOCKPILOT_CRYPTO_PROVIDER ?? "binance").toLowerCase();
+
+  if (provider === "none" || provider === "off") return null;
+  if (provider === "coinbase") return "coinbase";
+  return "binance";
+}
+
+function getCryptoQuoteProvider(): QuoteProvider | null {
+  const provider = selectedCryptoProviderId();
+
+  switch (provider) {
+    case "binance":
+      return new BinanceQuoteProvider();
+    case "coinbase":
+      return new CoinbaseQuoteProvider();
+    default:
+      return null;
+  }
+}
+
 class ProviderBackedMarketDataProvider implements MarketDataProvider {
   readonly providerName: string;
   readonly providerId: MarketProviderId;
   readonly quality: MarketDataQuality;
   readonly streamMode: StreamMode;
   private readonly fallback = new MockMarketDataProvider();
+  private readonly cryptoProvider = getCryptoQuoteProvider();
 
   constructor(private readonly quoteProvider: QuoteProvider) {
     this.providerName = quoteProvider.providerName;
@@ -733,6 +841,23 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
   }
 
   async getQuote(symbol: string) {
+    if (
+      isCryptoSymbol(symbol) &&
+      this.cryptoProvider &&
+      this.cryptoProvider.providerId !== this.quoteProvider.providerId
+    ) {
+      try {
+        const cryptoQuote = await this.cryptoProvider.getQuote(symbol);
+        if (cryptoQuote?.bid !== undefined && cryptoQuote.ask !== undefined) return cryptoQuote;
+      } catch (error) {
+        console.error("crypto-provider quote failed", {
+          provider: this.cryptoProvider.providerName,
+          symbol,
+          error
+        });
+      }
+    }
+
     try {
       const quote = await this.quoteProvider.getQuote(symbol);
       if (quote) return quote;
@@ -747,21 +872,41 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
 
   async getQuotes(symbols: string[]) {
     const requested = uniqueSymbols(symbols);
+    const cryptoSymbols = requested.filter((symbol) => isCryptoSymbol(symbol));
+    let cryptoQuotes: NormalizedQuote[] = [];
+
+    if (
+      cryptoSymbols.length &&
+      this.cryptoProvider &&
+      this.cryptoProvider.providerId !== this.quoteProvider.providerId
+    ) {
+      try {
+        cryptoQuotes = await this.cryptoProvider.getQuotes(cryptoSymbols);
+      } catch (error) {
+        console.error("crypto-provider batch failed", {
+          provider: this.cryptoProvider.providerName,
+          error
+        });
+      }
+    }
+
+    const cryptoMap = new Map(cryptoQuotes.map((quote) => [quote.symbol, quote]));
+    const primaryRequested = requested.filter((symbol) => !cryptoMap.has(symbol));
     let realQuotes: NormalizedQuote[] = [];
 
     try {
-      realQuotes = await this.quoteProvider.getQuotes(requested);
+      realQuotes = await this.quoteProvider.getQuotes(primaryRequested);
     } catch (error) {
       if (!(error instanceof ProviderConfigurationError)) {
         console.error("market-provider batch failed", { provider: this.providerName, error });
       }
     }
 
-    const realMap = new Map(realQuotes.map((quote) => [quote.symbol, quote]));
+    const realMap = new Map([...cryptoQuotes, ...realQuotes].map((quote) => [quote.symbol, quote]));
     const missing = requested.filter((symbol) => !realMap.has(symbol));
     const fallbackQuotes = missing.length ? await this.fallback.getQuotes(missing) : [];
 
-    return [...realQuotes, ...fallbackQuotes].sort((a, b) => requested.indexOf(a.symbol) - requested.indexOf(b.symbol));
+    return [...cryptoQuotes, ...realQuotes, ...fallbackQuotes].sort((a, b) => requested.indexOf(a.symbol) - requested.indexOf(b.symbol));
   }
 
   async getDelayedQuote(symbol: string) {
@@ -796,7 +941,9 @@ function selectedProviderId(): MarketProviderId {
     provider === "eodhd" ||
     provider === "massive" ||
     provider === "alpha_vantage" ||
-    provider === "databento"
+    provider === "databento" ||
+    provider === "binance" ||
+    provider === "coinbase"
   ) {
     return provider;
   }
@@ -819,6 +966,10 @@ export function getMarketDataProvider(): MarketDataProvider {
       return new ProviderBackedMarketDataProvider(new MassiveSnapshotProvider());
     case "alpha_vantage":
       return new ProviderBackedMarketDataProvider(new AlphaVantageQuoteProvider());
+    case "binance":
+      return new ProviderBackedMarketDataProvider(new BinanceQuoteProvider());
+    case "coinbase":
+      return new ProviderBackedMarketDataProvider(new CoinbaseQuoteProvider());
     case "databento":
       return new MockMarketDataProvider();
     case "mock":

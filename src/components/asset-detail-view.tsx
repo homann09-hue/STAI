@@ -148,14 +148,14 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
         <Metric
           label="Bid / Ask"
           value={
-            displayedQuote.bid && displayedQuote.ask
+            displayedQuote.bid !== undefined && displayedQuote.ask !== undefined
               ? `${formatCurrency(displayedQuote.bid, detail.asset.currency)} / ${formatCurrency(displayedQuote.ask, detail.asset.currency)}`
-              : "n/a"
+              : "vom Anbieter nicht geliefert"
           }
         />
         <Metric
           label="Spread"
-          value={displayedQuote.spread !== undefined ? formatCurrency(displayedQuote.spread, detail.asset.currency) : "n/a"}
+          value={displayedQuote.spread !== undefined ? formatCurrency(displayedQuote.spread, detail.asset.currency) : "vom Anbieter nicht geliefert"}
           tone={displayedQuote.spread !== undefined && displayedQuote.price ? "text-cyan" : undefined}
         />
         <Metric
