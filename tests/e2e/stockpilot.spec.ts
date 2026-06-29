@@ -13,7 +13,10 @@ test("dashboard exposes market, data quality and disclaimer", async ({ page }) =
 
   await expect(page.getByRole("link", { name: /StockPilot AI/ })).toBeVisible();
   await expect(page.getByText("Datenqualität", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("Mock Data").first()).toBeVisible();
+  await expect(page.getByText(/Mock Data|Near-Realtime|Delayed|Realtime/).first()).toBeVisible();
+  await expect(page.getByText("Globale Kursübersicht")).toBeVisible();
+  await expect(page.getByRole("button", { name: "1T" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Candle" })).toBeVisible();
   await expect(page.getByText("Capital Command Center").first()).toBeVisible();
   await expect(page.getByText("Smart Sizing nach Score und Risiko").first()).toBeVisible();
   await expect(page.getByText("Keine Anlageberatung").first()).toBeVisible();
@@ -29,7 +32,7 @@ test("asset detail exposes professional risk controls", async ({ page }) => {
   await expect(page.getByText("Modellbasierte Wahrscheinlichkeiten")).toBeVisible();
   await expect(page.getByText("Handlungseinordnung")).toBeVisible();
   await expect(page.getByText("KI Analysekarte")).toBeVisible();
-  await expect(page.getByText("Provider: StockPilot Mock Market Feed").first()).toBeVisible();
+  await expect(page.getByText(/Provider:/).first()).toBeVisible();
 });
 
 test("portfolio supports trade workflow surface", async ({ page }) => {
@@ -67,4 +70,33 @@ test("settings contains investor mode instead of dashboard", async ({ page }) =>
   await expect(page.locator("main").getByText("Einstellungen").first()).toBeVisible();
   await expect(page.getByText("Zielgruppen-Modus")).toBeVisible();
   await expect(page.getByRole("button", { name: "Anfänger Einfache Sprache, Ampel, Risiko zuerst." })).toBeVisible();
+});
+
+test("professional finance terminal pages render core data areas", async ({ page }) => {
+  await page.goto("/markets");
+  await acceptRiskNotice(page);
+  await expect(page.getByText("Global Market Overview").first()).toBeVisible();
+  await expect(page.getByText("Profi-Datenzentrum")).toBeVisible();
+  await expect(page.getByText("Qualitaets-Summary")).toBeVisible();
+
+  await page.goto("/stocks");
+  await expect(page.getByText("Aktien-Screener").first()).toBeVisible();
+  await expect(page.getByText("Forward P/E").first()).toBeVisible();
+
+  await page.goto("/etfs");
+  await expect(page.getByText("ETF-Screener").first()).toBeVisible();
+  await expect(page.getByText("Top 10 Holdings").first()).toBeVisible();
+
+  await page.goto("/crypto");
+  await expect(page.getByText("Krypto-Screener").first()).toBeVisible();
+  await expect(page.getByText("Exchange-Daten").first()).toBeVisible();
+
+  await page.goto("/news-terminal");
+  await expect(page.getByText("News & Events near-realtime vorbereitet")).toBeVisible();
+
+  await page.goto("/risk");
+  await expect(page.getByText("Risiko-Dashboard").first()).toBeVisible();
+
+  await page.goto("/compare");
+  await expect(page.getByText("Vergleichsseite").first()).toBeVisible();
 });

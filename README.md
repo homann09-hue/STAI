@@ -77,6 +77,13 @@ OPENAI_API_KEY=
 ## Architektur
 
 - `src/app/page.tsx`: Dashboard mit Watchlist, Gewinnern, Verlierern, Marktüberblick, Trends, News und KI-Marktsentiment.
+- `src/app/markets/page.tsx`: Global Market Overview mit Provider-Stack, Datenqualitaet, Watchlist, Portfolio und Profi-Summary.
+- `src/app/stocks/page.tsx`: Aktien-Screener mit Kursdaten, Fundamentaldaten, Analysten, Earnings, Guidance und vorbereiteten Halterdaten.
+- `src/app/etfs/page.tsx`: ETF-Screener mit TER, AUM, Index, Holdings, Sektoren, Laendern, Waehrungen, Tracking und Performance.
+- `src/app/crypto/page.tsx`: Krypto-Screener mit Preis, Bid/Ask/Spread, Volumen, Market Cap und vorbereiteten On-Chain-/Derivatefeldern.
+- `src/app/news-terminal/page.tsx`: News- und Event-Terminal mit Relevanz, Impact und Quellenhinweis.
+- `src/app/risk/page.tsx`: Risiko-Dashboard mit Portfolio-Risiko, Drawdown, Korrelationen, Szenarien und Rebalancing-Hinweisen.
+- `src/app/compare/page.tsx`: Vergleichsseite fuer Asset vs Benchmark, ETF vs ETF und Portfolio vs Index.
 - `src/app/assets/[symbol]/page.tsx`: Detailseite mit Kurs, Line-Chart, Candlesticks, Volumen, Indikatoren, Fundamentals, News, Analysten, Insider, Earnings und KI-Cases.
 - `src/app/learn/page.tsx`: Lernbereich für Anfänger mit Glossar, Risiko-Grundlagen und Beispiel-Portfolios.
 - `src/app/portfolio/page.tsx`: Portfolio mit lokalen Kauf-Eingaben, Durchschnittskurs, P/L, Gewichtung und Risiko.
@@ -87,7 +94,9 @@ OPENAI_API_KEY=
 - `src/lib/providers/*`: austauschbare Provider-Interfaces.
 - `src/app/api/market/quotes/route.ts`: normalisierte Batch-Quotes für sichtbare Symbole mit TTL-Cache.
 - `src/app/api/market/stream/route.ts`: serverseitiger Marktdaten-Stream ohne API-Keys im Frontend, inklusive Heartbeat und Polling-Fallback.
+- `src/app/api/professional/overview/route.ts`: normalisierte Profi-Datenstruktur fuer Screeners, ETF-Profile, Krypto, News, Risiko und Portfolio.
 - `src/lib/mock/market.ts`: Mock-Daten für MVP und Offline-Demo.
+- `src/lib/providers/professional-data-provider.ts`: Orchestrator fuer MarketDataProvider, FundamentalsProvider, ETFProvider, CryptoProvider, NewsProvider, PortfolioAnalyticsProvider und AIAnalysisProvider-artige Daten.
 - `src/lib/data-quality.ts`: Datenvalidierung, Quellenranking, Aktualität, Mock-Kennzeichnung und Warnungen.
 - `src/lib/risk-engine.ts`: Warnsystem für Volatilität, Liquidität, News, Earnings, technische Risiken, Makro-/Sektorrisiken und Datenqualität.
 - `src/lib/scoring.ts`: transparentes Chancen-/Risiko-Scoremodell und modellbasierte Wahrscheinlichkeiten.

@@ -519,7 +519,9 @@ function candleRanges(symbol: string, price: number): Record<TimeRange, Candle[]
   return {
     "1D": makeCandles(symbol, "1D", price * 0.99, baseTrend * 0.3, vol * 0.35, 34),
     "5D": makeCandles(symbol, "5D", price * 0.97, baseTrend * 0.7, vol * 0.55, 42),
+    "1W": makeCandles(symbol, "1W", price * 0.965, baseTrend * 0.8, vol * 0.62, 46),
     "1M": makeCandles(symbol, "1M", price * 0.94, baseTrend, vol * 0.8, 58),
+    "3M": makeCandles(symbol, "3M", price * 0.9, baseTrend * 1.42, vol * 1.08, 66),
     "6M": makeCandles(symbol, "6M", price * 0.86, baseTrend * 1.8, vol * 1.3, 72),
     YTD: makeCandles(symbol, "YTD", price * 0.82, baseTrend * 2.1, vol * 1.45, 78),
     "1Y": makeCandles(symbol, "1Y", price * 0.78, baseTrend * 2.4, vol * 1.6, 86),

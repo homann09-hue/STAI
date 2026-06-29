@@ -5,13 +5,20 @@ import { usePathname } from "next/navigation";
 import {
   Activity,
   Bell,
+  BarChart3,
   BookOpen,
   Briefcase,
+  CalendarDays,
   Gem,
+  Globe2,
   Home,
+  LineChart,
+  ListFilter,
+  Newspaper,
   Search,
   Settings2,
   ShieldAlert,
+  Star,
   WifiOff
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -20,10 +27,20 @@ import { PwaRegister } from "@/components/PwaRegister";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
-  { href: "/assets/NVDA", label: "Analyse", icon: Activity },
-  { href: "/learn", label: "Lernen", icon: BookOpen },
+  { href: "/markets", label: "Märkte", icon: Globe2 },
+  { href: "/stocks", label: "Aktien", icon: BarChart3 },
+  { href: "/etfs", label: "ETFs", icon: LineChart },
+  { href: "/crypto", label: "Krypto", icon: Activity },
+  { href: "/indices", label: "Indizes", icon: Globe2 },
+  { href: "/screener", label: "Screener", icon: ListFilter },
+  { href: "/watchlist", label: "Watchlist", icon: Star },
   { href: "/portfolio", label: "Portfolio", icon: Briefcase },
   { href: "/alerts", label: "Alerts", icon: Bell },
+  { href: "/news-terminal", label: "News", icon: Newspaper },
+  { href: "/calendar", label: "Kalender", icon: CalendarDays },
+  { href: "/analyses", label: "Analysen", icon: ShieldAlert },
+  { href: "/backtesting", label: "Backtesting", icon: Activity },
+  { href: "/learn", label: "Lernen", icon: BookOpen },
   { href: "/pricing", label: "Pläne", icon: Gem },
   { href: "/settings", label: "Einstellungen", icon: Settings2 }
 ];
@@ -69,7 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
 
           <div className="flex items-center gap-2">
-            <nav className="hidden items-center gap-1 rounded-2xl border border-stroke bg-panel/70 p-1 md:flex">
+            <nav className="hidden max-w-[62vw] items-center gap-1 overflow-x-auto rounded-2xl border border-stroke bg-panel/70 p-1 md:flex">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const active =
@@ -79,7 +96,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                    className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition ${
                       active
                         ? "bg-profit/12 text-profit"
                         : "text-muted hover:bg-panel2 hover:text-mist"
@@ -122,8 +139,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {!noticeAccepted ? (
         <div className="fixed inset-x-3 bottom-24 z-[60] mx-auto max-w-xl rounded-md border border-amber/35 bg-coal p-4 shadow-panel sm:bottom-5">
-          <p className="text-sm font-semibold text-amber">Wichtiger Risiko-Hinweis</p>
-          <p className="mt-2 text-xs leading-5 text-muted">
+          <p className="pointer-events-none text-sm font-semibold text-amber">Wichtiger Risiko-Hinweis</p>
+          <p className="pointer-events-none mt-2 text-xs leading-5 text-muted">
             StockPilot AI liefert keine Finanzberatung, keine Garantie und keine sicheren Signale.
             Scores und KI-Auswertungen sind modellbasierte Entscheidungsunterstuetzung und können falsch sein.
             Prüfe Quellen, Datenqualität und dein Risiko immer selbst.
@@ -131,7 +148,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={acceptNotice}
-            className="mt-4 h-10 w-full rounded-md bg-amber font-semibold text-ink"
+            className="relative z-10 mt-4 h-12 w-full rounded-md bg-amber font-semibold text-ink"
           >
             Verstanden
           </button>

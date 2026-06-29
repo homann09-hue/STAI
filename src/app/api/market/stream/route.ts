@@ -61,7 +61,7 @@ export async function GET(request: Request) {
       try {
         for await (const quotes of provider.streamQuotes(symbols, {
           signal: request.signal,
-          intervalMs: 5000
+          intervalMs: 10000
         })) {
           send("quotes", {
             provider: provider.providerName,

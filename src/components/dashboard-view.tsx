@@ -1,14 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { Activity, ChevronRight, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react";
+import { Activity, Bell, ChevronRight, Search, Settings2, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Sparkline, ScoreMeter } from "@/components/charts";
 import { CapitalCommandCenter } from "@/components/capital-command-center";
 import { DashboardCommandGrid } from "@/components/dashboard-command-grid";
+import { ConnectionBadge, LiveMarketTickerBar } from "@/components/live-market-widgets";
+import {
+  AIInsightCard,
+  MarketNewsCard,
+  MarketOverviewCard,
+  MostActiveCard,
+  PortfolioSnapshotCard,
+  TopMoversCard,
+  TrendingAssetsCard,
+  WatchlistTable
+} from "@/components/market-boxes";
 import { MarketTerminalDashboard } from "@/components/market-terminal-dashboard";
 import { MarketDataStatus } from "@/components/market-data-status";
 import { NewsList } from "@/components/news-list";
+import { RealtimeAssetChart } from "@/components/realtime-asset-chart";
 import { OFFLINE_KEYS, saveOfflineValue } from "@/lib/offline";
 import {
   formatCompact,
@@ -20,7 +32,7 @@ import {
   scoreTone
 } from "@/lib/scoring";
 import { useMarketStream } from "@/lib/use-market-stream";
-import type { AssetSummary, DashboardData, NormalizedQuote, Quote } from "@/lib/types";
+import type { AssetDetail, AssetSummary, DashboardData, NormalizedQuote, Quote } from "@/lib/types";
 
 function mergeLiveQuote(base: Quote, liveQuote?: NormalizedQuote): Quote {
   if (!liveQuote) return base;
@@ -99,7 +111,15 @@ function AssetRow({ item, liveQuote }: { item: AssetSummary; liveQuote?: Normali
   );
 }
 
-export function DashboardView({ data }: { data: DashboardData }) {
+function uniqueTickerItems(data: DashboardData) {
+  const bySymbol = new Map<string, AssetSummary>();
+  [...data.watchlist, ...data.mostActive, ...data.trendingAssets, ...data.gainers, ...data.losers].forEach((item) => {
+    bySymbol.set(item.asset.symbol, item);
+  });
+  return [...bySymbol.values()].slice(0, 10);
+}
+
+export function DashboardView({ data, heroAsset }: { data: DashboardData; heroAsset?: AssetDetail | null }) {
   const visibleSymbols = useMemo(
     () =>
       [
@@ -112,6 +132,9 @@ export function DashboardView({ data }: { data: DashboardData }) {
     [data.gainers, data.losers, data.mostActive, data.trendingAssets, data.watchlist]
   );
   const stream = useMarketStream(visibleSymbols);
+  const tickerItems = useMemo(() => uniqueTickerItems(data), [data]);
+  const fallbackHero = data.watchlist[0] ?? data.gainers[0] ?? data.mostActive[0];
+  const hero = heroAsset ?? fallbackHero;
 
   useEffect(() => {
     saveOfflineValue(OFFLINE_KEYS.watchlist, data.watchlist);
@@ -119,6 +142,67 @@ export function DashboardView({ data }: { data: DashboardData }) {
 
   return (
     <div className="space-y-7">
+      <section className="space-y-4 rounded-[2rem] border border-stroke bg-[radial-gradient(circle_at_top_left,rgba(120,231,255,0.16),transparent_30%),linear-gradient(145deg,rgba(8,12,20,0.98),rgba(3,6,10,0.98))] p-4 shadow-panel sm:p-5">
+        <div className="grid gap-3 xl:grid-cols-[1fr_auto_auto] xl:items-center">
+          <label className="relative block">
+            <span className="sr-only">Aktien, ETFs, Krypto oder Indizes suchen</span>
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <input
+              placeholder="Suche nach Aktien, ETFs, Krypto, Indizes..."
+              className="h-12 w-full rounded-2xl border border-stroke bg-coal pl-11 pr-4 text-sm text-mist outline-none transition placeholder:text-muted focus:border-cyan/60"
+            />
+          </label>
+          <ConnectionBadge status={stream.connectionStatus} mode={stream.refreshMode} intervalMs={stream.intervalMs} />
+          <div className="flex gap-2 overflow-x-auto">
+            <Link href="/watchlist" className="inline-flex h-12 items-center gap-2 rounded-2xl border border-stroke bg-panel px-4 text-sm font-semibold text-mist transition hover:border-profit/40">
+              <Bell className="h-4 w-4 text-profit" />
+              Watchlist
+            </Link>
+            <Link href="/settings" className="inline-flex h-12 items-center gap-2 rounded-2xl border border-stroke bg-panel px-4 text-sm font-semibold text-mist transition hover:border-cyan/40">
+              <Settings2 className="h-4 w-4 text-cyan" />
+              Settings
+            </Link>
+          </div>
+        </div>
+
+        <LiveMarketTickerBar items={tickerItems} liveQuotes={stream.quotes} title="Globale Kursübersicht" />
+
+        {hero ? (
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(22rem,0.8fr)]">
+            <RealtimeAssetChart
+              asset={hero.asset}
+              quote={hero.quote}
+              liveQuote={stream.quotes[hero.asset.symbol]}
+              candlesByRange={heroAsset?.candles}
+              indicators={heroAsset?.indicators}
+              connectionStatus={stream.connectionStatus}
+              refreshMode={stream.refreshMode}
+              intervalMs={stream.intervalMs}
+            />
+            <div className="space-y-4">
+              <TopMoversCard title="Top Gewinner" items={data.gainers} liveQuotes={stream.quotes} direction="up" />
+              <TopMoversCard title="Top Verlierer" items={data.losers} liveQuotes={stream.quotes} direction="down" />
+            </div>
+          </div>
+        ) : null}
+
+        <div className="grid gap-4 xl:grid-cols-3">
+          <MostActiveCard items={data.mostActive} liveQuotes={stream.quotes} />
+          <TrendingAssetsCard items={data.trendingAssets} liveQuotes={stream.quotes} />
+          <AIInsightCard data={data} />
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+          <WatchlistTable items={data.watchlist} liveQuotes={stream.quotes} />
+          <div className="space-y-4">
+            <MarketOverviewCard data={data} />
+            <PortfolioSnapshotCard data={data} />
+          </div>
+        </div>
+
+        <MarketNewsCard news={data.latestNews} />
+      </section>
+
       <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-md border border-stroke bg-[linear-gradient(145deg,#101712,#07100d_65%,#122019)] p-5 shadow-panel">
           <div className="flex items-start justify-between gap-4">

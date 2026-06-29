@@ -66,9 +66,30 @@ type QuoteProvider = NearRealtimeProvider & {
 };
 
 class ProviderConfigurationError extends Error {}
+class ProviderHttpError extends Error {
+  constructor(
+    readonly providerName: string,
+    readonly status: number,
+    readonly retryAfterMs?: number
+  ) {
+    super(`${providerName} HTTP ${status}`);
+  }
+}
+
+class ProviderRateLimitBackoffError extends Error {}
 
 const DEFAULT_STREAM_INTERVAL_MS = 5000;
 const MAX_BATCH_SIZE = 40;
+const DEFAULT_QUOTE_CACHE_TTL_MS = Math.max(5000, Number(process.env.STOCKPILOT_QUOTE_CACHE_TTL_MS) || 30000);
+const DEFAULT_CRYPTO_QUOTE_CACHE_TTL_MS = Math.max(1000, Number(process.env.STOCKPILOT_CRYPTO_QUOTE_CACHE_TTL_MS) || 3000);
+const DEFAULT_STALE_QUOTE_CACHE_TTL_MS = Math.max(
+  DEFAULT_QUOTE_CACHE_TTL_MS,
+  Number(process.env.STOCKPILOT_STALE_QUOTE_CACHE_TTL_MS) || 300000
+);
+const DEFAULT_RATE_LIMIT_BACKOFF_MS = Math.max(10000, Number(process.env.STOCKPILOT_RATE_LIMIT_BACKOFF_MS) || 60000);
+const quoteCache = new Map<string, { quote: NormalizedQuote; storedAtMs: number; ttlMs: number; staleTtlMs: number }>();
+const inFlightQuoteRequests = new Map<string, Promise<NormalizedQuote | null>>();
+const providerRateLimitUntil = new Map<MarketProviderId, number>();
 
 function nowIso() {
   return new Date().toISOString();
@@ -143,6 +164,131 @@ function envQuality(name: string, fallback: MarketDataQuality) {
   return value && allowed.includes(value) ? value : fallback;
 }
 
+function parseRetryAfterMs(value: string | null) {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+
+  const date = Date.parse(value);
+  if (Number.isFinite(date)) return Math.max(0, date - Date.now());
+  return undefined;
+}
+
+function isRateLimitError(error: unknown) {
+  if (error instanceof ProviderHttpError) return error.status === 429 || error.status === 418;
+  return /HTTP (429|418)/.test(error instanceof Error ? error.message : String(error));
+}
+
+function quoteCacheKey(provider: QuoteProvider, symbol: string) {
+  return `${provider.providerId}:${symbolForProvider(symbol, provider.providerId)}`;
+}
+
+function quoteCacheTtlFor(provider: QuoteProvider) {
+  return provider.providerId === "binance" || provider.providerId === "coinbase"
+    ? DEFAULT_CRYPTO_QUOTE_CACHE_TTL_MS
+    : DEFAULT_QUOTE_CACHE_TTL_MS;
+}
+
+function markServerCachedQuote(quote: NormalizedQuote) {
+  return {
+    ...quote,
+    provider: quote.provider.includes("Server-Cache") ? quote.provider : `${quote.provider} (Server-Cache)`,
+    latencyMs: 0
+  };
+}
+
+function startProviderBackoff(provider: QuoteProvider, error: unknown) {
+  const retryAfterMs = error instanceof ProviderHttpError ? error.retryAfterMs : undefined;
+  const backoffMs = Math.max(10000, retryAfterMs ?? DEFAULT_RATE_LIMIT_BACKOFF_MS);
+  const now = Date.now();
+  const currentUntil = providerRateLimitUntil.get(provider.providerId) ?? 0;
+  const nextUntil = Math.max(currentUntil, now + backoffMs);
+  providerRateLimitUntil.set(provider.providerId, nextUntil);
+
+  if (currentUntil <= now) {
+    console.warn("market-provider rate-limit backoff active", {
+      provider: provider.providerName,
+      retryInMs: nextUntil - now
+    });
+  }
+}
+
+async function getCachedProviderQuote(provider: QuoteProvider, symbol: string) {
+  const normalizedSymbol = uniqueSymbols([symbol])[0];
+  if (!normalizedSymbol) return null;
+
+  const key = quoteCacheKey(provider, normalizedSymbol);
+  const now = Date.now();
+  const cached = quoteCache.get(key);
+
+  if (cached && now - cached.storedAtMs < cached.ttlMs) {
+    return markServerCachedQuote(cached.quote);
+  }
+
+  const backoffUntil = providerRateLimitUntil.get(provider.providerId) ?? 0;
+  if (backoffUntil > now) {
+    if (cached && now - cached.storedAtMs < cached.staleTtlMs) {
+      return markServerCachedQuote(cached.quote);
+    }
+
+    throw new ProviderRateLimitBackoffError(`${provider.providerName} rate-limit backoff active`);
+  }
+
+  const inFlight = inFlightQuoteRequests.get(key);
+  if (inFlight) return inFlight;
+
+  const request = provider
+    .getQuote(normalizedSymbol)
+    .then((quote) => {
+      if (quote) {
+        quoteCache.set(key, {
+          quote,
+          storedAtMs: Date.now(),
+          ttlMs: quoteCacheTtlFor(provider),
+          staleTtlMs: DEFAULT_STALE_QUOTE_CACHE_TTL_MS
+        });
+      }
+
+      return quote;
+    })
+    .catch((error) => {
+      if (isRateLimitError(error)) {
+        startProviderBackoff(provider, error);
+
+        if (cached && now - cached.storedAtMs < cached.staleTtlMs) {
+          return markServerCachedQuote(cached.quote);
+        }
+
+        throw new ProviderRateLimitBackoffError(`${provider.providerName} rate-limit backoff active`);
+      }
+
+      throw error;
+    })
+    .finally(() => {
+      inFlightQuoteRequests.delete(key);
+    });
+
+  inFlightQuoteRequests.set(key, request);
+  return request;
+}
+
+async function getCachedProviderQuotes(provider: QuoteProvider, symbols: string[]) {
+  const quotes: NormalizedQuote[] = [];
+
+  for (const symbol of uniqueSymbols(symbols)) {
+    try {
+      const quote = await getCachedProviderQuote(provider, symbol);
+      if (quote) quotes.push(quote);
+    } catch (error) {
+      if (!(error instanceof ProviderConfigurationError) && !(error instanceof ProviderRateLimitBackoffError)) {
+        console.error("market-provider quote failed", { provider: provider.providerName, symbol, error });
+      }
+    }
+  }
+
+  return quotes;
+}
+
 async function fetchJson<T>(url: URL, providerName: string, timeoutMs = 4500): Promise<{ data: T; latencyMs: number }> {
   const started = Date.now();
   const controller = new AbortController();
@@ -159,7 +305,7 @@ async function fetchJson<T>(url: URL, providerName: string, timeoutMs = 4500): P
     });
 
     if (!response.ok) {
-      throw new Error(`${providerName} HTTP ${response.status}`);
+      throw new ProviderHttpError(providerName, response.status, parseRetryAfterMs(response.headers.get("retry-after")));
     }
 
     return {
@@ -188,6 +334,9 @@ function toNormalizedQuote(input: {
   previousClose?: number;
   fiftyTwoWeekHigh?: number;
   fiftyTwoWeekLow?: number;
+  marketCap?: number;
+  freeFloat?: number;
+  exchange?: string;
   timestamp?: string;
   provider: string;
   quality: MarketDataQuality;
@@ -219,6 +368,9 @@ function toNormalizedQuote(input: {
     previousClose,
     fiftyTwoWeekHigh: input.fiftyTwoWeekHigh,
     fiftyTwoWeekLow: input.fiftyTwoWeekLow,
+    marketCap: input.marketCap,
+    freeFloat: input.freeFloat,
+    exchange: input.exchange,
     timestamp: input.timestamp ?? nowIso(),
     provider: input.provider,
     quality: input.quality,
@@ -245,6 +397,8 @@ function normalizedFromDetail(detail: AssetDetail | AssetSummary): NormalizedQuo
     previousClose: detail.quote.previousClose,
     fiftyTwoWeekHigh: detail.quote.fiftyTwoWeekHigh,
     fiftyTwoWeekLow: detail.quote.fiftyTwoWeekLow,
+    marketCap: "fundamentals" in detail ? detail.fundamentals.marketCap : undefined,
+    exchange: detail.asset.exchange,
     timestamp: detail.quote.asOf,
     provider: detail.quote.provider,
     quality: detail.quote.quality,
@@ -374,10 +528,7 @@ abstract class HttpQuoteProvider implements QuoteProvider {
   abstract getQuote(symbol: string): Promise<NormalizedQuote | null>;
 
   async getQuotes(symbols: string[]) {
-    const settled = await Promise.allSettled(uniqueSymbols(symbols).map((symbol) => this.getQuote(symbol)));
-    return settled
-      .map((result) => (result.status === "fulfilled" ? result.value : null))
-      .filter((quote): quote is NormalizedQuote => Boolean(quote));
+    return getCachedProviderQuotes(this, symbols);
   }
 }
 
@@ -847,22 +998,24 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
       this.cryptoProvider.providerId !== this.quoteProvider.providerId
     ) {
       try {
-        const cryptoQuote = await this.cryptoProvider.getQuote(symbol);
+        const cryptoQuote = await getCachedProviderQuote(this.cryptoProvider, symbol);
         if (cryptoQuote?.bid !== undefined && cryptoQuote.ask !== undefined) return cryptoQuote;
       } catch (error) {
-        console.error("crypto-provider quote failed", {
-          provider: this.cryptoProvider.providerName,
-          symbol,
-          error
-        });
+        if (!(error instanceof ProviderConfigurationError) && !(error instanceof ProviderRateLimitBackoffError)) {
+          console.error("crypto-provider quote failed", {
+            provider: this.cryptoProvider.providerName,
+            symbol,
+            error
+          });
+        }
       }
     }
 
     try {
-      const quote = await this.quoteProvider.getQuote(symbol);
+      const quote = await getCachedProviderQuote(this.quoteProvider, symbol);
       if (quote) return quote;
     } catch (error) {
-      if (!(error instanceof ProviderConfigurationError)) {
+      if (!(error instanceof ProviderConfigurationError) && !(error instanceof ProviderRateLimitBackoffError)) {
         console.error("market-provider quote failed", { provider: this.providerName, symbol, error });
       }
     }

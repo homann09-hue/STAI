@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-const routes = ["/", "/assets/NVDA", "/assets/AAPL", "/assets/MSFT", "/assets/VOO", "/assets/BTC-USD", "/assets/ETH-USD", "/learn", "/portfolio", "/alerts", "/pricing", "/settings", "/offline"];
+const routes = ["/", "/markets", "/stocks", "/etfs", "/crypto", "/indices", "/screener", "/watchlist", "/news-terminal", "/calendar", "/analyses", "/backtesting", "/risk", "/compare", "/assets/NVDA", "/assets/AAPL", "/assets/MSFT", "/assets/VOO", "/assets/BTC-USD", "/assets/ETH-USD", "/learn", "/portfolio", "/alerts", "/pricing", "/settings", "/offline"];
 const apiRoutes = [
   "/api/market/overview",
   "/api/market/quotes?symbols=NVDA,AAPL,BTC-USD",
+  "/api/professional/overview",
   "/api/assets/NVDA",
   "/api/assets/BTC-USD",
   "/api/news?symbol=NVDA",
@@ -112,8 +113,8 @@ test.describe("deep red-team browser checks", () => {
     await acceptRiskNotice(page);
 
     await expect(page.getByText("Mock-Daten").first()).toBeVisible();
-    await expect(page.getByText("Mock Data").first()).toBeVisible();
-    await expect(page.getByText("Provider: StockPilot Mock Market Feed").first()).toBeVisible();
+    await expect(page.getByText(/Mock Data|Near-Realtime|Delayed|Realtime/).first()).toBeVisible();
+    await expect(page.getByText(/Provider:/).first()).toBeVisible();
     await expect(page.getByText("Datenqualität").first()).toBeVisible();
     await expect(page.getByText("Diese Wahrscheinlichkeit ist keine Garantie und kann falsch sein.").first()).toBeVisible();
   });

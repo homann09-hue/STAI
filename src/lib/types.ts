@@ -1,4 +1,4 @@
-export const chartRanges = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"] as const;
+export const chartRanges = ["1D", "5D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y", "MAX"] as const;
 export const timeRanges = chartRanges;
 
 export type ChartRange = (typeof chartRanges)[number];
@@ -12,6 +12,9 @@ export type MarketDataQuality =
   | "mock"
   | "unavailable";
 export type MarketStatus = "open" | "closed" | "pre_market" | "after_hours" | "unknown";
+export type RefreshMode = "websocket" | "polling" | "manual";
+export type RefreshInterval = 1000 | 5000 | 10000 | 30000 | 60000 | 300000;
+export type MarketConnectionStatus = "connected" | "reconnecting" | "polling" | "rate_limited" | "offline" | "error";
 export type Sentiment = "positive" | "neutral" | "negative";
 export type RiskLevel = "niedrig" | "mittel" | "hoch" | "extrem";
 export type UncertaintyLevel = "niedrig" | "mittel" | "hoch";
@@ -75,11 +78,24 @@ export interface NormalizedQuote {
   previousClose?: number;
   fiftyTwoWeekHigh?: number;
   fiftyTwoWeekLow?: number;
+  marketCap?: number;
+  freeFloat?: number;
+  exchange?: string;
   timestamp: string;
   provider: string;
   quality: MarketDataQuality;
   latencyMs?: number;
   marketStatus: MarketStatus;
+}
+
+export interface MarketDataFreshness {
+  mode: RefreshMode;
+  intervalMs?: RefreshInterval;
+  lastUpdatedAt: string;
+  nextUpdateAt?: string;
+  connectionStatus: MarketConnectionStatus;
+  provider: string;
+  quality: MarketDataQuality;
 }
 
 export interface Candle {
@@ -404,4 +420,209 @@ export interface PortfolioSummary {
   assetAllocation: AllocationSlice[];
   scenarios: PortfolioScenario[];
   warnings: PortfolioWarning[];
+}
+
+export type ProfessionalAvailability = "available" | "provider_missing" | "prepared" | "mock";
+export type PerformanceRange = "1M" | "3M" | "6M" | "YTD" | "1Y" | "3Y" | "5Y" | "10Y" | "MAX";
+
+export interface ProfessionalDataPoint {
+  label: string;
+  value: string | number | null;
+  unit?: string;
+  provider: string;
+  quality: MarketDataQuality;
+  updatedAt: string;
+  availability: ProfessionalAvailability;
+  note: string;
+}
+
+export interface ProfessionalWeight {
+  label: string;
+  weight: number;
+  provider: string;
+  quality: MarketDataQuality;
+}
+
+export interface ProfessionalHolding {
+  symbol: string;
+  name: string;
+  weight: number;
+  sector: string;
+  country: string;
+  provider: string;
+  quality: MarketDataQuality;
+}
+
+export interface EquityFundamentalsProfile {
+  symbol: string;
+  companyName: string;
+  exchange: string;
+  currency: string;
+  updatedAt: string;
+  provider: string;
+  quality: MarketDataQuality;
+  revenue: ProfessionalDataPoint;
+  netIncome: ProfessionalDataPoint;
+  eps: ProfessionalDataPoint;
+  peRatio: ProfessionalDataPoint;
+  forwardPe: ProfessionalDataPoint;
+  pegRatio: ProfessionalDataPoint;
+  priceToSales: ProfessionalDataPoint;
+  priceToBook: ProfessionalDataPoint;
+  ebitda: ProfessionalDataPoint;
+  ebitMargin: ProfessionalDataPoint;
+  netMargin: ProfessionalDataPoint;
+  grossMargin: ProfessionalDataPoint;
+  revenueGrowth: ProfessionalDataPoint;
+  earningsGrowth: ProfessionalDataPoint;
+  debtToEquity: ProfessionalDataPoint;
+  operatingCashflow: ProfessionalDataPoint;
+  freeCashflow: ProfessionalDataPoint;
+  dividendYield: ProfessionalDataPoint;
+  payoutRatio: ProfessionalDataPoint;
+  buybacks: ProfessionalDataPoint;
+  analystConsensus: ProfessionalDataPoint;
+  priceTargetLow: ProfessionalDataPoint;
+  priceTargetMedian: ProfessionalDataPoint;
+  priceTargetHigh: ProfessionalDataPoint;
+  earningsDate: ProfessionalDataPoint;
+  guidance: ProfessionalDataPoint;
+  insiderTransactions: ProfessionalDataPoint;
+  institutionalHolders: ProfessionalDataPoint;
+}
+
+export interface ETFProfessionalProfile {
+  symbol: string;
+  name: string;
+  isin: ProfessionalDataPoint;
+  wkn: ProfessionalDataPoint;
+  ticker: string;
+  issuer: ProfessionalDataPoint;
+  indexName: ProfessionalDataPoint;
+  replicationMethod: ProfessionalDataPoint;
+  ter: ProfessionalDataPoint;
+  aum: ProfessionalDataPoint;
+  distributionPolicy: ProfessionalDataPoint;
+  dividendYield: ProfessionalDataPoint;
+  distributionInterval: ProfessionalDataPoint;
+  trackingDifference: ProfessionalDataPoint;
+  trackingError: ProfessionalDataPoint;
+  esgScore: ProfessionalDataPoint;
+  riskClass: ProfessionalDataPoint;
+  volatility: ProfessionalDataPoint;
+  sharpeRatio: ProfessionalDataPoint;
+  maxDrawdown: ProfessionalDataPoint;
+  benchmark: string;
+  performance: Record<PerformanceRange, ProfessionalDataPoint>;
+  topHoldings: ProfessionalHolding[];
+  sectorWeights: ProfessionalWeight[];
+  countryWeights: ProfessionalWeight[];
+  currencyWeights: ProfessionalWeight[];
+  marketCapWeights: ProfessionalWeight[];
+  provider: string;
+  quality: MarketDataQuality;
+  updatedAt: string;
+}
+
+export interface CryptoProfessionalProfile {
+  symbol: string;
+  name: string;
+  provider: string;
+  quality: MarketDataQuality;
+  updatedAt: string;
+  price: ProfessionalDataPoint;
+  volume24h: ProfessionalDataPoint;
+  marketCap: ProfessionalDataPoint;
+  circulatingSupply: ProfessionalDataPoint;
+  maxSupply: ProfessionalDataPoint;
+  fullyDilutedValuation: ProfessionalDataPoint;
+  dominance: ProfessionalDataPoint;
+  fundingRates: ProfessionalDataPoint;
+  openInterest: ProfessionalDataPoint;
+  onChainData: ProfessionalDataPoint;
+  exchangeData: ProfessionalDataPoint;
+  volatility: ProfessionalDataPoint;
+  trend: ProfessionalDataPoint;
+  events: ProfessionalDataPoint;
+}
+
+export interface ProfessionalScreenerRow {
+  asset: Asset;
+  quote: NormalizedQuote;
+  marketCore: ProfessionalDataPoint[];
+  scores: Scores;
+  aiRisk: RiskLevel;
+  dataQuality: DataQualityReport | null;
+  equityFundamentals?: EquityFundamentalsProfile;
+  etfProfile?: ETFProfessionalProfile;
+  cryptoProfile?: CryptoProfessionalProfile;
+}
+
+export interface ProfessionalPortfolioAnalytics {
+  totalValue: ProfessionalDataPoint;
+  dayPnL: ProfessionalDataPoint;
+  totalPnL: ProfessionalDataPoint;
+  performanceSincePurchase: ProfessionalDataPoint;
+  costBasis: ProfessionalDataPoint;
+  assetAllocation: ProfessionalWeight[];
+  countryAllocation: ProfessionalWeight[];
+  sectorAllocation: ProfessionalWeight[];
+  currencyRisk: ProfessionalDataPoint;
+  dividendForecast: ProfessionalDataPoint;
+  riskScore: ProfessionalDataPoint;
+  volatility: ProfessionalDataPoint;
+  drawdown: ProfessionalDataPoint;
+  correlations: ProfessionalDataPoint;
+  concentrationRisk: ProfessionalDataPoint;
+  rebalancingSuggestions: string[];
+  scenarioAnalysis: PortfolioScenario[];
+  provider: string;
+  quality: MarketDataQuality;
+  updatedAt: string;
+}
+
+export interface ProfessionalNewsEvent {
+  id: string;
+  title: string;
+  category: "company" | "macro" | "earnings" | "dividend" | "split" | "analyst" | "central-bank";
+  symbol?: string;
+  source: string;
+  publishedAt: string;
+  relevance: number;
+  impact: "positive" | "neutral" | "negative" | "unclear";
+  quality: MarketDataQuality;
+  checked: boolean;
+  note: string;
+}
+
+export interface ProfessionalComparison {
+  title: string;
+  left: string;
+  right: string;
+  benchmark: string;
+  points: ProfessionalDataPoint[];
+}
+
+export interface ProfessionalMarketReport {
+  updatedAt: string;
+  providerStack: string[];
+  qualitySummary: {
+    realtime: number;
+    nearRealtime: number;
+    delayed: number;
+    mock: number;
+    unavailable: number;
+  };
+  globalOverview: ProfessionalDataPoint[];
+  equityScreener: ProfessionalScreenerRow[];
+  etfScreener: ProfessionalScreenerRow[];
+  cryptoScreener: ProfessionalScreenerRow[];
+  watchlist: ProfessionalScreenerRow[];
+  topGainers: ProfessionalScreenerRow[];
+  topLosers: ProfessionalScreenerRow[];
+  mostActive: ProfessionalScreenerRow[];
+  newsTerminal: ProfessionalNewsEvent[];
+  riskDashboard: ProfessionalDataPoint[];
+  portfolio: ProfessionalPortfolioAnalytics;
+  comparisons: ProfessionalComparison[];
 }
