@@ -19,7 +19,9 @@ import {
 } from "lucide-react";
 import { CandlestickChart, PriceLineChart, ScoreMeter } from "@/components/charts";
 import { AssetDecisionPanel } from "@/components/asset-decision-panel";
+import { MarketDataStatus } from "@/components/market-data-status";
 import { NewsList } from "@/components/news-list";
+import { TechnicalTrendPanel } from "@/components/technical-trend-panel";
 import { OFFLINE_KEYS, saveOfflineValue } from "@/lib/offline";
 import {
   formatCompact,
@@ -30,7 +32,8 @@ import {
   scoreLabel,
   scoreTone
 } from "@/lib/scoring";
-import type { AssetDetail, TimeRange } from "@/lib/types";
+import { useMarketStream } from "@/lib/use-market-stream";
+import type { AssetDetail, Quote, TimeRange } from "@/lib/types";
 import { timeRanges } from "@/lib/types";
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: string }) {
@@ -45,7 +48,35 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: s
 export function AssetDetailView({ detail }: { detail: AssetDetail }) {
   const [range, setRange] = useState<TimeRange>("1M");
   const candles = detail.candles[range];
-  const positive = detail.quote.changePercent >= 0;
+  const stream = useMarketStream([detail.asset.symbol]);
+  const displayedQuote = useMemo<Quote>(() => {
+    const liveQuote = stream.quotes[detail.asset.symbol];
+    if (!liveQuote) return detail.quote;
+
+    return {
+      ...detail.quote,
+      price: liveQuote.price,
+      change: liveQuote.change,
+      changePercent: liveQuote.changePercent,
+      dayHigh: liveQuote.high ?? detail.quote.dayHigh,
+      dayLow: liveQuote.low ?? detail.quote.dayLow,
+      volume: liveQuote.volume ?? detail.quote.volume,
+      delayedByMinutes: liveQuote.quality === "delayed" ? Math.max(detail.quote.delayedByMinutes, 15) : 0,
+      asOf: liveQuote.timestamp,
+      bid: liveQuote.bid,
+      ask: liveQuote.ask,
+      spread: liveQuote.spread,
+      open: liveQuote.open ?? detail.quote.open,
+      previousClose: liveQuote.previousClose ?? detail.quote.previousClose,
+      fiftyTwoWeekHigh: liveQuote.fiftyTwoWeekHigh ?? detail.quote.fiftyTwoWeekHigh,
+      fiftyTwoWeekLow: liveQuote.fiftyTwoWeekLow ?? detail.quote.fiftyTwoWeekLow,
+      provider: liveQuote.provider,
+      quality: liveQuote.quality,
+      latencyMs: liveQuote.latencyMs,
+      marketStatus: liveQuote.marketStatus
+    };
+  }, [detail.asset.symbol, detail.quote, stream.quotes]);
+  const positive = displayedQuote.changePercent >= 0;
   const aiCards = useMemo(
     () => [
       ["Bull Case", detail.aiAnalysis.bullCase],
@@ -89,22 +120,15 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
           <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="font-mono text-4xl font-semibold">
-                {formatCurrency(detail.quote.price, detail.asset.currency)}
+                {formatCurrency(displayedQuote.price, detail.asset.currency)}
               </p>
               <p className={positive ? "mt-2 text-profit" : "mt-2 text-loss"}>
                 {positive ? "+" : ""}
-                {formatCurrency(detail.quote.change, detail.asset.currency)} ({formatPercent(detail.quote.changePercent)})
+                {formatCurrency(displayedQuote.change, detail.asset.currency)} ({formatPercent(displayedQuote.changePercent)})
               </p>
             </div>
             <div className="text-left sm:text-right">
-              <p className="text-xs text-muted">Delay</p>
-              <p className="font-mono text-lg">{detail.quote.delayedByMinutes} Min.</p>
-              <p className="mt-1 text-xs text-muted">
-                {new Intl.DateTimeFormat("de-DE", {
-                  dateStyle: "short",
-                  timeStyle: "short"
-                }).format(new Date(detail.quote.asOf))}
-              </p>
+              <MarketDataStatus quote={displayedQuote} />
             </div>
           </div>
         </div>
@@ -120,7 +144,35 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
         </div>
       </section>
 
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric
+          label="Bid / Ask"
+          value={
+            displayedQuote.bid && displayedQuote.ask
+              ? `${formatCurrency(displayedQuote.bid, detail.asset.currency)} / ${formatCurrency(displayedQuote.ask, detail.asset.currency)}`
+              : "n/a"
+          }
+        />
+        <Metric
+          label="Spread"
+          value={displayedQuote.spread !== undefined ? formatCurrency(displayedQuote.spread, detail.asset.currency) : "n/a"}
+          tone={displayedQuote.spread !== undefined && displayedQuote.price ? "text-cyan" : undefined}
+        />
+        <Metric
+          label="Tageshoch / Tief"
+          value={`${formatCurrency(displayedQuote.dayHigh, detail.asset.currency)} / ${formatCurrency(displayedQuote.dayLow, detail.asset.currency)}`}
+        />
+        <Metric
+          label="Open / Prev. Close"
+          value={`${displayedQuote.open ? formatCurrency(displayedQuote.open, detail.asset.currency) : "n/a"} / ${
+            displayedQuote.previousClose ? formatCurrency(displayedQuote.previousClose, detail.asset.currency) : "n/a"
+          }`}
+        />
+      </section>
+
       <AssetDecisionPanel detail={detail} />
+
+      <TechnicalTrendPanel detail={{ ...detail, quote: displayedQuote }} />
 
       <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
         <DataQualityPanel quality={detail.dataQuality} />
@@ -197,7 +249,7 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
             <Metric label="Cashflow" value={formatCompact(detail.fundamentals.cashflow)} />
             <Metric label="Dividende" value={detail.fundamentals.dividendYield === null ? "n/a" : `${detail.fundamentals.dividendYield}%`} />
             <Metric label="Marktkapitalisierung" value={formatCompact(detail.fundamentals.marketCap)} />
-            <Metric label="Volumen" value={formatCompact(detail.quote.volume)} />
+            <Metric label="Volumen" value={formatCompact(displayedQuote.volume)} />
           </div>
         </div>
       </section>

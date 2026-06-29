@@ -1,7 +1,17 @@
-export const timeRanges = ["1D", "1W", "1M", "6M", "1J", "5J"] as const;
+export const chartRanges = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"] as const;
+export const timeRanges = chartRanges;
 
-export type TimeRange = (typeof timeRanges)[number];
-export type AssetType = "stock" | "etf" | "crypto";
+export type ChartRange = (typeof chartRanges)[number];
+export type TimeRange = ChartRange;
+export type AssetType = "stock" | "etf" | "crypto" | "forex" | "index";
+export type MarketDataQuality =
+  | "realtime"
+  | "near_realtime"
+  | "delayed"
+  | "historical"
+  | "mock"
+  | "unavailable";
+export type MarketStatus = "open" | "closed" | "pre_market" | "after_hours" | "unknown";
 export type Sentiment = "positive" | "neutral" | "negative";
 export type RiskLevel = "niedrig" | "mittel" | "hoch" | "extrem";
 export type UncertaintyLevel = "niedrig" | "mittel" | "hoch";
@@ -34,9 +44,48 @@ export interface Quote {
   volume: number;
   delayedByMinutes: number;
   asOf: string;
+  bid?: number;
+  ask?: number;
+  spread?: number;
+  open?: number;
+  previousClose?: number;
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
+  provider: string;
+  quality: MarketDataQuality;
+  latencyMs?: number;
+  marketStatus: MarketStatus;
+}
+
+export interface NormalizedQuote {
+  symbol: string;
+  name?: string;
+  assetType: AssetType;
+  price: number;
+  currency: string;
+  change: number;
+  changePercent: number;
+  bid?: number;
+  ask?: number;
+  spread?: number;
+  volume?: number;
+  high?: number;
+  low?: number;
+  open?: number;
+  previousClose?: number;
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
+  timestamp: string;
+  provider: string;
+  quality: MarketDataQuality;
+  latencyMs?: number;
+  marketStatus: MarketStatus;
 }
 
 export interface Candle {
+  symbol: string;
+  range: ChartRange;
+  timestamp: string;
   time: string;
   open: number;
   high: number;
@@ -268,6 +317,8 @@ export interface DashboardData {
   watchlist: AssetSummary[];
   gainers: AssetSummary[];
   losers: AssetSummary[];
+  mostActive: AssetSummary[];
+  trendingAssets: AssetSummary[];
   marketOverview: MarketOverviewItem[];
   trends: string[];
   dataQualitySummary: {

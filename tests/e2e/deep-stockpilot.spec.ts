@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-const routes = ["/", "/assets/NVDA", "/assets/AAPL", "/assets/MSFT", "/assets/VOO", "/assets/BTC-USD", "/assets/ETH-USD", "/learn", "/portfolio", "/alerts", "/pricing", "/offline"];
+const routes = ["/", "/assets/NVDA", "/assets/AAPL", "/assets/MSFT", "/assets/VOO", "/assets/BTC-USD", "/assets/ETH-USD", "/learn", "/portfolio", "/alerts", "/pricing", "/settings", "/offline"];
 const apiRoutes = [
   "/api/market/overview",
+  "/api/market/quotes?symbols=NVDA,AAPL,BTC-USD",
   "/api/assets/NVDA",
   "/api/assets/BTC-USD",
   "/api/news?symbol=NVDA",
@@ -111,6 +112,8 @@ test.describe("deep red-team browser checks", () => {
     await acceptRiskNotice(page);
 
     await expect(page.getByText("Mock-Daten").first()).toBeVisible();
+    await expect(page.getByText("Mock Data").first()).toBeVisible();
+    await expect(page.getByText("Provider: StockPilot Mock Market Feed").first()).toBeVisible();
     await expect(page.getByText("Datenqualität").first()).toBeVisible();
     await expect(page.getByText("Diese Wahrscheinlichkeit ist keine Garantie und kann falsch sein.").first()).toBeVisible();
   });
@@ -119,7 +122,10 @@ test.describe("deep red-team browser checks", () => {
     await page.goto("/");
     await acceptRiskNotice(page);
 
-    await expect(page.getByText("Anfänger").first()).toBeVisible();
+    await expect(page.getByText("Aktiver Modus")).toHaveCount(0);
+
+    await page.goto("/settings");
+    await expect(page.getByText("Zielgruppen-Modus")).toBeVisible();
     await page.getByRole("button", { name: "Profi Szenarien, Drawdown, Governance." }).click();
     await expect(page.getByText("Aktiver Modus: Profi").first()).toBeVisible();
 

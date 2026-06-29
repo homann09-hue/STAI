@@ -38,8 +38,24 @@ export function InvestorModeDock() {
   }
 
   return (
-    <div className="border-t border-stroke/70 bg-coal/78 px-4 py-2 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-6xl gap-2 overflow-x-auto">
+    <section
+      aria-labelledby="investor-mode-heading"
+      className="rounded-[2rem] border border-cyan/20 bg-panel/82 p-4 shadow-panel sm:p-5"
+    >
+      <div className="mb-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan">
+          Personalisierung
+        </p>
+        <h2 id="investor-mode-heading" className="mt-2 text-2xl font-semibold text-mist">
+          Zielgruppen-Modus
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+          Wähle hier, wie tief StockPilot AI Inhalte erklärt. Das Dashboard bleibt dadurch ruhig,
+          während Sprache, Hinweise und Analyse-Tiefe zu deinem Erfahrungslevel passen.
+        </p>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-3">
         {(Object.keys(modes) as InvestorMode[]).map((item) => {
           const Icon = modes[item].icon;
           const active = mode === item;
@@ -49,7 +65,7 @@ export function InvestorModeDock() {
               key={item}
               type="button"
               onClick={() => selectMode(item)}
-              className={`flex min-w-[12rem] items-center gap-3 rounded-2xl border px-3 py-2 text-left transition sm:min-w-0 sm:flex-1 ${
+              className={`flex min-h-24 items-center gap-3 rounded-2xl border px-3 py-3 text-left transition ${
                 active
                   ? "border-cyan/35 bg-cyan/10 text-cyan"
                   : "border-stroke bg-panel/60 text-muted hover:border-cyan/30 hover:text-mist"
@@ -64,9 +80,9 @@ export function InvestorModeDock() {
           );
         })}
       </div>
-      <p className="mx-auto mt-2 max-w-6xl text-[11px] text-muted">
+      <p className="mt-4 rounded-2xl border border-stroke bg-coal/55 px-3 py-2 text-xs leading-5 text-muted">
         Aktiver Modus: <span className="font-semibold text-cyan">{modes[mode].label}</span>. Die App priorisiert passende Tiefe, Sprache und Risiko-Hinweise.
       </p>
-    </div>
+    </section>
   );
 }

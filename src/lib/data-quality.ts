@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AssetDetail, DataQualityReport, DataSource } from "@/lib/types";
+import type { AssetDetail, DataQualityReport, DataSource, MarketDataQuality } from "@/lib/types";
 
 const quoteSchema = z.object({
   price: z.number().positive(),
@@ -15,6 +15,15 @@ const newsSchema = z.object({
   relevance: z.number().min(0).max(100),
   impactScore: z.number().min(-100).max(100)
 });
+
+const sourceLabels: Record<MarketDataQuality, string> = {
+  realtime: "Realtime-Daten",
+  near_realtime: "Near-Realtime-Daten",
+  delayed: "Verzoegerte Daten",
+  historical: "Historische Daten",
+  mock: "Mock-Daten",
+  unavailable: "Nicht verfuegbar"
+};
 
 export function validateAssetData(detail: Pick<AssetDetail, "asset" | "quote" | "news" | "fundamentals" | "candles">) {
   const issues: string[] = [];
@@ -44,21 +53,25 @@ export function assessDataQuality(
 ): DataQualityReport {
   const validation = validateAssetData(detail);
   const quoteAgeMinutes = Math.max(0, (now.getTime() - new Date(detail.quote.asOf).getTime()) / 60000);
+  const quoteQuality = detail.quote.quality ?? "mock";
   const stale = quoteAgeMinutes > 60;
-  const delayed = quoteAgeMinutes > 20;
+  const delayed = quoteAgeMinutes > 20 || quoteQuality === "delayed";
   const missingNews = detail.news.length === 0;
   const cryptoFundamentalGap = detail.asset.type === "crypto" && detail.fundamentals.peRatio === null;
+  const isMock = quoteQuality === "mock";
+  const providerSourceStatus =
+    quoteQuality === "unavailable" ? "missing" : stale ? "stale" : delayed ? "delayed" : "fresh";
   const contradictions = detail.news.some((item) => item.sentiment === "negative" && detail.quote.changePercent > 3)
     ? ["Kurs steigt stark, obwohl relevante News negativ bewertet werden."]
     : [];
   const sources: DataSource[] = [
     {
-      name: "StockPilot Mock Market Feed",
-      type: "mock",
+      name: detail.quote.provider ?? "Unbekannter Kursanbieter",
+      type: isMock ? "mock" : "provider",
       rank: 5,
       fetchedAt: detail.quote.asOf,
-      status: stale ? "stale" : delayed ? "delayed" : "fresh",
-      note: "Mock-Quote inklusive Delay und Volumen."
+      status: providerSourceStatus,
+      note: `${sourceLabels[quoteQuality]} inklusive Provider, Timestamp und Latenzstatus.`
     },
     {
       name: "StockPilot Mock News Feed",
@@ -74,10 +87,12 @@ export function assessDataQuality(
       rank: 3,
       fetchedAt: detail.quote.asOf,
       status: validation.valid ? "fresh" : "conflicting",
-      note: "RSI, MACD, MAs, Bollinger, Support und Resistance werden aus Mock-Daten abgeleitet."
+      note: "RSI, MACD, MAs, Bollinger, Support und Resistance werden aus verfuegbaren Kursdaten abgeleitet."
     }
   ];
   const warnings = [
+    ...(isMock ? ["Mock-Daten sind Produktdaten und duerfen nicht als reale Marktdaten genutzt werden."] : []),
+    ...(quoteQuality === "unavailable" ? ["Kursanbieter ist nicht erreichbar."] : []),
     ...(stale ? ["Daten sind veraltet und sollten vor Entscheidungen aktualisiert werden."] : []),
     ...(delayed && !stale ? ["Daten sind verzogert und nicht als Live-Kurs geeignet."] : []),
     ...(missingNews ? ["Keine verwertbaren News für dieses Symbol gefunden."] : []),
@@ -93,11 +108,11 @@ export function assessDataQuality(
   return {
     score,
     freshness: stale ? "stale" : delayed ? "delayed" : "fresh",
-    sourceLabel: "Mock-Daten",
-    isMock: true,
+    sourceLabel: sourceLabels[quoteQuality],
+    isMock,
     updatedAt: detail.quote.asOf,
     stale,
-    sufficientForAnalysis: score >= 58 && validation.valid,
+    sufficientForAnalysis: quoteQuality !== "unavailable" && score >= 58 && validation.valid,
     confidence: Math.max(10, Math.min(95, score - (contradictions.length ? 12 : 0))),
     issues: validation.issues,
     warnings,

@@ -99,8 +99,41 @@ const assets: Asset[] = [
   }
 ];
 
+function mockQuote(
+  quote: Omit<
+    Quote,
+    | "provider"
+    | "quality"
+    | "latencyMs"
+    | "marketStatus"
+    | "bid"
+    | "ask"
+    | "spread"
+    | "open"
+    | "previousClose"
+  >
+): Quote {
+  const bid = Number((quote.price * 0.9997).toFixed(2));
+  const ask = Number((quote.price * 1.0003).toFixed(2));
+
+  return {
+    ...quote,
+    bid,
+    ask,
+    spread: Number((ask - bid).toFixed(2)),
+    open: Number((quote.price - quote.change).toFixed(2)),
+    previousClose: Number((quote.price - quote.change).toFixed(2)),
+    fiftyTwoWeekHigh: Number((quote.price * 1.28).toFixed(2)),
+    fiftyTwoWeekLow: Number((quote.price * 0.62).toFixed(2)),
+    provider: "StockPilot Mock Market Feed",
+    quality: "mock",
+    latencyMs: 0,
+    marketStatus: "unknown"
+  };
+}
+
 const quoteMap: Record<string, Quote> = {
-  NVDA: {
+  NVDA: mockQuote({
     price: 148.42,
     change: 4.18,
     changePercent: 2.9,
@@ -109,8 +142,8 @@ const quoteMap: Record<string, Quote> = {
     volume: 58200000,
     delayedByMinutes: 15,
     asOf
-  },
-  AAPL: {
+  }),
+  AAPL: mockQuote({
     price: 221.14,
     change: -1.92,
     changePercent: -0.86,
@@ -119,8 +152,8 @@ const quoteMap: Record<string, Quote> = {
     volume: 38600000,
     delayedByMinutes: 15,
     asOf
-  },
-  MSFT: {
+  }),
+  MSFT: mockQuote({
     price: 502.61,
     change: 3.86,
     changePercent: 0.77,
@@ -129,8 +162,8 @@ const quoteMap: Record<string, Quote> = {
     volume: 21400000,
     delayedByMinutes: 15,
     asOf
-  },
-  VOO: {
+  }),
+  VOO: mockQuote({
     price: 562.88,
     change: 1.21,
     changePercent: 0.22,
@@ -139,8 +172,8 @@ const quoteMap: Record<string, Quote> = {
     volume: 5200000,
     delayedByMinutes: 15,
     asOf
-  },
-  "BTC-USD": {
+  }),
+  "BTC-USD": mockQuote({
     price: 68420,
     change: 1260,
     changePercent: 1.88,
@@ -149,8 +182,8 @@ const quoteMap: Record<string, Quote> = {
     volume: 29800000000,
     delayedByMinutes: 5,
     asOf
-  },
-  "ETH-USD": {
+  }),
+  "ETH-USD": mockQuote({
     price: 3728,
     change: -83,
     changePercent: -2.18,
@@ -159,7 +192,7 @@ const quoteMap: Record<string, Quote> = {
     volume: 14200000000,
     delayedByMinutes: 5,
     asOf
-  }
+  })
 };
 
 const scoreSeeds: Record<string, Omit<Scores, "total">> = {
@@ -454,7 +487,7 @@ function makeScores(symbol: string): Scores {
   };
 }
 
-function makeCandles(base: number, trend: number, volatility: number, points: number): Candle[] {
+function makeCandles(symbol: string, range: TimeRange, base: number, trend: number, volatility: number, points: number): Candle[] {
   return Array.from({ length: points }, (_, index) => {
     const drift = (index - points / 2) * trend;
     const wave = Math.sin(index * 0.63) * volatility;
@@ -465,6 +498,9 @@ function makeCandles(base: number, trend: number, volatility: number, points: nu
     const low = Math.min(open, close) - volatility * (0.7 + (index % 4) * 0.07);
 
     return {
+      symbol,
+      range,
+      timestamp: new Date(Date.UTC(2026, 5, 1 + index, 13, 30)).toISOString(),
       time: index % 8 === 0 ? `${index}` : "",
       open: Number(open.toFixed(2)),
       high: Number(high.toFixed(2)),
@@ -481,12 +517,14 @@ function candleRanges(symbol: string, price: number): Record<TimeRange, Candle[]
   const vol = symbol.includes("USD") ? price * 0.018 : price * 0.012;
 
   return {
-    "1D": makeCandles(price * 0.99, baseTrend * 0.3, vol * 0.35, 34),
-    "1W": makeCandles(price * 0.97, baseTrend * 0.7, vol * 0.55, 42),
-    "1M": makeCandles(price * 0.94, baseTrend, vol * 0.8, 58),
-    "6M": makeCandles(price * 0.86, baseTrend * 1.8, vol * 1.3, 72),
-    "1J": makeCandles(price * 0.78, baseTrend * 2.4, vol * 1.6, 86),
-    "5J": makeCandles(price * 0.45, baseTrend * 4.2, vol * 2.2, 112)
+    "1D": makeCandles(symbol, "1D", price * 0.99, baseTrend * 0.3, vol * 0.35, 34),
+    "5D": makeCandles(symbol, "5D", price * 0.97, baseTrend * 0.7, vol * 0.55, 42),
+    "1M": makeCandles(symbol, "1M", price * 0.94, baseTrend, vol * 0.8, 58),
+    "6M": makeCandles(symbol, "6M", price * 0.86, baseTrend * 1.8, vol * 1.3, 72),
+    YTD: makeCandles(symbol, "YTD", price * 0.82, baseTrend * 2.1, vol * 1.45, 78),
+    "1Y": makeCandles(symbol, "1Y", price * 0.78, baseTrend * 2.4, vol * 1.6, 86),
+    "5Y": makeCandles(symbol, "5Y", price * 0.45, baseTrend * 4.2, vol * 2.2, 112),
+    MAX: makeCandles(symbol, "MAX", price * 0.32, baseTrend * 5.1, vol * 2.65, 128)
   };
 }
 
@@ -716,6 +754,8 @@ export function getMockDashboard(): DashboardData {
     watchlist: detailed.slice(0, 5),
     gainers: [detailed[0], detailed[4], detailed[2]],
     losers: [detailed[5], detailed[1]],
+    mostActive: [...detailed].sort((a, b) => b.quote.volume - a.quote.volume).slice(0, 5),
+    trendingAssets: [...detailed].sort((a, b) => b.professionalScores.momentum - a.professionalScores.momentum).slice(0, 5),
     marketOverview: [
       { label: "S&P 500", value: "6.118", changePercent: 0.43, status: "open" },
       { label: "Nasdaq 100", value: "22.340", changePercent: 0.82, status: "open" },

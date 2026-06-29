@@ -10,12 +10,12 @@ import {
   Gem,
   Home,
   Search,
+  Settings2,
   ShieldAlert,
   WifiOff
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { legalDisclaimer } from "@/lib/scoring";
-import { InvestorModeDock } from "@/components/investor-mode-dock";
 import { PwaRegister } from "@/components/PwaRegister";
 
 const navItems = [
@@ -24,7 +24,8 @@ const navItems = [
   { href: "/learn", label: "Lernen", icon: BookOpen },
   { href: "/portfolio", label: "Portfolio", icon: Briefcase },
   { href: "/alerts", label: "Alerts", icon: Bell },
-  { href: "/pricing", label: "Pläne", icon: Gem }
+  { href: "/pricing", label: "Pläne", icon: Gem },
+  { href: "/settings", label: "Einstellungen", icon: Settings2 }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -113,7 +114,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="border-t border-stroke/70 bg-amber/10 px-4 py-2 text-center text-[11px] leading-snug text-amber">
           {legalDisclaimer}
         </div>
-        <InvestorModeDock />
       </header>
 
       <main className="mx-auto min-h-[calc(100vh-140px)] max-w-6xl px-4 pb-28 pt-5 sm:pb-10">

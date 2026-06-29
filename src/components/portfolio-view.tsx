@@ -174,6 +174,8 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
               <option value="stock">Aktie</option>
               <option value="etf">ETF</option>
               <option value="crypto">Krypto</option>
+              <option value="forex">Forex</option>
+              <option value="index">Index</option>
             </select>
             <label className="mt-4 block text-sm text-muted" htmlFor="sector">
               Branche / Thema

@@ -29,7 +29,7 @@ export const portfolioTradeInputSchema = z.object({
   symbol: symbolSchema,
   name: z.string().trim().min(1).max(120).optional(),
   side: z.enum(["buy", "sell"]),
-  assetType: z.enum(["stock", "etf", "crypto"]),
+  assetType: z.enum(["stock", "etf", "crypto", "forex", "index"]),
   sector: z.string().trim().min(1).max(80),
   quantity: z.number().positive().max(1_000_000),
   price: z.number().positive().max(10_000_000),

@@ -18,8 +18,10 @@ export async function GET(request: Request, { params }: RouteContext) {
     return jsonError("Ungueltiges Symbol.", 400);
   }
 
-  const result = await withCacheFallback(`asset:${parsed.data}`, () =>
-    getMarketDataProvider().getAsset(parsed.data)
+  const result = await withCacheFallback(
+    `asset:${parsed.data}`,
+    () => getMarketDataProvider().getAsset(parsed.data),
+    { ttlMs: 5000 }
   );
   const detail = result.value;
 

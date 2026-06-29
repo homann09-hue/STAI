@@ -49,16 +49,25 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
 STOCKPILOT_MARKET_PROVIDER=mock
+STOCKPILOT_QUOTE_PROVIDER=mock
 STOCKPILOT_NEWS_PROVIDER=mock
 STOCKPILOT_FUNDAMENTALS_PROVIDER=mock
 STOCKPILOT_AI_PROVIDER=mock
+FINNHUB_DATA_QUALITY=near_realtime
+FINNHUB_STREAM_ENABLED=false
+TWELVE_DATA_QUALITY=near_realtime
+EODHD_DATA_QUALITY=delayed
+MASSIVE_DATA_QUALITY=delayed
 
 FINNHUB_API_KEY=
 ALPHA_VANTAGE_API_KEY=
 POLYGON_API_KEY=
+MASSIVE_API_KEY=
 TWELVE_DATA_API_KEY=
 YAHOO_FINANCE_API_KEY=
 NEWS_API_KEY=
+EODHD_API_KEY=
+DATABENTO_API_KEY=
 OPENAI_API_KEY=
 ```
 
@@ -70,8 +79,11 @@ OPENAI_API_KEY=
 - `src/app/portfolio/page.tsx`: Portfolio mit lokalen Kauf-Eingaben, Durchschnittskurs, P/L, Gewichtung und Risiko.
 - `src/app/alerts/page.tsx`: Kurs-, RSI-, News-, Volumen-, Earnings- und KI-Risikoalarme.
 - `src/app/pricing/page.tsx`: vorbereitete Feature-Gates für Free, Starter, Pro und Elite/Business.
+- `src/app/settings/page.tsx`: Einstellungen mit Zielgruppen-Modus für Anfänger, Fortgeschrittene und Profis.
 - `src/app/api/*`: API-Fassade für spätere echte Anbieter.
 - `src/lib/providers/*`: austauschbare Provider-Interfaces.
+- `src/app/api/market/quotes/route.ts`: normalisierte Batch-Quotes für sichtbare Symbole mit TTL-Cache.
+- `src/app/api/market/stream/route.ts`: serverseitiger Marktdaten-Stream ohne API-Keys im Frontend, inklusive Heartbeat und Polling-Fallback.
 - `src/lib/mock/market.ts`: Mock-Daten für MVP und Offline-Demo.
 - `src/lib/data-quality.ts`: Datenvalidierung, Quellenranking, Aktualität, Mock-Kennzeichnung und Warnungen.
 - `src/lib/risk-engine.ts`: Warnsystem für Volatilität, Liquidität, News, Earnings, technische Risiken, Makro-/Sektorrisiken und Datenqualität.
@@ -81,11 +93,27 @@ OPENAI_API_KEY=
 - `src/lib/supabase/*`: Supabase-Clients für Browser und serverseitige Service-Aufgaben.
 - `supabase/schema.sql`: Tabellen und RLS-Policies für Nutzerprofile, Watchlists, Alerts, Portfolio und Analyse-Snapshots.
 
-## API-Anbieter später anbinden
+## API-Anbieter und echte Marktdaten
 
-Die Provider sind bewusst schmal gehalten. Für echte Daten kann je Provider eine Klasse ergänzt werden:
+Die Provider-Schicht trennt Realtime, Near-Realtime, Delayed, Historical, Fundamentals, News und KI. Mock-Daten werden immer sichtbar als Mock markiert und dürfen nicht als echte Marktdaten interpretiert werden.
 
-- Kurse und Candles: Finnhub, Alpha Vantage, Polygon.io, Twelve Data, Yahoo Finance
+Aktuell vorbereitet:
+
+- `mock`: Demo- und Offline-Daten, immer sichtbar als Mock markiert.
+- `finnhub`: REST-Quote-Adapter plus optionaler providerseitiger WebSocket-Stream mit `FINNHUB_STREAM_ENABLED=true`.
+- `twelve_data`: REST-Quote-Adapter für Aktien, ETFs, Krypto und Forex-Symbole.
+- `eodhd`: Real-Time/Delayed-Quote-Adapter, Qualität abhängig vom gebuchten Plan.
+- `massive`/`polygon`: Snapshot-Adapter für US-Aktien/ETFs, optional mit `MASSIVE_SNAPSHOT_URL`.
+- `alpha_vantage`: nur Fallback, nicht als professioneller Hauptfeed.
+- `databento`: reserviert für professionelle Tick-/Historical-Integration.
+
+Yahoo oder inoffizielle Quellen sind bewusst nicht als professionelle Hauptquelle vorgesehen.
+
+Jeder Kurs führt `provider`, `quality`, `marketStatus`, `timestamp`, `latencyMs`, `bid`, `ask`, `spread`, `high`, `low`, `open`, `previousClose` und `volume`, soweit der Anbieter diese Felder liefert.
+
+Für echte Daten kann je Provider eine Klasse ergänzt werden:
+
+- Kurse, Candles und Stream: Finnhub, Twelve Data, EODHD, Polygon/Massive, Databento
 - News: NewsAPI, Finnhub News, Polygon News
 - Fundamentals: Finnhub, Alpha Vantage, Polygon.io
 - KI-Analyse: OpenAI oder ein eigener interner Analyse-Service

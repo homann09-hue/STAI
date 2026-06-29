@@ -7,6 +7,8 @@ type PageProps = {
   params: Promise<{ symbol: string }>;
 };
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { symbol } = await params;
   const detail = await getMarketDataProvider().getAsset(symbol);

@@ -10,6 +10,24 @@ function getBounds(candles: Candle[]) {
   return { min: min - padding, max: max + padding };
 }
 
+function movingAverage(candles: Candle[], windowSize: number) {
+  return candles.map((_, index) => {
+    const start = Math.max(0, index - windowSize + 1);
+    const slice = candles.slice(start, index + 1);
+    return slice.reduce((sum, candle) => sum + candle.close, 0) / Math.max(1, slice.length);
+  });
+}
+
+function pointsFor(values: number[], min: number, max: number, width: number, height: number) {
+  return values
+    .map((value, index) => {
+      const x = (index / Math.max(1, values.length - 1)) * width;
+      const y = height - ((value - min) / (max - min)) * height;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
 export function Sparkline({ candles, positive }: { candles: Candle[]; positive: boolean }) {
   const { min, max } = getBounds(candles);
   const width = 180;
@@ -39,17 +57,23 @@ export function PriceLineChart({ candles }: { candles: Candle[] }) {
   const { min, max } = getBounds(candles);
   const width = 720;
   const height = 260;
+  const volumeHeight = 54;
+  const chartHeight = height - volumeHeight;
   const points = candles
     .map((candle, index) => {
       const x = (index / Math.max(1, candles.length - 1)) * width;
-      const y = height - ((candle.close - min) / (max - min)) * height;
+      const y = chartHeight - ((candle.close - min) / (max - min)) * chartHeight;
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
-  const area = `0,${height} ${points} ${width},${height}`;
+  const area = `0,${chartHeight} ${points} ${width},${chartHeight}`;
   const last = candles[candles.length - 1];
   const first = candles[0];
   const positive = last.close >= first.close;
+  const maxVolume = Math.max(...candles.map((candle) => candle.volume ?? 0), 1);
+  const ma20 = pointsFor(movingAverage(candles, 20), min, max, width, chartHeight);
+  const ma50 = pointsFor(movingAverage(candles, 50), min, max, width, chartHeight);
+  const ma200 = pointsFor(movingAverage(candles, 200), min, max, width, chartHeight);
 
   return (
     <div className="overflow-hidden rounded-md border border-stroke bg-panel shadow-panel">
@@ -65,13 +89,31 @@ export function PriceLineChart({ candles }: { candles: Candle[] }) {
             key={line}
             x1="0"
             x2={width}
-            y1={height * line}
-            y2={height * line}
+            y1={chartHeight * line}
+            y2={chartHeight * line}
             stroke="#22332d"
             strokeDasharray="8 8"
           />
         ))}
+        {candles.map((candle, index) => {
+          const slot = width / candles.length;
+          const barHeight = ((candle.volume ?? 0) / maxVolume) * (volumeHeight - 10);
+          return (
+            <rect
+              key={`${candle.timestamp}-volume-${index}`}
+              x={index * slot}
+              y={height - barHeight}
+              width={Math.max(1, slot * 0.62)}
+              height={barHeight}
+              fill={candle.close >= candle.open ? "#35d07f" : "#ff5c5c"}
+              opacity="0.2"
+            />
+          );
+        })}
         <polygon points={area} fill="url(#priceArea)" />
+        <polyline points={ma20} fill="none" stroke="#78e7ff" strokeLinecap="round" strokeWidth="1.8" opacity="0.78" />
+        <polyline points={ma50} fill="none" stroke="#f5c542" strokeLinecap="round" strokeWidth="1.5" opacity="0.72" />
+        <polyline points={ma200} fill="none" stroke="#c58cff" strokeLinecap="round" strokeWidth="1.3" opacity="0.58" />
         <polyline
           points={points}
           fill="none"
@@ -79,6 +121,9 @@ export function PriceLineChart({ candles }: { candles: Candle[] }) {
           strokeLinecap="round"
           strokeWidth="4"
         />
+        <text x="12" y={height - 12} fill="#88918d" fontSize="12">
+          Volumen / SMA 20 50 200
+        </text>
       </svg>
     </div>
   );
@@ -95,7 +140,7 @@ export function CandlestickChart({ candles }: { candles: Candle[] }) {
     <div className="rounded-md border border-stroke bg-panel p-3">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm font-semibold">Candlestick + Volumen</p>
-        <p className="text-xs text-muted">Mock OHLC</p>
+        <p className="text-xs text-muted">OHLC, Provider-Qualitaet siehe Kursbadge</p>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="aspect-[16/7] w-full">
         {[0.25, 0.5, 0.75].map((line) => (

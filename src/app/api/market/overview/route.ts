@@ -6,7 +6,9 @@ export async function GET(request: Request) {
   const limited = rateLimit(request);
   if (limited) return limited;
 
-  const result = await withCacheFallback("dashboard", () => getMarketDataProvider().getDashboard());
+  const result = await withCacheFallback("dashboard", () => getMarketDataProvider().getDashboard(), {
+    ttlMs: 10000
+  });
 
   return jsonOk(result.value, {
     headers: {

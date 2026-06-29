@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { Activity, ChevronRight, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Sparkline, ScoreMeter } from "@/components/charts";
 import { CapitalCommandCenter } from "@/components/capital-command-center";
 import { DashboardCommandGrid } from "@/components/dashboard-command-grid";
+import { MarketTerminalDashboard } from "@/components/market-terminal-dashboard";
+import { MarketDataStatus } from "@/components/market-data-status";
 import { NewsList } from "@/components/news-list";
 import { OFFLINE_KEYS, saveOfflineValue } from "@/lib/offline";
 import {
@@ -17,10 +19,37 @@ import {
   scoreLabel,
   scoreTone
 } from "@/lib/scoring";
-import type { AssetSummary, DashboardData } from "@/lib/types";
+import { useMarketStream } from "@/lib/use-market-stream";
+import type { AssetSummary, DashboardData, NormalizedQuote, Quote } from "@/lib/types";
 
-function AssetRow({ item }: { item: AssetSummary }) {
-  const positive = item.quote.changePercent >= 0;
+function mergeLiveQuote(base: Quote, liveQuote?: NormalizedQuote): Quote {
+  if (!liveQuote) return base;
+
+  return {
+    ...base,
+    price: liveQuote.price,
+    change: liveQuote.change,
+    changePercent: liveQuote.changePercent,
+    dayHigh: liveQuote.high ?? base.dayHigh,
+    dayLow: liveQuote.low ?? base.dayLow,
+    volume: liveQuote.volume ?? base.volume,
+    delayedByMinutes: liveQuote.quality === "delayed" ? Math.max(base.delayedByMinutes, 15) : 0,
+    asOf: liveQuote.timestamp,
+    bid: liveQuote.bid,
+    ask: liveQuote.ask,
+    spread: liveQuote.spread,
+    open: liveQuote.open ?? base.open,
+    previousClose: liveQuote.previousClose ?? base.previousClose,
+    provider: liveQuote.provider,
+    quality: liveQuote.quality,
+    latencyMs: liveQuote.latencyMs,
+    marketStatus: liveQuote.marketStatus
+  };
+}
+
+function AssetRow({ item, liveQuote }: { item: AssetSummary; liveQuote?: NormalizedQuote }) {
+  const quote = mergeLiveQuote(item.quote, liveQuote);
+  const positive = quote.changePercent >= 0;
 
   return (
     <Link
@@ -42,16 +71,16 @@ function AssetRow({ item }: { item: AssetSummary }) {
       <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-3">
         <Sparkline
           candles={[
-            { time: "", open: item.quote.price - 2, high: item.quote.price, low: item.quote.price - 4, close: item.quote.price - item.quote.change, volume: 1 },
-            { time: "", open: item.quote.price - 1, high: item.quote.price + 1, low: item.quote.price - 3, close: item.quote.price - item.quote.change / 2, volume: 1 },
-            { time: "", open: item.quote.price, high: item.quote.price + 2, low: item.quote.price - 2, close: item.quote.price, volume: 1 }
+            { symbol: item.asset.symbol, range: "1D", timestamp: quote.asOf, time: "", open: quote.price - 2, high: quote.price, low: quote.price - 4, close: quote.price - quote.change, volume: 1 },
+            { symbol: item.asset.symbol, range: "1D", timestamp: quote.asOf, time: "", open: quote.price - 1, high: quote.price + 1, low: quote.price - 3, close: quote.price - quote.change / 2, volume: 1 },
+            { symbol: item.asset.symbol, range: "1D", timestamp: quote.asOf, time: "", open: quote.price, high: quote.price + 2, low: quote.price - 2, close: quote.price, volume: 1 }
           ]}
           positive={positive}
         />
         <div className="text-right">
-          <p className="font-mono text-xl font-semibold">{formatCurrency(item.quote.price, item.asset.currency)}</p>
+          <p className="font-mono text-xl font-semibold">{formatCurrency(quote.price, item.asset.currency)}</p>
           <p className={`mt-1 text-sm ${positive ? "text-profit" : "text-loss"}`}>
-            {formatPercent(item.quote.changePercent)}
+            {formatPercent(quote.changePercent)}
           </p>
         </div>
       </div>
@@ -63,11 +92,27 @@ function AssetRow({ item }: { item: AssetSummary }) {
           Risiko {item.aiRisk}
         </span>
       </div>
+      <div className="mt-3">
+        <MarketDataStatus quote={quote} compact />
+      </div>
     </Link>
   );
 }
 
 export function DashboardView({ data }: { data: DashboardData }) {
+  const visibleSymbols = useMemo(
+    () =>
+      [
+        ...data.watchlist.map((item) => item.asset.symbol),
+        ...data.gainers.map((item) => item.asset.symbol),
+        ...data.losers.map((item) => item.asset.symbol),
+        ...data.mostActive.map((item) => item.asset.symbol),
+        ...data.trendingAssets.map((item) => item.asset.symbol)
+      ],
+    [data.gainers, data.losers, data.mostActive, data.trendingAssets, data.watchlist]
+  );
+  const stream = useMarketStream(visibleSymbols);
+
   useEffect(() => {
     saveOfflineValue(OFFLINE_KEYS.watchlist, data.watchlist);
   }, [data.watchlist]);
@@ -138,6 +183,8 @@ export function DashboardView({ data }: { data: DashboardData }) {
         </div>
       </section>
 
+      <MarketTerminalDashboard data={data} liveQuotes={stream.quotes} />
+
       <CapitalCommandCenter data={data} />
 
       <DashboardCommandGrid data={data} />
@@ -149,7 +196,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {data.watchlist.map((item) => (
-            <AssetRow key={item.asset.symbol} item={item} />
+            <AssetRow key={item.asset.symbol} item={item} liveQuote={stream.quotes[item.asset.symbol]} />
           ))}
         </div>
       </section>
@@ -162,7 +209,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
           </div>
           <div className="space-y-3">
             {data.gainers.map((item) => (
-              <AssetRow key={item.asset.symbol} item={item} />
+              <AssetRow key={item.asset.symbol} item={item} liveQuote={stream.quotes[item.asset.symbol]} />
             ))}
           </div>
         </div>
@@ -174,7 +221,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
           </div>
           <div className="space-y-3">
             {data.losers.map((item) => (
-              <AssetRow key={item.asset.symbol} item={item} />
+              <AssetRow key={item.asset.symbol} item={item} liveQuote={stream.quotes[item.asset.symbol]} />
             ))}
           </div>
         </div>
