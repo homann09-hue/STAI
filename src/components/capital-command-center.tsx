@@ -14,7 +14,7 @@ import {
   WalletCards
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { formatCurrency, riskTone, scoreLabel, scoreTone } from "@/lib/scoring";
+import { riskTone, scoreLabel, scoreTone } from "@/lib/scoring";
 import type { AssetSummary, DashboardData, RiskLevel } from "@/lib/types";
 
 type CapitalProfile = {

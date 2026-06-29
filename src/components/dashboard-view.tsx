@@ -5,6 +5,7 @@ import { Activity, ChevronRight, ShieldAlert, TrendingDown, TrendingUp } from "l
 import { useEffect } from "react";
 import { Sparkline, ScoreMeter } from "@/components/charts";
 import { CapitalCommandCenter } from "@/components/capital-command-center";
+import { DashboardCommandGrid } from "@/components/dashboard-command-grid";
 import { NewsList } from "@/components/news-list";
 import { OFFLINE_KEYS, saveOfflineValue } from "@/lib/offline";
 import {
@@ -138,6 +139,8 @@ export function DashboardView({ data }: { data: DashboardData }) {
       </section>
 
       <CapitalCommandCenter data={data} />
+
+      <DashboardCommandGrid data={data} />
 
       <section>
         <div className="mb-3 flex items-center justify-between">

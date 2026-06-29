@@ -18,6 +18,7 @@ import {
   TrendingUp
 } from "lucide-react";
 import { CandlestickChart, PriceLineChart, ScoreMeter } from "@/components/charts";
+import { AssetDecisionPanel } from "@/components/asset-decision-panel";
 import { NewsList } from "@/components/news-list";
 import { OFFLINE_KEYS, saveOfflineValue } from "@/lib/offline";
 import {
@@ -118,6 +119,8 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
           </div>
         </div>
       </section>
+
+      <AssetDecisionPanel detail={detail} />
 
       <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
         <DataQualityPanel quality={detail.dataQuality} />
@@ -223,7 +226,7 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
               <div className="rounded-md bg-panel2 p-3">
                 <div className="mb-2 flex items-center gap-2 text-profit">
                   <TrendingUp className="h-4 w-4" />
-                  <p className="text-sm font-semibold">Warum konnte der Kurs steigen?</p>
+                  <p className="text-sm font-semibold">Warum könnte der Kurs steigen?</p>
                 </div>
                 <ul className="space-y-2 text-sm text-muted">
                   {detail.aiAnalysis.upsideDrivers.map((driver) => (
@@ -234,7 +237,7 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
               <div className="rounded-md bg-panel2 p-3">
                 <div className="mb-2 flex items-center gap-2 text-loss">
                   <TrendingDown className="h-4 w-4" />
-                  <p className="text-sm font-semibold">Warum konnte der Kurs fallen?</p>
+                  <p className="text-sm font-semibold">Warum könnte der Kurs fallen?</p>
                 </div>
                 <ul className="space-y-2 text-sm text-muted">
                   {detail.aiAnalysis.downsideDrivers.map((driver) => (
@@ -253,7 +256,7 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
                 </ul>
               </div>
               <div className="rounded-md bg-panel2 p-3">
-                <p className="text-sm font-semibold text-amber">Datenluecken</p>
+                <p className="text-sm font-semibold text-amber">Datenlücken</p>
                 <ul className="mt-2 space-y-2 text-sm text-muted">
                   {detail.aiAnalysis.dataGaps.map((gap) => (
                     <li key={gap}>{gap}</li>

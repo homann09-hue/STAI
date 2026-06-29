@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const routes = ["/", "/assets/NVDA", "/assets/AAPL", "/assets/MSFT", "/assets/VOO", "/assets/BTC-USD", "/assets/ETH-USD", "/portfolio", "/alerts", "/offline"];
+const routes = ["/", "/assets/NVDA", "/assets/AAPL", "/assets/MSFT", "/assets/VOO", "/assets/BTC-USD", "/assets/ETH-USD", "/learn", "/portfolio", "/alerts", "/pricing", "/offline"];
 const apiRoutes = [
   "/api/market/overview",
   "/api/assets/NVDA",
@@ -113,5 +113,21 @@ test.describe("deep red-team browser checks", () => {
     await expect(page.getByText("Mock-Daten").first()).toBeVisible();
     await expect(page.getByText("Datenqualität").first()).toBeVisible();
     await expect(page.getByText("Diese Wahrscheinlichkeit ist keine Garantie und kann falsch sein.").first()).toBeVisible();
+  });
+
+  test("new fintech surfaces are usable on mobile and desktop", async ({ page }) => {
+    await page.goto("/");
+    await acceptRiskNotice(page);
+
+    await expect(page.getByText("Anfänger").first()).toBeVisible();
+    await page.getByRole("button", { name: "Profi Szenarien, Drawdown, Governance." }).click();
+    await expect(page.getByText("Aktiver Modus: Profi").first()).toBeVisible();
+
+    await page.goto("/learn");
+    await expect(page.getByText("Glossar")).toBeVisible();
+
+    await page.goto("/pricing");
+    await expect(page.getByRole("heading", { name: "Pro" })).toBeVisible();
+    await expect(page.getByText("mehrere Portfolios")).toBeVisible();
   });
 });

@@ -59,23 +59,41 @@ alter table public.alert_rules enable row level security;
 alter table public.portfolio_positions enable row level security;
 alter table public.analysis_snapshots enable row level security;
 
+drop policy if exists "Users read own profile" on public.profiles;
+drop policy if exists "Users insert own profile" on public.profiles;
+drop policy if exists "Users update own profile" on public.profiles;
+drop policy if exists "Users manage own watchlist" on public.watchlists;
+drop policy if exists "Users manage own alerts" on public.alert_rules;
+drop policy if exists "Users manage own portfolio" on public.portfolio_positions;
+drop policy if exists "Users manage own analyses" on public.analysis_snapshots;
+
 create policy "Users read own profile" on public.profiles
-  for select using (auth.uid() = id);
+  for select to authenticated using ((select auth.uid()) = id);
 
 create policy "Users insert own profile" on public.profiles
-  for insert with check (auth.uid() = id);
+  for insert to authenticated with check ((select auth.uid()) = id);
 
 create policy "Users update own profile" on public.profiles
-  for update using (auth.uid() = id) with check (auth.uid() = id);
+  for update to authenticated
+  using ((select auth.uid()) = id)
+  with check ((select auth.uid()) = id);
 
 create policy "Users manage own watchlist" on public.watchlists
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 create policy "Users manage own alerts" on public.alert_rules
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 create policy "Users manage own portfolio" on public.portfolio_positions
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 create policy "Users manage own analyses" on public.analysis_snapshots
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);

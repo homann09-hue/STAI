@@ -359,7 +359,7 @@ const analysisMap: Record<string, AiAnalysisBase> = {
     downsideDrivers: [
       "Hohe Capex-Anforderungen für KI",
       "Bewertung oberhalb historischer Durchschnitte",
-      "Cloud-Wachstum konnte normalisieren"
+      "Cloud-Wachstum könnte normalisieren"
     ],
     bullCase: "KI-Produkte werden breit monetarisiert und Azure gewinnt Marktanteile.",
     bearCase: "KI-Capex belastet Cashflow, während Wachstumserwartungen sinken.",

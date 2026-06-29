@@ -5,7 +5,9 @@ import { usePathname } from "next/navigation";
 import {
   Activity,
   Bell,
+  BookOpen,
   Briefcase,
+  Gem,
   Home,
   Search,
   ShieldAlert,
@@ -13,13 +15,16 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { legalDisclaimer } from "@/lib/scoring";
+import { InvestorModeDock } from "@/components/investor-mode-dock";
 import { PwaRegister } from "@/components/PwaRegister";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
   { href: "/assets/NVDA", label: "Analyse", icon: Activity },
+  { href: "/learn", label: "Lernen", icon: BookOpen },
   { href: "/portfolio", label: "Portfolio", icon: Briefcase },
-  { href: "/alerts", label: "Alerts", icon: Bell }
+  { href: "/alerts", label: "Alerts", icon: Bell },
+  { href: "/pricing", label: "Pläne", icon: Gem }
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -63,6 +68,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
 
           <div className="flex items-center gap-2">
+            <nav className="hidden items-center gap-1 rounded-2xl border border-stroke bg-panel/70 p-1 md:flex">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active =
+                  item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                      active
+                        ? "bg-profit/12 text-profit"
+                        : "text-muted hover:bg-panel2 hover:text-mist"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
             <button
               type="button"
               aria-label="Suche offnen"
@@ -86,6 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="border-t border-stroke/70 bg-amber/10 px-4 py-2 text-center text-[11px] leading-snug text-amber">
           {legalDisclaimer}
         </div>
+        <InvestorModeDock />
       </header>
 
       <main className="mx-auto min-h-[calc(100vh-140px)] max-w-6xl px-4 pb-28 pt-5 sm:pb-10">
@@ -111,7 +139,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ) : null}
 
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-stroke bg-coal/94 px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2 backdrop-blur-xl sm:hidden">
-        <div className="grid grid-cols-4 gap-1">
+        <div className="flex gap-1 overflow-x-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active =
@@ -121,7 +149,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex h-14 flex-col items-center justify-center gap-1 rounded-md text-[11px] transition ${
+                className={`flex h-14 min-w-[4.4rem] flex-col items-center justify-center gap-1 rounded-md text-[11px] transition ${
                   active
                     ? "bg-profit/12 text-profit"
                     : "text-muted hover:bg-panel2 hover:text-mist"

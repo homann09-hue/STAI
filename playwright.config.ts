@@ -1,18 +1,20 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const baseURL = "http://localhost:3011";
+
 export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 30_000,
   retries: 0,
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     trace: "on-first-retry"
   },
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: true,
-    timeout: 30_000
+    command: "npm run start -- -p 3011",
+    url: baseURL,
+    reuseExistingServer: false,
+    timeout: 90_000
   },
   projects: [
     {

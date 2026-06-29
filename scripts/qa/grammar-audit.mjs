@@ -5,10 +5,16 @@ const projectRoot = process.cwd();
 const files = [
   "src/components/AppShell.tsx",
   "src/components/dashboard-view.tsx",
+  "src/components/dashboard-command-grid.tsx",
+  "src/components/capital-command-center.tsx",
+  "src/components/asset-decision-panel.tsx",
+  "src/components/investor-mode-dock.tsx",
   "src/components/asset-detail-view.tsx",
   "src/components/portfolio-view.tsx",
   "src/components/alerts-view.tsx",
   "src/components/analysis-panels.tsx",
+  "src/components/learn-view.tsx",
+  "src/components/pricing-view.tsx",
   "src/components/news-list.tsx",
   "src/app/layout.tsx",
   "src/app/manifest.ts",
@@ -37,6 +43,7 @@ const suspiciousAsciiGerman = [
   "fuer",
   "koennen",
   "konnten",
+  "konnte",
   "durfen",
   "fur",
   "Pruefung",
@@ -62,6 +69,9 @@ const suspiciousAsciiGerman = [
   "Liquiditat",
   "Ungueltig",
   "Ubersicht",
+  "Luecke",
+  "luecke",
+  "luecken",
   "zurueck"
 ].filter((fragment) => combined.includes(fragment));
 

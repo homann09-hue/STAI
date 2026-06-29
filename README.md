@@ -66,8 +66,10 @@ OPENAI_API_KEY=
 
 - `src/app/page.tsx`: Dashboard mit Watchlist, Gewinnern, Verlierern, Marktüberblick, Trends, News und KI-Marktsentiment.
 - `src/app/assets/[symbol]/page.tsx`: Detailseite mit Kurs, Line-Chart, Candlesticks, Volumen, Indikatoren, Fundamentals, News, Analysten, Insider, Earnings und KI-Cases.
+- `src/app/learn/page.tsx`: Lernbereich für Anfänger mit Glossar, Risiko-Grundlagen und Beispiel-Portfolios.
 - `src/app/portfolio/page.tsx`: Portfolio mit lokalen Kauf-Eingaben, Durchschnittskurs, P/L, Gewichtung und Risiko.
 - `src/app/alerts/page.tsx`: Kurs-, RSI-, News-, Volumen-, Earnings- und KI-Risikoalarme.
+- `src/app/pricing/page.tsx`: vorbereitete Feature-Gates für Free, Starter, Pro und Elite/Business.
 - `src/app/api/*`: API-Fassade für spätere echte Anbieter.
 - `src/lib/providers/*`: austauschbare Provider-Interfaces.
 - `src/lib/mock/market.ts`: Mock-Daten für MVP und Offline-Demo.
@@ -118,6 +120,7 @@ Zusätzlich speichern Dashboard, Watchlist, letzte KI-Analysen, Alerts und Portf
 
 Jede Detailanalyse zeigt:
 
+- Handlungseinordnung: Beobachten, Vorsicht, Interessant oder Hohes Risiko.
 - Datenqualität inklusive Quellenranking, Zeitstempel, Mock-Kennzeichnung und Warnungen.
 - Multi-Layer-Analyse für Markttrend, Sektortrend, Sentiment, Volatilität und Makro-Faktoren.
 - Risiko-Engine mit konkretem Beleg und Prüfhinweis je Warnung.
