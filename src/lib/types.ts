@@ -98,6 +98,38 @@ export interface MarketDataFreshness {
   quality: MarketDataQuality;
 }
 
+export type MarketUniverseAssetClass =
+  | AssetType
+  | "commodity"
+  | "bond"
+  | "future"
+  | "option"
+  | "warrant"
+  | "fund";
+
+export interface MarketUniverseInstrument {
+  symbol: string;
+  name: string;
+  assetClass: MarketUniverseAssetClass;
+  exchange: string;
+  country: string;
+  currency: string;
+  provider: string;
+  quality: MarketDataQuality;
+  coverage: "available" | "prepared" | "license_required" | "provider_missing";
+  lastUpdatedAt: string;
+  note: string;
+}
+
+export interface MarketUniverseCoverage {
+  label: string;
+  assetClasses: MarketUniverseAssetClass[];
+  exchanges: string[];
+  providerCandidates: string[];
+  status: "connected" | "prepared" | "license_required";
+  note: string;
+}
+
 export interface Candle {
   symbol: string;
   range: ChartRange;

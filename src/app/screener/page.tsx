@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { MarketUniverseExplorer } from "@/components/market-universe-explorer";
 import { TerminalSectionView } from "@/components/terminal-section-view";
+import { getMarketUniverse, marketUniverseCoverage } from "@/lib/market-universe";
 
 export const metadata: Metadata = {
   title: "Screener | StockPilot AI",
@@ -7,18 +9,23 @@ export const metadata: Metadata = {
 };
 
 export default function ScreenerPage() {
+  const instruments = getMarketUniverse({ limit: 200 });
+
   return (
-    <TerminalSectionView
-      eyebrow="Screener"
-      title="Ein Screener fuer Aktien, ETFs, Krypto und Indizes"
-      description="Die spezialisierten Screener sind bereits unter Aktien, ETFs und Krypto erreichbar. Diese Workbench buendelt Filter, gespeicherte Sichten und Live/Near-Realtime-Qualitaet."
-      ctaHref="/stocks"
-      ctaLabel="Aktien-Screener oeffnen"
-      cards={[
-        { title: "Filter", text: "Assetklasse, Land, Branche, Marktkapitalisierung, Volumen, Performance, Dividende, KGV, Volatilitaet, Risiko und Datenanbieter.", badge: "Live-ready" },
-        { title: "Sortierung", text: "Tabellen sind fuer sortierbare Spalten und mobile Nutzung vorbereitet." },
-        { title: "Gespeicherte Filter", text: "Persistenz ueber Supabase/Userdaten ist vorbereitet, wird aber ohne Backend nicht hart erzwungen.", badge: "Supabase" }
-      ]}
-    />
+    <div className="space-y-5">
+      <TerminalSectionView
+        eyebrow="Screener"
+        title="Ein Screener fuer Aktien, ETFs, Krypto, Indizes und weitere Boerseninstrumente"
+        description="STAI wird als globales Marktuniversum aufgebaut: Suche, Filter, Providerstatus und Datenqualitaet sind getrennt von echter Realtime-Lizenzierung."
+        ctaHref="/stocks"
+        ctaLabel="Aktien-Screener oeffnen"
+        cards={[
+          { title: "Filter", text: "Assetklasse, Land, Branche, Marktkapitalisierung, Volumen, Performance, Dividende, KGV, Volatilitaet, Risiko und Datenanbieter.", badge: "Live-ready" },
+          { title: "Volluniversum", text: "Nicht alle Instrumente liegen lokal im Client. Spaeter werden Provider-Suchendpunkte serverseitig angebunden." },
+          { title: "Keine Fake-Abdeckung", text: "Lizenzpflichtige Boersen, Indizes, Optionen und Futures werden klar als vorbereitet oder lizenzpflichtig markiert.", badge: "Trust" }
+        ]}
+      />
+      <MarketUniverseExplorer instruments={instruments} coverage={marketUniverseCoverage} />
+    </div>
   );
 }
