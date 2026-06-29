@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Activity, Bell, ChevronRight, Search, Settings2, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react";
+import { Activity, Bell, ChevronRight, Settings2, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Sparkline, ScoreMeter } from "@/components/charts";
 import { CapitalCommandCenter } from "@/components/capital-command-center";
@@ -113,6 +113,55 @@ function AssetRow({ item, liveQuote }: { item: AssetSummary; liveQuote?: Normali
 
 function uniqueTickerItems(data: DashboardData) {
   const bySymbol = new Map<string, AssetSummary>();
+  const now = new Date().toISOString();
+  const seedMarketTiles: AssetSummary[] = [
+    ["DAX", "DAX Index", "index", "XETRA", "EUR", 24626.89, -44.35, -0.18],
+    ["SDAX", "SDAX Index", "index", "XETRA", "EUR", 7444.24, 72.44, 0.98],
+    ["PRIME", "Prime All Share", "index", "XETRA", "EUR", 9531.99, -16.27, -0.17],
+    ["CLASSIC", "Classic All Share", "index", "XETRA", "EUR", 12350.41, -8.65, -0.07],
+    ["SPX", "S&P 500", "index", "NYSE", "USD", 5462.48, 16.93, 0.31],
+    ["NDX", "NASDAQ 100", "index", "NASDAQ", "USD", 19133.21, 101.41, 0.53],
+    ["BTC-USD", "Bitcoin", "crypto", "Crypto", "USD", 67254.21, -621.18, -0.92]
+  ].map(([symbol, name, type, exchange, currency, price, change, changePercent]) => ({
+    asset: {
+      symbol: String(symbol),
+      name: String(name),
+      type: type as AssetSummary["asset"]["type"],
+      exchange: String(exchange),
+      currency: String(currency),
+      sector: type === "crypto" ? "Digital Asset" : "Benchmark",
+      description: "Terminal-Kachel fuer Marktueberblick. Mock klar markiert, bis ein lizenzierter Indexfeed angebunden ist."
+    },
+    quote: {
+      price: Number(price),
+      change: Number(change),
+      changePercent: Number(changePercent),
+      dayHigh: Number(price) * 1.006,
+      dayLow: Number(price) * 0.994,
+      volume: type === "crypto" ? 29800000000 : 0,
+      delayedByMinutes: 15,
+      asOf: now,
+      open: Number(price) - Number(change),
+      previousClose: Number(price) - Number(change),
+      fiftyTwoWeekHigh: Number(price) * 1.18,
+      fiftyTwoWeekLow: Number(price) * 0.82,
+      provider: "StockPilot Mock Index Feed",
+      quality: "mock" as const,
+      latencyMs: 0,
+      marketStatus: "unknown" as const
+    },
+    scores: {
+      trend: Number(changePercent) >= 0 ? 64 : 42,
+      news: 50,
+      fundamental: 50,
+      technical: Number(changePercent) >= 0 ? 62 : 44,
+      risk: 58,
+      total: Number(changePercent) >= 0 ? 62 : 45
+    },
+    aiRisk: "mittel" as const
+  }));
+
+  seedMarketTiles.forEach((item) => bySymbol.set(item.asset.symbol, item));
   [...data.watchlist, ...data.mostActive, ...data.trendingAssets, ...data.gainers, ...data.losers].forEach((item) => {
     bySymbol.set(item.asset.symbol, item);
   });
@@ -120,19 +169,20 @@ function uniqueTickerItems(data: DashboardData) {
 }
 
 export function DashboardView({ data, heroAsset }: { data: DashboardData; heroAsset?: AssetDetail | null }) {
+  const tickerItems = useMemo(() => uniqueTickerItems(data), [data]);
   const visibleSymbols = useMemo(
     () =>
       [
+        ...tickerItems.map((item) => item.asset.symbol),
         ...data.watchlist.map((item) => item.asset.symbol),
         ...data.gainers.map((item) => item.asset.symbol),
         ...data.losers.map((item) => item.asset.symbol),
         ...data.mostActive.map((item) => item.asset.symbol),
         ...data.trendingAssets.map((item) => item.asset.symbol)
       ],
-    [data.gainers, data.losers, data.mostActive, data.trendingAssets, data.watchlist]
+    [data.gainers, data.losers, data.mostActive, data.trendingAssets, data.watchlist, tickerItems]
   );
   const stream = useMarketStream(visibleSymbols);
-  const tickerItems = useMemo(() => uniqueTickerItems(data), [data]);
   const fallbackHero = data.watchlist[0] ?? data.gainers[0] ?? data.mostActive[0];
   const hero = heroAsset ?? fallbackHero;
 
@@ -142,16 +192,12 @@ export function DashboardView({ data, heroAsset }: { data: DashboardData; heroAs
 
   return (
     <div className="space-y-7">
-      <section className="space-y-4 rounded-[2rem] border border-stroke bg-[radial-gradient(circle_at_top_left,rgba(120,231,255,0.16),transparent_30%),linear-gradient(145deg,rgba(8,12,20,0.98),rgba(3,6,10,0.98))] p-4 shadow-panel sm:p-5">
-        <div className="grid gap-3 xl:grid-cols-[1fr_auto_auto] xl:items-center">
-          <label className="relative block">
-            <span className="sr-only">Aktien, ETFs, Krypto oder Indizes suchen</span>
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <input
-              placeholder="Suche nach Aktien, ETFs, Krypto, Indizes..."
-              className="h-12 w-full rounded-2xl border border-stroke bg-coal pl-11 pr-4 text-sm text-mist outline-none transition placeholder:text-muted focus:border-cyan/60"
-            />
-          </label>
+      <section className="space-y-3 rounded-2xl border border-[#1b2a3f] bg-[radial-gradient(circle_at_top_left,rgba(88,166,255,0.16),transparent_30%),linear-gradient(145deg,rgba(8,14,24,0.98),rgba(3,7,13,0.98))] p-3 shadow-[0_24px_70px_rgba(0,0,0,0.35)] sm:p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-cyan">STAI Terminal</p>
+            <h1 className="mt-1 text-xl font-semibold text-mist sm:text-2xl">Live-Marktuebersicht</h1>
+          </div>
           <ConnectionBadge status={stream.connectionStatus} mode={stream.refreshMode} intervalMs={stream.intervalMs} />
           <div className="flex gap-2 overflow-x-auto">
             <Link href="/watchlist" className="inline-flex h-12 items-center gap-2 rounded-2xl border border-stroke bg-panel px-4 text-sm font-semibold text-mist transition hover:border-profit/40">
@@ -168,7 +214,7 @@ export function DashboardView({ data, heroAsset }: { data: DashboardData; heroAs
         <LiveMarketTickerBar items={tickerItems} liveQuotes={stream.quotes} title="Globale Kursübersicht" />
 
         {hero ? (
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(22rem,0.8fr)]">
+          <div className="grid gap-3 2xl:grid-cols-[minmax(0,1.12fr)_minmax(42rem,0.88fr)]">
             <RealtimeAssetChart
               asset={hero.asset}
               quote={hero.quote}
@@ -179,28 +225,27 @@ export function DashboardView({ data, heroAsset }: { data: DashboardData; heroAs
               refreshMode={stream.refreshMode}
               intervalMs={stream.intervalMs}
             />
-            <div className="space-y-4">
+            <div className="grid gap-3 xl:grid-cols-2">
               <TopMoversCard title="Top Gewinner" items={data.gainers} liveQuotes={stream.quotes} direction="up" />
               <TopMoversCard title="Top Verlierer" items={data.losers} liveQuotes={stream.quotes} direction="down" />
             </div>
           </div>
         ) : null}
 
-        <div className="grid gap-4 xl:grid-cols-3">
+        <div className="grid gap-3 xl:grid-cols-3">
           <MostActiveCard items={data.mostActive} liveQuotes={stream.quotes} />
           <TrendingAssetsCard items={data.trendingAssets} liveQuotes={stream.quotes} />
           <AIInsightCard data={data} />
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="grid gap-3 xl:grid-cols-[1fr_0.95fr_1fr]">
           <WatchlistTable items={data.watchlist} liveQuotes={stream.quotes} />
-          <div className="space-y-4">
+          <div className="space-y-3">
             <MarketOverviewCard data={data} />
             <PortfolioSnapshotCard data={data} />
           </div>
+          <MarketNewsCard news={data.latestNews} />
         </div>
-
-        <MarketNewsCard news={data.latestNews} />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">

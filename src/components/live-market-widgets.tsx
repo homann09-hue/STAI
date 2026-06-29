@@ -127,16 +127,17 @@ export function MarketIndexCard({ item, liveQuote }: { item: AssetSummary; liveQ
   const quote = quoteFromSummary(item, liveQuote);
   const positive = quote.changePercent >= 0;
   const updated = new Intl.DateTimeFormat("de-DE", { timeStyle: "medium" }).format(new Date(quote.asOf));
+  const href = item.asset.type === "index" && quote.provider.includes("Mock Index") ? "/indices" : `/assets/${encodeURIComponent(item.asset.symbol)}`;
 
   return (
     <Link
-      href={`/assets/${encodeURIComponent(item.asset.symbol)}`}
-      className="min-w-[17rem] rounded-[1.35rem] border border-stroke bg-panel/78 p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)] transition hover:border-cyan/45 hover:bg-panel2"
+      href={href}
+      className="min-w-[14.2rem] rounded-xl border border-[#1b2a3f] bg-[#0d1829]/86 p-3 shadow-[0_18px_40px_rgba(0,0,0,0.2)] transition hover:border-cyan/45 hover:bg-[#101e33]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-mono text-lg font-semibold text-mist">{item.asset.symbol}</p>
+            <p className="font-mono text-sm font-semibold text-mist">{item.asset.symbol}</p>
             <DataQualityBadge quality={quote.quality} marketStatus={quote.marketStatus} />
           </div>
           <p className="mt-1 truncate text-xs text-muted">{item.asset.name}</p>
@@ -144,17 +145,17 @@ export function MarketIndexCard({ item, liveQuote }: { item: AssetSummary; liveQ
         <MarketStatusBadge status={quote.marketStatus} />
       </div>
 
-      <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-3">
+      <div className="mt-3 grid grid-cols-[1fr_auto] items-end gap-3">
         <MiniSparkline candles={fallbackSparkline(item, quote)} positive={positive} />
         <div className="text-right">
-          <RealtimePrice price={quote.price} currency={item.asset.currency} />
+          <span className="font-mono text-lg font-semibold text-mist">{formatCurrency(quote.price, item.asset.currency)}</span>
           <div className="mt-1">
             <PriceChangeLabel change={quote.change} changePercent={quote.changePercent} currency={item.asset.currency} />
           </div>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted">
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-muted">
         <span>{quote.provider}</span>
         <span>·</span>
         <span>Updated {updated}</span>
