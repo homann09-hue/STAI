@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --font-display: "Aptos Display", "Avenir Next", "Trebuchet MS", sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Mono", "SFMono-Regular", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: #050706;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  background:
+    linear-gradient(135deg, rgba(53, 208, 127, 0.08), transparent 28%),
+    linear-gradient(180deg, #050706 0%, #07100d 48%, #050706 100%);
+  color: #dff5e8;
+  font-family: var(--font-display);
+  letter-spacing: 0;
+}
+
+body::before {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  content: "";
+  background-image:
+    linear-gradient(rgba(120, 231, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 231, 255, 0.04) 1px, transparent 1px);
+  background-size: 38px 38px;
+  mask-image: linear-gradient(to bottom, black, transparent 82%);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(53, 208, 127, 0.34);
+}
