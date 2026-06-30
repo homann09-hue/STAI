@@ -3,14 +3,14 @@ import { TerminalSectionView } from "@/components/terminal-section-view";
 
 export const metadata: Metadata = {
   title: "Indizes | StockPilot AI",
-  description: "Globale Index-Uebersichten fuer DAX, S&P 500, Nasdaq, Dow Jones und MSCI-nahe Benchmarks."
+  description: "Globale Index-Übersichten für DAX, S&P 500, Nasdaq, Dow Jones und MSCI-nahe Benchmarks."
 };
 
 export default function IndicesPage() {
   return (
     <TerminalSectionView
       eyebrow="Indizes"
-      title="Globale Index-Uebersichten mit klarer Datenqualitaet"
+      title="Globale Index-Übersichten mit klarer Datenqualität"
       description="Indexfeeds sind als eigener Bereich vorbereitet. Sobald lizenzierte Indexdaten angebunden sind, erscheinen hier Kurse, Futures, Marktstatus, Heatmaps und Benchmark-Vergleiche."
       cards={[
         { title: "US-Indizes", text: "S&P 500, Nasdaq und Dow Jones als Watchlist-/Benchmark-Struktur vorbereitet.", badge: "Provider" },

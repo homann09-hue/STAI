@@ -13,35 +13,45 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:deep": "playwright test tests/e2e/deep-stockpilot.spec.ts",
     "test:load": "node scripts/qa/load-test.mjs",
+    "test:stress": "node scripts/qa/stress-test.mjs",
+    "test:chaos": "node scripts/qa/chaos-test.mjs",
+    "dr:check": "node scripts/qa/disaster-recovery-check.mjs",
     "qa:grammar": "node scripts/qa/grammar-audit.mjs",
-    "qa:redteam": "npm run typecheck && npm run lint && npm run test && npm run build && npm run test:e2e && npm run test:load && npm run qa:grammar && npm run audit:safe",
-    "audit:safe": "npm audit --audit-level=high"
+    "qa:redteam": "npm run typecheck && npm run lint && npm run test && npm run build && npm run test:e2e && npm run test:load && npm run qa:grammar && npm run audit:moderate && npm run audit:safe",
+    "audit:safe": "npm audit --audit-level=high",
+    "audit:moderate": "npm audit --audit-level=moderate"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.50.0",
-    "lucide-react": "^0.475.0",
-    "next": "^16.2.9",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "zod": "^4.4.3"
+    "@supabase/supabase-js": "2.108.2",
+    "lucide-react": "0.475.0",
+    "next": "16.2.9",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "zod": "4.4.3"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
-    "@playwright/test": "^1.61.1",
-    "@types/node": "^22.10.5",
-    "@types/react": "^19.0.2",
-    "@types/react-dom": "^19.0.2",
-    "autoprefixer": "^10.4.20",
-    "eslint": "^9.17.0",
-    "eslint-config-next": "^16.2.9",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.2",
-    "typescript-eslint": "^8.62.0",
-    "vitest": "^4.1.9"
+    "@eslint/js": "9.39.4",
+    "@playwright/test": "1.61.1",
+    "@types/node": "22.20.0",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitest/coverage-v8": "^4.1.9",
+    "autoprefixer": "10.5.2",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.9",
+    "postcss": "8.5.15",
+    "tailwindcss": "3.4.19",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.62.0",
+    "vitest": "4.1.9"
+  },
+  "packageManager": "npm@11.13.0",
+  "overrides": {
+    "postcss": "8.5.15"
   }
 }

@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Global Market Overview | StockPilot AI",
-  description: "Professionelle Marktuebersicht mit Kursqualitaet, Screeners, Portfolio-Risiko und Datenquellen."
+  description: "Professionelle Marktübersicht mit Kursqualität, Screenern, Portfolio-Risiko und transparenten Datenquellen."
 };
 
 export default async function MarketsPage() {

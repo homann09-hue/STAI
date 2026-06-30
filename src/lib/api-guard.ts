@@ -1,30 +1,68 @@
 import { z } from "zod";
+import { getServerCacheAdapter } from "@/lib/server-cache";
 import { sanitizeError } from "@/lib/validation";
+import { logEvent } from "@/lib/observability";
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 120;
+const MAX_JSON_BODY_BYTES = 32_768;
 const buckets = new Map<string, { count: number; resetAt: number }>();
+const rateLimitCache = getServerCacheAdapter();
+export const REQUEST_ID_HEADER = "X-StockPilot-Request-Id";
 
 export const secureJsonHeaders = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "no-referrer",
-  "Cache-Control": "no-store"
+  "Cache-Control": "no-store",
+  "Cross-Origin-Resource-Policy": "same-origin",
+  "X-Robots-Tag": "noindex, nofollow",
+  "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
 };
 
-function mergeHeaders(headers?: HeadersInit) {
+export const secureStreamHeaders = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+  "Cache-Control": "no-store, no-transform",
+  "Cross-Origin-Resource-Policy": "same-origin",
+  "X-Robots-Tag": "noindex, nofollow"
+};
+
+function mergeHeaders(headers?: HeadersInit, requestId = crypto.randomUUID()) {
   const merged = new Headers(headers);
 
   for (const [key, value] of Object.entries(secureJsonHeaders)) {
     if (!merged.has(key)) merged.set(key, value);
   }
 
+  if (!merged.has(REQUEST_ID_HEADER)) merged.set(REQUEST_ID_HEADER, requestId);
+
   return merged;
 }
 
-export function rateLimit(request: Request) {
+export async function rateLimit(request: Request) {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const clientKey = forwarded || request.headers.get("x-real-ip") || "local";
   const now = Date.now();
+
+  if (rateLimitCache.mode === "upstash_rest") {
+    const resetAt = Math.ceil(now / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS;
+    const cacheKey = `rate-limit:${clientKey}:${resetAt}`;
+    const count = await rateLimitCache.increment(cacheKey, Math.max(1000, resetAt - now));
+
+    if (count > RATE_LIMIT_MAX) {
+      logEvent("warn", "api.rate_limited", {
+        clientKey,
+        cacheMode: rateLimitCache.mode,
+        resetAt: new Date(resetAt).toISOString()
+      });
+      return jsonError("Rate Limit erreicht. Bitte kurz warten.", 429, {
+        "Retry-After": `${Math.ceil((resetAt - now) / 1000)}`
+      });
+    }
+
+    return null;
+  }
+
   const current = buckets.get(clientKey);
 
   if (!current || current.resetAt <= now) {
@@ -35,6 +73,11 @@ export function rateLimit(request: Request) {
   current.count += 1;
 
   if (current.count > RATE_LIMIT_MAX) {
+    logEvent("warn", "api.rate_limited", {
+      clientKey,
+      cacheMode: rateLimitCache.mode,
+      resetAt: new Date(current.resetAt).toISOString()
+    });
     return jsonError("Rate Limit erreicht. Bitte kurz warten.", 429, {
       "Retry-After": `${Math.ceil((current.resetAt - now) / 1000)}`
     });
@@ -51,21 +94,68 @@ export function jsonOk<T>(data: T, init: ResponseInit = {}) {
 }
 
 export function jsonError(message: string, status = 400, headers: HeadersInit = {}) {
+  const requestId = crypto.randomUUID();
+
+  if (status >= 500) {
+    logEvent("error", "api.error_response", { status, message, requestId });
+  } else if (status === 429) {
+    logEvent("warn", "api.rate_limit_response", { status, requestId });
+  }
+
   return Response.json(
     {
       error: message,
-      requestId: crypto.randomUUID()
+      requestId
     },
     {
       status,
-      headers: mergeHeaders(headers)
+      headers: mergeHeaders(headers, requestId)
     }
   );
 }
 
+export function requireSameOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+
+  if (!origin) return null;
+
+  if (origin !== new URL(request.url).origin) {
+    return jsonError("Cross-Origin Request abgelehnt.", 403);
+  }
+
+  return null;
+}
+
 export async function parseJsonBody<T>(request: Request, schema: z.ZodSchema<T>) {
+  const contentType = request.headers.get("content-type") ?? "";
+
+  if (!contentType.toLowerCase().includes("application/json")) {
+    return {
+      ok: false as const,
+      response: jsonError("Content-Type muss application/json sein.", 415)
+    };
+  }
+
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+
+  if (contentLength > MAX_JSON_BODY_BYTES) {
+    return {
+      ok: false as const,
+      response: jsonError("JSON-Body ist zu gross.", 413)
+    };
+  }
+
   try {
-    const body = await request.json();
+    const rawBody = await request.text();
+
+    if (rawBody.length > MAX_JSON_BODY_BYTES) {
+      return {
+        ok: false as const,
+        response: jsonError("JSON-Body ist zu gross.", 413)
+      };
+    }
+
+    const body = JSON.parse(rawBody);
     const parsed = schema.safeParse(body);
 
     if (!parsed.success) {

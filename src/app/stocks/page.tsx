@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Aktien-Screener | StockPilot AI",
-  description: "Aktien-Screener mit Kursdaten, Fundamentals, Analysten, Earnings und Datenqualitaet."
+  description: "Aktien-Screener mit Kursdaten, Fundamentaldaten, Analysten, Earnings und sichtbarer Datenqualität."
 };
 
 export default async function StocksPage() {

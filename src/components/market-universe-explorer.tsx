@@ -30,6 +30,22 @@ function coverageLabel(coverage: MarketUniverseInstrument["coverage"]) {
   return "Provider fehlt";
 }
 
+function qualityTone(quality: MarketUniverseInstrument["quoteQuality"]) {
+  if (quality === "realtime" || quality === "near_realtime") return "border-profit/25 bg-profit/10 text-profit";
+  if (quality === "delayed" || quality === "historical") return "border-amber/25 bg-amber/10 text-amber";
+  if (quality === "mock") return "border-cyan/25 bg-cyan/10 text-cyan";
+  return "border-loss/25 bg-loss/10 text-loss";
+}
+
+function qualityLabel(quality: MarketUniverseInstrument["quoteQuality"]) {
+  if (quality === "realtime") return "Realtime";
+  if (quality === "near_realtime") return "Near-Realtime";
+  if (quality === "delayed") return "Delayed";
+  if (quality === "historical") return "Historisch";
+  if (quality === "mock") return "Mock";
+  return "Nicht verfügbar";
+}
+
 export function MarketUniverseExplorer({
   instruments,
   coverage
@@ -53,7 +69,8 @@ export function MarketUniverseExplorer({
   const stats = {
     available: instruments.filter((item) => item.coverage === "available").length,
     prepared: instruments.filter((item) => item.coverage === "prepared").length,
-    license: instruments.filter((item) => item.coverage === "license_required").length
+    license: instruments.filter((item) => item.coverage === "license_required").length,
+    subscribable: instruments.filter((item) => item.subscribable).length
   };
 
   return (
@@ -71,7 +88,7 @@ export function MarketUniverseExplorer({
           <div className="rounded-2xl border border-profit/25 bg-profit/10 p-3">
             <Radio className="h-4 w-4 text-profit" />
             <p className="mt-2 font-mono text-xl font-semibold text-profit">{stats.available}</p>
-            <p className="text-xs text-muted">aktiv</p>
+            <p className="text-xs text-muted">{stats.subscribable} streambar</p>
           </div>
           <div className="rounded-2xl border border-cyan/25 bg-cyan/10 p-3">
             <Database className="h-4 w-4 text-cyan" />
@@ -97,11 +114,13 @@ export function MarketUniverseExplorer({
             placeholder="Suche Symbol, Name, Börse, Land, Assetklasse..."
           />
         </label>
-        <div className="flex gap-2 overflow-x-auto">
+        <div className="flex gap-2 overflow-x-auto" role="group" aria-label="Assetklasse filtern">
           {assetClasses.map((item) => (
             <button
               key={item.key}
               type="button"
+              aria-pressed={assetClass === item.key}
+              aria-label={`Assetklasse ${item.label} anzeigen`}
               onClick={() => setAssetClass(item.key)}
               className={`h-12 shrink-0 rounded-2xl border px-3 text-sm font-semibold transition ${
                 assetClass === item.key ? "border-cyan/50 bg-cyan/12 text-cyan" : "border-stroke bg-panel text-muted hover:text-mist"
@@ -136,6 +155,9 @@ export function MarketUniverseExplorer({
               <div>
                 <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${coverageTone(item.coverage)}`}>
                   {coverageLabel(item.coverage)}
+                </span>
+                <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${qualityTone(item.quoteQuality)}`}>
+                  Kurs: {qualityLabel(item.quoteQuality)} · {item.subscribable ? "streambar" : "nicht streambar"}
                 </span>
                 <p className="mt-1 text-xs leading-5 text-muted">{item.note}</p>
               </div>

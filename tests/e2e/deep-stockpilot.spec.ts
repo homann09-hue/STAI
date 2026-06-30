@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 const routes = ["/", "/markets", "/stocks", "/etfs", "/crypto", "/indices", "/screener", "/watchlist", "/news-terminal", "/calendar", "/analyses", "/backtesting", "/risk", "/compare", "/assets/NVDA", "/assets/AAPL", "/assets/MSFT", "/assets/VOO", "/assets/BTC-USD", "/assets/ETH-USD", "/learn", "/portfolio", "/alerts", "/pricing", "/settings", "/offline"];
 const apiRoutes = [
   "/api/market/overview",
+  "/api/market/universe",
   "/api/market/quotes?symbols=NVDA,AAPL,BTC-USD",
   "/api/professional/overview",
   "/api/assets/NVDA",

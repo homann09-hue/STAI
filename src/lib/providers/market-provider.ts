@@ -1,5 +1,6 @@
 import { assessDataQuality } from "@/lib/data-quality";
 import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
+import { getServerCacheAdapter } from "@/lib/server-cache";
 import type {
   Asset,
   AssetDetail,
@@ -19,6 +20,7 @@ export type MarketProviderId =
   | "eodhd"
   | "massive"
   | "polygon"
+  | "fmp"
   | "alpha_vantage"
   | "databento"
   | "binance"
@@ -77,6 +79,7 @@ class ProviderHttpError extends Error {
 }
 
 class ProviderRateLimitBackoffError extends Error {}
+class ProviderAccessUnavailableError extends Error {}
 
 const DEFAULT_STREAM_INTERVAL_MS = 5000;
 const MAX_BATCH_SIZE = 40;
@@ -87,12 +90,50 @@ const DEFAULT_STALE_QUOTE_CACHE_TTL_MS = Math.max(
   Number(process.env.STOCKPILOT_STALE_QUOTE_CACHE_TTL_MS) || 300000
 );
 const DEFAULT_RATE_LIMIT_BACKOFF_MS = Math.max(10000, Number(process.env.STOCKPILOT_RATE_LIMIT_BACKOFF_MS) || 60000);
-const quoteCache = new Map<string, { quote: NormalizedQuote; storedAtMs: number; ttlMs: number; staleTtlMs: number }>();
+const DEFAULT_PROVIDER_CONCURRENCY = Math.max(
+  1,
+  Math.min(10, Number(process.env.STOCKPILOT_PROVIDER_CONCURRENCY) || 6)
+);
+const DEFAULT_DASHBOARD_QUOTE_TIMEOUT_MS = Math.max(
+  150,
+  Number(process.env.STOCKPILOT_DASHBOARD_QUOTE_TIMEOUT_MS) || 650
+);
+const DEFAULT_ASSET_QUOTE_TIMEOUT_MS = Math.max(
+  250,
+  Number(process.env.STOCKPILOT_ASSET_QUOTE_TIMEOUT_MS) || 900
+);
+
+type QuoteCacheEntry = {
+  quote: NormalizedQuote;
+  storedAtMs: number;
+  ttlMs: number;
+  staleTtlMs: number;
+};
+
+const quoteCache = new Map<string, QuoteCacheEntry>();
+const quoteSharedCache = getServerCacheAdapter();
 const inFlightQuoteRequests = new Map<string, Promise<NormalizedQuote | null>>();
+const inFlightPollingBatches = new Map<string, Promise<NormalizedQuote[]>>();
 const providerRateLimitUntil = new Map<MarketProviderId, number>();
+const providerSymbolAccessDeniedUntil = new Map<string, number>();
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+async function withDeadline<T>(operation: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((resolve) => {
+        timeout = setTimeout(() => resolve(fallback), timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 }
 
 function parseNumber(value: unknown) {
@@ -179,8 +220,21 @@ function isRateLimitError(error: unknown) {
   return /HTTP (429|418)/.test(error instanceof Error ? error.message : String(error));
 }
 
+function isProviderAccessError(error: unknown) {
+  if (error instanceof ProviderHttpError) return error.status === 402 || error.status === 403;
+  return false;
+}
+
 function quoteCacheKey(provider: QuoteProvider, symbol: string) {
   return `${provider.providerId}:${symbolForProvider(symbol, provider.providerId)}`;
+}
+
+function quoteSharedCacheKey(key: string) {
+  return `quote:${key}`;
+}
+
+function providerBackoffCacheKey(provider: QuoteProvider) {
+  return `provider-backoff:${provider.providerId}`;
 }
 
 function quoteCacheTtlFor(provider: QuoteProvider) {
@@ -204,6 +258,7 @@ function startProviderBackoff(provider: QuoteProvider, error: unknown) {
   const currentUntil = providerRateLimitUntil.get(provider.providerId) ?? 0;
   const nextUntil = Math.max(currentUntil, now + backoffMs);
   providerRateLimitUntil.set(provider.providerId, nextUntil);
+  void quoteSharedCache.set(providerBackoffCacheKey(provider), nextUntil, Math.max(1, nextUntil - now));
 
   if (currentUntil <= now) {
     console.warn("market-provider rate-limit backoff active", {
@@ -219,13 +274,19 @@ async function getCachedProviderQuote(provider: QuoteProvider, symbol: string) {
 
   const key = quoteCacheKey(provider, normalizedSymbol);
   const now = Date.now();
-  const cached = quoteCache.get(key);
+  let cached = quoteCache.get(key);
+
+  if (!cached) {
+    cached = await quoteSharedCache.get<QuoteCacheEntry>(quoteSharedCacheKey(key)) ?? undefined;
+    if (cached) quoteCache.set(key, cached);
+  }
 
   if (cached && now - cached.storedAtMs < cached.ttlMs) {
     return markServerCachedQuote(cached.quote);
   }
 
-  const backoffUntil = providerRateLimitUntil.get(provider.providerId) ?? 0;
+  const sharedBackoffUntil = await quoteSharedCache.get<number>(providerBackoffCacheKey(provider));
+  const backoffUntil = Math.max(providerRateLimitUntil.get(provider.providerId) ?? 0, sharedBackoffUntil ?? 0);
   if (backoffUntil > now) {
     if (cached && now - cached.storedAtMs < cached.staleTtlMs) {
       return markServerCachedQuote(cached.quote);
@@ -234,19 +295,31 @@ async function getCachedProviderQuote(provider: QuoteProvider, symbol: string) {
     throw new ProviderRateLimitBackoffError(`${provider.providerName} rate-limit backoff active`);
   }
 
+  const accessDeniedUntil = providerSymbolAccessDeniedUntil.get(key) ?? 0;
+  if (accessDeniedUntil > now) {
+    if (cached && now - cached.storedAtMs < cached.staleTtlMs) {
+      return markServerCachedQuote(cached.quote);
+    }
+
+    throw new ProviderAccessUnavailableError(`${provider.providerName} access unavailable for ${normalizedSymbol}`);
+  }
+
   const inFlight = inFlightQuoteRequests.get(key);
   if (inFlight) return inFlight;
 
   const request = provider
     .getQuote(normalizedSymbol)
-    .then((quote) => {
+    .then(async (quote) => {
       if (quote) {
-        quoteCache.set(key, {
+        const entry: QuoteCacheEntry = {
           quote,
           storedAtMs: Date.now(),
           ttlMs: quoteCacheTtlFor(provider),
           staleTtlMs: DEFAULT_STALE_QUOTE_CACHE_TTL_MS
-        });
+        };
+
+        quoteCache.set(key, entry);
+        await quoteSharedCache.set(quoteSharedCacheKey(key), entry, entry.staleTtlMs);
       }
 
       return quote;
@@ -262,6 +335,16 @@ async function getCachedProviderQuote(provider: QuoteProvider, symbol: string) {
         throw new ProviderRateLimitBackoffError(`${provider.providerName} rate-limit backoff active`);
       }
 
+      if (isProviderAccessError(error)) {
+        providerSymbolAccessDeniedUntil.set(key, Date.now() + Math.max(DEFAULT_STALE_QUOTE_CACHE_TTL_MS, 3600000));
+
+        if (cached && now - cached.storedAtMs < cached.staleTtlMs) {
+          return markServerCachedQuote(cached.quote);
+        }
+
+        throw new ProviderAccessUnavailableError(`${provider.providerName} access unavailable for ${normalizedSymbol}`);
+      }
+
       throw error;
     })
     .finally(() => {
@@ -273,20 +356,35 @@ async function getCachedProviderQuote(provider: QuoteProvider, symbol: string) {
 }
 
 async function getCachedProviderQuotes(provider: QuoteProvider, symbols: string[]) {
-  const quotes: NormalizedQuote[] = [];
+  const normalizedSymbols = uniqueSymbols(symbols);
+  const results: Array<NormalizedQuote | null> = Array.from({ length: normalizedSymbols.length }, () => null);
+  let cursor = 0;
 
-  for (const symbol of uniqueSymbols(symbols)) {
-    try {
-      const quote = await getCachedProviderQuote(provider, symbol);
-      if (quote) quotes.push(quote);
-    } catch (error) {
-      if (!(error instanceof ProviderConfigurationError) && !(error instanceof ProviderRateLimitBackoffError)) {
-        console.error("market-provider quote failed", { provider: provider.providerName, symbol, error });
+  async function worker() {
+    while (cursor < normalizedSymbols.length) {
+      const index = cursor;
+      cursor += 1;
+      const symbol = normalizedSymbols[index];
+
+      try {
+        results[index] = await getCachedProviderQuote(provider, symbol);
+      } catch (error) {
+        if (
+          !(error instanceof ProviderConfigurationError) &&
+          !(error instanceof ProviderRateLimitBackoffError) &&
+          !(error instanceof ProviderAccessUnavailableError)
+        ) {
+          console.error("market-provider quote failed", { provider: provider.providerName, symbol, error });
+        }
       }
     }
   }
 
-  return quotes;
+  await Promise.all(
+    Array.from({ length: Math.min(DEFAULT_PROVIDER_CONCURRENCY, normalizedSymbols.length) }, () => worker())
+  );
+
+  return results.filter((quote): quote is NormalizedQuote => Boolean(quote));
 }
 
 async function fetchJson<T>(url: URL, providerName: string, timeoutMs = 4500): Promise<{ data: T; latencyMs: number }> {
@@ -454,6 +552,24 @@ function uniqueSymbols(symbols: string[]) {
   return [...new Set(symbols.map((symbol) => decodeURIComponent(symbol).trim().toUpperCase()).filter(Boolean))].slice(0, MAX_BATCH_SIZE);
 }
 
+function pollingBatchKey(provider: NearRealtimeProvider, symbols: string[]) {
+  const providerId = "providerId" in provider ? String((provider as QuoteProvider).providerId) : provider.constructor.name;
+  return `${providerId}:${[...uniqueSymbols(symbols)].sort().join(",")}`;
+}
+
+async function getSharedPollingQuotes(provider: NearRealtimeProvider, symbols: string[]) {
+  const normalizedSymbols = uniqueSymbols(symbols);
+  const key = pollingBatchKey(provider, normalizedSymbols);
+  const existing = inFlightPollingBatches.get(key);
+  if (existing) return existing;
+
+  const request = provider.getQuotes(normalizedSymbols).finally(() => {
+    inFlightPollingBatches.delete(key);
+  });
+  inFlightPollingBatches.set(key, request);
+  return request;
+}
+
 async function sleep(ms: number, signal?: AbortSignal) {
   if (signal?.aborted) return;
 
@@ -474,7 +590,7 @@ async function* pollQuotes(provider: NearRealtimeProvider, symbols: string[], op
   const intervalMs = Math.max(1500, options?.intervalMs ?? DEFAULT_STREAM_INTERVAL_MS);
 
   while (!options?.signal?.aborted) {
-    const quotes = await provider.getQuotes(symbols);
+    const quotes = await getSharedPollingQuotes(provider, symbols);
     if (quotes.length) yield quotes;
     await sleep(intervalMs, options?.signal);
   }
@@ -845,6 +961,56 @@ class AlphaVantageQuoteProvider extends HttpQuoteProvider {
   }
 }
 
+class FmpQuoteProvider extends HttpQuoteProvider {
+  readonly providerName = "Financial Modeling Prep";
+  readonly providerId = "fmp" as const;
+  readonly quality = envQuality("FMP_DATA_QUALITY", "delayed");
+
+  async getQuote(symbol: string) {
+    const knownAsset = getMockAsset(symbol)?.asset;
+    if (knownAsset?.type === "etf" && process.env.FMP_ENABLE_ETF_QUOTES !== "true") return null;
+
+    const token = process.env.FMP_API_KEY;
+    if (!token) throw new ProviderConfigurationError("FMP_API_KEY fehlt");
+
+    const providerSymbol = symbolForProvider(symbol, this.providerId);
+    const url = new URL(`${process.env.FMP_API_BASE_URL ?? "https://financialmodelingprep.com/stable"}/quote`);
+    url.searchParams.set("symbol", providerSymbol);
+    url.searchParams.set("apikey", token);
+
+    const { data, latencyMs } = await fetchJson<Record<string, unknown>[] | Record<string, unknown>>(
+      url,
+      this.providerName,
+      6000
+    );
+    const item = (Array.isArray(data) ? data[0] : data) ?? {};
+    const price = parseNumber(item.price);
+    if (!price) return null;
+
+    return toNormalizedQuote({
+      symbol,
+      name: typeof item.name === "string" ? item.name : undefined,
+      price,
+      change: parseNumber(item.change),
+      changePercent: parseNumber(item.changePercentage ?? item.changesPercentage),
+      volume: parseNumber(item.volume),
+      high: parseNumber(item.dayHigh),
+      low: parseNumber(item.dayLow),
+      open: parseNumber(item.open),
+      previousClose: parseNumber(item.previousClose),
+      fiftyTwoWeekHigh: parseNumber(item.yearHigh),
+      fiftyTwoWeekLow: parseNumber(item.yearLow),
+      marketCap: parseNumber(item.marketCap),
+      exchange: typeof item.exchange === "string" ? item.exchange : undefined,
+      timestamp: parseNumber(item.timestamp) ? new Date(Number(item.timestamp) * 1000).toISOString() : nowIso(),
+      provider: this.providerName,
+      quality: this.quality,
+      latencyMs,
+      marketStatus: normalizeMarketStatus(item.marketState ?? item.marketStatus)
+    });
+  }
+}
+
 class BinanceQuoteProvider extends HttpQuoteProvider {
   readonly providerName = "Binance Spot";
   readonly providerId = "binance" as const;
@@ -959,7 +1125,7 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
       ...dashboard.gainers.map((item) => item.asset.symbol),
       ...dashboard.losers.map((item) => item.asset.symbol)
     ]);
-    const quotes = await this.getQuotes(symbols);
+    const quotes = await withDeadline(this.getQuotes(symbols), DEFAULT_DASHBOARD_QUOTE_TIMEOUT_MS, []);
     const quoteMap = new Map(quotes.map((quote) => [quote.symbol, quote]));
     const enrichList = (items: AssetSummary[]) =>
       items.map((item) => {
@@ -987,7 +1153,7 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
     const detail = await this.fallback.getAsset(symbol);
     if (!detail) return null;
 
-    const quote = await this.getQuote(symbol);
+    const quote = await withDeadline(this.getQuote(symbol), DEFAULT_ASSET_QUOTE_TIMEOUT_MS, null);
     return quote ? enrichAssetWithQuote(detail, quote) : detail;
   }
 
@@ -1001,7 +1167,11 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
         const cryptoQuote = await getCachedProviderQuote(this.cryptoProvider, symbol);
         if (cryptoQuote?.bid !== undefined && cryptoQuote.ask !== undefined) return cryptoQuote;
       } catch (error) {
-        if (!(error instanceof ProviderConfigurationError) && !(error instanceof ProviderRateLimitBackoffError)) {
+        if (
+          !(error instanceof ProviderConfigurationError) &&
+          !(error instanceof ProviderRateLimitBackoffError) &&
+          !(error instanceof ProviderAccessUnavailableError)
+        ) {
           console.error("crypto-provider quote failed", {
             provider: this.cryptoProvider.providerName,
             symbol,
@@ -1015,7 +1185,11 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
       const quote = await getCachedProviderQuote(this.quoteProvider, symbol);
       if (quote) return quote;
     } catch (error) {
-      if (!(error instanceof ProviderConfigurationError) && !(error instanceof ProviderRateLimitBackoffError)) {
+      if (
+        !(error instanceof ProviderConfigurationError) &&
+        !(error instanceof ProviderRateLimitBackoffError) &&
+        !(error instanceof ProviderAccessUnavailableError)
+      ) {
         console.error("market-provider quote failed", { provider: this.providerName, symbol, error });
       }
     }
@@ -1083,7 +1257,14 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
 }
 
 function selectedProviderId(): MarketProviderId {
-  const provider = (process.env.STOCKPILOT_MARKET_PROVIDER ?? process.env.STOCKPILOT_QUOTE_PROVIDER ?? "mock").toLowerCase();
+  const provider = (
+    process.env.MARKET_DATA_PROVIDER ??
+    process.env.STOCKPILOT_MARKET_PROVIDER ??
+    process.env.STOCKPILOT_QUOTE_PROVIDER ??
+    "mock"
+  )
+    .trim()
+    .toLowerCase();
 
   if (provider === "polygon") return "polygon";
   if (provider === "twelvedata") return "twelve_data";
@@ -1094,6 +1275,7 @@ function selectedProviderId(): MarketProviderId {
     provider === "eodhd" ||
     provider === "massive" ||
     provider === "alpha_vantage" ||
+    provider === "fmp" ||
     provider === "databento" ||
     provider === "binance" ||
     provider === "coinbase"
@@ -1119,6 +1301,8 @@ export function getMarketDataProvider(): MarketDataProvider {
       return new ProviderBackedMarketDataProvider(new MassiveSnapshotProvider());
     case "alpha_vantage":
       return new ProviderBackedMarketDataProvider(new AlphaVantageQuoteProvider());
+    case "fmp":
+      return new ProviderBackedMarketDataProvider(new FmpQuoteProvider());
     case "binance":
       return new ProviderBackedMarketDataProvider(new BinanceQuoteProvider());
     case "coinbase":

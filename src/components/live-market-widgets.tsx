@@ -1,8 +1,14 @@
 import Link from "next/link";
+import { memo, useMemo } from "react";
 import { Clock3, Database, Radio, RefreshCw, WifiOff, Zap } from "lucide-react";
 import { MarketDataStatus } from "@/components/market-data-status";
 import { formatCurrency, formatPercent } from "@/lib/scoring";
 import type { AssetSummary, Candle, MarketConnectionStatus, MarketDataQuality, MarketStatus, NormalizedQuote, Quote, RefreshInterval, RefreshMode } from "@/lib/types";
+
+const marketTimeFormatter = new Intl.DateTimeFormat("de-DE", {
+  timeStyle: "medium",
+  timeZone: "Europe/Berlin"
+});
 
 export function quoteFromSummary(item: AssetSummary, liveQuote?: NormalizedQuote): Quote {
   if (!liveQuote) return item.quote;
@@ -84,18 +90,24 @@ export function RealtimePrice({ price, currency = "USD" }: { price: number; curr
 export function MiniSparkline({ candles, positive }: { candles: Candle[]; positive: boolean }) {
   const width = 150;
   const height = 46;
-  const values = candles.length ? candles.map((candle) => candle.close) : [1, 1.02, 1.01];
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const spread = max - min || 1;
-  const points = values
-    .map((value, index) => {
-      const x = (index / Math.max(1, values.length - 1)) * width;
-      const y = height - ((value - min) / spread) * height;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  const area = `0,${height} ${points} ${width},${height}`;
+  const { area, points } = useMemo(() => {
+    const values = candles.length ? candles.map((candle) => candle.close) : [1, 1.02, 1.01];
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const spread = max - min || 1;
+    const sparkPoints = values
+      .map((value, index) => {
+        const x = (index / Math.max(1, values.length - 1)) * width;
+        const y = height - ((value - min) / spread) * height;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(" ");
+
+    return {
+      points: sparkPoints,
+      area: `0,${height} ${sparkPoints} ${width},${height}`
+    };
+  }, [candles]);
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-12 w-full overflow-visible" aria-hidden="true">
@@ -123,11 +135,15 @@ function fallbackSparkline(item: AssetSummary, quote: Quote): Candle[] {
   });
 }
 
-export function MarketIndexCard({ item, liveQuote }: { item: AssetSummary; liveQuote?: NormalizedQuote }) {
+export const MarketIndexCard = memo(function MarketIndexCard({ item, liveQuote }: { item: AssetSummary; liveQuote?: NormalizedQuote }) {
   const quote = quoteFromSummary(item, liveQuote);
   const positive = quote.changePercent >= 0;
-  const updated = new Intl.DateTimeFormat("de-DE", { timeStyle: "medium" }).format(new Date(quote.asOf));
+  const updated = marketTimeFormatter.format(new Date(quote.asOf));
   const href = item.asset.type === "index" && quote.provider.includes("Mock Index") ? "/indices" : `/assets/${encodeURIComponent(item.asset.symbol)}`;
+  const sparklineCandles = useMemo(
+    () => fallbackSparkline(item, quote),
+    [item, quote.asOf, quote.change, quote.price, quote.volume]
+  );
 
   return (
     <Link
@@ -146,7 +162,7 @@ export function MarketIndexCard({ item, liveQuote }: { item: AssetSummary; liveQ
       </div>
 
       <div className="mt-3 grid grid-cols-[1fr_auto] items-end gap-3">
-        <MiniSparkline candles={fallbackSparkline(item, quote)} positive={positive} />
+        <MiniSparkline candles={sparklineCandles} positive={positive} />
         <div className="text-right">
           <span className="font-mono text-lg font-semibold text-mist">{formatCurrency(quote.price, item.asset.currency)}</span>
           <div className="mt-1">
@@ -162,7 +178,7 @@ export function MarketIndexCard({ item, liveQuote }: { item: AssetSummary; liveQ
       </div>
     </Link>
   );
-}
+});
 
 export function LiveMarketTickerBar({
   items,

@@ -1,5 +1,6 @@
 import { BellRing, DatabaseZap, KeyRound, RefreshCw, ShieldCheck, Zap } from "lucide-react";
 import { InvestorModeDock } from "@/components/investor-mode-dock";
+import { SupabaseAuthPanel } from "@/components/supabase-auth-panel";
 import { refreshIntervals, refreshProfiles } from "@/lib/refresh-config";
 
 const settingsCards = [
@@ -43,6 +44,8 @@ export function SettingsView() {
           </p>
         </div>
       </section>
+
+      <SupabaseAuthPanel />
 
       <InvestorModeDock />
 

@@ -65,7 +65,7 @@ export function TechnicalTrendPanel({ detail }: { detail: AssetDetail }) {
           <h2 className="mt-2 text-2xl font-semibold text-mist">Momentum, Volatilitaet und Signale</h2>
         </div>
         <div className="rounded-2xl border border-amber/25 bg-amber/10 px-3 py-2 text-xs text-amber">
-          MACD und Trendlinien sind vorbereitet und werden je Provider-Datenqualitaet erweitert.
+          MACD und Trendlinien sind vorbereitet und werden je Provider-Datenqualität erweitert.
         </div>
       </div>
 

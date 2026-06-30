@@ -3,9 +3,10 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { ScenarioTable } from "@/components/analysis-panels";
-import { OFFLINE_KEYS, saveOfflineValue } from "@/lib/offline";
+import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
 import { analyzePortfolio, applyPortfolioTrade } from "@/lib/portfolio-analytics";
 import { formatCurrency, formatPercent, legalDisclaimer, riskTone } from "@/lib/scoring";
+import { fetchWithSupabaseAuth } from "@/lib/supabase/client-fetch";
 import type { AssetType, PortfolioSummary } from "@/lib/types";
 
 export function PortfolioView({ initialPortfolio }: { initialPortfolio: PortfolioSummary }) {
@@ -17,14 +18,47 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
   const [quantity, setQuantity] = useState("1");
   const [price, setPrice] = useState("500");
   const [riskScore, setRiskScore] = useState("55");
+  const [offlineReady, setOfflineReady] = useState(false);
+  const [syncStatus, setSyncStatus] = useState("Lokaler Portfolio-Modus aktiv.");
   const portfolio = useMemo(() => analyzePortfolio(positions), [positions]);
   const positive = portfolio.totalPnL >= 0;
 
   useEffect(() => {
+    if (!offlineReady) return;
     saveOfflineValue(OFFLINE_KEYS.portfolio, positions);
-  }, [positions]);
+  }, [offlineReady, positions]);
 
-  function submitTrade() {
+  useEffect(() => {
+    let cancelled = false;
+    const stored = readOfflineValue<typeof initialPortfolio.positions>(OFFLINE_KEYS.portfolio);
+
+    if (stored?.length) {
+      setPositions(stored);
+      if (!navigator.onLine) setSyncStatus("Offline-Portfolio aus lokalem Speicher geladen.");
+    }
+    setOfflineReady(true);
+
+    fetchWithSupabaseAuth("/api/portfolio")
+      .then((response) => response.json())
+      .then((data: PortfolioSummary & { mode?: string }) => {
+        if (cancelled || !data.positions?.length) return;
+        setPositions(data.positions);
+        setSyncStatus(data.mode === "supabase" ? "Supabase-Portfolio aktiv." : "Lokaler Portfolio-Modus aktiv.");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          const fallback = readOfflineValue<typeof initialPortfolio.positions>(OFFLINE_KEYS.portfolio);
+          if (fallback?.length) setPositions(fallback);
+          setSyncStatus(fallback?.length ? "Offline-Portfolio aus lokalem Speicher geladen." : "Supabase nicht erreichbar. Lokaler Portfolio-Modus aktiv.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function submitTrade() {
     const qty = Number(quantity);
     const avg = Number(price);
     const risk = Number(riskScore);
@@ -42,8 +76,7 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
       return;
     }
 
-    setPositions((current) =>
-      applyPortfolioTrade(current, {
+    const trade = {
         symbol: symbol.trim().toUpperCase(),
         side,
         assetType,
@@ -52,10 +85,51 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
         price: avg,
         currency: "USD",
         riskScore: risk
-      })
-    );
+      };
+
+    try {
+      const response = await fetchWithSupabaseAuth("/api/portfolio", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(trade)
+      });
+      const data = await response.json() as { portfolio?: PortfolioSummary; mode?: string };
+
+      if (data.portfolio?.positions) {
+        setPositions(data.portfolio.positions);
+      } else {
+        setPositions((current) => applyPortfolioTrade(current, trade));
+      }
+
+      setSyncStatus(data.mode === "supabase" ? "Transaktion in Supabase gespeichert." : "Transaktion lokal gespeichert.");
+    } catch {
+      setPositions((current) => applyPortfolioTrade(current, trade));
+      setSyncStatus("Supabase nicht erreichbar. Transaktion lokal gespeichert.");
+    }
+
     setQuantity("1");
     setPrice("500");
+  }
+
+  async function removePosition(id: string) {
+    setPositions((current) => current.filter((position) => position.id !== id));
+
+    try {
+      const response = await fetchWithSupabaseAuth("/api/portfolio", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ id })
+      });
+      const data = await response.json() as { portfolio?: PortfolioSummary; mode?: string };
+      if (data.portfolio?.positions) setPositions(data.portfolio.positions);
+      setSyncStatus(data.mode === "supabase" ? "Position in Supabase entfernt." : "Position lokal entfernt.");
+    } catch {
+      setSyncStatus("Supabase nicht erreichbar. Position lokal entfernt.");
+    }
   }
 
   return (
@@ -92,6 +166,7 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
         <p className="mt-4 rounded-md border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
           {legalDisclaimer}
         </p>
+        <p className="mt-3 rounded-xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">{syncStatus}</p>
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[1fr_0.8fr]">
@@ -115,8 +190,8 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
                       type="button"
                       aria-label={`${item.symbol} entfernen`}
                       title="Entfernen"
-                      onClick={() => setPositions((current) => current.filter((position) => position.id !== item.id))}
-                      className="grid h-9 w-9 place-items-center rounded-md border border-stroke text-muted transition hover:border-loss/40 hover:text-loss"
+                      onClick={() => removePosition(item.id)}
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-stroke text-muted transition hover:border-loss/40 hover:text-loss"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -225,7 +300,7 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
               Vorgang speichern
             </button>
             <p className="mt-3 text-xs leading-5 text-muted">
-              Lokale Eingaben werden offline gespeichert. Supabase-Persistenz ist in der Datenarchitektur vorbereitet.
+              Lokale Eingaben werden offline gespeichert. Bei aktivem Supabase-Login werden Transaktionen und Positionen synchronisiert.
             </p>
           </div>
         </div>

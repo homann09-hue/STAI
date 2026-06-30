@@ -3,16 +3,17 @@ import { jsonOk, rateLimit } from "@/lib/api-guard";
 import { withCacheFallback } from "@/lib/provider-cache";
 
 export async function GET(request: Request) {
-  const limited = rateLimit(request);
+  const limited = await rateLimit(request);
   if (limited) return limited;
 
   const result = await withCacheFallback("dashboard", () => getMarketDataProvider().getDashboard(), {
-    ttlMs: 10000
+    staleTtlMs: 180000,
+    ttlMs: 15000
   });
 
   return jsonOk(result.value, {
     headers: {
-      "Cache-Control": "s-maxage=30, stale-while-revalidate=120",
+      "Cache-Control": "s-maxage=30, stale-while-revalidate=180",
       "X-StockPilot-Cache": result.fromCache ? "fallback" : "fresh"
     }
   });

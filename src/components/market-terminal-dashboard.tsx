@@ -5,38 +5,12 @@ import { ArrowDownWideNarrow, Flame, Gauge, Search, TrendingDown, TrendingUp } f
 import { useMemo, useState } from "react";
 import { MarketDataStatus } from "@/components/market-data-status";
 import { Sparkline } from "@/components/charts";
+import { mergeLiveQuote } from "@/lib/quotes";
 import { formatCompact, formatCurrency, formatPercent, scoreLabel, scoreTone } from "@/lib/scoring";
 import type { AssetSummary, AssetType, DashboardData, NormalizedQuote, Quote } from "@/lib/types";
 
 type SortKey = "symbol" | "price" | "change" | "volume" | "score";
 type FilterKey = "all" | AssetType | "watchlist";
-
-function mergeLiveQuote(base: Quote, liveQuote?: NormalizedQuote): Quote {
-  if (!liveQuote) return base;
-
-  return {
-    ...base,
-    price: liveQuote.price,
-    change: liveQuote.change,
-    changePercent: liveQuote.changePercent,
-    dayHigh: liveQuote.high ?? base.dayHigh,
-    dayLow: liveQuote.low ?? base.dayLow,
-    volume: liveQuote.volume ?? base.volume,
-    delayedByMinutes: liveQuote.quality === "delayed" ? Math.max(base.delayedByMinutes, 15) : 0,
-    asOf: liveQuote.timestamp,
-    bid: liveQuote.bid,
-    ask: liveQuote.ask,
-    spread: liveQuote.spread,
-    open: liveQuote.open ?? base.open,
-    previousClose: liveQuote.previousClose ?? base.previousClose,
-    fiftyTwoWeekHigh: liveQuote.fiftyTwoWeekHigh ?? base.fiftyTwoWeekHigh,
-    fiftyTwoWeekLow: liveQuote.fiftyTwoWeekLow ?? base.fiftyTwoWeekLow,
-    provider: liveQuote.provider,
-    quality: liveQuote.quality,
-    latencyMs: liveQuote.latencyMs,
-    marketStatus: liveQuote.marketStatus
-  };
-}
 
 function uniqueAssets(data: DashboardData) {
   const bySymbol = new Map<string, AssetSummary>();
@@ -154,11 +128,13 @@ export function MarketTerminalDashboard({ data, liveQuotes }: { data: DashboardD
             className="h-12 w-full rounded-2xl border border-stroke bg-coal pl-10 pr-3 text-sm text-mist outline-none transition placeholder:text-muted focus:border-cyan/60"
           />
         </label>
-        <div className="flex gap-2 overflow-x-auto">
+        <div className="flex gap-2 overflow-x-auto" role="group" aria-label="Assetliste filtern">
           {filterOptions.map((item) => (
             <button
               key={item.key}
               type="button"
+              aria-pressed={filter === item.key}
+              aria-label={`Filter ${item.label} anwenden`}
               onClick={() => setFilter(item.key)}
               className={`h-12 rounded-2xl border px-3 text-sm font-semibold transition ${
                 filter === item.key ? "border-cyan/50 bg-cyan/12 text-cyan" : "border-stroke bg-panel text-muted hover:text-mist"
@@ -170,12 +146,14 @@ export function MarketTerminalDashboard({ data, liveQuotes }: { data: DashboardD
         </div>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto rounded-2xl border border-stroke bg-panel/60 p-2">
+      <div className="flex items-center gap-2 overflow-x-auto rounded-2xl border border-stroke bg-panel/60 p-2" role="group" aria-label="Assetliste sortieren">
         <ArrowDownWideNarrow className="h-4 w-4 shrink-0 text-muted" />
         {sortOptions.map((item) => (
           <button
             key={item.key}
             type="button"
+            aria-pressed={sortKey === item.key}
+            aria-label={`Nach ${item.label} sortieren`}
             onClick={() => setSortKey(item.key)}
             className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
               sortKey === item.key ? "bg-profit/12 text-profit" : "text-muted hover:bg-panel2 hover:text-mist"
@@ -185,6 +163,10 @@ export function MarketTerminalDashboard({ data, liveQuotes }: { data: DashboardD
           </button>
         ))}
       </div>
+
+      <p className="sr-only" aria-live="polite">
+        {filteredAssets.length} Assets werden angezeigt.
+      </p>
 
       <div className="overflow-hidden rounded-2xl border border-stroke">
         <div className="hidden grid-cols-[1.3fr_0.9fr_0.8fr_0.8fr_0.8fr_1.1fr] gap-3 border-b border-stroke bg-coal px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted lg:grid">

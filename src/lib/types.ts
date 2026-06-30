@@ -12,7 +12,7 @@ export type MarketDataQuality =
   | "mock"
   | "unavailable";
 export type MarketStatus = "open" | "closed" | "pre_market" | "after_hours" | "unknown";
-export type RefreshMode = "websocket" | "polling" | "manual";
+export type RefreshMode = "sse" | "websocket" | "polling" | "manual";
 export type RefreshInterval = 1000 | 5000 | 10000 | 30000 | 60000 | 300000;
 export type MarketConnectionStatus = "connected" | "reconnecting" | "polling" | "rate_limited" | "offline" | "error";
 export type Sentiment = "positive" | "neutral" | "negative";
@@ -116,7 +116,9 @@ export interface MarketUniverseInstrument {
   currency: string;
   provider: string;
   quality: MarketDataQuality;
+  quoteQuality: MarketDataQuality;
   coverage: "available" | "prepared" | "license_required" | "provider_missing";
+  subscribable: boolean;
   lastUpdatedAt: string;
   note: string;
 }

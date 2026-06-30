@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { memo, useMemo } from "react";
 import { Brain, Briefcase, Flame, Newspaper, Star, TrendingDown, TrendingUp } from "lucide-react";
 import { DataQualityBadge, MiniSparkline, PriceChangeLabel, RealtimePrice, quoteFromSummary } from "@/components/live-market-widgets";
 import { formatCompact, formatCurrency, formatPercent, riskTone } from "@/lib/scoring";
@@ -24,9 +25,10 @@ function tinyCandles(item: AssetSummary, liveQuote?: NormalizedQuote) {
   });
 }
 
-function RankedRow({ item, rank, liveQuote }: { item: AssetSummary; rank: number; liveQuote?: NormalizedQuote }) {
+const RankedRow = memo(function RankedRow({ item, rank, liveQuote }: { item: AssetSummary; rank: number; liveQuote?: NormalizedQuote }) {
   const quote = quoteFromSummary(item, liveQuote);
   const positive = quote.changePercent >= 0;
+  const sparklineCandles = useMemo(() => tinyCandles(item, liveQuote), [item, liveQuote]);
 
   return (
     <Link href={`/assets/${encodeURIComponent(item.asset.symbol)}`} className="grid grid-cols-[2rem_1fr_auto] items-center gap-3 rounded-2xl border border-stroke bg-panel/68 p-3 transition hover:border-cyan/40 hover:bg-panel2">
@@ -43,12 +45,12 @@ function RankedRow({ item, rank, liveQuote }: { item: AssetSummary; rank: number
         <p className="font-mono text-sm font-semibold">{formatCurrency(quote.price, item.asset.currency)}</p>
         <PriceChangeLabel change={quote.change} changePercent={quote.changePercent} currency={item.asset.currency} />
         <div className="mt-1 w-20">
-          <MiniSparkline candles={tinyCandles(item, liveQuote)} positive={positive} />
+          <MiniSparkline candles={sparklineCandles} positive={positive} />
         </div>
       </div>
     </Link>
   );
-}
+});
 
 export function TopMoversCard({
   title,
@@ -191,9 +193,21 @@ export function MarketOverviewCard({ data }: { data: DashboardData }) {
 }
 
 export function PortfolioSnapshotCard({ data }: { data: DashboardData }) {
-  const total = data.watchlist.reduce((sum, item) => sum + item.quote.price * 3, 0);
-  const dayPnl = data.watchlist.reduce((sum, item) => sum + item.quote.change * 3, 0);
-  const risk = Math.round(data.watchlist.reduce((sum, item) => sum + item.scores.risk, 0) / Math.max(1, data.watchlist.length));
+  const snapshot = useMemo(
+    () =>
+      data.watchlist.reduce(
+        (current, item) => ({
+          total: current.total + item.quote.price * 3,
+          dayPnl: current.dayPnl + item.quote.change * 3,
+          riskSum: current.riskSum + item.scores.risk
+        }),
+        { total: 0, dayPnl: 0, riskSum: 0 }
+      ),
+    [data.watchlist]
+  );
+  const total = snapshot.total;
+  const dayPnl = snapshot.dayPnl;
+  const risk = Math.round(snapshot.riskSum / Math.max(1, data.watchlist.length));
 
   return (
     <section className="rounded-[1.65rem] border border-stroke bg-coal/76 p-4">

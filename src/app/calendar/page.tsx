@@ -15,7 +15,7 @@ export default function CalendarPage() {
       cards={[
         { title: "Earnings", text: "Quartalszahlen, Guidance und Analystenreaktionen werden als Event-Typen vorbereitet.", badge: "Provider" },
         { title: "Dividenden & Splits", text: "Ex-Date, Pay-Date, Ausschüttung und Splits lassen sich ueber Fundamentals-/Events-Provider anbinden." },
-        { title: "Makro", text: "Fed, EZB, Inflation, Zinsen und Arbeitsmarktdaten werden fuer Risiko- und Marktregime-Analysen vorbereitet." }
+        { title: "Makro", text: "Fed, EZB, Inflation, Zinsen und Arbeitsmarktdaten werden für Risiko- und Marktregime-Analysen vorbereitet." }
       ]}
     />
   );

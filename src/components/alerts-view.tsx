@@ -3,6 +3,7 @@
 import { Bell, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { OFFLINE_KEYS, saveOfflineValue } from "@/lib/offline";
+import { fetchWithSupabaseAuth } from "@/lib/supabase/client-fetch";
 import type { AlertRule, AlertType } from "@/lib/types";
 
 const alertTypes: { value: AlertType; label: string }[] = [
@@ -21,24 +22,76 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
   const [symbol, setSymbol] = useState("NVDA");
   const [type, setType] = useState<AlertType>("price");
   const [condition, setCondition] = useState("uber 155 USD");
+  const [syncStatus, setSyncStatus] = useState("Lokaler Modus aktiv.");
 
   useEffect(() => {
     saveOfflineValue(OFFLINE_KEYS.alerts, alerts);
   }, [alerts]);
 
-  function addAlert() {
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchWithSupabaseAuth("/api/alerts")
+      .then((response) => response.json())
+      .then((data: { alerts?: AlertRule[]; mode?: string }) => {
+        if (cancelled || !data.alerts?.length) return;
+        setAlerts(data.alerts);
+        setSyncStatus(data.mode === "supabase" ? "Supabase-Sync aktiv." : "Lokaler Modus aktiv.");
+      })
+      .catch(() => {
+        if (!cancelled) setSyncStatus("Supabase nicht erreichbar. Lokaler Modus aktiv.");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function addAlert() {
     const selected = alertTypes.find((item) => item.value === type);
-    setAlerts((current) => [
-      {
-        id: `local-${Date.now()}`,
-        symbol: symbol.trim().toUpperCase(),
-        type,
-        label: selected?.label ?? "Alarm",
-        condition,
-        enabled: true
-      },
-      ...current
-    ]);
+    const fallbackAlert = {
+      id: `local-${Date.now()}`,
+      symbol: symbol.trim().toUpperCase(),
+      type,
+      label: selected?.label ?? "Alarm",
+      condition,
+      enabled: true
+    };
+
+    try {
+      const response = await fetchWithSupabaseAuth("/api/alerts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(fallbackAlert)
+      });
+      const data = await response.json() as { alert?: AlertRule; mode?: string };
+      setAlerts((current) => [data.alert ?? fallbackAlert, ...current]);
+      setSyncStatus(data.mode === "supabase" ? "Alert in Supabase gespeichert." : "Alert lokal gespeichert.");
+    } catch {
+      setAlerts((current) => [fallbackAlert, ...current]);
+      setSyncStatus("Supabase nicht erreichbar. Alert lokal gespeichert.");
+    }
+  }
+
+  async function toggleAlert(alert: AlertRule) {
+    const nextEnabled = !alert.enabled;
+    setAlerts((current) => current.map((item) => (item.id === alert.id ? { ...item, enabled: nextEnabled } : item)));
+
+    try {
+      const response = await fetchWithSupabaseAuth("/api/alerts", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ id: alert.id, enabled: nextEnabled })
+      });
+      const data = await response.json() as { mode?: string };
+      setSyncStatus(data.mode === "supabase" ? "Alert-Status synchronisiert." : "Alert-Status lokal geändert.");
+    } catch {
+      setSyncStatus("Supabase nicht erreichbar. Änderung bleibt lokal.");
+    }
   }
 
   return (
@@ -49,8 +102,9 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
             <p className="text-sm text-muted">Alerts</p>
             <h1 className="mt-2 text-3xl font-semibold">Signal- und Risikoalarme</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-              Kurs, RSI, News, Volumen, Earnings und KI-Risiko sind als Regeln modelliert und können spater uber Supabase gespeichert werden.
+              Kurs, RSI, News, Volumen, Earnings und KI-Risiko sind als Regeln modelliert und werden bei Login über Supabase synchronisiert.
             </p>
+            <p className="mt-3 rounded-xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">{syncStatus}</p>
           </div>
           <div className="grid h-12 w-12 place-items-center rounded-md border border-amber/30 bg-amber/10 text-amber">
             <Bell className="h-5 w-5" />
@@ -121,13 +175,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
                   </div>
                   <button
                     type="button"
-                    onClick={() =>
-                      setAlerts((current) =>
-                        current.map((item) =>
-                          item.id === alert.id ? { ...item, enabled: !item.enabled } : item
-                        )
-                      )
-                    }
+                    onClick={() => toggleAlert(alert)}
                     className={`h-8 w-14 rounded-full border p-1 transition ${
                       alert.enabled ? "border-profit/50 bg-profit/20" : "border-stroke bg-ink"
                     }`}

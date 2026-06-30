@@ -186,13 +186,15 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Chart</h2>
-          <div className="flex rounded-md border border-stroke bg-panel p-1">
+          <div className="flex max-w-full gap-1 overflow-x-auto rounded-md border border-stroke bg-panel p-1" role="group" aria-label="Chart-Zeitraum wählen">
             {timeRanges.map((item) => (
               <button
                 key={item}
                 type="button"
+                aria-pressed={range === item}
+                aria-label={`Zeitraum ${item} anzeigen`}
                 onClick={() => setRange(item)}
-                className={`h-9 rounded px-3 text-sm transition ${
+                className={`min-h-11 min-w-11 shrink-0 rounded px-3 text-sm transition ${
                   range === item ? "bg-profit text-ink" : "text-muted hover:bg-panel2 hover:text-mist"
                 }`}
               >

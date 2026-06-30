@@ -2,11 +2,11 @@ import type { RefreshInterval } from "@/lib/types";
 
 export const refreshIntervals: Array<{ label: string; value: RefreshInterval; description: string }> = [
   { label: "1 Sekunde", value: 1000, description: "High-Frequency Debug/Pro, nur bei passenden Anbieterlimits." },
-  { label: "5 Sekunden", value: 5000, description: "Schnell, gut fuer aktive Detailseiten und Krypto." },
-  { label: "10 Sekunden", value: 10000, description: "Standard REST-Fallback fuer Near-Realtime." },
-  { label: "30 Sekunden", value: 30000, description: "Ausgewogen fuer Dashboard und Watchlist." },
+  { label: "5 Sekunden", value: 5000, description: "Schnell, gut für aktive Detailseiten und Krypto." },
+  { label: "10 Sekunden", value: 10000, description: "Standard REST-Fallback für Near-Realtime." },
+  { label: "30 Sekunden", value: 30000, description: "Ausgewogen für Dashboard und Watchlist." },
   { label: "60 Sekunden", value: 60000, description: "Schonend bei Rate-Limits oder Markt geschlossen." },
-  { label: "5 Minuten", value: 300000, description: "Sparmodus fuer Hintergrundnutzung." }
+  { label: "5 Minuten", value: 300000, description: "Sparmodus für Hintergrundnutzung." }
 ];
 
 export const refreshProfiles = [

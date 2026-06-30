@@ -25,12 +25,14 @@ jobs:
     name: Manual Vercel deploy
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    environment:
+      name: stockpilot-${{ github.event.inputs.target }}
     env:
       NEXT_TELEMETRY_DISABLED: "1"
       VERCEL_ORG_ID: ${{ secrets.STOCKPILOT_VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.STOCKPILOT_VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.STOCKPILOT_VERCEL_TOKEN }}
-      VERCEL_CLI_VERSION: ${{ vars.STOCKPILOT_VERCEL_CLI_VERSION || 'latest' }}
+      VERCEL_CLI_VERSION: ${{ vars.STOCKPILOT_VERCEL_CLI_VERSION || '54.18.6' }}
     steps:
       - name: Checkout StockPilot AI only
         uses: actions/checkout@v4
@@ -43,6 +45,21 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Unit tests with coverage gate
+        run: npm run test:coverage
+
+      - name: German wording and legal language audit
+        run: npm run qa:grammar
+
+      - name: Safe dependency audit
+        run: npm run audit:safe
 
       - name: Verify required StockPilot Vercel secrets
         run: |
@@ -70,9 +87,28 @@ jobs:
           fi
 
       - name: Deploy preview artifact
+        id: deploy-preview
         if: ${{ github.event.inputs.target == 'preview' }}
-        run: vercel deploy --prebuilt --token="$VERCEL_TOKEN"
+        run: echo "url=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN")" >> "$GITHUB_OUTPUT"
 
       - name: Deploy production artifact
+        id: deploy-production
         if: ${{ github.event.inputs.target == 'production' }}
-        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+        run: echo "url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")" >> "$GITHUB_OUTPUT"
+
+      - name: Deployment summary
+        run: |
+          if [ "${{ github.event.inputs.target }}" = "production" ]; then
+            DEPLOY_URL="${{ steps.deploy-production.outputs.url }}"
+          else
+            DEPLOY_URL="${{ steps.deploy-preview.outputs.url }}"
+          fi
+
+          {
+            echo "### StockPilot Vercel deployment"
+            echo ""
+            echo "- Target: ${{ github.event.inputs.target }}"
+            echo "- URL: $DEPLOY_URL"
+            echo "- Vercel CLI: $VERCEL_CLI_VERSION"
+            echo "- QA gates: typecheck, lint, coverage, grammar, audit, Vercel build"
+          } >> "$GITHUB_STEP_SUMMARY"

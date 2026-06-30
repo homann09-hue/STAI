@@ -24,6 +24,14 @@ function normalizeSymbols(symbols: string[]) {
   return [...new Set(symbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean))].slice(0, 30);
 }
 
+function parseEventData<T>(event: MessageEvent, fallback: T | null = null) {
+  try {
+    return JSON.parse(event.data) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export function useMarketStream(symbols: string[], enabled = true) {
   const symbolKey = useMemo(() => normalizeSymbols(symbols).join(","), [symbols]);
   const [state, setState] = useState<MarketStreamState>({
@@ -43,6 +51,7 @@ export function useMarketStream(symbols: string[], enabled = true) {
     let closed = false;
     let pollTimer: number | null = null;
     let commitTimer: number | null = null;
+    let pollingStarted = false;
     let pendingQuotes: Record<string, NormalizedQuote> = {};
     const encodedSymbols = encodeURIComponent(symbolKey);
 
@@ -111,17 +120,38 @@ export function useMarketStream(symbols: string[], enabled = true) {
     }
 
     const events = new EventSource(`/api/market/stream?symbols=${encodedSymbols}`);
+
+    function switchToPolling(message = "Stream unterbrochen, REST-Polling aktiv.") {
+      if (closed) return;
+      events.close();
+      if (pollingStarted) return;
+      pollingStarted = true;
+      setState((current) => ({
+        ...current,
+        status: "polling",
+        connectionStatus: "reconnecting",
+        refreshMode: "polling",
+        error: message
+      }));
+      pollQuotes();
+    }
+
     setState((current) => ({
       ...current,
       status: "streaming",
       connectionStatus: "connected",
-      refreshMode: "websocket",
+      refreshMode: "sse",
       intervalMs: defaultRefreshIntervalMs,
       error: null
     }));
 
     events.addEventListener("status", (event) => {
-      const payload = JSON.parse(event.data) as { provider?: string };
+      const payload = parseEventData<{ provider?: string }>(event);
+      if (!payload) {
+        switchToPolling("Streamstatus unlesbar, REST-Polling aktiv.");
+        return;
+      }
+
       setState((current) => ({
         ...current,
         provider: payload.provider ?? current.provider,
@@ -131,7 +161,12 @@ export function useMarketStream(symbols: string[], enabled = true) {
     });
 
     events.addEventListener("quotes", (event) => {
-      const payload = JSON.parse(event.data) as { quotes?: NormalizedQuote[]; provider?: string };
+      const payload = parseEventData<{ quotes?: NormalizedQuote[]; provider?: string }>(event);
+      if (!payload) {
+        switchToPolling("Streamdaten unlesbar, REST-Polling aktiv.");
+        return;
+      }
+
       if (payload.quotes?.length) commitQuotes(payload.quotes);
       setState((current) => ({
         ...current,
@@ -142,21 +177,12 @@ export function useMarketStream(symbols: string[], enabled = true) {
     });
 
     events.addEventListener("heartbeat", (event) => {
-      const payload = JSON.parse(event.data) as { timestamp?: string };
+      const payload = parseEventData<{ timestamp?: string }>(event, {}) ?? {};
       setState((current) => ({ ...current, lastHeartbeat: payload.timestamp ?? new Date().toISOString() }));
     });
 
     events.addEventListener("error", () => {
-      if (closed) return;
-      events.close();
-      setState((current) => ({
-        ...current,
-        status: "polling",
-        connectionStatus: "reconnecting",
-        refreshMode: "polling",
-        error: "Stream unterbrochen, REST-Polling aktiv."
-      }));
-      pollQuotes();
+      switchToPolling();
     });
 
     return () => {

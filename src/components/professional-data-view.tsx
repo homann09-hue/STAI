@@ -19,7 +19,7 @@ type Mode = "overview" | "stocks" | "etfs" | "crypto" | "news" | "risk" | "compa
 const modeCopy: Record<Mode, { eyebrow: string; title: string; subtitle: string }> = {
   overview: {
     eyebrow: "Global Market Overview",
-    title: "Profi-Datenzentrum fuer Maerkte, ETFs, Krypto und Risiko",
+    title: "Profi-Datenzentrum für Maerkte, ETFs, Krypto und Risiko",
     subtitle: "Live/Near-Realtime-Quotes werden getrennt von Mock-, Cache- und vorbereiteten Profi-Daten angezeigt."
   },
   stocks: {
@@ -30,7 +30,7 @@ const modeCopy: Record<Mode, { eyebrow: string; title: string; subtitle: string 
   etfs: {
     eyebrow: "ETF-Screener",
     title: "ETF-Struktur wie bei BlackRock, Vanguard und Morningstar",
-    subtitle: "Holdings, Sektoren, TER, Tracking, Risiko und Performance mit Datenqualitaet je Feld."
+    subtitle: "Holdings, Sektoren, TER, Tracking, Risiko und Performance mit Datenqualität je Feld."
   },
   crypto: {
     eyebrow: "Krypto-Screener",
@@ -40,7 +40,7 @@ const modeCopy: Record<Mode, { eyebrow: string; title: string; subtitle: string 
   news: {
     eyebrow: "News-Terminal",
     title: "News, Events und KI-Relevanzbewertung",
-    subtitle: "News werden nicht ungeprueft als Fakt verkauft und tragen Datenqualitaet, Quelle und Impact."
+    subtitle: "News werden nicht ungeprueft als Fakt verkauft und tragen Datenqualität, Quelle und Impact."
   },
   risk: {
     eyebrow: "Risiko-Dashboard",

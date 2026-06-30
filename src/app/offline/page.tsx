@@ -1,7 +1,12 @@
 import { WifiOff } from "lucide-react";
 
 export const metadata = {
-  title: "Offline"
+  title: "Offline",
+  description: "Offline-Modus der StockPilot AI PWA mit gespeicherter Watchlist und letzten Analysen.",
+  robots: {
+    index: false,
+    follow: false
+  }
 };
 
 export default function OfflinePage() {
@@ -13,8 +18,8 @@ export default function OfflinePage() {
         </div>
         <h1 className="mt-4 text-2xl font-semibold">Offline-Modus</h1>
         <p className="mt-3 text-sm leading-6 text-muted">
-          Watchlist und zuletzt geoffnete Analysen bleiben lokal verfügbar. Sobald die Verbindung
-          zuruck ist, aktualisiert StockPilot AI die Daten automatisch.
+          Watchlist und zuletzt geöffnete Analysen bleiben lokal verfügbar. Sobald die Verbindung
+          zurück ist, aktualisiert StockPilot AI die Daten automatisch.
         </p>
       </div>
     </div>

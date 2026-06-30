@@ -1,0 +1,50 @@
+name: StockPilot Disaster Recovery Drill
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: StockPilot URL to verify
+        required: true
+        default: https://stockpilot-ai-beta.vercel.app
+
+concurrency:
+  group: stockpilot-dr-${{ github.event.inputs.base_url }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  drill:
+    name: Disaster recovery smoke drill
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout StockPilot AI only
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run DR check
+        run: npm run dr:check -- "${{ github.event.inputs.base_url }}"
+
+      - name: DR summary
+        if: always()
+        run: |
+          {
+            echo "### StockPilot disaster recovery drill"
+            echo ""
+            echo "- Target: ${{ github.event.inputs.base_url }}"
+            echo "- Runbook: docs/disaster-recovery.md"
+            echo "- Checks: health, service worker, offline page, manifest, quotes, invalid input, secret exposure"
+          } >> "$GITHUB_STEP_SUMMARY"

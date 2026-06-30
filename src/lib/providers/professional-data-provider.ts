@@ -173,7 +173,7 @@ function marketCore(detail: AssetDetail, quote: NormalizedQuote): ProfessionalDa
     point({ label: "Marktstatus", value: quote.marketStatus, provider: quote.provider, quality: quote.quality, updatedAt: quote.timestamp, availability: "available", note: "Provider- oder Assetklassenstatus." }),
     point({ label: "Letzte Aktualisierung", value: quote.timestamp, provider: quote.provider, quality: quote.quality, updatedAt: quote.timestamp, availability: "available", note: "Timestamp des normalisierten Quotes." }),
     point({ label: "Datenquelle", value: quote.provider, provider: quote.provider, quality: quote.quality, updatedAt: quote.timestamp, availability: "available", note: "Serverseitig normalisiert, kein API-Key im Frontend." }),
-    point({ label: "Datenqualitaet", value: quote.quality, provider: quote.provider, quality: quote.quality, updatedAt: quote.timestamp, availability: "available", note: "Realtime, near-realtime, delayed, mock oder unavailable." }),
+    point({ label: "Datenqualität", value: quote.quality, provider: quote.provider, quality: quote.quality, updatedAt: quote.timestamp, availability: "available", note: "Realtime, near-realtime, delayed, mock oder unavailable." }),
     quote.marketStatus === "pre_market" || quote.marketStatus === "after_hours"
       ? getPointQuality(quote, "Pre-/After-Hours", quote.marketStatus)
       : unavailable("Pre-/After-Hours", "Aktueller Provider liefert keine separate Pre-/After-Hours-Angabe.")
@@ -454,7 +454,7 @@ class StockPilotProfessionalDataProvider implements ProfessionalDataProvider {
         point({ label: "S&P 500", value: dashboard.marketOverview[0]?.value ?? null, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Indexuebersicht ist Mock, bis echter Indexprovider verbunden ist." }),
         point({ label: "Nasdaq 100", value: dashboard.marketOverview[1]?.value ?? null, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Indexuebersicht ist Mock, bis echter Indexprovider verbunden ist." }),
         point({ label: "DAX", value: dashboard.marketOverview[2]?.value ?? null, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Indexuebersicht ist Mock, bis echter Indexprovider verbunden ist." }),
-        point({ label: "Krypto Markt", value: "Binance/Coinbase near-realtime fuer Bid/Ask vorbereitet", provider: rows.find((row) => row.asset.type === "crypto")?.quote.provider ?? mockProvider, quality: rows.find((row) => row.asset.type === "crypto")?.quote.quality ?? "mock", updatedAt, availability: "available", note: "Krypto-Quotes koennen near-realtime ueber Public APIs kommen." })
+        point({ label: "Krypto Markt", value: "Binance/Coinbase near-realtime für Bid/Ask vorbereitet", provider: rows.find((row) => row.asset.type === "crypto")?.quote.provider ?? mockProvider, quality: rows.find((row) => row.asset.type === "crypto")?.quote.quality ?? "mock", updatedAt, availability: "available", note: "Krypto-Quotes koennen near-realtime ueber Public APIs kommen." })
       ],
       equityScreener: rows.filter((row) => row.asset.type === "stock"),
       etfScreener: rows.filter((row) => row.asset.type === "etf"),
@@ -465,7 +465,7 @@ class StockPilotProfessionalDataProvider implements ProfessionalDataProvider {
       mostActive: selectRows(dashboard.mostActive),
       newsTerminal: newsEvents(),
       riskDashboard: [
-        point({ label: "Datenqualitaets-Risiko", value: dashboard.dataQualitySummary.score, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Score aus gemischten Mock-/Providerdaten." }),
+        point({ label: "Datenqualitäts-Risiko", value: dashboard.dataQualitySummary.score, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Score aus gemischten Mock-/Providerdaten." }),
         point({ label: "Klumpenrisiko", value: getMockPortfolio().maxPositionWeight, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Portfolio-Demo-Daten." }),
         point({ label: "Krypto-Gewicht", value: getMockPortfolio().cryptoWeight, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Portfolio-Demo-Daten." }),
         prepared("Korrelationsmatrix", "Echte historische Zeitreihen erforderlich."),

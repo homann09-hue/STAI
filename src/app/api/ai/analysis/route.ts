@@ -1,10 +1,11 @@
 import { getAiAnalysisProvider } from "@/lib/providers/ai-provider";
 import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
 import { withCacheFallback } from "@/lib/provider-cache";
+import { cacheControlHeaders, getCostControls } from "@/lib/cost-controls";
 import { validateSymbol } from "@/lib/validation";
 
 export async function GET(request: Request) {
-  const limited = rateLimit(request);
+  const limited = await rateLimit(request);
   if (limited) return limited;
 
   const { searchParams } = new URL(request.url);
@@ -20,8 +21,13 @@ export async function GET(request: Request) {
     return jsonError("Ungueltiges Symbol.", 400);
   }
 
+  const costControls = getCostControls();
   const result = await withCacheFallback(`ai:${parsed.data}`, () =>
     getAiAnalysisProvider().getAnalysis(parsed.data)
+  , {
+    staleTtlMs: costControls.aiStaleTtlMs,
+    ttlMs: costControls.aiTtlMs
+  }
   );
   const analysis = result.value;
 
@@ -31,7 +37,8 @@ export async function GET(request: Request) {
 
   return jsonOk({ analysis }, {
     headers: {
-      "Cache-Control": "s-maxage=60, stale-while-revalidate=300",
+      ...cacheControlHeaders(costControls.aiTtlMs, costControls.aiStaleTtlMs),
+      "X-StockPilot-Cost-Ttl-Ms": `${costControls.aiTtlMs}`,
       "X-StockPilot-Cache": result.fromCache ? "fallback" : "fresh"
     }
   });

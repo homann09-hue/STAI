@@ -45,8 +45,8 @@ jobs:
       - name: ESLint
         run: npm run lint
 
-      - name: Unit tests
-        run: npm run test
+      - name: Unit tests with coverage gate
+        run: npm run test:coverage
 
       - name: Production build
         run: npm run build
@@ -54,5 +54,5 @@ jobs:
       - name: German wording and legal language audit
         run: npm run qa:grammar
 
-      - name: Safe dependency audit
-        run: npm run audit:safe
+      - name: Dependency audit
+        run: npm run audit:moderate

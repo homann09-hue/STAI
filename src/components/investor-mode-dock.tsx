@@ -55,7 +55,7 @@ export function InvestorModeDock() {
         </p>
       </div>
 
-      <div className="grid gap-2 md:grid-cols-3">
+      <div className="grid gap-2 md:grid-cols-3" role="group" aria-label="Zielgruppen-Modus wählen">
         {(Object.keys(modes) as InvestorMode[]).map((item) => {
           const Icon = modes[item].icon;
           const active = mode === item;
@@ -64,6 +64,7 @@ export function InvestorModeDock() {
             <button
               key={item}
               type="button"
+              aria-pressed={active}
               onClick={() => selectMode(item)}
               className={`flex min-h-24 items-center gap-3 rounded-2xl border px-3 py-3 text-left transition ${
                 active

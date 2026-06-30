@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Vergleich | StockPilot AI",
-  description: "Vergleiche fuer Asset vs Benchmark, ETF vs ETF, Aktie vs Branche und Portfolio vs Index."
+  description: "Vergleiche für Asset vs Benchmark, ETF vs ETF, Aktie vs Branche und Portfolio vs Index."
 };
 
 export default async function ComparePage() {

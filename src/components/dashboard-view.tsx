@@ -1,11 +1,10 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Activity, Bell, ChevronRight, Settings2, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Sparkline, ScoreMeter } from "@/components/charts";
-import { CapitalCommandCenter } from "@/components/capital-command-center";
-import { DashboardCommandGrid } from "@/components/dashboard-command-grid";
 import { ConnectionBadge, LiveMarketTickerBar } from "@/components/live-market-widgets";
 import {
   AIInsightCard,
@@ -17,11 +16,9 @@ import {
   TrendingAssetsCard,
   WatchlistTable
 } from "@/components/market-boxes";
-import { MarketTerminalDashboard } from "@/components/market-terminal-dashboard";
 import { MarketDataStatus } from "@/components/market-data-status";
-import { NewsList } from "@/components/news-list";
-import { RealtimeAssetChart } from "@/components/realtime-asset-chart";
 import { OFFLINE_KEYS, saveOfflineValue } from "@/lib/offline";
+import { mergeLiveQuote } from "@/lib/quotes";
 import {
   formatCompact,
   formatCurrency,
@@ -32,32 +29,41 @@ import {
   scoreTone
 } from "@/lib/scoring";
 import { useMarketStream } from "@/lib/use-market-stream";
-import type { AssetDetail, AssetSummary, DashboardData, NormalizedQuote, Quote } from "@/lib/types";
+import type { AssetDetail, AssetSummary, DashboardData, NormalizedQuote } from "@/lib/types";
 
-function mergeLiveQuote(base: Quote, liveQuote?: NormalizedQuote): Quote {
-  if (!liveQuote) return base;
-
-  return {
-    ...base,
-    price: liveQuote.price,
-    change: liveQuote.change,
-    changePercent: liveQuote.changePercent,
-    dayHigh: liveQuote.high ?? base.dayHigh,
-    dayLow: liveQuote.low ?? base.dayLow,
-    volume: liveQuote.volume ?? base.volume,
-    delayedByMinutes: liveQuote.quality === "delayed" ? Math.max(base.delayedByMinutes, 15) : 0,
-    asOf: liveQuote.timestamp,
-    bid: liveQuote.bid,
-    ask: liveQuote.ask,
-    spread: liveQuote.spread,
-    open: liveQuote.open ?? base.open,
-    previousClose: liveQuote.previousClose ?? base.previousClose,
-    provider: liveQuote.provider,
-    quality: liveQuote.quality,
-    latencyMs: liveQuote.latencyMs,
-    marketStatus: liveQuote.marketStatus
-  };
+function LazyPanelFallback({ label = "Modul wird geladen" }: { label?: string }) {
+  return (
+    <div
+      className="min-h-[18rem] rounded-[2rem] border border-stroke bg-coal/70 p-5 text-sm text-muted shadow-panel"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      {label}...
+    </div>
+  );
 }
+
+const RealtimeAssetChart = dynamic(
+  () => import("@/components/realtime-asset-chart").then((module) => module.RealtimeAssetChart),
+  { loading: () => <LazyPanelFallback label="Chart" />, ssr: false }
+);
+const MarketTerminalDashboard = dynamic(
+  () => import("@/components/market-terminal-dashboard").then((module) => module.MarketTerminalDashboard),
+  { loading: () => <LazyPanelFallback label="Terminal" />, ssr: false }
+);
+const CapitalCommandCenter = dynamic(
+  () => import("@/components/capital-command-center").then((module) => module.CapitalCommandCenter),
+  { loading: () => <LazyPanelFallback label="Capital Command" />, ssr: false }
+);
+const DashboardCommandGrid = dynamic(
+  () => import("@/components/dashboard-command-grid").then((module) => module.DashboardCommandGrid),
+  { loading: () => <LazyPanelFallback label="Schnellzugriffe" />, ssr: false }
+);
+const NewsList = dynamic(
+  () => import("@/components/news-list").then((module) => module.NewsList),
+  { loading: () => <LazyPanelFallback label="News" />, ssr: false }
+);
 
 function AssetRow({ item, liveQuote }: { item: AssetSummary; liveQuote?: NormalizedQuote }) {
   const quote = mergeLiveQuote(item.quote, liveQuote);
@@ -130,7 +136,7 @@ function uniqueTickerItems(data: DashboardData) {
       exchange: String(exchange),
       currency: String(currency),
       sector: type === "crypto" ? "Digital Asset" : "Benchmark",
-      description: "Terminal-Kachel fuer Marktueberblick. Mock klar markiert, bis ein lizenzierter Indexfeed angebunden ist."
+      description: "Terminal-Kachel für Marktueberblick. Mock klar markiert, bis ein lizenzierter Indexfeed angebunden ist."
     },
     quote: {
       price: Number(price),
@@ -171,15 +177,20 @@ function uniqueTickerItems(data: DashboardData) {
 export function DashboardView({ data, heroAsset }: { data: DashboardData; heroAsset?: AssetDetail | null }) {
   const tickerItems = useMemo(() => uniqueTickerItems(data), [data]);
   const visibleSymbols = useMemo(
-    () =>
-      [
-        ...tickerItems.map((item) => item.asset.symbol),
-        ...data.watchlist.map((item) => item.asset.symbol),
-        ...data.gainers.map((item) => item.asset.symbol),
-        ...data.losers.map((item) => item.asset.symbol),
-        ...data.mostActive.map((item) => item.asset.symbol),
-        ...data.trendingAssets.map((item) => item.asset.symbol)
-      ],
+    () => {
+      const symbols = [
+        ...tickerItems
+          .filter((item) => item.quote.quality !== "mock" && !item.quote.provider.toLowerCase().includes("mock"))
+          .map((item) => item.asset.symbol),
+        ...data.watchlist.slice(0, 8).map((item) => item.asset.symbol),
+        ...data.gainers.slice(0, 5).map((item) => item.asset.symbol),
+        ...data.losers.slice(0, 5).map((item) => item.asset.symbol),
+        ...data.mostActive.slice(0, 5).map((item) => item.asset.symbol),
+        ...data.trendingAssets.slice(0, 6).map((item) => item.asset.symbol)
+      ];
+
+      return [...new Set(symbols)].slice(0, 24);
+    },
     [data.gainers, data.losers, data.mostActive, data.trendingAssets, data.watchlist, tickerItems]
   );
   const stream = useMarketStream(visibleSymbols);
@@ -312,11 +323,17 @@ export function DashboardView({ data, heroAsset }: { data: DashboardData; heroAs
         </div>
       </section>
 
-      <MarketTerminalDashboard data={data} liveQuotes={stream.quotes} />
+      <div className="[contain-intrinsic-size:900px] [content-visibility:auto]">
+        <MarketTerminalDashboard data={data} liveQuotes={stream.quotes} />
+      </div>
 
-      <CapitalCommandCenter data={data} />
+      <div className="[contain-intrinsic-size:720px] [content-visibility:auto]">
+        <CapitalCommandCenter data={data} />
+      </div>
 
-      <DashboardCommandGrid data={data} />
+      <div className="[contain-intrinsic-size:520px] [content-visibility:auto]">
+        <DashboardCommandGrid data={data} />
+      </div>
 
       <section>
         <div className="mb-3 flex items-center justify-between">

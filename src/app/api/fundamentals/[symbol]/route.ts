@@ -1,6 +1,7 @@
 import { getFundamentalsProvider } from "@/lib/providers/fundamentals-provider";
 import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
 import { withCacheFallback } from "@/lib/provider-cache";
+import { cacheControlHeaders, getCostControls } from "@/lib/cost-controls";
 import { validateSymbol } from "@/lib/validation";
 
 type RouteContext = {
@@ -8,7 +9,7 @@ type RouteContext = {
 };
 
 export async function GET(request: Request, { params }: RouteContext) {
-  const limited = rateLimit(request);
+  const limited = await rateLimit(request);
   if (limited) return limited;
 
   const { symbol } = await params;
@@ -18,8 +19,13 @@ export async function GET(request: Request, { params }: RouteContext) {
     return jsonError("Ungueltiges Symbol.", 400);
   }
 
+  const costControls = getCostControls();
   const result = await withCacheFallback(`fundamentals:${parsed.data}`, () =>
     getFundamentalsProvider().getFundamentals(parsed.data)
+  , {
+    staleTtlMs: costControls.fundamentalsStaleTtlMs,
+    ttlMs: costControls.fundamentalsTtlMs
+  }
   );
   const fundamentals = result.value;
 
@@ -29,7 +35,8 @@ export async function GET(request: Request, { params }: RouteContext) {
 
   return jsonOk({ fundamentals }, {
     headers: {
-      "Cache-Control": "s-maxage=300, stale-while-revalidate=900",
+      ...cacheControlHeaders(costControls.fundamentalsTtlMs, costControls.fundamentalsStaleTtlMs),
+      "X-StockPilot-Cost-Ttl-Ms": `${costControls.fundamentalsTtlMs}`,
       "X-StockPilot-Cache": result.fromCache ? "fallback" : "fresh"
     }
   });

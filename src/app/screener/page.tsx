@@ -1,22 +1,23 @@
 import type { Metadata } from "next";
 import { MarketUniverseExplorer } from "@/components/market-universe-explorer";
 import { TerminalSectionView } from "@/components/terminal-section-view";
-import { getMarketUniverse, marketUniverseCoverage } from "@/lib/market-universe";
+import { getMarketUniverseProvider } from "@/lib/market-universe";
 
 export const metadata: Metadata = {
   title: "Screener | StockPilot AI",
-  description: "Screener fuer Aktien, ETFs, Krypto und Indizes mit Filtern, Sortierung und Datenqualitaet."
+  description: "Screener für Aktien, ETFs, Krypto und Indizes mit Filtern, Sortierung und sichtbarer Datenqualität."
 };
 
-export default function ScreenerPage() {
-  const instruments = getMarketUniverse({ limit: 200 });
+export default async function ScreenerPage() {
+  const provider = getMarketUniverseProvider();
+  const universe = await provider.search({ limit: 200 });
 
   return (
     <div className="space-y-5">
       <TerminalSectionView
         eyebrow="Screener"
-        title="Ein Screener fuer Aktien, ETFs, Krypto, Indizes und weitere Boerseninstrumente"
-        description="STAI wird als globales Marktuniversum aufgebaut: Suche, Filter, Providerstatus und Datenqualitaet sind getrennt von echter Realtime-Lizenzierung."
+        title="Ein Screener für Aktien, ETFs, Krypto, Indizes und weitere Boerseninstrumente"
+        description="STAI wird als globales Marktuniversum aufgebaut: Suche, Filter, Providerstatus und Datenqualität sind getrennt von echter Realtime-Lizenzierung."
         ctaHref="/stocks"
         ctaLabel="Aktien-Screener oeffnen"
         cards={[
@@ -25,7 +26,7 @@ export default function ScreenerPage() {
           { title: "Keine Fake-Abdeckung", text: "Lizenzpflichtige Boersen, Indizes, Optionen und Futures werden klar als vorbereitet oder lizenzpflichtig markiert.", badge: "Trust" }
         ]}
       />
-      <MarketUniverseExplorer instruments={instruments} coverage={marketUniverseCoverage} />
+      <MarketUniverseExplorer instruments={universe.instruments} coverage={universe.coverage} />
     </div>
   );
 }

@@ -37,8 +37,26 @@ export const portfolioTradeInputSchema = z.object({
   riskScore: z.number().min(0).max(100).default(55)
 });
 
+export const portfolioDeleteInputSchema = z.object({
+  id: z.string().trim().min(1).max(80)
+});
+
+export const alertUpdateInputSchema = z.object({
+  id: z.string().trim().min(1).max(80),
+  enabled: z.boolean()
+});
+
+export const watchlistInputSchema = z.object({
+  symbol: symbolSchema,
+  assetType: z.enum(["stock", "etf", "crypto", "forex", "index"]).default("stock")
+});
+
 export function validateSymbol(input: string) {
-  return symbolSchema.safeParse(decodeURIComponent(input));
+  try {
+    return symbolSchema.safeParse(decodeURIComponent(input));
+  } catch {
+    return symbolSchema.safeParse("");
+  }
 }
 
 export function sanitizeError(error: unknown) {

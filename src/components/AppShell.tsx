@@ -24,6 +24,7 @@ import {
 import { useEffect, useState } from "react";
 import { legalDisclaimer } from "@/lib/scoring";
 import { PwaRegister } from "@/components/PwaRegister";
+import { RiskNoticeDialog } from "@/components/risk-notice-dialog";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
@@ -44,6 +45,10 @@ const navItems = [
   { href: "/pricing", label: "Pläne", icon: Gem },
   { href: "/settings", label: "Einstellungen", icon: Settings2 }
 ];
+
+const mobileNavItems = navItems.filter((item) =>
+  ["/", "/markets", "/watchlist", "/portfolio", "/settings"].includes(item.href)
+);
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -96,6 +101,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
                 className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition ${
                   separated ? "mt-3 border-t border-stroke/70 pt-5" : ""
                 } ${
@@ -132,8 +138,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <header className="sticky top-0 z-40 border-b border-[#1b2a3f] bg-[#07111f]/92 backdrop-blur-xl lg:ml-64">
         <div className="mx-auto flex max-w-none items-center justify-between gap-3 px-4 py-3">
-          <Link href="/" className="flex min-w-0 items-center gap-3 lg:hidden">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-profit/30 bg-profit/12 shadow-glow">
+          <Link href="/" className="flex min-h-11 min-w-0 items-center gap-3 lg:hidden">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-profit/30 bg-profit/12 shadow-glow">
               <Activity className="h-5 w-5 text-profit" />
             </div>
             <div className="min-w-0">
@@ -143,15 +149,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
 
           <div className="flex items-center gap-2">
-            <label className="relative hidden min-w-[28rem] max-w-3xl flex-1 lg:block">
+            <form action="/screener" className="relative hidden min-w-[28rem] max-w-3xl flex-1 lg:block" role="search" aria-label="Globale Suche">
               <span className="sr-only">Suche</span>
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
               <input
+                type="search"
+                name="q"
+                enterKeyHint="search"
                 className="h-11 w-full rounded-xl border border-[#22324a] bg-[#0b1525] pl-11 pr-12 text-sm text-mist outline-none transition placeholder:text-muted focus:border-[#4f7cff]"
                 placeholder="Suche nach Aktien, ETFs, Krypto, Indizes... (z.B. AAPL, TSLA, BTC, MSCI)"
               />
               <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-muted">⌘K</span>
-            </label>
+            </form>
             <nav className="hidden max-w-[62vw] items-center gap-1 overflow-x-auto rounded-2xl border border-stroke bg-panel/70 p-1 md:flex lg:hidden">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -162,6 +171,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.href}
                     href={item.href}
+                    aria-current={active ? "page" : undefined}
                     className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition ${
                       active
                         ? "bg-profit/12 text-profit"
@@ -174,15 +184,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 );
               })}
             </nav>
-            <button
-              type="button"
-              aria-label="Suche offnen"
+            <Link
+              href="/screener"
+              aria-label="Suche öffnen"
               title="Suche"
-              className="grid h-10 w-10 place-items-center rounded-md border border-stroke bg-panel text-muted transition hover:border-cyan/40 hover:text-cyan lg:hidden"
+              className="grid h-11 w-11 place-items-center rounded-md border border-stroke bg-panel text-muted transition hover:border-cyan/40 hover:text-cyan lg:hidden"
             >
               <Search className="h-4 w-4" />
-            </button>
+            </Link>
             <div
+              aria-live="polite"
               className={`hidden items-center gap-2 rounded-md border px-3 py-2 text-xs sm:flex ${
                 online
                   ? "border-profit/20 bg-profit/10 text-profit"
@@ -190,7 +201,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               }`}
             >
               {online ? <ShieldAlert className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-              {online ? "Markt offen" : "Offline"}
+              {online ? "Verbindung online" : "Offline"}
             </div>
             <Link href="/alerts" className="hidden h-10 w-10 place-items-center rounded-xl border border-stroke bg-panel text-muted transition hover:border-cyan/40 hover:text-cyan lg:grid" aria-label="Alarme">
               <Bell className="h-4 w-4" />
@@ -215,27 +226,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {!noticeAccepted ? (
-        <div className="fixed inset-x-3 bottom-24 z-[60] mx-auto max-w-xl rounded-md border border-amber/35 bg-coal p-4 shadow-panel sm:bottom-5">
-          <p className="pointer-events-none text-sm font-semibold text-amber">Wichtiger Risiko-Hinweis</p>
-          <p className="pointer-events-none mt-2 text-xs leading-5 text-muted">
-            StockPilot AI liefert keine Finanzberatung, keine Garantie und keine sicheren Signale.
-            Scores und KI-Auswertungen sind modellbasierte Entscheidungsunterstuetzung und können falsch sein.
-            Prüfe Quellen, Datenqualität und dein Risiko immer selbst.
-          </p>
-          <button
-            type="button"
-            onClick={acceptNotice}
-            className="relative z-10 mt-4 h-12 w-full rounded-md bg-amber font-semibold text-ink"
-          >
-            Verstanden
-          </button>
-        </div>
-      ) : null}
+      {!noticeAccepted ? <RiskNoticeDialog onAccept={acceptNotice} /> : null}
 
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-stroke bg-coal/94 px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2 backdrop-blur-xl sm:hidden">
         <div className="flex gap-1 overflow-x-auto">
-          {navItems.map((item) => {
+          {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const active =
               item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -244,6 +239,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
                 className={`flex h-14 min-w-[4.4rem] flex-col items-center justify-center gap-1 rounded-md text-[11px] transition ${
                   active
                     ? "bg-profit/12 text-profit"

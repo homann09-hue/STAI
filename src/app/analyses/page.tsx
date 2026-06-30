@@ -3,7 +3,7 @@ import { TerminalSectionView } from "@/components/terminal-section-view";
 
 export const metadata: Metadata = {
   title: "Analysen | StockPilot AI",
-  description: "KI-Analysen, Chancen, Risiken, Szenarien und Datenqualitaet."
+  description: "KI-Analysen mit Chancen, Risiken, Szenarien, Unsicherheiten und transparenter Datenqualität."
 };
 
 export default function AnalysesPage() {
@@ -11,7 +11,7 @@ export default function AnalysesPage() {
     <TerminalSectionView
       eyebrow="Analysen"
       title="KI-Analysen mit Chancen, Risiken und Unsicherheiten"
-      description="Analysen bleiben modellbasierte Einschaetzungen ohne Garantie. Datenqualitaet, Quellen und Unsicherheiten werden als eigener Bestandteil angezeigt."
+      description="Analysen bleiben modellbasierte Einschaetzungen ohne Garantie. Datenqualität, Quellen und Unsicherheiten werden als eigener Bestandteil angezeigt."
       ctaHref="/assets/NVDA"
       ctaLabel="Beispielanalyse oeffnen"
       cards={[
