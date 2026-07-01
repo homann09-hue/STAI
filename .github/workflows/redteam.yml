@@ -23,7 +23,7 @@ jobs:
       STOCKPILOT_AI_PROVIDER: mock
     steps:
       - name: Checkout StockPilot AI only
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
