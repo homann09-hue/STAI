@@ -204,6 +204,7 @@ function checkSecrets() {
     "NEWSAPI_API_KEY",
     "UPSTASH_REDIS_REST_URL",
     "UPSTASH_REDIS_REST_TOKEN",
+    "STOCKPILOT_ENTERPRISE_BASELINE_MONITORING_ENABLED",
     "STOCKPILOT_ENTERPRISE_PROVIDER_LICENSE_REVIEWED",
     "STOCKPILOT_ENTERPRISE_SUPABASE_PITR_ENABLED",
     "STOCKPILOT_ENTERPRISE_MONITORING_ENABLED",
@@ -283,6 +284,7 @@ function checkAvailabilityAndOps() {
     ["scripts/qa/disaster-recovery-check.mjs", "disaster recovery check"],
     [".github/workflows/disaster-recovery.yml", "disaster recovery workflow"],
     [".github/workflows/enterprise-readiness.yml", "enterprise readiness workflow"],
+    [".github/workflows/live-monitoring.yml", "live monitoring workflow"],
   ];
 
   for (const [relativePath, name] of requiredFiles) checkFile(relativePath, name);

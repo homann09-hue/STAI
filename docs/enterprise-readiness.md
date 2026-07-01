@@ -92,6 +92,12 @@ Before activating enterprise customers, additionally confirm:
 - Monitoring/alerting covers 5xx spikes, provider failures, quote latency, auth failures and rate-limit spikes.
 - Provider contracts allow the displayed data scope and latency claims.
 
+## What is activated in this repository
+
+The repository includes a scheduled `StockPilot Live Monitoring` GitHub Actions workflow. After it is pushed to `main`, GitHub can run live checks every 30 minutes against the production URL.
+
+This is a real baseline monitor, but it is not a full enterprise APM suite. Treat it as the first active safety net before adding Vercel/Sentry/Datadog-style alert routing.
+
 ## Manual workflow
 
 GitHub Actions includes a manual Enterprise Readiness workflow. Use it before major releases and after changing auth, provider, cache, CI/CD or deployment configuration.

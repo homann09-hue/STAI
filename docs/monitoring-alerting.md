@@ -4,6 +4,7 @@ World-class operation requires active monitoring, not just passing builds.
 
 ## Minimum production alerts
 
+- Scheduled baseline check for `/api/enterprise/status`, `/api/health`, service worker, offline route and DR degradation paths.
 - 5xx rate above normal baseline.
 - `/api/health` failing or returning stale runtime information.
 - `/api/enterprise/status` score drop or missing controls.
@@ -27,7 +28,13 @@ World-class operation requires active monitoring, not just passing builds.
 
 ## Environment gates
 
-Set these only when the process is real:
+Set the baseline flag only after the `StockPilot Live Monitoring` GitHub workflow has been pushed and confirmed to run:
+
+```bash
+STOCKPILOT_ENTERPRISE_BASELINE_MONITORING_ENABLED=true
+```
+
+Set the full enterprise flags only when the process is real:
 
 ```bash
 STOCKPILOT_ENTERPRISE_MONITORING_ENABLED=true

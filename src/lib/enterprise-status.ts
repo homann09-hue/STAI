@@ -151,13 +151,30 @@ export function getEnterpriseStatus(): EnterpriseStatus {
       runbook: "docs/disaster-recovery.md",
     }),
     control({
+      id: "baseline-live-monitoring",
+      title: "Baseline live monitoring",
+      state: enabled("STOCKPILOT_ENTERPRISE_BASELINE_MONITORING_ENABLED") ? "ready" : "missing",
+      category: "operations",
+      detail: enabled("STOCKPILOT_ENTERPRISE_BASELINE_MONITORING_ENABLED")
+        ? "Scheduled live checks are marked active for health, DR and enterprise readiness."
+        : "Enable the scheduled GitHub Actions live-monitoring workflow and set the baseline monitoring gate after confirming it runs.",
+      owner: "Platform",
+      runbook: "docs/monitoring-alerting.md",
+    }),
+    control({
       id: "monitoring-alerting",
-      title: "Monitoring and alerting",
-      state: enabled("STOCKPILOT_ENTERPRISE_MONITORING_ENABLED") ? "ready" : "missing",
+      title: "Enterprise APM and alerting",
+      state: enabled("STOCKPILOT_ENTERPRISE_MONITORING_ENABLED")
+        ? "ready"
+        : enabled("STOCKPILOT_ENTERPRISE_BASELINE_MONITORING_ENABLED")
+          ? "warning"
+          : "missing",
       category: "operations",
       detail: enabled("STOCKPILOT_ENTERPRISE_MONITORING_ENABLED")
-        ? "Operational monitoring is marked enabled."
-        : "5xx spikes, quote latency, provider errors, auth failures and rate-limit spikes need active alerting.",
+        ? "Full operational monitoring is marked enabled."
+        : enabled("STOCKPILOT_ENTERPRISE_BASELINE_MONITORING_ENABLED")
+          ? "Baseline scheduled monitoring is active, but full APM/alert routing for latency, provider failures and auth failures is still recommended."
+          : "5xx spikes, quote latency, provider errors, auth failures and rate-limit spikes need active alerting.",
       owner: "Platform",
       runbook: "docs/monitoring-alerting.md",
     }),

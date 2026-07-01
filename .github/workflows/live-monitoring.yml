@@ -1,0 +1,57 @@
+name: StockPilot Live Monitoring
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: StockPilot URL to monitor
+        required: false
+        default: https://stockpilot-ai-beta.vercel.app
+
+concurrency:
+  group: stockpilot-live-monitoring
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    name: Live health, DR and enterprise checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      STOCKPILOT_MONITOR_BASE_URL: ${{ github.event.inputs.base_url || 'https://stockpilot-ai-beta.vercel.app' }}
+    steps:
+      - name: Checkout StockPilot AI only
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Enterprise readiness live check
+        run: npm run enterprise:check -- "$STOCKPILOT_MONITOR_BASE_URL"
+
+      - name: Disaster recovery live check
+        run: npm run dr:check -- "$STOCKPILOT_MONITOR_BASE_URL"
+
+      - name: Monitoring summary
+        if: always()
+        run: |
+          {
+            echo "### StockPilot live monitoring"
+            echo ""
+            echo "- Target: $STOCKPILOT_MONITOR_BASE_URL"
+            echo "- Enterprise status: $STOCKPILOT_MONITOR_BASE_URL/api/enterprise/status"
+            echo "- Checks: enterprise readiness, disaster recovery, health, PWA/offline, quote degradation and secret exposure"
+            echo "- Alerting path: GitHub Actions failure notification"
+          } >> "$GITHUB_STEP_SUMMARY"
