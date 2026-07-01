@@ -28,7 +28,7 @@
     "audit:moderate": "npm audit --audit-level=moderate"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.108.2",
+    "@supabase/supabase-js": "2.110.0",
     "lucide-react": "0.475.0",
     "next": "16.2.9",
     "react": "19.2.7",
