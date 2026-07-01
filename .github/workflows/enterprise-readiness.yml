@@ -1,0 +1,50 @@
+name: StockPilot Enterprise Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: StockPilot URL to verify
+        required: false
+        default: https://stockpilot-ai-beta.vercel.app
+
+concurrency:
+  group: stockpilot-enterprise-${{ github.event.inputs.base_url }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    name: Enterprise readiness audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout StockPilot AI only
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run enterprise readiness
+        run: npm run enterprise:check -- "${{ github.event.inputs.base_url }}"
+
+      - name: Enterprise summary
+        if: always()
+        run: |
+          {
+            echo "### StockPilot enterprise readiness"
+            echo ""
+            echo "- Target: ${{ github.event.inputs.base_url }}"
+            echo "- Runbook: docs/enterprise-readiness.md"
+            echo "- Checks: security, secrets, Supabase RLS, PWA recovery, CI/CD, live headers and health"
+          } >> "$GITHUB_STEP_SUMMARY"

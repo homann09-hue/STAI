@@ -58,7 +58,7 @@ const scenarios = [
     name: "slow-provider-deadline",
     env: {
       MARKET_DATA_PROVIDER: "finnhub",
-      FINNHUB_API_KEY: "chaos-invalid-key",
+      FINNHUB_API_KEY: "invalid-chaos-key",
       STOCKPILOT_CRYPTO_PROVIDER: "none",
       STOCKPILOT_DASHBOARD_QUOTE_TIMEOUT_MS: "175",
       STOCKPILOT_ASSET_QUOTE_TIMEOUT_MS: "225",

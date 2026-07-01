@@ -51,6 +51,9 @@ jobs:
       - name: Production build
         run: npm run build
 
+      - name: Enterprise static readiness gates
+        run: npm run enterprise:check -- --local-only
+
       - name: German wording and legal language audit
         run: npm run qa:grammar
 
