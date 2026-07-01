@@ -77,7 +77,7 @@ test("professional finance terminal pages render core data areas", async ({ page
   await acceptRiskNotice(page);
   await expect(page.getByText("Global Market Overview").first()).toBeVisible();
   await expect(page.getByText("Profi-Datenzentrum")).toBeVisible();
-  await expect(page.getByText("Qualitaets-Summary")).toBeVisible();
+  await expect(page.getByText("Qualitäts-Summary")).toBeVisible();
 
   await page.goto("/stocks");
   await expect(page.getByText("Aktien-Screener").first()).toBeVisible();

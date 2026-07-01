@@ -99,7 +99,7 @@ describe("api guard observability headers", () => {
     const clientKey = `198.51.100.${Math.floor(Math.random() * 1000)}`;
     let limited: Response | null = null;
 
-    for (let index = 0; index < 121; index += 1) {
+    for (let index = 0; index < 601; index += 1) {
       limited = await rateLimit(
         new Request("https://stockpilot.test/api/market/quotes", {
           headers: { "x-forwarded-for": clientKey }

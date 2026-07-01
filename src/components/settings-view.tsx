@@ -1,5 +1,8 @@
 import { BellRing, DatabaseZap, KeyRound, RefreshCw, ShieldCheck, Zap } from "lucide-react";
+import { FunctionAssurancePanel } from "@/components/function-assurance-panel";
 import { InvestorModeDock } from "@/components/investor-mode-dock";
+import { OnboardingPanel } from "@/components/onboarding-panel";
+import { ProviderHealthCenter } from "@/components/provider-health-center";
 import { SupabaseAuthPanel } from "@/components/supabase-auth-panel";
 import { refreshIntervals, refreshProfiles } from "@/lib/refresh-config";
 
@@ -47,7 +50,13 @@ export function SettingsView() {
 
       <SupabaseAuthPanel />
 
+      <OnboardingPanel />
+
       <InvestorModeDock />
+
+      <FunctionAssurancePanel />
+
+      <ProviderHealthCenter />
 
       <section className="rounded-[1.5rem] border border-stroke bg-panel/72 p-4">
         <div className="flex items-start gap-3">

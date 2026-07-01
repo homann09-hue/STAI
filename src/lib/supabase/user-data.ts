@@ -3,7 +3,7 @@ import "server-only";
 import { analyzePortfolio, applyPortfolioTrade } from "@/lib/portfolio-analytics";
 import { logEvent } from "@/lib/observability";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import type { AlertRule, AlertType, AssetType, PortfolioPosition, PortfolioSummary, PortfolioTradeInput } from "@/lib/types";
+import type { AlertFrequency, AlertNotificationChannel, AlertRule, AlertType, AssetType, PortfolioPosition, PortfolioSummary, PortfolioTradeInput } from "@/lib/types";
 
 type SupabaseClient = NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
 
@@ -15,8 +15,23 @@ type AlertRuleRow = {
   id: string;
   symbol: string;
   alert_type: AlertType;
-  condition: { text?: string; label?: string } | null;
+  condition: {
+    text?: string;
+    label?: string;
+    threshold?: number;
+    frequency?: AlertFrequency;
+    notificationChannel?: AlertNotificationChannel;
+  } | null;
   enabled: boolean;
+};
+
+type PortfolioBookRow = {
+  id: string;
+  name: string;
+  base_currency: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 type PortfolioPositionRow = {
@@ -91,7 +106,10 @@ function alertFromRow(row: AlertRuleRow): AlertRule {
     type: row.alert_type,
     label: row.condition?.label ?? alertLabels[row.alert_type] ?? "Alarm",
     condition: row.condition?.text ?? "Bedingung gespeichert",
-    enabled: row.enabled
+    enabled: row.enabled,
+    threshold: typeof row.condition?.threshold === "number" ? row.condition.threshold : undefined,
+    frequency: row.condition?.frequency as AlertFrequency | undefined,
+    notificationChannel: row.condition?.notificationChannel as AlertNotificationChannel | undefined
   };
 }
 
@@ -126,7 +144,7 @@ export async function listUserAlerts(auth: Extract<AuthResult, { ok: true }>) {
 
 export async function createUserAlert(
   auth: Extract<AuthResult, { ok: true }>,
-  input: { symbol: string; type: AlertType; label: string; condition: string; enabled: boolean }
+  input: { symbol: string; type: AlertType; label: string; condition: string; enabled: boolean; threshold?: number; frequency?: AlertFrequency; notificationChannel?: AlertNotificationChannel }
 ) {
   const { data, error } = await auth.supabase
     .from("alert_rules")
@@ -136,7 +154,10 @@ export async function createUserAlert(
       alert_type: input.type,
       condition: {
         text: input.condition,
-        label: input.label
+        label: input.label,
+        threshold: input.threshold,
+        frequency: input.frequency ?? "manual",
+        notificationChannel: input.notificationChannel ?? "none"
       },
       enabled: input.enabled
     })
@@ -158,6 +179,55 @@ export async function updateUserAlert(auth: Extract<AuthResult, { ok: true }>, i
 
   if (error) throw error;
   return alertFromRow(data as AlertRuleRow);
+}
+
+export async function deleteUserAlert(auth: Extract<AuthResult, { ok: true }>, id: string) {
+  const { error } = await auth.supabase
+    .from("alert_rules")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", auth.userId);
+
+  if (error) throw error;
+}
+
+export async function listUserPortfolioBooks(auth: Extract<AuthResult, { ok: true }>) {
+  const { data, error } = await auth.supabase
+    .from("portfolios")
+    .select("id,name,base_currency,is_default,created_at,updated_at")
+    .eq("user_id", auth.userId)
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as PortfolioBookRow[];
+}
+
+export async function createUserPortfolioBook(auth: Extract<AuthResult, { ok: true }>, name: string) {
+  const existing = await listUserPortfolioBooks(auth);
+  const { data, error } = await auth.supabase
+    .from("portfolios")
+    .insert({
+      user_id: auth.userId,
+      name,
+      base_currency: "USD",
+      is_default: existing.length === 0
+    })
+    .select("id,name,base_currency,is_default,created_at,updated_at")
+    .single();
+
+  if (error) throw error;
+  return data as PortfolioBookRow;
+}
+
+export async function deleteUserPortfolioBook(auth: Extract<AuthResult, { ok: true }>, id: string) {
+  const { error } = await auth.supabase
+    .from("portfolios")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", auth.userId);
+
+  if (error) throw error;
 }
 
 export async function getUserPortfolio(auth: Extract<AuthResult, { ok: true }>): Promise<PortfolioSummary> {

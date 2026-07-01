@@ -98,7 +98,7 @@ export const pricingTiers: PricingTier[] = [
     name: "Free",
     price: "0 €",
     audience: "Basis-Watchlist und einfache Analysen",
-    technicalStatus: "Aktiv als lokaler Demo-/Free-Modus",
+    technicalStatus: "Aktiv als lokaler Demo-Modus",
     featureStatus: {
       watchlist_basic: "included",
       watchlist_extended: "locked",

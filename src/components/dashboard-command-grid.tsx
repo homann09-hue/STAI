@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight, BarChart3, BookOpen, Building2, CircleDollarSign, LockKeyhole, Radar, ShieldAlert } from "lucide-react";
+import { criticalFunctionRisks, functionReadinessScore, functionStatusSummary } from "@/lib/function-audit";
 import { formatCompact, formatCurrency, formatPercent, riskTone, scoreLabel, scoreTone } from "@/lib/scoring";
 import type { DashboardData } from "@/lib/types";
 
@@ -10,6 +11,13 @@ export function DashboardCommandGrid({ data }: { data: DashboardData }) {
   const riskiest = [...data.watchlist]
     .sort((a, b) => (b.riskReport?.score ?? b.scores.risk) - (a.riskReport?.score ?? a.scores.risk))
     .slice(0, 3);
+  const productHealthCards = [
+    { icon: Radar, label: "Funktionsreife", value: `${functionReadinessScore}/100`, detail: "Live, Demo und vorbereitete Module bewertet" },
+    { icon: BarChart3, label: "Aktiv", value: `${functionStatusSummary.live}`, detail: "direkt nutzbare Kernfunktionen" },
+    { icon: CircleDollarSign, label: "Demo/Gates", value: `${functionStatusSummary.demo + functionStatusSummary.prepared}`, detail: "klar markiert, kein Fake-Pro-Status" },
+    { icon: Building2, label: "Provider-Limits", value: `${functionStatusSummary.degraded}`, detail: "abhängig von APIs, Lizenzen oder Datenfrische" },
+    { icon: LockKeyhole, label: "Top-Risiko", value: criticalFunctionRisks[0]?.area ?? "keines", detail: criticalFunctionRisks[0]?.dependency ?? "keine priorisierte Lücke" }
+  ];
 
   return (
     <section className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
@@ -86,24 +94,27 @@ export function DashboardCommandGrid({ data }: { data: DashboardData }) {
         </div>
 
         <div className="mt-5 grid gap-2 sm:grid-cols-2">
-          {[
-            { icon: Radar, label: "Backtesting", value: "vorbereitet" },
-            { icon: BarChart3, label: "Korrelationen", value: "Roadmap" },
-            { icon: CircleDollarSign, label: "ETF-Kosten", value: "Struktur" },
-            { icon: Building2, label: "Makro-Daten", value: "Provider-ready" },
-            { icon: LockKeyhole, label: "RLS/Auth", value: "geschützt" }
-          ].map((item) => {
+          {productHealthCards.map((item) => {
             const Icon = item.icon;
 
             return (
               <div key={item.label} className="rounded-2xl border border-stroke bg-panel2 p-3">
                 <Icon className="h-4 w-4 text-cyan" />
                 <p className="mt-2 text-sm font-semibold">{item.label}</p>
-                <p className="text-xs text-muted">{item.value}</p>
+                <p className="text-xs font-semibold text-mist">{item.value}</p>
+                <p className="mt-1 text-xs leading-5 text-muted">{item.detail}</p>
               </div>
             );
           })}
         </div>
+
+        <Link
+          href="/settings"
+          className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-2xl border border-cyan/30 bg-cyan/10 px-4 text-sm font-semibold text-cyan transition hover:border-cyan/60"
+        >
+          Funktionsstatus prüfen
+          <ArrowRight className="h-4 w-4" />
+        </Link>
       </div>
     </section>
   );

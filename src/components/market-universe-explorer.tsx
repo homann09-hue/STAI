@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Database, LockKeyhole, Radio, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowUpDown, Database, LockKeyhole, Radio, Search, Star } from "lucide-react";
+import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
 import type { MarketUniverseAssetClass, MarketUniverseCoverage, MarketUniverseInstrument } from "@/lib/types";
 
 const assetClasses: Array<{ key: MarketUniverseAssetClass | "all"; label: string }> = [
@@ -15,6 +17,9 @@ const assetClasses: Array<{ key: MarketUniverseAssetClass | "all"; label: string
   { key: "future", label: "Futures" },
   { key: "option", label: "Optionen" }
 ];
+
+const MAX_VISIBLE_MARKET_ROWS = 80;
+type SortKey = "symbol" | "assetClass" | "coverage" | "quality";
 
 function coverageTone(coverage: MarketUniverseInstrument["coverage"]) {
   if (coverage === "available") return "border-profit/30 bg-profit/10 text-profit";
@@ -55,6 +60,16 @@ export function MarketUniverseExplorer({
 }) {
   const [query, setQuery] = useState("");
   const [assetClass, setAssetClass] = useState<MarketUniverseAssetClass | "all">("all");
+  const [sortKey, setSortKey] = useState<SortKey>("symbol");
+  const [favorites, setFavorites] = useState<string[]>([]);
+
+  useEffect(() => {
+    setFavorites(readOfflineValue<string[]>(OFFLINE_KEYS.screenerFavorites) ?? []);
+  }, []);
+
+  useEffect(() => {
+    saveOfflineValue(OFFLINE_KEYS.screenerFavorites, favorites);
+  }, [favorites]);
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -63,8 +78,15 @@ export function MarketUniverseExplorer({
       if (assetClass !== "all" && item.assetClass !== assetClass) return false;
       if (!normalizedQuery) return true;
       return `${item.symbol} ${item.name} ${item.exchange} ${item.country} ${item.assetClass}`.toLowerCase().includes(normalizedQuery);
+    }).sort((a, b) => {
+      if (sortKey === "symbol") return a.symbol.localeCompare(b.symbol);
+      if (sortKey === "assetClass") return a.assetClass.localeCompare(b.assetClass) || a.symbol.localeCompare(b.symbol);
+      if (sortKey === "coverage") return a.coverage.localeCompare(b.coverage) || a.symbol.localeCompare(b.symbol);
+      return a.quoteQuality.localeCompare(b.quoteQuality) || a.symbol.localeCompare(b.symbol);
     });
-  }, [assetClass, instruments, query]);
+  }, [assetClass, instruments, query, sortKey]);
+  const visibleResults = filtered.slice(0, MAX_VISIBLE_MARKET_ROWS);
+  const hiddenResultCount = Math.max(0, filtered.length - visibleResults.length);
 
   const stats = {
     available: instruments.filter((item) => item.coverage === "available").length,
@@ -72,6 +94,10 @@ export function MarketUniverseExplorer({
     license: instruments.filter((item) => item.coverage === "license_required").length,
     subscribable: instruments.filter((item) => item.subscribable).length
   };
+
+  function toggleFavorite(symbol: string) {
+    setFavorites((current) => current.includes(symbol) ? current.filter((item) => item !== symbol) : [symbol, ...current].slice(0, 60));
+  }
 
   return (
     <section className="space-y-4 rounded-[2rem] border border-stroke bg-[radial-gradient(circle_at_top_right,rgba(88,166,255,0.15),transparent_32%),linear-gradient(145deg,rgba(8,14,24,0.98),rgba(3,7,13,0.98))] p-4 shadow-panel sm:p-5">
@@ -109,9 +135,10 @@ export function MarketUniverseExplorer({
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <input
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => setQuery(event.target.value.slice(0, 80))}
             className="h-12 w-full rounded-2xl border border-stroke bg-coal pl-11 pr-4 text-sm text-mist outline-none transition placeholder:text-muted focus:border-cyan/60"
             placeholder="Suche Symbol, Name, Börse, Land, Assetklasse..."
+            maxLength={80}
           />
         </label>
         <div className="flex gap-2 overflow-x-auto" role="group" aria-label="Assetklasse filtern">
@@ -132,6 +159,26 @@ export function MarketUniverseExplorer({
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">
+          <Star className="h-3.5 w-3.5 text-amber" />
+          {favorites.length} Favoriten
+        </span>
+        {(["symbol", "assetClass", "coverage", "quality"] as SortKey[]).map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => setSortKey(item)}
+            className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition ${
+              sortKey === item ? "border-cyan/40 bg-cyan/10 text-cyan" : "border-stroke bg-panel text-muted hover:text-mist"
+            }`}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5" />
+            Sort: {item}
+          </button>
+        ))}
+      </div>
+
       <div className="overflow-hidden rounded-2xl border border-stroke">
         <div className="hidden grid-cols-[0.8fr_1.5fr_0.8fr_0.8fr_0.9fr_1fr] gap-3 border-b border-stroke bg-coal px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted xl:grid">
           <span>Symbol</span>
@@ -142,9 +189,21 @@ export function MarketUniverseExplorer({
           <span>Status</span>
         </div>
         <div className="divide-y divide-stroke">
-          {filtered.map((item) => (
+          {visibleResults.length > 0 ? visibleResults.map((item) => (
             <article key={`${item.symbol}-${item.exchange}`} className="grid gap-2 bg-panel/55 px-4 py-4 xl:grid-cols-[0.8fr_1.5fr_0.8fr_0.8fr_0.9fr_1fr] xl:items-center">
-              <p className="font-mono text-lg font-semibold text-mist">{item.symbol}</p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleFavorite(item.symbol)}
+                  className={`grid h-10 w-10 place-items-center rounded-xl border ${favorites.includes(item.symbol) ? "border-amber/35 bg-amber/10 text-amber" : "border-stroke text-muted"}`}
+                  aria-label={`${item.symbol} Favorit umschalten`}
+                >
+                  <Star className="h-4 w-4" />
+                </button>
+                <Link href={`/assets/${encodeURIComponent(item.symbol)}`} className="font-mono text-lg font-semibold text-mist transition hover:text-cyan">
+                  {item.symbol}
+                </Link>
+              </div>
               <div>
                 <p className="font-semibold text-mist">{item.name}</p>
                 <p className="text-xs text-muted">{item.country} · {item.currency}</p>
@@ -162,9 +221,24 @@ export function MarketUniverseExplorer({
                 <p className="mt-1 text-xs leading-5 text-muted">{item.note}</p>
               </div>
             </article>
-          ))}
+          )) : (
+            <div className="bg-panel/55 px-4 py-8" role="status" aria-live="polite">
+              <p className="font-semibold text-mist">Keine passenden Instrumente gefunden.</p>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Prüfe Symbol, Name oder Assetklasse. Wenn ein Wert fehlt, ist der Provider noch nicht angebunden,
+                die Lizenz fehlt oder das Instrument ist im aktuellen Demo-Universum nicht enthalten.
+              </p>
+            </div>
+          )}
         </div>
       </div>
+
+      {hiddenResultCount > 0 ? (
+        <div className="rounded-2xl border border-amber/25 bg-amber/10 p-3 text-sm leading-6 text-muted" role="status">
+          {visibleResults.length} von {filtered.length} Treffern werden angezeigt. Verfeinere die Suche,
+          damit große Universen performant bleiben und keine unnötigen Provider-Abfragen entstehen.
+        </div>
+      ) : null}
 
       <div className="grid gap-3 xl:grid-cols-2">
         {coverage.map((item) => (

@@ -1,5 +1,6 @@
 import { jsonOk } from "@/lib/api-guard";
 import { getPublicRuntimeDiagnostics } from "@/lib/observability";
+import { getProviderHealthReport } from "@/lib/provider-health";
 import { getServerCacheAdapter } from "@/lib/server-cache";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,8 @@ export async function GET() {
       cache: {
         mode: cache.mode,
         sharedConfigured: cache.sharedConfigured
-      }
+      },
+      providerHealth: getProviderHealthReport()
     },
     {
       headers: {

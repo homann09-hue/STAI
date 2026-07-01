@@ -4,7 +4,8 @@ import { sanitizeError } from "@/lib/validation";
 import { logEvent } from "@/lib/observability";
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX = 120;
+const RATE_LIMIT_READ_MAX = 600;
+const RATE_LIMIT_MUTATION_MAX = 120;
 const MAX_JSON_BODY_BYTES = 32_768;
 const buckets = new Map<string, { count: number; resetAt: number }>();
 const rateLimitCache = getServerCacheAdapter();
@@ -42,17 +43,24 @@ function mergeHeaders(headers?: HeadersInit, requestId = crypto.randomUUID()) {
 export async function rateLimit(request: Request) {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const clientKey = forwarded || request.headers.get("x-real-ip") || "local";
+  const method = request.method.toUpperCase();
+  const limitClass = method === "GET" || method === "HEAD" ? "read" : "mutation";
+  const maxRequests = limitClass === "read" ? RATE_LIMIT_READ_MAX : RATE_LIMIT_MUTATION_MAX;
+  const bucketKey = `${clientKey}:${limitClass}`;
   const now = Date.now();
 
   if (rateLimitCache.mode === "upstash_rest") {
     const resetAt = Math.ceil(now / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS;
-    const cacheKey = `rate-limit:${clientKey}:${resetAt}`;
+    const cacheKey = `rate-limit:${bucketKey}:${resetAt}`;
     const count = await rateLimitCache.increment(cacheKey, Math.max(1000, resetAt - now));
 
-    if (count > RATE_LIMIT_MAX) {
+    if (count > maxRequests) {
       logEvent("warn", "api.rate_limited", {
         clientKey,
         cacheMode: rateLimitCache.mode,
+        method,
+        limitClass,
+        maxRequests,
         resetAt: new Date(resetAt).toISOString()
       });
       return jsonError("Rate Limit erreicht. Bitte kurz warten.", 429, {
@@ -63,19 +71,22 @@ export async function rateLimit(request: Request) {
     return null;
   }
 
-  const current = buckets.get(clientKey);
+  const current = buckets.get(bucketKey);
 
   if (!current || current.resetAt <= now) {
-    buckets.set(clientKey, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    buckets.set(bucketKey, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
     return null;
   }
 
   current.count += 1;
 
-  if (current.count > RATE_LIMIT_MAX) {
+  if (current.count > maxRequests) {
     logEvent("warn", "api.rate_limited", {
       clientKey,
       cacheMode: rateLimitCache.mode,
+      method,
+      limitClass,
+      maxRequests,
       resetAt: new Date(current.resetAt).toISOString()
     });
     return jsonError("Rate Limit erreicht. Bitte kurz warten.", 429, {

@@ -2,7 +2,15 @@ export const OFFLINE_KEYS = {
   watchlist: "stockpilot:offline-watchlist",
   analyses: "stockpilot:last-analyses",
   portfolio: "stockpilot:portfolio",
-  alerts: "stockpilot:alerts"
+  portfolioBooks: "stockpilot:portfolio-books",
+  portfolioTrades: "stockpilot:portfolio-trades",
+  alerts: "stockpilot:alerts",
+  notificationReadIds: "stockpilot:notification-read-ids",
+  onboardingProfile: "stockpilot:onboarding-profile",
+  screenerFavorites: "stockpilot:screener-favorites",
+  customCalendarEvents: "stockpilot:calendar-events",
+  backtests: "stockpilot:backtests",
+  analysisWorkbench: "stockpilot:analysis-workbench"
 } as const;
 
 const MAX_OFFLINE_PAYLOAD_CHARS = 750000;

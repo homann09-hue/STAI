@@ -189,7 +189,7 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
       <div className="rounded-2xl border border-stroke bg-panel/72 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-mist">Watchlist-Sync</h2>
+            <h2 className="text-lg font-semibold text-mist">Cloud-Watchlist</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
               Bei aktivem Supabase-Login werden Symbole in deiner Cloud-Watchlist gespeichert.
               Ohne Login bleibt alles klar als lokaler Demo-/Offline-Modus markiert.

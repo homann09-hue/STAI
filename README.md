@@ -85,6 +85,7 @@ STOCKPILOT_STREAM_INTERVAL_MS=15000
 STOCKPILOT_NEWS_TTL_MS=120000
 STOCKPILOT_FUNDAMENTALS_TTL_MS=3600000
 STOCKPILOT_AI_TTL_MS=300000
+STOCKPILOT_CRON_SECRET=
 ```
 
 ## Architektur
@@ -207,6 +208,7 @@ Wenn Datenqualität zu schwach ist, wird die Analyse als nicht belastbar markier
 
 Das Projekt ist für ein eigenes GitHub-Repository und ein eigenes Vercel-Projekt vorbereitet. BauPro oder andere Projekte dürfen dafür nicht verlinkt oder deployed werden.
 
+- Live-URL: `https://stockpilot-ai-beta.vercel.app`
 - GitHub CI: `.github/workflows/ci.yml`
 - Manueller Red-Team-Lauf: `.github/workflows/redteam.yml`
 - Manueller Vercel-Deploy: `.github/workflows/vercel-manual.yml`
@@ -214,6 +216,8 @@ Das Projekt ist für ein eigenes GitHub-Repository und ein eigenes Vercel-Projek
 - Deployment-Anleitung: [GitHub und Vercel Deployment](./docs/GITHUB_VERCEL_DEPLOYMENT.md)
 
 Der Vercel-Workflow läuft bewusst nur manuell und nutzt StockPilot-spezifische Secrets mit `STOCKPILOT_`-Präfix.
+
+`STOCKPILOT_CRON_SECRET` schützt `/api/alerts/run`. Auf Vercel Hobby ist der Cron in `vercel.json` bewusst täglich geplant, weil häufigere Cron-Ausführung einen Pro-Plan oder externen Scheduler benötigt.
 
 ## Supabase
 

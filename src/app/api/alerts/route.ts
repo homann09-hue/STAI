@@ -1,6 +1,6 @@
 import { mockAlerts } from "@/lib/mock/market";
 import { jsonError, jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
-import { createUserAlert, getSupabaseAuth, listUserAlerts, updateUserAlert } from "@/lib/supabase/user-data";
+import { createUserAlert, deleteUserAlert, getSupabaseAuth, listUserAlerts, updateUserAlert } from "@/lib/supabase/user-data";
 import { alertInputSchema, alertUpdateInputSchema } from "@/lib/validation";
 
 export async function GET(request: Request) {
@@ -54,6 +54,28 @@ export async function PATCH(request: Request) {
   if (auth.ok) {
     const alert = await updateUserAlert(auth, parsed.data.id, parsed.data.enabled);
     return jsonOk({ alert, mode: "supabase" });
+  }
+
+  return jsonError("Anmeldung erforderlich. Alarm-Änderungen werden nur lokal im Client gespeichert.", 401, {
+    "X-StockPilot-Auth-Reason": auth.reason
+  });
+}
+
+export async function DELETE(request: Request) {
+  const limited = await rateLimit(request);
+  if (limited) return limited;
+
+  const originBlocked = requireSameOrigin(request);
+  if (originBlocked) return originBlocked;
+
+  const parsed = await parseJsonBody(request, alertUpdateInputSchema.pick({ id: true }));
+  if (!parsed.ok) return parsed.response;
+
+  const auth = await getSupabaseAuth(request);
+
+  if (auth.ok) {
+    await deleteUserAlert(auth, parsed.data.id);
+    return jsonOk({ ok: true, mode: "supabase" });
   }
 
   return jsonError("Anmeldung erforderlich. Alarm-Änderungen werden nur lokal im Client gespeichert.", 401, {

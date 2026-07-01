@@ -74,7 +74,10 @@ export function getPublicRuntimeDiagnostics() {
     },
     costControls: getCostControls(),
     configured: {
-      supabase: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+      supabase: Boolean(
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+          (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
+      ),
       finnhub: Boolean(process.env.FINNHUB_API_KEY),
       fmp: Boolean(process.env.FMP_API_KEY),
       alphaVantage: Boolean(process.env.ALPHA_VANTAGE_API_KEY),

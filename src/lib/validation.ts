@@ -30,7 +30,10 @@ export const alertInputSchema = z.object({
   ]),
   label: safeTextSchema(80),
   condition: safeTextSchema(180),
-  enabled: z.boolean().optional().default(true)
+  enabled: z.boolean().optional().default(true),
+  threshold: z.number().min(-1_000_000_000).max(1_000_000_000).optional(),
+  frequency: z.enum(["manual", "10s", "30s", "60s", "5min"]).optional().default("manual"),
+  notificationChannel: z.enum(["none", "in_app", "email", "push", "webhook"]).optional().default("none")
 });
 
 export const portfolioTradeInputSchema = z.object({

@@ -8,6 +8,8 @@ Nicht im Scope: BauPro und andere Projekte
 
 StockPilot AI wurde auf produktionskritische Trust-, Safety-, Auth-, Mock-Daten-, UX-, Performance- und Build-Risiken geprüft und gehärtet. Die App trennt Demo-, Mock-, Offline-, Cached-, Delayed-, Near-Realtime- und Realtime-Zustände jetzt klarer. Kostenpflichtige Funktionen werden nicht mehr als aktiv dargestellt, solange kein echter Auth-/Billingstatus geprüft wurde.
 
+Live-Status nach finalem Durchlauf: `https://stockpilot-ai-beta.vercel.app` ist auf das neue Vercel-Production-Deployment aliasiert und antwortet in Smoke-Checks mit HTTP 200.
+
 ## P0 Findings
 
 Keine ungefixte P0-Schwachstelle gefunden.
@@ -42,6 +44,16 @@ Fix:
 - Lokale Fallbacks werden sichtbar als lokal/Demo markiert.
 
 ## P2 Findings und Fixes
+
+### P2: API-Rate-Limiter blockierte echte UI-/E2E-Request-Bursts zu früh
+
+Status: gefixt
+
+Fix:
+- Read- und Mutation-Buckets wurden getrennt.
+- Sichere Lese-Bursts wurden erhöht, damit Dashboard, Offline-Cache, E2E und mehrere sichtbare Widgets nicht gegenseitig blockieren.
+- Schreibaktionen bleiben weiter deutlich strenger limitiert.
+- Unsafe-Input-Validierung wird nicht mehr durch vorherige GET-Bursts verdeckt.
 
 ### P2: News konnten wie echte Meldungen wirken
 
@@ -142,6 +154,16 @@ Status: geprüft
 
 Live-Projekt: STAI (`ircuakhftjcwttwegyac`)
 
+Finaler Live-Migrationsstand:
+- `stockpilot_initial_schema`
+- `add_apply_portfolio_trade_rpc`
+- `add_product_readiness_tables`
+
+Neu live auf STAI:
+- `portfolios`: RLS aktiv, 4 Policies
+- `notifications`: RLS aktiv, 4 Policies
+- `entitlements`: RLS aktiv, 1 Policy
+
 RLS-Check:
 - `profiles`: RLS aktiv, Policies vorhanden
 - `watchlists`: RLS aktiv, Policies vorhanden
@@ -167,29 +189,56 @@ Service-Role bleibt serverseitig. Keine API-Keys wurden in Client-Code verschobe
 ## Abschlusschecks
 
 Lokal bestanden:
+- `npm run qa:redteam`
+
+Enthaltene Checks:
 - `npm run typecheck`
-- `npm test`
 - `npm run lint`
+- `npm test`
 - `npm run build`
+- `npm run test:e2e`
+- `npm run test:load`
 - `npm run qa:grammar`
+- `npm run audit:moderate`
+- `npm run audit:safe`
 
 Zusätzlich geprüft:
 - Supabase RLS live auf STAI
+- Vercel Production Build mit Production-Settings
+- Vercel Production Deploy
+- Live-Smoke-Checks gegen `https://stockpilot-ai-beta.vercel.app`
+- Vercel Error-Log-Scan: keine Error-Logs gefunden
+
+Load-Test Ergebnis:
+- 1, 10, 25, 50, 100 und 200 parallele Requests
+- 0 rejected
+- 0 failed HTTP/slow
+- alle Statuscodes 200
+
+Live-Smoke Ergebnis:
+- `/`: HTTP 200
+- `/api/health`: HTTP 200
+- `/api/market/overview`: HTTP 200
+- `/api/providers/health`: HTTP 200
+- `/api/providers/ping`: HTTP 200
+- `/api/alerts/run` ohne Secret: HTTP 401
 
 ## Offene Risiken / braucht Backend oder Anbieter
 
 - Echte Billing-/Abo-Durchsetzung braucht Stripe/LemonSqueezy/Vercel Marketplace oder eigenes Billing.
-- Echte Alert-Ausführung braucht Worker/Cron/Queue plus Push/E-Mail/Webhook-Kanal.
+- Alert-Ausführung läuft auf Vercel Hobby als täglicher Cron. Häufigere Ausführung wie alle 15 Minuten braucht Vercel Pro oder externen Cron/Queue.
+- Push/E-Mail/Webhook-Kanäle für Alerts brauchen noch einen Notification-Provider.
 - Echte News brauchen providerseitige Quelle, Link, Zeitstempel, Rate-Limits und Quellenvalidierung.
 - Vollständige Realtime-Abdeckung aller Börsen braucht lizenzierte Anbieter und Börsenrechte.
 - Große Watchlists sollten langfristig echte Virtualisierung erhalten.
 - Portfolio braucht für Live-Depots Broker-/Custodian-Import oder manuelle Transaktionshistorie mit Audit-Trail.
+- FMP ist live erreichbar, aber aktuell providerseitig rate-limited/degraded. Fallbacks greifen, aber FMP-Plan/Limit sollte geprüft werden.
 
 ## Nächste konkrete Schritte
 
 1. Code committen und pushen.
-2. Vercel-Production-Deploy für STAI auslösen.
-3. Nach Deploy `dr:check` gegen die Live-URL ausführen.
-4. Billing-Provider auswählen und Feature-Gates serverseitig erzwingen.
-5. Alert-Worker mit Queue/Cron und Benachrichtigungskanälen bauen.
+2. Billing-Provider auswählen und Feature-Gates serverseitig erzwingen.
+3. Alert-Kanäle für Push/E-Mail/Webhook ergänzen.
+4. FMP-Limit/Plan prüfen oder providerseitigen Fallback priorisieren.
+5. Optional auf Vercel Pro upgraden, wenn Alert-Cron öfter als täglich laufen soll.
 6. Providerstrategie für News/Fundamentals finalisieren.

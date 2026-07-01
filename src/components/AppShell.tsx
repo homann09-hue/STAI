@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { legalDisclaimer } from "@/lib/scoring";
+import { GlobalCommandPalette } from "@/components/global-command-palette";
+import { NotificationCenter } from "@/components/notification-center";
 import { PwaRegister } from "@/components/PwaRegister";
 import { RiskNoticeDialog } from "@/components/risk-notice-dialog";
 
@@ -206,12 +208,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/alerts" className="hidden h-10 w-10 place-items-center rounded-xl border border-stroke bg-panel text-muted transition hover:border-cyan/40 hover:text-cyan lg:grid" aria-label="Alarme">
               <Bell className="h-4 w-4" />
             </Link>
+            <NotificationCenter />
             <Link href="/watchlist" className="hidden h-10 w-10 place-items-center rounded-xl border border-stroke bg-panel text-muted transition hover:border-cyan/40 hover:text-cyan lg:grid" aria-label="Watchlist">
               <Star className="h-4 w-4" />
             </Link>
             <Link href="/settings" className="hidden h-10 w-10 place-items-center rounded-xl border border-stroke bg-panel text-muted transition hover:border-cyan/40 hover:text-cyan lg:grid" aria-label="Einstellungen">
               <Settings2 className="h-4 w-4" />
             </Link>
+            <GlobalCommandPalette />
             <Link href="/watchlist" className="hidden rounded-xl bg-gradient-to-r from-[#6d3df5] to-[#1677ff] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(63,92,255,0.25)] lg:block">
               Watchlist
             </Link>

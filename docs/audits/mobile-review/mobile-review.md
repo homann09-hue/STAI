@@ -1,6 +1,6 @@
 # StockPilot AI Mobile Review
 
-Generated: 2026-06-30T15:18:09.190Z
+Generated: 2026-07-01T14:42:15.837Z
 
 Scope: Pixel 7 viewport via Playwright mobile-chrome. Evidence covers visual layout, horizontal overflow, critical touch targets and bottom navigation.
 
@@ -9,7 +9,7 @@ Scope: Pixel 7 viewport via Playwright mobile-chrome. Evidence covers visual lay
 - Route: `/`
 - Screenshot: `01-dashboard.png`
 - Horizontal overflow: 0px
-- Visible interactive elements: 7
+- Visible interactive elements: 49
 - Critical targets under 24px: 0
 - Targets below 44px recommendation: 0
 
@@ -27,7 +27,7 @@ Scope: Pixel 7 viewport via Playwright mobile-chrome. Evidence covers visual lay
 - Route: `/assets/NVDA`
 - Screenshot: `03-asset-nvda.png`
 - Horizontal overflow: 0px
-- Visible interactive elements: 17
+- Visible interactive elements: 7
 - Critical targets under 24px: 0
 - Targets below 44px recommendation: 0
 
@@ -36,7 +36,7 @@ Scope: Pixel 7 viewport via Playwright mobile-chrome. Evidence covers visual lay
 - Route: `/portfolio`
 - Screenshot: `04-portfolio.png`
 - Horizontal overflow: 0px
-- Visible interactive elements: 18
+- Visible interactive elements: 23
 - Critical targets under 24px: 0
 - Targets below 44px recommendation: 0
 
@@ -45,7 +45,7 @@ Scope: Pixel 7 viewport via Playwright mobile-chrome. Evidence covers visual lay
 - Route: `/settings`
 - Screenshot: `05-settings.png`
 - Horizontal overflow: 0px
-- Visible interactive elements: 12
+- Visible interactive elements: 7
 - Critical targets under 24px: 0
 - Targets below 44px recommendation: 0
 

@@ -5,5 +5,11 @@
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "outputDirectory": ".next",
-  "regions": ["fra1"]
+  "regions": ["fra1"],
+  "crons": [
+    {
+      "path": "/api/alerts/run",
+      "schedule": "0 7 * * *"
+    }
+  ]
 }

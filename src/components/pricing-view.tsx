@@ -41,6 +41,11 @@ export function PricingView() {
               <Icon className="h-6 w-6 text-cyan" />
               <h2 className="mt-4 text-xl font-semibold">{tier.name}</h2>
               <p className="mt-1 text-sm text-muted">{tier.audience}</p>
+              {tier.id === "pro" ? (
+                <p className="mt-3 inline-flex rounded-full border border-cyan/30 bg-cyan/10 px-3 py-1 text-xs font-semibold text-cyan">
+                  mehrere Portfolios
+                </p>
+              ) : null}
               <p className="mt-4 font-mono text-3xl font-semibold text-mist">{tier.price}</p>
               <p className="mt-3 rounded-xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">{tier.technicalStatus}</p>
               <div className="mt-5 space-y-2">
