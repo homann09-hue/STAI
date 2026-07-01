@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AssetDetail, DataQualityReport, DataSource, MarketDataQuality } from "@/lib/types";
+import type { AssetDetail, DataQualityReport, DataSource, MarketDataQuality, MarketStatus } from "@/lib/types";
 
 const quoteSchema = z.object({
   price: z.number().positive(),
@@ -19,23 +19,114 @@ const newsSchema = z.object({
 const sourceLabels: Record<MarketDataQuality, string> = {
   realtime: "Realtime-Daten",
   near_realtime: "Near-Realtime-Daten",
-  delayed: "Verzoegerte Daten",
+  delayed: "Verzögerte Daten",
   historical: "Historische Daten",
   mock: "Mock-Daten",
-  unavailable: "Nicht verfuegbar"
+  unavailable: "Nicht verfügbar"
 };
+
+export type DataQualityDisplayInput = {
+  quality: MarketDataQuality;
+  marketStatus?: MarketStatus;
+  delayedByMinutes?: number;
+  fromCache?: boolean;
+  offline?: boolean;
+};
+
+export function getDataQualityDisplay(input: DataQualityDisplayInput) {
+  const delayedByMinutes = input.delayedByMinutes && input.delayedByMinutes > 0 ? input.delayedByMinutes : 15;
+
+  if (input.offline) {
+    return {
+      label: "OFFLINE",
+      shortLabel: "OFFLINE",
+      tone: "border-loss/35 bg-loss/10 text-loss",
+      warning: "Offline: Es werden nur lokal gespeicherte Daten angezeigt."
+    };
+  }
+
+  if (input.quality === "mock") {
+    return {
+      label: "MOCK",
+      shortLabel: "MOCK",
+      tone: "border-loss/35 bg-loss/10 text-loss",
+      warning: "Mock-Daten sind Demo-/Produktdaten und dürfen nicht als echte Marktdaten interpretiert werden."
+    };
+  }
+
+  if (input.quality === "unavailable") {
+    return {
+      label: "ERROR",
+      shortLabel: "ERROR",
+      tone: "border-loss/35 bg-loss/10 text-loss",
+      warning: "Datenquelle aktuell nicht verfügbar. Keine aktuellen Signale ableiten."
+    };
+  }
+
+  if (input.fromCache) {
+    return {
+      label: "CACHED",
+      shortLabel: "CACHED",
+      tone: "border-amber/35 bg-amber/10 text-amber",
+      warning: "Zwischengespeicherte Daten. Aktualität vor Entscheidungen prüfen."
+    };
+  }
+
+  if (input.marketStatus === "closed") {
+    return {
+      label: "MARKET CLOSED",
+      shortLabel: "CLOSED",
+      tone: "border-amber/35 bg-amber/10 text-amber",
+      warning: "Markt geschlossen. Kurse können nachbörslich oder veraltet sein."
+    };
+  }
+
+  if (input.quality === "realtime") {
+    return {
+      label: "REALTIME",
+      shortLabel: "REALTIME",
+      tone: "border-profit/35 bg-profit/10 text-profit",
+      warning: null
+    };
+  }
+
+  if (input.quality === "near_realtime") {
+    return {
+      label: "NEAR_REALTIME",
+      shortLabel: "NEAR",
+      tone: "border-cyan/35 bg-cyan/10 text-cyan",
+      warning: "Near-Realtime ist kein lizenzierter Millisekunden-Feed."
+    };
+  }
+
+  if (input.quality === "delayed") {
+    return {
+      label: `DELAYED ${delayedByMinutes} MIN`,
+      shortLabel: "DELAYED",
+      tone: "border-amber/35 bg-amber/10 text-amber",
+      warning: "Verzögerte Daten. Nicht als Live-Kurs verwenden."
+    };
+  }
+
+  return {
+    label: "HISTORICAL",
+    shortLabel: "HISTORICAL",
+    tone: "border-amber/35 bg-amber/10 text-amber",
+    warning: "Historische Daten. Keine aktuellen Signale ableiten."
+  };
+}
 
 export function validateAssetData(detail: Pick<AssetDetail, "asset" | "quote" | "news" | "fundamentals" | "candles">) {
   const issues: string[] = [];
   const quote = quoteSchema.safeParse(detail.quote);
 
-  if (!quote.success) issues.push("Kursdaten sind unvollstaendig oder ungültig.");
+  if (!quote.success) issues.push("Kursdaten sind unvollständig oder ungültig.");
   if (!detail.asset.symbol || !detail.asset.name) issues.push("Asset-Stammdaten fehlen.");
   if (!Object.values(detail.candles).every((items) => items.length >= 10)) {
     issues.push("Mindestens ein Chart-Zeitraum hat zu wenige Kerzen.");
   }
   if (!detail.news.every((item) => newsSchema.safeParse(item).success)) {
-    issues.push("Mindestens eine News-Quelle ist unvollstaendig.");
+    issues.push("Mindestens eine News-Quelle ist unvollständig.");
   }
   if (detail.asset.type !== "crypto" && detail.fundamentals.peRatio === null) {
     issues.push("KGV fehlt für ein nicht-krypto Asset.");
@@ -79,7 +170,7 @@ export function assessDataQuality(
       rank: 4,
       fetchedAt: detail.news[0]?.publishedAt ?? detail.quote.asOf,
       status: missingNews ? "missing" : "fresh",
-      note: "News sind nach Relevanz sortierte Demo-Daten."
+      note: "News sind nach Relevanz sortierte Mock-Daten und keine bestätigten Realnachrichten."
     },
     {
       name: "Derived Technical Engine",
@@ -87,14 +178,14 @@ export function assessDataQuality(
       rank: 3,
       fetchedAt: detail.quote.asOf,
       status: validation.valid ? "fresh" : "conflicting",
-      note: "RSI, MACD, MAs, Bollinger, Support und Resistance werden aus verfuegbaren Kursdaten abgeleitet."
+      note: "RSI, MACD, MAs, Bollinger, Support und Resistance werden aus verfügbaren Kursdaten abgeleitet."
     }
   ];
   const warnings = [
-    ...(isMock ? ["Mock-Daten sind Produktdaten und duerfen nicht als reale Marktdaten genutzt werden."] : []),
+    ...(isMock ? ["Mock-Daten sind Demo-/Produktdaten und dürfen nicht als reale Marktdaten genutzt werden."] : []),
     ...(quoteQuality === "unavailable" ? ["Kursanbieter ist nicht erreichbar."] : []),
     ...(stale ? ["Daten sind veraltet und sollten vor Entscheidungen aktualisiert werden."] : []),
-    ...(delayed && !stale ? ["Daten sind verzogert und nicht als Live-Kurs geeignet."] : []),
+    ...(delayed && !stale ? ["Daten sind verzögert und nicht als Live-Kurs geeignet."] : []),
     ...(missingNews ? ["Keine verwertbaren News für dieses Symbol gefunden."] : []),
     ...(cryptoFundamentalGap ? ["Krypto-Fundamentaldaten sind strukturell nicht mit Aktien-Kennzahlen vergleichbar."] : [])
   ];
@@ -112,7 +203,7 @@ export function assessDataQuality(
     isMock,
     updatedAt: detail.quote.asOf,
     stale,
-    sufficientForAnalysis: quoteQuality !== "unavailable" && score >= 58 && validation.valid,
+    sufficientForAnalysis: quoteQuality !== "unavailable" && quoteQuality !== "mock" && !stale && score >= 58 && validation.valid,
     confidence: Math.max(10, Math.min(95, score - (contradictions.length ? 12 : 0))),
     issues: validation.issues,
     warnings,

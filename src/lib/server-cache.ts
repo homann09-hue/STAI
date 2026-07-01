@@ -19,13 +19,8 @@ const memoryStore = new Map<string, CacheEntry<unknown>>();
 const upstashRestUrl = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
 const upstashRestToken = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
 const upstashConfigured = Boolean(upstashRestUrl && upstashRestToken);
-const externalPrepared = Boolean(
-  process.env.VERCEL_RUNTIME_CACHE ||
-    process.env.REDIS_URL ||
-    process.env.STOCKPILOT_SHARED_CACHE_URL,
-);
 
-export const isSharedCacheConfigured = upstashConfigured || externalPrepared;
+export const isSharedCacheConfigured = upstashConfigured;
 
 function pruneExpired(key: string, entry: CacheEntry<unknown> | undefined) {
   if (!entry) {

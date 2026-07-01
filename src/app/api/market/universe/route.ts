@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   const requestedAssetClass = searchParams.get("assetClass") ?? "all";
 
   if (!allowedAssetClasses.includes(requestedAssetClass as MarketUniverseAssetClass | "all")) {
-    return jsonError("Ungueltige Assetklasse.", 400);
+    return jsonError("Ungültige Assetklasse.", 400);
   }
 
   const assetClass = requestedAssetClass as MarketUniverseAssetClass | "all";

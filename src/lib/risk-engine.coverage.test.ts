@@ -8,6 +8,8 @@ type MockDetail = NonNullable<ReturnType<typeof getMockAsset>>;
 describe("risk engine branch coverage", () => {
   it("returns a low-risk report when no model warning is triggered", () => {
     const detail = cloneDetail("VOO");
+    detail.quote.quality = "realtime";
+    detail.quote.provider = "Unit Test Realtime Provider";
     detail.quote.volume = 50_000_000;
     detail.quote.changePercent = 0.2;
     detail.indicators.rsi = 50;
@@ -32,7 +34,14 @@ describe("risk engine branch coverage", () => {
       volume: 5_000_000
     }));
 
-    const report = buildRiskReport(detail, assessDataQuality(detail), new Date(detail.quote.asOf));
+    const dataQuality = {
+      ...assessDataQuality(detail),
+      sufficientForAnalysis: true,
+      score: 90,
+      issues: [],
+      warnings: []
+    };
+    const report = buildRiskReport(detail, dataQuality, new Date(detail.quote.asOf));
 
     expect(report.level).toBe("niedrig");
     expect(report.score).toBe(0);

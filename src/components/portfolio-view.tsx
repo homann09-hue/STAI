@@ -7,6 +7,7 @@ import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline"
 import { analyzePortfolio, applyPortfolioTrade } from "@/lib/portfolio-analytics";
 import { formatCurrency, formatPercent, legalDisclaimer, riskTone } from "@/lib/scoring";
 import { fetchWithSupabaseAuth } from "@/lib/supabase/client-fetch";
+import { portfolioTradeInputSchema } from "@/lib/validation";
 import type { AssetType, PortfolioSummary } from "@/lib/types";
 
 export function PortfolioView({ initialPortfolio }: { initialPortfolio: PortfolioSummary }) {
@@ -19,7 +20,9 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
   const [price, setPrice] = useState("500");
   const [riskScore, setRiskScore] = useState("55");
   const [offlineReady, setOfflineReady] = useState(false);
-  const [syncStatus, setSyncStatus] = useState("Lokaler Portfolio-Modus aktiv.");
+  const [syncMode, setSyncMode] = useState<"demo" | "supabase">("demo");
+  const [syncStatus, setSyncStatus] = useState("Beispielportfolio aktiv. Kein echter Billing-/Authstatus geprüft.");
+  const [formError, setFormError] = useState("");
   const portfolio = useMemo(() => analyzePortfolio(positions), [positions]);
   const positive = portfolio.totalPnL >= 0;
 
@@ -43,13 +46,15 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
       .then((data: PortfolioSummary & { mode?: string }) => {
         if (cancelled || !data.positions?.length) return;
         setPositions(data.positions);
-        setSyncStatus(data.mode === "supabase" ? "Supabase-Portfolio aktiv." : "Lokaler Portfolio-Modus aktiv.");
+        setSyncMode(data.mode === "supabase" ? "supabase" : "demo");
+        setSyncStatus(data.mode === "supabase" ? "Supabase-Portfolio aktiv." : "Beispielportfolio / lokaler Demo-Modus aktiv.");
       })
       .catch(() => {
         if (!cancelled) {
           const fallback = readOfflineValue<typeof initialPortfolio.positions>(OFFLINE_KEYS.portfolio);
           if (fallback?.length) setPositions(fallback);
-          setSyncStatus(fallback?.length ? "Offline-Portfolio aus lokalem Speicher geladen." : "Supabase nicht erreichbar. Lokaler Portfolio-Modus aktiv.");
+          setSyncMode("demo");
+          setSyncStatus(fallback?.length ? "Offline-Portfolio aus lokalem Speicher geladen." : "Supabase nicht erreichbar. Beispielportfolio aktiv.");
         }
       });
 
@@ -62,19 +67,6 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
     const qty = Number(quantity);
     const avg = Number(price);
     const risk = Number(riskScore);
-    if (
-      !symbol.trim() ||
-      !sector.trim() ||
-      Number.isNaN(qty) ||
-      Number.isNaN(avg) ||
-      Number.isNaN(risk) ||
-      qty <= 0 ||
-      avg <= 0 ||
-      risk < 0 ||
-      risk > 100
-    ) {
-      return;
-    }
 
     const trade = {
         symbol: symbol.trim().toUpperCase(),
@@ -86,6 +78,13 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
         currency: "USD",
         riskScore: risk
       };
+    const parsedTrade = portfolioTradeInputSchema.safeParse(trade);
+    setFormError("");
+
+    if (!parsedTrade.success || Number.isNaN(qty) || Number.isNaN(avg) || Number.isNaN(risk)) {
+      setFormError("Bitte Symbol, Branche, Menge, Kurs und Risiko sauber eingeben. Sonderzeichen wie < oder > sind nicht erlaubt.");
+      return;
+    }
 
     try {
       const response = await fetchWithSupabaseAuth("/api/portfolio", {
@@ -93,20 +92,23 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify(trade)
+        body: JSON.stringify(parsedTrade.data)
       });
+      if (!response.ok) throw new Error("portfolio mutation not authenticated");
       const data = await response.json() as { portfolio?: PortfolioSummary; mode?: string };
 
       if (data.portfolio?.positions) {
         setPositions(data.portfolio.positions);
       } else {
-        setPositions((current) => applyPortfolioTrade(current, trade));
+        setPositions((current) => applyPortfolioTrade(current, parsedTrade.data));
       }
 
+      setSyncMode(data.mode === "supabase" ? "supabase" : "demo");
       setSyncStatus(data.mode === "supabase" ? "Transaktion in Supabase gespeichert." : "Transaktion lokal gespeichert.");
     } catch {
-      setPositions((current) => applyPortfolioTrade(current, trade));
-      setSyncStatus("Supabase nicht erreichbar. Transaktion lokal gespeichert.");
+      setPositions((current) => applyPortfolioTrade(current, parsedTrade.data));
+      setSyncMode("demo");
+      setSyncStatus("Nicht eingeloggt oder Supabase nicht erreichbar. Transaktion nur lokal im Demo-Portfolio gespeichert.");
     }
 
     setQuantity("1");
@@ -124,10 +126,13 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
         },
         body: JSON.stringify({ id })
       });
+      if (!response.ok) throw new Error("portfolio delete not authenticated");
       const data = await response.json() as { portfolio?: PortfolioSummary; mode?: string };
       if (data.portfolio?.positions) setPositions(data.portfolio.positions);
+      setSyncMode(data.mode === "supabase" ? "supabase" : "demo");
       setSyncStatus(data.mode === "supabase" ? "Position in Supabase entfernt." : "Position lokal entfernt.");
     } catch {
+      setSyncMode("demo");
       setSyncStatus("Supabase nicht erreichbar. Position lokal entfernt.");
     }
   }
@@ -137,6 +142,11 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
       <section className="rounded-md border border-stroke bg-[linear-gradient(140deg,#101712,#07100d_70%,#172114)] p-5 shadow-panel">
         <p className="text-sm text-muted">Portfolio</p>
         <h1 className="mt-2 text-3xl font-semibold">Positionen und Risiko</h1>
+        <p className="mt-3 rounded-md border border-amber/30 bg-amber/10 p-3 text-xs leading-5 text-amber">
+          {syncMode === "supabase"
+            ? "Echtes Nutzerportfolio: Positionen werden mit Supabase synchronisiert."
+            : "Beispielportfolio / lokaler Demo-Modus: Werte sind nicht als echte Depotdaten zu verstehen."}
+        </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-4">
           <div className="rounded-md bg-ink/40 p-3">
             <p className="text-xs text-muted">Wert</p>
@@ -166,7 +176,7 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
         <p className="mt-4 rounded-md border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
           {legalDisclaimer}
         </p>
-        <p className="mt-3 rounded-xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">{syncStatus}</p>
+        <p className={`mt-3 rounded-xl border px-3 py-2 text-xs ${syncMode === "supabase" ? "border-profit/30 bg-profit/10 text-profit" : "border-amber/30 bg-amber/10 text-amber"}`}>{syncStatus}</p>
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[1fr_0.8fr]">
@@ -299,8 +309,10 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
               <Plus className="h-4 w-4" />
               Vorgang speichern
             </button>
+            {formError ? <p className="mt-3 rounded-md border border-loss/30 bg-loss/10 p-3 text-xs leading-5 text-loss">{formError}</p> : null}
             <p className="mt-3 text-xs leading-5 text-muted">
               Lokale Eingaben werden offline gespeichert. Bei aktivem Supabase-Login werden Transaktionen und Positionen synchronisiert.
+              Ohne Login ist dies ein lokales Beispielportfolio.
             </p>
           </div>
         </div>

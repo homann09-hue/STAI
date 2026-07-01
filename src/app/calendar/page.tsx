@@ -11,10 +11,10 @@ export default function CalendarPage() {
     <TerminalSectionView
       eyebrow="Kalender"
       title="Earnings, Dividenden, Splits und Makro-Termine"
-      description="Kalenderdaten sind provider- und lizenzabhaengig. STAI zeigt spaeter Quelle, Zeit, Relevanz, betroffene Symbole und KI-Auswirkung."
+      description="Kalenderdaten sind provider- und lizenzabhängig. STAI zeigt nach Anbieteranbindung Quelle, Zeit, Relevanz, betroffene Symbole und KI-Auswirkung."
       cards={[
         { title: "Earnings", text: "Quartalszahlen, Guidance und Analystenreaktionen werden als Event-Typen vorbereitet.", badge: "Provider" },
-        { title: "Dividenden & Splits", text: "Ex-Date, Pay-Date, Ausschüttung und Splits lassen sich ueber Fundamentals-/Events-Provider anbinden." },
+        { title: "Dividenden & Splits", text: "Ex-Date, Pay-Date, Ausschüttung und Splits lassen sich über Fundamentals-/Events-Provider anbinden." },
         { title: "Makro", text: "Fed, EZB, Inflation, Zinsen und Arbeitsmarktdaten werden für Risiko- und Marktregime-Analysen vorbereitet." }
       ]}
     />

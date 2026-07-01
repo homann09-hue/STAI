@@ -1,5 +1,5 @@
 import { mockAlerts } from "@/lib/mock/market";
-import { jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
+import { jsonError, jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
 import { createUserAlert, getSupabaseAuth, listUserAlerts, updateUserAlert } from "@/lib/supabase/user-data";
 import { alertInputSchema, alertUpdateInputSchema } from "@/lib/validation";
 
@@ -34,17 +34,9 @@ export async function POST(request: Request) {
     return jsonOk({ alert, mode: "supabase" }, { status: 201 });
   }
 
-  return jsonOk(
-    {
-      alert: {
-        id: `api-${Date.now()}`,
-        ...parsed.data
-      },
-      mode: "local",
-      reason: auth.reason
-    },
-    { status: 201 }
-  );
+  return jsonError("Anmeldung erforderlich. Alarm-Änderungen werden nur lokal im Client gespeichert.", 401, {
+    "X-StockPilot-Auth-Reason": auth.reason
+  });
 }
 
 export async function PATCH(request: Request) {
@@ -64,5 +56,7 @@ export async function PATCH(request: Request) {
     return jsonOk({ alert, mode: "supabase" });
   }
 
-  return jsonOk({ alert: parsed.data, mode: "local", reason: auth.reason });
+  return jsonError("Anmeldung erforderlich. Alarm-Änderungen werden nur lokal im Client gespeichert.", 401, {
+    "X-StockPilot-Auth-Reason": auth.reason
+  });
 }

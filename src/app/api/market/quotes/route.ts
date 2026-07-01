@@ -16,6 +16,11 @@ function parseSymbols(request: Request) {
     .filter(Boolean);
 }
 
+function orderQuotesForRequest(quotes: NormalizedQuote[], symbols: string[]) {
+  const bySymbol = new Map(quotes.map((quote) => [quote.symbol, quote]));
+  return symbols.map((symbol) => bySymbol.get(symbol)).filter((quote): quote is NormalizedQuote => Boolean(quote));
+}
+
 export async function GET(request: Request) {
   const limited = await rateLimit(request);
   if (limited) return limited;
@@ -35,7 +40,7 @@ export async function GET(request: Request) {
 
   for (const rawSymbol of rawSymbols) {
     const parsed = validateSymbol(rawSymbol);
-    if (!parsed.success) return jsonError("Ungueltiges Symbol.", 400);
+    if (!parsed.success) return jsonError("Ungültiges Symbol.", 400);
     if (!seen.has(parsed.data)) {
       seen.add(parsed.data);
       symbols.push(parsed.data);
@@ -60,12 +65,13 @@ export async function GET(request: Request) {
     },
     { staleTtlMs: costControls.quoteStaleTtlMs, ttlMs: costControls.quoteTtlMs }
   );
+  const orderedQuotes = orderQuotesForRequest(result.value, symbols);
 
   return jsonOk(
     {
       provider: provider.providerName,
       streamMode: provider.streamMode,
-      quotes: result.value,
+      quotes: orderedQuotes,
       cache: {
         fromCache: result.fromCache,
         storedAt: result.cacheStoredAt,

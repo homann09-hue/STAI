@@ -1,5 +1,5 @@
 import { getMockPortfolio } from "@/lib/mock/market";
-import { jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
+import { jsonError, jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
 import { applyUserPortfolioTrade, deleteUserPortfolioPosition, getSupabaseAuth, getUserPortfolio } from "@/lib/supabase/user-data";
 import { portfolioDeleteInputSchema, portfolioTradeInputSchema } from "@/lib/validation";
 
@@ -42,17 +42,9 @@ export async function POST(request: Request) {
     return jsonOk({ portfolio, mode: "supabase" }, { status: 201 });
   }
 
-  return jsonOk(
-    {
-      trade: {
-        id: `api-${Date.now()}`,
-        ...parsed.data
-      },
-      mode: "local",
-      reason: auth.reason
-    },
-    { status: 201 }
-  );
+  return jsonError("Anmeldung erforderlich. Portfolio-Änderungen werden nur lokal im Client gespeichert.", 401, {
+    "X-StockPilot-Auth-Reason": auth.reason
+  });
 }
 
 export async function DELETE(request: Request) {
@@ -72,5 +64,7 @@ export async function DELETE(request: Request) {
     return jsonOk({ portfolio, mode: "supabase" });
   }
 
-  return jsonOk({ id: parsed.data.id, mode: "local", reason: auth.reason });
+  return jsonError("Anmeldung erforderlich. Portfolio-Änderungen werden nur lokal im Client gespeichert.", 401, {
+    "X-StockPilot-Auth-Reason": auth.reason
+  });
 }

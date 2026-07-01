@@ -55,7 +55,7 @@ export function ProfessionalScoresPanel({ scores }: { scores: ProfessionalScores
         <div className="rounded-md border border-loss/25 bg-loss/10 p-4">
           <p className="text-sm text-muted">Gesamt-Risiko-Score</p>
           <p className="mt-2 font-mono text-3xl font-semibold text-loss">{scores.riskTotal}/100</p>
-          <p className="mt-2 text-xs text-muted">Höherer Wert bedeutet hoeheres Modellrisiko.</p>
+          <p className="mt-2 text-xs text-muted">Höherer Wert bedeutet höheres Modellrisiko.</p>
         </div>
       </div>
     </div>
@@ -76,7 +76,7 @@ export function ProbabilityPanel({ scores }: { scores: ProfessionalScores }) {
           <p className="font-mono text-2xl text-loss">{scores.probabilityDown}%</p>
         </div>
         <div>
-          <p className="text-xs text-muted">Seitwaerts</p>
+          <p className="text-xs text-muted">Seitwärts</p>
           <p className="font-mono text-2xl text-amber">{scores.probabilitySideways}%</p>
         </div>
       </div>

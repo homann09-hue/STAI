@@ -15,7 +15,7 @@ export async function GET(request: Request, { params }: RouteContext) {
   const parsed = validateSymbol(symbol);
 
   if (!parsed.success) {
-    return jsonError("Ungueltiges Symbol.", 400);
+    return jsonError("Ungültiges Symbol.", 400);
   }
 
   const result = await withCacheFallback(

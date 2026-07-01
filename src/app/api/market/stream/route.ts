@@ -1,6 +1,7 @@
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
 import { REQUEST_ID_HEADER, jsonError, rateLimit, secureStreamHeaders } from "@/lib/api-guard";
 import { getStreamIntervalMs } from "@/lib/cost-controls";
+import { logEvent } from "@/lib/observability";
 import { validateSymbol } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
 
   for (const rawSymbol of rawSymbols) {
     const parsed = validateSymbol(rawSymbol);
-    if (!parsed.success) return jsonError("Ungueltiges Symbol.", 400);
+    if (!parsed.success) return jsonError("Ungültiges Symbol.", 400);
     if (!seen.has(parsed.data)) {
       seen.add(parsed.data);
       symbols.push(parsed.data);
@@ -119,7 +120,7 @@ export async function GET(request: Request) {
           });
         }
       } catch (error) {
-        console.error("market stream failed", { provider: provider.providerName, error });
+        logEvent("error", "market.stream_failed", { provider: provider.providerName, error });
         if (!request.signal.aborted) {
           send("error", {
             provider: provider.providerName,

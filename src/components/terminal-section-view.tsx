@@ -6,7 +6,9 @@ export function TerminalSectionView({
   description,
   cards,
   ctaHref = "/markets",
-  ctaLabel = "Zum Marktterminal"
+  ctaLabel = "Zum Marktterminal",
+  statusLabel = "Demo / Providerstatus sichtbar",
+  statusDescription = "Diese Seite liefert Produktnutzen, markiert aber lizenz- oder backendabhängige Funktionen klar als vorbereitet."
 }: {
   eyebrow: string;
   title: string;
@@ -14,6 +16,8 @@ export function TerminalSectionView({
   cards: Array<{ title: string; text: string; badge?: string }>;
   ctaHref?: string;
   ctaLabel?: string;
+  statusLabel?: string;
+  statusDescription?: string;
 }) {
   return (
     <div className="space-y-5">
@@ -21,6 +25,10 @@ export function TerminalSectionView({
         <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-cyan">{eyebrow}</p>
         <h1 className="mt-3 max-w-4xl text-3xl font-semibold tracking-tight text-mist sm:text-4xl">{title}</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-muted sm:text-base">{description}</p>
+        <div className="mt-5 rounded-2xl border border-amber/25 bg-amber/10 p-3 text-sm leading-6 text-amber">
+          <p className="font-semibold">{statusLabel}</p>
+          <p className="mt-1 text-xs">{statusDescription}</p>
+        </div>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link href={ctaHref} className="rounded-2xl bg-profit px-4 py-3 text-sm font-semibold text-ink transition hover:brightness-110">
             {ctaLabel}

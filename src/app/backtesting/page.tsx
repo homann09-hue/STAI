@@ -11,10 +11,10 @@ export default function BacktestingPage() {
     <TerminalSectionView
       eyebrow="Backtesting"
       title="Strategien testen, bevor sie ins Portfolio gehen"
-      description="Backtesting benoetigt saubere historische Daten. STAI bereitet Drawdown, Volatilitaet, Rendite/Risiko, Korrelationen und Benchmark-Vergleich vor."
+      description="Backtesting benoetigt saubere historische Daten. STAI bereitet Drawdown, Volatilität, Rendite/Risiko, Korrelationen und Benchmark-Vergleich vor."
       cards={[
-        { title: "Historische Daten", text: "Provider wie Polygon/Massive, Databento, EODHD oder Twelve Data koennen spaeter die Candle-Historie liefern.", badge: "Lizenz" },
-        { title: "Kennzahlen", text: "Max Drawdown, Sharpe Ratio, Volatilitaet, Trefferquote und Benchmark-Abweichung." },
+        { title: "Historische Daten", text: "Provider wie Polygon/Massive, Databento, EODHD oder Twelve Data können nach Anbieteranbindung die Candle-Historie liefern.", badge: "Lizenz" },
+        { title: "Kennzahlen", text: "Max Drawdown, Sharpe Ratio, Volatilität, Trefferquote und Benchmark-Abweichung." },
         { title: "Szenarien", text: "Portfolio-Schocks, Rebalancing und Konzentrationsrisiken sind als Analytics-Struktur vorbereitet." }
       ]}
     />

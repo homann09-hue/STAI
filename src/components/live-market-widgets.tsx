@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { memo, useMemo } from "react";
 import { Clock3, Database, Radio, RefreshCw, WifiOff, Zap } from "lucide-react";
+import { DataQualityBadge as CoreDataQualityBadge } from "@/components/data-quality-indicator";
 import { MarketDataStatus } from "@/components/market-data-status";
 import { formatCurrency, formatPercent } from "@/lib/scoring";
 import type { AssetSummary, Candle, MarketConnectionStatus, MarketDataQuality, MarketStatus, NormalizedQuote, Quote, RefreshInterval, RefreshMode } from "@/lib/types";
@@ -37,30 +38,8 @@ export function quoteFromSummary(item: AssetSummary, liveQuote?: NormalizedQuote
   };
 }
 
-function qualityLabel(quality: MarketDataQuality, marketStatus: MarketStatus) {
-  if (quality === "mock") return "Mock";
-  if (quality === "unavailable") return "Error";
-  if (marketStatus === "closed") return "Closed";
-  if (quality === "realtime") return "Realtime";
-  if (quality === "near_realtime") return "Near";
-  if (quality === "delayed") return "Delayed";
-  if (quality === "historical") return "Historical";
-  return "Unavailable";
-}
-
-function badgeTone(quality: MarketDataQuality, marketStatus: MarketStatus) {
-  if (quality === "mock" || quality === "unavailable") return "border-loss/35 bg-loss/10 text-loss";
-  if (marketStatus === "closed" || quality === "delayed" || quality === "historical") return "border-amber/35 bg-amber/10 text-amber";
-  if (quality === "realtime") return "border-profit/35 bg-profit/10 text-profit";
-  return "border-cyan/35 bg-cyan/10 text-cyan";
-}
-
 export function DataQualityBadge({ quality, marketStatus }: { quality: MarketDataQuality; marketStatus: MarketStatus }) {
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${badgeTone(quality, marketStatus)}`}>
-      {qualityLabel(quality, marketStatus)}
-    </span>
-  );
+  return <CoreDataQualityBadge quality={quality} marketStatus={marketStatus} compact />;
 }
 
 export function MarketStatusBadge({ status }: { status: MarketStatus }) {

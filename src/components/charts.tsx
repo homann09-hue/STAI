@@ -185,7 +185,7 @@ export function CandlestickChart({ candles }: { candles: Candle[] }) {
     <div className="rounded-md border border-stroke bg-panel p-3">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-sm font-semibold">Candlestick + Volumen</p>
-        <p className="text-xs text-muted">OHLC, Provider-Qualitaet siehe Kursbadge</p>
+        <p className="text-xs text-muted">OHLC, Provider-Qualität siehe Kursbadge</p>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="aspect-[16/7] w-full" role="img" aria-label={chartDescription}>
         <title>{chartDescription}</title>

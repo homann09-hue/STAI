@@ -1,6 +1,7 @@
 import "server-only";
 
 import { analyzePortfolio, applyPortfolioTrade } from "@/lib/portfolio-analytics";
+import { logEvent } from "@/lib/observability";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { AlertRule, AlertType, AssetType, PortfolioPosition, PortfolioSummary, PortfolioTradeInput } from "@/lib/types";
 
@@ -38,14 +39,19 @@ type WatchlistRow = {
   created_at: string;
 };
 
+type SupabaseErrorLike = {
+  code?: string;
+  message?: string;
+};
+
 const alertLabels: Record<AlertType, string> = {
   price: "Kursalarm",
-  rsi: "RSI uber/unter Wert",
+  rsi: "RSI über/unter Wert",
   news: "Newsalarm",
   volume: "Volumenanstieg",
   earnings: "Earnings Reminder",
   "ai-risk": "KI-Risikoalarm",
-  "ai-shift": "KI-Einschätzung veraendert",
+  "ai-shift": "KI-Einschätzung verändert",
   "portfolio-risk": "Portfolio-Risikoalarm"
 };
 
@@ -220,11 +226,48 @@ async function savePortfolioPositions(
   if (error) throw error;
 }
 
+function isMissingPortfolioRpc(error: SupabaseErrorLike) {
+  return error.code === "PGRST202" || error.code === "42883" || /apply_portfolio_trade/i.test(error.message ?? "");
+}
+
+async function applyPortfolioTradeRpc(auth: Extract<AuthResult, { ok: true }>, trade: PortfolioTradeInput) {
+  const { error } = await auth.supabase.rpc("apply_portfolio_trade", {
+    p_user_id: auth.userId,
+    p_symbol: trade.symbol,
+    p_name: trade.name ?? null,
+    p_asset_type: trade.assetType,
+    p_sector: trade.sector,
+    p_side: trade.side,
+    p_quantity: trade.quantity,
+    p_price: trade.price,
+    p_currency: trade.currency,
+    p_risk_score: trade.riskScore
+  });
+
+  if (error) throw error;
+}
+
 export async function applyUserPortfolioTrade(auth: Extract<AuthResult, { ok: true }>, trade: PortfolioTradeInput) {
+  try {
+    await applyPortfolioTradeRpc(auth, trade);
+    return getUserPortfolio(auth);
+  } catch (error) {
+    const supabaseError = error as SupabaseErrorLike;
+
+    if (!isMissingPortfolioRpc(supabaseError)) {
+      throw error;
+    }
+
+    logEvent("warn", "portfolio.rpc_missing_fallback", {
+      code: supabaseError.code,
+      message: supabaseError.message
+    });
+  }
+
   const current = await getUserPortfolio(auth);
   const nextPositions = applyPortfolioTrade(current.positions, trade);
 
-  await auth.supabase.from("portfolio_transactions").insert({
+  const { error: transactionError } = await auth.supabase.from("portfolio_transactions").insert({
     user_id: auth.userId,
     symbol: trade.symbol,
     asset_type: trade.assetType,
@@ -234,6 +277,8 @@ export async function applyUserPortfolioTrade(auth: Extract<AuthResult, { ok: tr
     currency: trade.currency,
     notes: trade.name ?? null
   });
+
+  if (transactionError) throw transactionError;
 
   await savePortfolioPositions(auth, nextPositions, current.positions);
   return analyzePortfolio(nextPositions);

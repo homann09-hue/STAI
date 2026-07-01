@@ -54,7 +54,7 @@ export function analyzePortfolio(positions: PortfolioPosition[]): PortfolioSumma
       id: "concentration",
       severity: weightTone(maxPositionWeight),
       title: "Klumpenrisiko",
-      detail: `Groesste Position hat ${maxPositionWeight.toFixed(1)}% Gewichtung.`
+      detail: `Größte Position hat ${maxPositionWeight.toFixed(1)}% Gewichtung.`
     });
   }
 

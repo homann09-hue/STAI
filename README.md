@@ -92,7 +92,7 @@ STOCKPILOT_AI_TTL_MS=300000
 - `src/app/page.tsx`: Dashboard mit Watchlist, Gewinnern, Verlierern, Marktüberblick, Trends, News und KI-Marktsentiment.
 - `src/app/markets/page.tsx`: Global Market Overview mit Provider-Stack, Datenqualität, Watchlist, Portfolio und Profi-Summary.
 - `src/app/stocks/page.tsx`: Aktien-Screener mit Kursdaten, Fundamentaldaten, Analysten, Earnings, Guidance und vorbereiteten Halterdaten.
-- `src/app/etfs/page.tsx`: ETF-Screener mit TER, AUM, Index, Holdings, Sektoren, Laendern, Waehrungen, Tracking und Performance.
+- `src/app/etfs/page.tsx`: ETF-Screener mit TER, AUM, Index, Holdings, Sektoren, Ländern, Währungen, Tracking und Performance.
 - `src/app/crypto/page.tsx`: Krypto-Screener mit Preis, Bid/Ask/Spread, Volumen, Market Cap und vorbereiteten On-Chain-/Derivatefeldern.
 - `src/app/news-terminal/page.tsx`: News- und Event-Terminal mit Relevanz, Impact und Quellenhinweis.
 - `src/app/risk/page.tsx`: Risiko-Dashboard mit Portfolio-Risiko, Drawdown, Korrelationen, Szenarien und Rebalancing-Hinweisen.
@@ -141,7 +141,7 @@ Yahoo oder inoffizielle Quellen sind bewusst nicht als professionelle Hauptquell
 
 `FMP_ENABLE_ETF_QUOTES=false` ist bewusst der sichere Default, weil kleine/neue FMP-Pläne ETF-Quotes häufig mit HTTP 402 blockieren. Wenn dein FMP-Plan ETF-Quotes enthält, kann der Schalter auf `true` gesetzt werden.
 
-`STOCKPILOT_CRYPTO_PROVIDER=binance` ist der Default für Krypto-Symbole wie `BTC-USD` und `ETH-USD`. Aktien/ETFs laufen weiter ueber den gewaehlten Marktanbieter, z. B. Finnhub. Wenn Aktienanbieter keine Bid/Ask-Daten liefern, zeigt die UI bewusst „vom Anbieter nicht geliefert“ statt geschaetzte Spreads zu erfinden.
+`STOCKPILOT_CRYPTO_PROVIDER=binance` ist der Default für Krypto-Symbole wie `BTC-USD` und `ETH-USD`. Aktien/ETFs laufen weiter über den gewaehlten Marktanbieter, z. B. Finnhub. Wenn Aktienanbieter keine Bid/Ask-Daten liefern, zeigt die UI bewusst „vom Anbieter nicht geliefert“ statt geschaetzte Spreads zu erfinden.
 
 Jeder Kurs führt `provider`, `quality`, `marketStatus`, `timestamp`, `latencyMs`, `bid`, `ask`, `spread`, `high`, `low`, `open`, `previousClose` und `volume`, soweit der Anbieter diese Felder liefert.
 

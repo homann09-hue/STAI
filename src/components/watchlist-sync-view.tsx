@@ -4,7 +4,9 @@ import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { WatchlistTable } from "@/components/market-boxes";
 import { readOfflineValue, saveOfflineValue, OFFLINE_KEYS } from "@/lib/offline";
+import { refreshIntervals, defaultRefreshIntervalMs } from "@/lib/refresh-config";
 import { fetchWithSupabaseAuth } from "@/lib/supabase/client-fetch";
+import { normalizeSymbolInput } from "@/lib/validation";
 import type { AssetSummary, AssetType } from "@/lib/types";
 
 type WatchlistItem = {
@@ -14,20 +16,67 @@ type WatchlistItem = {
   assetType?: AssetType;
 };
 
+function placeholderSummary(item: WatchlistItem): AssetSummary {
+  const symbol = item.symbol.toUpperCase();
+  const assetType = item.asset_type ?? item.assetType ?? "stock";
+  const now = new Date().toISOString();
+
+  return {
+    asset: {
+      symbol,
+      name: `${symbol} - Daten noch nicht geladen`,
+      type: assetType,
+      exchange: "unbekannt",
+      currency: "USD",
+      sector: "Nicht klassifiziert",
+      description: "Lokaler Watchlist-Eintrag ohne geladenen Kurs. Keine Analyse oder Signalableitung."
+    },
+    quote: {
+      price: 0,
+      change: 0,
+      changePercent: 0,
+      dayHigh: 0,
+      dayLow: 0,
+      volume: 0,
+      delayedByMinutes: 0,
+      asOf: now,
+      provider: "Nicht geladen",
+      quality: "unavailable",
+      marketStatus: "unknown"
+    },
+    scores: {
+      trend: 50,
+      news: 50,
+      fundamental: 50,
+      technical: 50,
+      risk: 50,
+      total: 50
+    },
+    aiRisk: "mittel"
+  };
+}
+
 export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary[] }) {
   const [cloudItems, setCloudItems] = useState<WatchlistItem[]>([]);
   const [symbol, setSymbol] = useState("AAPL");
   const [assetType, setAssetType] = useState<AssetType>("stock");
   const [offlineItems, setOfflineItems] = useState<AssetSummary[]>([]);
   const [offlineReady, setOfflineReady] = useState(false);
-  const [syncStatus, setSyncStatus] = useState("Lokale Provider-Watchlist aktiv.");
+  const [syncMode, setSyncMode] = useState<"local" | "supabase">("local");
+  const [syncStatus, setSyncStatus] = useState("Lokaler Demo-/Offline-Modus aktiv.");
+  const [inputError, setInputError] = useState("");
+  const [refreshInterval, setRefreshInterval] = useState(defaultRefreshIntervalMs);
 
   const visibleItems = useMemo(() => {
-    if (!cloudItems.length && offlineItems.length) return offlineItems;
-    if (!cloudItems.length) return initialItems;
-    const allowedSymbols = new Set(cloudItems.map((item) => item.symbol));
-    const filtered = initialItems.filter((item) => allowedSymbols.has(item.asset.symbol));
-    return filtered.length ? filtered : initialItems;
+    if (cloudItems.length) {
+      return cloudItems.map((item) => {
+        const normalized = item.symbol.toUpperCase();
+        return initialItems.find((summary) => summary.asset.symbol === normalized) ?? placeholderSummary(item);
+      });
+    }
+
+    if (offlineItems.length) return offlineItems;
+    return initialItems;
   }, [cloudItems, initialItems, offlineItems]);
 
   useEffect(() => {
@@ -49,14 +98,23 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
       .then((response) => response.json())
       .then((data: { items?: WatchlistItem[]; mode?: string }) => {
         if (cancelled) return;
-        setCloudItems(data.items ?? []);
-        setSyncStatus(data.mode === "supabase" ? "Supabase-Watchlist aktiv." : "Lokale Provider-Watchlist aktiv.");
+        if (data.mode === "supabase") {
+          setCloudItems(data.items ?? []);
+          setSyncMode("supabase");
+          setSyncStatus("Supabase-Cloud-Sync aktiv. Watchlist wird nutzerbezogen gespeichert.");
+          return;
+        }
+
+        setCloudItems([]);
+        setSyncMode("local");
+        setSyncStatus("Kein Supabase-Login. Lokaler Demo-/Offline-Modus aktiv.");
       })
       .catch(() => {
         if (!cancelled) {
           const fallback = readOfflineValue<AssetSummary[]>(OFFLINE_KEYS.watchlist);
           if (fallback?.length) setOfflineItems(fallback);
-          setSyncStatus(fallback?.length ? "Offline-Watchlist aus lokalem Speicher geladen." : "Supabase nicht erreichbar. Lokale Watchlist aktiv.");
+          setSyncMode("local");
+          setSyncStatus(fallback?.length ? "Offline-Watchlist aus lokalem Speicher geladen." : "Supabase nicht erreichbar. Lokale Demo-Watchlist aktiv.");
         }
       });
 
@@ -66,8 +124,22 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
   }, []);
 
   async function addSymbol() {
-    const normalizedSymbol = symbol.trim().toUpperCase();
-    if (!normalizedSymbol) return;
+    const normalized = normalizeSymbolInput(symbol);
+    setInputError("");
+
+    if (!normalized.ok) {
+      setInputError(normalized.message);
+      return;
+    }
+
+    const normalizedSymbol = normalized.symbol;
+    const alreadyExists = visibleItems.some((item) => item.asset.symbol === normalizedSymbol) ||
+      cloudItems.some((item) => item.symbol.toUpperCase() === normalizedSymbol);
+
+    if (alreadyExists) {
+      setInputError("Symbol ist bereits in der Watchlist.");
+      return;
+    }
 
     try {
       const response = await fetchWithSupabaseAuth("/api/watchlist", {
@@ -77,13 +149,18 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
         },
         body: JSON.stringify({ symbol: normalizedSymbol, assetType })
       });
+      if (!response.ok) throw new Error("watchlist mutation not authenticated");
       const data = await response.json() as { item?: WatchlistItem; mode?: string };
       setCloudItems((current) => [data.item ?? { symbol: normalizedSymbol, assetType }, ...current.filter((item) => item.symbol !== normalizedSymbol)]);
-      setSyncStatus(data.mode === "supabase" ? "Symbol in Supabase gespeichert." : "Symbol lokal vorgemerkt.");
+      setSyncMode(data.mode === "supabase" ? "supabase" : "local");
+      setSyncStatus(data.mode === "supabase" ? "Symbol in Supabase gespeichert." : "Symbol lokal gespeichert. Cloud-Sync nicht aktiv.");
     } catch {
       setCloudItems((current) => [{ symbol: normalizedSymbol, assetType }, ...current.filter((item) => item.symbol !== normalizedSymbol)]);
-      setSyncStatus("Supabase nicht erreichbar. Symbol lokal vorgemerkt.");
+      setSyncMode("local");
+      setSyncStatus("Nicht eingeloggt oder Supabase nicht erreichbar. Symbol lokal gespeichert.");
     }
+
+    setSymbol("");
   }
 
   async function removeSymbol(nextSymbol: string) {
@@ -97,9 +174,12 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
         },
         body: JSON.stringify({ symbol: nextSymbol, assetType: "stock" })
       });
+      if (!response.ok) throw new Error("watchlist delete not authenticated");
       const data = await response.json() as { mode?: string };
+      setSyncMode(data.mode === "supabase" ? "supabase" : "local");
       setSyncStatus(data.mode === "supabase" ? "Symbol aus Supabase entfernt." : "Symbol lokal entfernt.");
     } catch {
+      setSyncMode("local");
       setSyncStatus("Supabase nicht erreichbar. Symbol lokal entfernt.");
     }
   }
@@ -109,11 +189,14 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
       <div className="rounded-2xl border border-stroke bg-panel/72 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-mist">Cloud-Watchlist</h2>
+            <h2 className="text-lg font-semibold text-mist">Watchlist-Sync</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Bei aktivem Supabase-Login werden Symbole in deiner Cloud-Watchlist gespeichert. Ohne Login bleibt die lokale Provider-Watchlist sichtbar.
+              Bei aktivem Supabase-Login werden Symbole in deiner Cloud-Watchlist gespeichert.
+              Ohne Login bleibt alles klar als lokaler Demo-/Offline-Modus markiert.
             </p>
-            <p className="mt-2 rounded-xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">{syncStatus}</p>
+            <p className={`mt-2 rounded-xl border px-3 py-2 text-xs ${syncMode === "supabase" ? "border-profit/30 bg-profit/10 text-profit" : "border-amber/30 bg-amber/10 text-amber"}`}>
+              {syncStatus}
+            </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
             <input
@@ -140,6 +223,26 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
             </button>
           </div>
         </div>
+        <div className="mt-4 grid gap-2 md:grid-cols-[1fr_auto] md:items-end">
+          <label className="block">
+            <span className="text-xs text-muted">Refresh-Intervall mit Rate-Limit-Schutz</span>
+            <select
+              value={refreshInterval}
+              onChange={(event) => setRefreshInterval(Number(event.target.value) as typeof refreshInterval)}
+              className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan"
+            >
+              {refreshIntervals.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="rounded-xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">
+            UI-Updates werden gebündelt; große Listen werden auf 200 sichtbare Zeilen begrenzt.
+          </p>
+        </div>
+        {inputError ? <p className="mt-3 rounded-xl border border-loss/30 bg-loss/10 px-3 py-2 text-xs text-loss">{inputError}</p> : null}
 
         {cloudItems.length ? (
           <div className="mt-4 flex flex-wrap gap-2">
@@ -158,7 +261,12 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
         ) : null}
       </div>
 
-      <WatchlistTable items={visibleItems} liveQuotes={{}} />
+      {visibleItems.length > 200 ? (
+        <p className="rounded-xl border border-amber/30 bg-amber/10 px-3 py-2 text-xs text-amber">
+          {visibleItems.length} Einträge geladen. Aus Performance-Gründen werden die ersten 200 Einträge angezeigt.
+        </p>
+      ) : null}
+      <WatchlistTable items={visibleItems.slice(0, 200)} liveQuotes={{}} />
     </section>
   );
 }

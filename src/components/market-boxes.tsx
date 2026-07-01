@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { memo, useMemo } from "react";
 import { Brain, Briefcase, Flame, Newspaper, Star, TrendingDown, TrendingUp } from "lucide-react";
+import { DataQualityNotice } from "@/components/data-quality-indicator";
 import { DataQualityBadge, MiniSparkline, PriceChangeLabel, RealtimePrice, quoteFromSummary } from "@/components/live-market-widgets";
 import { formatCompact, formatCurrency, formatPercent, riskTone } from "@/lib/scoring";
 import type { AssetSummary, DashboardData, NewsItem, NormalizedQuote } from "@/lib/types";
@@ -133,18 +134,27 @@ export function MarketNewsCard({ news }: { news: NewsItem[] }) {
         <h3 className="font-semibold text-mist">News-Terminal</h3>
       </div>
       <div className="space-y-3">
-        {news.slice(0, 5).map((item) => (
-          <article key={item.id} className="rounded-2xl border border-stroke bg-panel/68 p-3">
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-sm font-semibold text-mist">{item.title}</p>
-              <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase ${item.sentiment === "positive" ? "bg-profit/10 text-profit" : item.sentiment === "negative" ? "bg-loss/10 text-loss" : "bg-amber/10 text-amber"}`}>
-                {item.sentiment}
-              </span>
-            </div>
-            <p className="mt-2 text-xs leading-5 text-muted">{item.source} · {new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "short" }).format(new Date(item.publishedAt))} · Relevanz {item.relevance}/100</p>
-            <p className="mt-2 text-xs leading-5 text-muted">{item.summary}</p>
-          </article>
-        ))}
+        {news.slice(0, 5).map((item) => {
+          const isMock = item.source.toLowerCase().includes("mock") || item.url === "#";
+
+          return (
+            <article key={item.id} className="rounded-2xl border border-stroke bg-panel/68 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-semibold text-mist">{item.title}</p>
+                <span className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase ${item.sentiment === "positive" ? "bg-profit/10 text-profit" : item.sentiment === "negative" ? "bg-loss/10 text-loss" : "bg-amber/10 text-amber"}`}>
+                  {item.sentiment}
+                </span>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-muted">{item.source} · {new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "short" }).format(new Date(item.publishedAt))} · Relevanz {item.relevance}/100</p>
+              <p className="mt-2 text-xs leading-5 text-muted">{item.summary}</p>
+              {isMock ? (
+                <p className="mt-2 rounded-xl border border-amber/25 bg-amber/10 px-2 py-1 text-[11px] text-amber">
+                  MOCK-News: Demo, nicht als echte Nachricht verwenden.
+                </p>
+              ) : null}
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -230,6 +240,15 @@ export function PortfolioSnapshotCard({ data }: { data: DashboardData }) {
         </div>
       </div>
       <p className="mt-3 text-xs leading-5 text-muted">Snapshot nutzt Watchlist-Positionen als Beispiel, echte Portfolio-Transaktionen bleiben im Portfolio-Modul.</p>
+      <div className="mt-3">
+        <DataQualityNotice
+          quality="mock"
+          marketStatus="unknown"
+          provider="StockPilot Portfolio Demo"
+          updatedAt={data.watchlist[0]?.quote.asOf}
+          title="Portfolio-Snapshot"
+        />
+      </div>
     </section>
   );
 }

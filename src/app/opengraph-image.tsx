@@ -41,7 +41,7 @@ export default function Image() {
             Professionelle Investment-Analyse für Aktien, ETFs und Krypto
           </div>
           <div style={{ maxWidth: 880, fontSize: 30, lineHeight: 1.35, color: "#aab8cf" }}>
-            Marktdaten, Charts, Datenqualität, Watchlists, Portfolio-Risiko und KI-Einschaetzungen in einer modernen PWA.
+            Marktdaten, Charts, Datenqualität, Watchlists, Portfolio-Risiko und KI-Einschätzungen in einer modernen PWA.
           </div>
         </div>
 

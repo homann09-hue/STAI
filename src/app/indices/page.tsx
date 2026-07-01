@@ -14,7 +14,7 @@ export default function IndicesPage() {
       description="Indexfeeds sind als eigener Bereich vorbereitet. Sobald lizenzierte Indexdaten angebunden sind, erscheinen hier Kurse, Futures, Marktstatus, Heatmaps und Benchmark-Vergleiche."
       cards={[
         { title: "US-Indizes", text: "S&P 500, Nasdaq und Dow Jones als Watchlist-/Benchmark-Struktur vorbereitet.", badge: "Provider" },
-        { title: "Europa", text: "DAX, SDAX, Euro Stoxx und weitere Indizes koennen ueber die Provider-Schicht normalisiert werden.", badge: "Lizenz" },
+        { title: "Europa", text: "DAX, SDAX, Euro Stoxx und weitere Indizes können über die Provider-Schicht normalisiert werden.", badge: "Lizenz" },
         { title: "Benchmarking", text: "Portfolio vs MSCI World, S&P 500 und Nasdaq ist als Vergleichslogik im Datenmodell vorbereitet." }
       ]}
     />

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const parsed = rawSymbol ? validateSymbol(rawSymbol) : null;
 
   if (parsed && !parsed.success) {
-    return jsonError("Ungueltiges Symbol.", 400);
+    return jsonError("Ungültiges Symbol.", 400);
   }
 
   const symbol = parsed?.success ? parsed.data : undefined;

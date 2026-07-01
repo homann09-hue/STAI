@@ -136,7 +136,7 @@ function uniqueTickerItems(data: DashboardData) {
       exchange: String(exchange),
       currency: String(currency),
       sector: type === "crypto" ? "Digital Asset" : "Benchmark",
-      description: "Terminal-Kachel für Marktueberblick. Mock klar markiert, bis ein lizenzierter Indexfeed angebunden ist."
+      description: "Terminal-Kachel für Marktüberblick. Mock klar markiert, bis ein lizenzierter Indexfeed angebunden ist."
     },
     quote: {
       price: Number(price),
@@ -207,7 +207,7 @@ export function DashboardView({ data, heroAsset }: { data: DashboardData; heroAs
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-cyan">STAI Terminal</p>
-            <h1 className="mt-1 text-xl font-semibold text-mist sm:text-2xl">Live-Marktuebersicht</h1>
+            <h1 className="mt-1 text-xl font-semibold text-mist sm:text-2xl">Live-Marktübersicht</h1>
           </div>
           <ConnectionBadge status={stream.connectionStatus} mode={stream.refreshMode} intervalMs={stream.intervalMs} />
           <div className="flex gap-2 overflow-x-auto">

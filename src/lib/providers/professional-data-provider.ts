@@ -169,7 +169,7 @@ function marketCore(detail: AssetDetail, quote: NormalizedQuote): ProfessionalDa
     }),
     unavailable("Free Float"),
     point({ label: "Handelsplatz", value: detail.asset.exchange, provider: quote.provider, quality: quote.quality, updatedAt: quote.timestamp, availability: "available", note: "Asset-Stammdaten." }),
-    point({ label: "Waehrung", value: quote.currency, provider: quote.provider, quality: quote.quality, updatedAt: quote.timestamp, availability: "available", note: "Normalisierte Anbieterangabe." }),
+    point({ label: "Währung", value: quote.currency, provider: quote.provider, quality: quote.quality, updatedAt: quote.timestamp, availability: "available", note: "Normalisierte Anbieterangabe." }),
     point({ label: "Marktstatus", value: quote.marketStatus, provider: quote.provider, quality: quote.quality, updatedAt: quote.timestamp, availability: "available", note: "Provider- oder Assetklassenstatus." }),
     point({ label: "Letzte Aktualisierung", value: quote.timestamp, provider: quote.provider, quality: quote.quality, updatedAt: quote.timestamp, availability: "available", note: "Timestamp des normalisierten Quotes." }),
     point({ label: "Datenquelle", value: quote.provider, provider: quote.provider, quality: quote.quality, updatedAt: quote.timestamp, availability: "available", note: "Serverseitig normalisiert, kein API-Key im Frontend." }),
@@ -184,7 +184,7 @@ function equityFundamentals(detail: AssetDetail): EquityFundamentalsProfile {
   const f = detail.fundamentals;
   const q = detail.quote.asOf;
   const fp = (label: string, value: string | number | null, note?: string) =>
-    point({ label, value, updatedAt: q, note: note ?? "Mock-Fundamentals. Spaeter an Finnhub, EODHD, FactSet-aehnliche Quellen oder andere Anbieter anbinden." });
+    point({ label, value, updatedAt: q, note: note ?? "Mock-Fundamentals. Nach Anbieteranbindung an Finnhub, EODHD, FactSet-ähnliche Quellen oder andere Anbieter anbinden." });
 
   return {
     symbol: detail.asset.symbol,
@@ -212,8 +212,8 @@ function equityFundamentals(detail: AssetDetail): EquityFundamentalsProfile {
     operatingCashflow: fp("Cashflow", f.cashflow),
     freeCashflow: fp("Free Cashflow", Math.round(f.cashflow * 0.72)),
     dividendYield: fp("Dividendenrendite", f.dividendYield, "%"),
-    payoutRatio: fp("Ausschuettungsquote", f.dividendYield ? Number((28 + f.dividendYield * 4).toFixed(2)) : null, "%"),
-    buybacks: prepared("Aktienrueckkaeufe"),
+    payoutRatio: fp("Ausschüttungsquote", f.dividendYield ? Number((28 + f.dividendYield * 4).toFixed(2)) : null, "%"),
+    buybacks: prepared("Aktienrückkäufe"),
     analystConsensus: fp("Analysten-Konsens", detail.analystOpinion?.consensus ?? null),
     priceTargetLow: fp("Kursziel niedrig", detail.analystOpinion?.targetLow ?? null),
     priceTargetMedian: fp("Kursziel Median", detail.analystOpinion?.targetMedian ?? null),
@@ -240,14 +240,14 @@ function etfProfile(detail: AssetDetail): ETFProfessionalProfile {
     replicationMethod: point({ label: "Replikationsmethode", value: "Physisch", updatedAt }),
     ter: point({ label: "TER / laufende Kosten", value: 0.03, unit: "%", updatedAt }),
     aum: point({ label: "Fondsvolumen / AUM", value: 1250000000000, updatedAt }),
-    distributionPolicy: point({ label: "Ertragsverwendung", value: "Ausschuettend", updatedAt }),
+    distributionPolicy: point({ label: "Ertragsverwendung", value: "Ausschüttend", updatedAt }),
     dividendYield: point({ label: "Dividendenrendite", value: detail.fundamentals.dividendYield, unit: "%", updatedAt }),
-    distributionInterval: point({ label: "Ausschuettungsintervall", value: "Quartalsweise", updatedAt }),
+    distributionInterval: point({ label: "Ausschüttungsintervall", value: "Quartalsweise", updatedAt }),
     trackingDifference: point({ label: "Tracking Difference", value: -0.04, unit: "%", updatedAt }),
     trackingError: point({ label: "Tracking Error", value: 0.06, unit: "%", updatedAt }),
     esgScore: prepared("ESG-Daten"),
     riskClass: point({ label: "Risiko-Klasse", value: "4/7", updatedAt }),
-    volatility: point({ label: "Volatilitaet", value: calculateVolatility(detail.candles["1Y"]), unit: "%", updatedAt }),
+    volatility: point({ label: "Volatilität", value: calculateVolatility(detail.candles["1Y"]), unit: "%", updatedAt }),
     sharpeRatio: point({ label: "Sharpe Ratio", value: 0.78, updatedAt }),
     maxDrawdown: point({ label: "Max Drawdown", value: -23.4, unit: "%", updatedAt }),
     benchmark: "S&P 500",
@@ -307,7 +307,7 @@ function cryptoProfile(detail: AssetDetail, quote: NormalizedQuote): CryptoProfe
     openInterest: prepared("Open Interest"),
     onChainData: prepared("On-Chain-Daten"),
     exchangeData: cp("Exchange-Daten", quote.spread !== undefined ? `Bid/Ask Spread ${quote.spread}` : null),
-    volatility: cp("Volatilitaet", volatility, "mock", mockProvider, "Aus Mock-Kerzen abgeleitet, bis echte historische Krypto-Candles angebunden sind."),
+    volatility: cp("Volatilität", volatility, "mock", mockProvider, "Aus Mock-Kerzen abgeleitet, bis echte historische Krypto-Candles angebunden sind."),
     trend: cp("Trend", detail.professionalScores.momentum >= 60 ? "positiv" : detail.professionalScores.momentum <= 40 ? "negativ" : "neutral", "mock", mockProvider),
     events: prepared("News/Events")
   };
@@ -348,7 +348,7 @@ function portfolioAnalytics(scenarios: PortfolioScenario[]): ProfessionalPortfol
   const portfolio = getMockPortfolio();
   const updatedAt = now();
   const pp = (label: string, value: string | number | null, note?: string) =>
-    point({ label, value, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: note ?? "Portfolio-Demo-Daten, spaeter mit Supabase-Nutzerportfolio verbinden." });
+    point({ label, value, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: note ?? "Portfolio-Demo-Daten, nach Anbieteranbindung mit Supabase-Nutzerportfolio verbinden." });
 
   return {
     totalValue: pp("Gesamtwert", portfolio.totalValue),
@@ -359,10 +359,10 @@ function portfolioAnalytics(scenarios: PortfolioScenario[]): ProfessionalPortfol
     assetAllocation: portfolio.assetAllocation.map((item) => weight(item.label, item.weight)),
     countryAllocation: [weight("USA", 72), weight("Global", 18), weight("Krypto global", 10)],
     sectorAllocation: portfolio.sectorAllocation.map((item) => weight(item.label, item.weight)),
-    currencyRisk: pp("Waehrungsrisiko", "USD-lastig"),
+    currencyRisk: pp("Währungsrisiko", "USD-lastig"),
     dividendForecast: pp("Dividendenprognose", Math.round(portfolio.totalValue * 0.012)),
     riskScore: pp("Risiko-Score", portfolio.totalRisk),
-    volatility: pp("Volatilitaet", 18.4, "%"),
+    volatility: pp("Volatilität", 18.4, "%"),
     drawdown: pp("Drawdown", -14.8, "%"),
     correlations: prepared("Korrelationen", "Matrix vorbereitet; echte Zeitreihenanbieter erforderlich."),
     concentrationRisk: pp("Klumpenrisiko", portfolio.maxPositionWeight, "%"),
@@ -390,7 +390,7 @@ function newsEvents(): ProfessionalNewsEvent[] {
     impact: item.sentiment === "positive" ? "positive" : item.sentiment === "negative" ? "negative" : "neutral",
     quality: "mock",
     checked: false,
-    note: "Mock-News mit KI-Relevanzbewertung. Nicht ungeprueft als Fakt verwenden."
+    note: "Mock-News mit KI-Relevanzbewertung. Nicht ungeprüft als Fakt verwenden."
   }));
 }
 
@@ -451,10 +451,10 @@ class StockPilotProfessionalDataProvider implements ProfessionalDataProvider {
       providerStack: [...new Set(rows.map((row) => row.quote.provider))],
       qualitySummary: qualitySummary(rows),
       globalOverview: [
-        point({ label: "S&P 500", value: dashboard.marketOverview[0]?.value ?? null, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Indexuebersicht ist Mock, bis echter Indexprovider verbunden ist." }),
-        point({ label: "Nasdaq 100", value: dashboard.marketOverview[1]?.value ?? null, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Indexuebersicht ist Mock, bis echter Indexprovider verbunden ist." }),
-        point({ label: "DAX", value: dashboard.marketOverview[2]?.value ?? null, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Indexuebersicht ist Mock, bis echter Indexprovider verbunden ist." }),
-        point({ label: "Krypto Markt", value: "Binance/Coinbase near-realtime für Bid/Ask vorbereitet", provider: rows.find((row) => row.asset.type === "crypto")?.quote.provider ?? mockProvider, quality: rows.find((row) => row.asset.type === "crypto")?.quote.quality ?? "mock", updatedAt, availability: "available", note: "Krypto-Quotes koennen near-realtime ueber Public APIs kommen." })
+        point({ label: "S&P 500", value: dashboard.marketOverview[0]?.value ?? null, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Indexübersicht ist Mock, bis echter Indexprovider verbunden ist." }),
+        point({ label: "Nasdaq 100", value: dashboard.marketOverview[1]?.value ?? null, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Indexübersicht ist Mock, bis echter Indexprovider verbunden ist." }),
+        point({ label: "DAX", value: dashboard.marketOverview[2]?.value ?? null, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Indexübersicht ist Mock, bis echter Indexprovider verbunden ist." }),
+        point({ label: "Krypto Markt", value: "Binance/Coinbase near-realtime für Bid/Ask vorbereitet", provider: rows.find((row) => row.asset.type === "crypto")?.quote.provider ?? mockProvider, quality: rows.find((row) => row.asset.type === "crypto")?.quote.quality ?? "mock", updatedAt, availability: "available", note: "Krypto-Quotes können near-realtime über Public APIs kommen." })
       ],
       equityScreener: rows.filter((row) => row.asset.type === "stock"),
       etfScreener: rows.filter((row) => row.asset.type === "etf"),

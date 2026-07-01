@@ -199,7 +199,7 @@ export function calculateProfessionalScores(input: {
     probabilityDown,
     probabilitySideways,
     explanation: [
-      `Volatilitaet ${volatility.toFixed(2)}% durchschnittliche Kerzenbewegung`,
+      `Volatilität ${volatility.toFixed(2)}% durchschnittliche Kerzenbewegung`,
       `Momentum ${momentumChange.toFixed(2)}% im betrachteten Zeitraum`,
       `Sentiment basiert auf ${input.news.length} nach Relevanz gewichteten Mock-News`,
       probabilityDisclaimer

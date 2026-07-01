@@ -1,4 +1,4 @@
-import { jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
+import { jsonError, jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
 import {
   addUserWatchlistItem,
   getSupabaseAuth,
@@ -34,7 +34,9 @@ export async function POST(request: Request) {
   const auth = await getSupabaseAuth(request);
 
   if (!auth.ok) {
-    return jsonOk({ item: parsed.data, mode: "local", reason: auth.reason }, { status: 201 });
+    return jsonError("Anmeldung erforderlich. Watchlist-Änderungen werden nur lokal im Client gespeichert.", 401, {
+      "X-StockPilot-Auth-Reason": auth.reason
+    });
   }
 
   const item = await addUserWatchlistItem(auth, parsed.data.symbol, parsed.data.assetType);
@@ -54,7 +56,9 @@ export async function DELETE(request: Request) {
   const auth = await getSupabaseAuth(request);
 
   if (!auth.ok) {
-    return jsonOk({ symbol: parsed.data.symbol, mode: "local", reason: auth.reason });
+    return jsonError("Anmeldung erforderlich. Watchlist-Änderungen werden nur lokal im Client gespeichert.", 401, {
+      "X-StockPilot-Auth-Reason": auth.reason
+    });
   }
 
   await removeUserWatchlistItem(auth, parsed.data.symbol);

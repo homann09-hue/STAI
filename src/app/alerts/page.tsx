@@ -4,7 +4,7 @@ import { mockAlerts } from "@/lib/mock/market";
 export const metadata = {
   title: "Alerts",
   description:
-    "Kursalarme, RSI-Signale, Newsalarme, Volumenanstiege, Earnings Reminder und KI-Risikohinweise für beobachtete Assets.",
+    "Kursalarme, RSI-Signale, Newsalarme, Volumenanstiege, Earnings Reminder und KI-Risiko-Hinweise für beobachtete Assets.",
   robots: {
     index: false,
     follow: false

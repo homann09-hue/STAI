@@ -39,7 +39,7 @@ export function RiskNoticeDialog({ onAccept }: { onAccept: () => void }) {
         <p id="risk-notice-title" className="text-sm font-semibold text-amber">Wichtiger Risiko-Hinweis</p>
         <p id="risk-notice-description" className="mt-2 text-xs leading-5 text-muted">
           StockPilot AI liefert keine Finanzberatung, keine Garantie und keine sicheren Signale.
-          Scores und KI-Auswertungen sind modellbasierte Entscheidungsunterstuetzung und können falsch sein.
+          Scores und KI-Auswertungen sind modellbasierte Entscheidungsunterstützung und können falsch sein.
           Prüfe Quellen, Datenqualität und dein Risiko immer selbst.
         </p>
         <button

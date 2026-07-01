@@ -27,6 +27,9 @@ export type AlertType =
   | "ai-risk"
   | "ai-shift"
   | "portfolio-risk";
+export type AlertExecutionStatus = "demo" | "created" | "paused" | "triggered" | "error" | "unavailable";
+export type AlertFrequency = "manual" | "10s" | "30s" | "60s" | "5min";
+export type AlertNotificationChannel = "none" | "in_app" | "email" | "push" | "webhook";
 
 export interface Asset {
   symbol: string;
@@ -393,6 +396,10 @@ export interface AlertRule {
   label: string;
   condition: string;
   enabled: boolean;
+  status?: AlertExecutionStatus;
+  threshold?: number;
+  frequency?: AlertFrequency;
+  notificationChannel?: AlertNotificationChannel;
 }
 
 export interface PortfolioPosition {

@@ -19,7 +19,7 @@ type Mode = "overview" | "stocks" | "etfs" | "crypto" | "news" | "risk" | "compa
 const modeCopy: Record<Mode, { eyebrow: string; title: string; subtitle: string }> = {
   overview: {
     eyebrow: "Global Market Overview",
-    title: "Profi-Datenzentrum für Maerkte, ETFs, Krypto und Risiko",
+    title: "Profi-Datenzentrum für Märkte, ETFs, Krypto und Risiko",
     subtitle: "Live/Near-Realtime-Quotes werden getrennt von Mock-, Cache- und vorbereiteten Profi-Daten angezeigt."
   },
   stocks: {
@@ -35,12 +35,12 @@ const modeCopy: Record<Mode, { eyebrow: string; title: string; subtitle: string 
   crypto: {
     eyebrow: "Krypto-Screener",
     title: "Near-Realtime Krypto-Daten mit Bid/Ask/Spread",
-    subtitle: "Binance/Coinbase koennen kostenlose Krypto-Quotes liefern; On-Chain/Funding/Open Interest bleiben vorbereitet."
+    subtitle: "Binance/Coinbase können kostenlose Krypto-Quotes liefern; On-Chain/Funding/Open Interest bleiben vorbereitet."
   },
   news: {
     eyebrow: "News-Terminal",
     title: "News, Events und KI-Relevanzbewertung",
-    subtitle: "News werden nicht ungeprueft als Fakt verkauft und tragen Datenqualität, Quelle und Impact."
+    subtitle: "News werden nicht ungeprüft als Fakt verkauft und tragen Datenqualität, Quelle und Impact."
   },
   risk: {
     eyebrow: "Risiko-Dashboard",
@@ -77,7 +77,8 @@ function formatValue(point: ProfessionalDataPoint) {
 }
 
 function QualityPill({ quality }: { quality: MarketDataQuality }) {
-  return <span className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${qualityTone(quality)}`}>{quality}</span>;
+  const label = quality === "near_realtime" ? "NEAR_REALTIME" : quality.toUpperCase();
+  return <span className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${qualityTone(quality)}`}>{label}</span>;
 }
 
 function DataPointCard({ point }: { point: ProfessionalDataPoint }) {
@@ -132,7 +133,7 @@ function ScreenerTable({ rows, title }: { rows: ProfessionalScreenerRow[]; title
           <span>Spread</span>
           <span>Volumen</span>
           <span>Risiko</span>
-          <span>Qualitaet</span>
+          <span>Qualität</span>
         </div>
         <div className="divide-y divide-stroke">
           {filtered.map((row) => (
@@ -235,7 +236,7 @@ function ETFProfileGrid({ profile }: { profile: ETFProfessionalProfile }) {
         <div className="grid gap-3 sm:grid-cols-2">
           {[profile.sectorWeights, profile.countryWeights, profile.currencyWeights, profile.marketCapWeights].map((weights, index) => (
             <div key={index} className="rounded-2xl border border-stroke bg-panel/70 p-4">
-              <p className="text-sm font-semibold">{["Sektoren", "Laender", "Waehrungen", "Marktgewichtung"][index]}</p>
+              <p className="text-sm font-semibold">{["Sektoren", "Länder", "Währungen", "Marktgewichtung"][index]}</p>
               <div className="mt-3 space-y-2">
                 {weights.map((item) => (
                   <div key={item.label}>
@@ -267,13 +268,13 @@ function PortfolioPanel({ report }: { report: ProfessionalMarketReport }) {
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         {[p.assetAllocation, p.countryAllocation, p.sectorAllocation].map((weights, index) => (
           <div key={index} className="rounded-2xl border border-stroke bg-panel/70 p-4">
-            <p className="text-sm font-semibold">{["Asset Allocation", "Laender-Allokation", "Sektor-Allokation"][index]}</p>
+            <p className="text-sm font-semibold">{["Asset Allocation", "Länder-Allokation", "Sektor-Allokation"][index]}</p>
             <div className="mt-3 space-y-2">{weights.map((item) => <p key={item.label} className="flex justify-between text-sm text-muted"><span>{item.label}</span><span>{formatPercent(item.weight)}</span></p>)}</div>
           </div>
         ))}
       </div>
       <div className="mt-4 rounded-2xl border border-amber/25 bg-amber/10 p-4 text-sm text-amber">
-        <p className="font-semibold">Rebalancing-Vorschlaege</p>
+        <p className="font-semibold">Rebalancing-Vorschläge</p>
         <ul className="mt-2 space-y-2">{p.rebalancingSuggestions.map((item) => <li key={item}>{item}</li>)}</ul>
       </div>
     </Section>
@@ -293,6 +294,12 @@ export function ProfessionalDataView({ report, mode }: { report: ProfessionalMar
           {report.providerStack.map((provider) => <span key={provider} className="rounded-xl border border-cyan/25 bg-cyan/10 px-3 py-2 text-xs font-semibold text-cyan">{provider}</span>)}
           <span className="rounded-xl border border-stroke bg-panel px-3 py-2 text-xs text-muted">Updated {new Date(report.updatedAt).toLocaleString("de-DE")}</span>
         </div>
+        {report.qualitySummary.mock > 0 ? (
+          <p className="mt-4 rounded-2xl border border-loss/30 bg-loss/10 p-3 text-sm leading-6 text-loss">
+            MOCK-Anteil sichtbar: {report.qualitySummary.mock} Datensatz/Datensätze stammen aus Demo- oder vorbereiteten Quellen.
+            Daraus werden keine garantierten Investment-Signale abgeleitet.
+          </p>
+        ) : null}
       </section>
 
       {mode === "overview" ? (
@@ -302,7 +309,7 @@ export function ProfessionalDataView({ report, mode }: { report: ProfessionalMar
           </Section>
           <div className="grid gap-4 lg:grid-cols-2">
             <ScreenerTable rows={report.watchlist} title="Watchlist" />
-            <Section title="Qualitaets-Summary" icon={ShieldAlert}>
+            <Section title="Qualitäts-Summary" icon={ShieldAlert}>
               <div className="grid gap-3 sm:grid-cols-2">
                 <DataPointCard point={pointFromSummary("Realtime", report.qualitySummary.realtime)} />
                 <DataPointCard point={pointFromSummary("Near-Realtime", report.qualitySummary.nearRealtime)} />

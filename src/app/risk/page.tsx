@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Risiko-Dashboard | StockPilot AI",
-  description: "Portfolio-Risiko, Volatilitaet, Drawdown, Korrelationen, Klumpenrisiko und Szenarien."
+  description: "Portfolio-Risiko, Volatilität, Drawdown, Korrelationen, Klumpenrisiko und Szenarien."
 };
 
 export default async function RiskPage() {

@@ -50,7 +50,7 @@ export function buildRiskReport(
       finding({
         id: "volatility-high",
         category: "volatility",
-        title: "Extrem hohe Volatilitaet",
+        title: "Extrem hohe Volatilität",
         severity: volatility > 7 ? "extrem" : "hoch",
         detail: "Die durchschnittliche Kerzenbewegung ist auffaellig hoch.",
         evidence: `${volatility.toFixed(2)}% durchschnittliche Bewegung im 1M-Fenster.`,
@@ -64,9 +64,9 @@ export function buildRiskReport(
       finding({
         id: "liquidity-low",
         category: "liquidity",
-        title: "Möglich schwache Liquiditaet",
+        title: "Möglich schwache Liquidität",
         severity: detail.quote.volume < 1_000_000 ? "hoch" : "mittel",
-        detail: "Niedrige Liquiditaet kann Slippage und schnelle Kursluecken beguenstigen.",
+        detail: "Niedrige Liquidität kann Slippage und schnelle Kursluecken beguenstigen.",
         evidence: `Volumen ${detail.quote.volume.toLocaleString("de-DE")}.`,
         action: "Ordergroesse, Spread und Handelsplatz prüfen."
       })
@@ -99,7 +99,7 @@ export function buildRiskReport(
           category: "earnings",
           title: "Bevorstehende Earnings",
           severity: daysUntilEarnings <= 3 ? "hoch" : "mittel",
-          detail: "Ergebnisse können Volatilitaet und Gaps deutlich erhöhen.",
+          detail: "Ergebnisse können Volatilität und Gaps deutlich erhöhen.",
           evidence: `${daysUntilEarnings} Tage bis zum Termin.`,
           action: "Event-Risiko bewusst einplanen."
         })
@@ -116,7 +116,7 @@ export function buildRiskReport(
         severity: "hoch",
         detail: "Starker Kursanstieg ohne passende positive News kann fragil sein.",
         evidence: `${detail.quote.changePercent.toFixed(2)}% Tagesbewegung ohne hochrelevante positive News.`,
-        action: "Social-Media-Hype, Liquiditaet und News-Ursache prüfen."
+        action: "Social-Media-Hype, Liquidität und News-Ursache prüfen."
       })
     );
   }
@@ -128,8 +128,8 @@ export function buildRiskReport(
         category: "volume",
         title: "Fallendes Volumen bei steigendem Kurs",
         severity: "mittel",
-        detail: "Momentum ohne Volumenbestaetigung kann an Stabilitaet verlieren.",
-        evidence: `1M-Bewegung ${monthlyMove.toFixed(2)}%, Volumen-Schnitt ruecklaeufig.`,
+        detail: "Momentum ohne Volumenbestätigung kann an Stabilität verlieren.",
+        evidence: `1M-Bewegung ${monthlyMove.toFixed(2)}%, Volumen-Schnitt rückläufig.`,
         action: "Ausbruch nicht isoliert betrachten."
       })
     );
@@ -156,7 +156,7 @@ export function buildRiskReport(
         category: "technical",
         title: "Support gebrochen",
         severity: "hoch",
-        detail: "Der aktuelle Kurs liegt unter dem naechsten Modell-Support.",
+        detail: "Der aktuelle Kurs liegt unter dem nächsten Modell-Support.",
         evidence: `Kurs ${detail.quote.price}, Support ${detail.indicators.support[0]}.`,
         action: "Breakdown-Szenario und Fehlsignal prüfen."
       })
@@ -172,7 +172,7 @@ export function buildRiskReport(
         severity: "mittel",
         detail: "Mindestens ein Makro-Faktor wird als mögliches Risiko markiert.",
         evidence: detail.macroFactors.filter((factor) => factor.impact === "negative").map((factor) => factor.label).join(", "),
-        action: "Marktregime, Zinsen und Liquiditaet getrennt prüfen."
+        action: "Marktregime, Zinsen und Liquidität getrennt prüfen."
       })
     );
   }

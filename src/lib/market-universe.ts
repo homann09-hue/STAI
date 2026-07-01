@@ -9,7 +9,7 @@ export const marketUniverseCoverage: MarketUniverseCoverage[] = [
     exchanges: ["NYSE", "NASDAQ", "NYSE Arca", "Cboe"],
     providerCandidates: ["Polygon/Massive", "Finnhub", "Twelve Data", "Databento", "EODHD"],
     status: "license_required",
-    note: "Breite US-Abdeckung und echte Realtime-Daten sind boersen- und planabhaengig."
+    note: "Breite US-Abdeckung und echte Realtime-Daten sind boersen- und planabhängig."
   },
   {
     label: "Europa / Xetra / London / Euronext",
@@ -25,7 +25,7 @@ export const marketUniverseCoverage: MarketUniverseCoverage[] = [
     exchanges: ["Binance", "Coinbase", "Kraken", "Crypto.com"],
     providerCandidates: ["Binance", "Coinbase", "CCXT-kompatible Provider"],
     status: "connected",
-    note: "BTC/USD und ETH/USD sind bereits near-realtime ueber freie Krypto-Provider vorbereitet."
+    note: "BTC/USD und ETH/USD sind bereits near-realtime über freie Krypto-Provider vorbereitet."
   },
   {
     label: "Indizes, Rohstoffe, Forex",
@@ -124,7 +124,7 @@ const universeSeeds: MarketUniverseInstrument[] = [
         : typedCoverage === "prepared"
           ? "Datenmodell vorbereitet, echter Anbieter noch nicht verbunden."
           : typedCoverage === "license_required"
-            ? "Nicht als live anzeigen: Fuer diese Instrumente sind Anbieterplan und/oder Boersenlizenz erforderlich."
+            ? "Nicht als live anzeigen: Für diese Instrumente sind Anbieterplan und/oder Börsenlizenz erforderlich."
             : "Kein aktiver Provider konfiguriert; keine Live-Abdeckung wird behauptet."
   };
 });
@@ -172,7 +172,7 @@ class PreparedUniverseProvider implements UniverseProvider {
       provider: this.providerName,
       updatedAt: now(),
       disclaimer:
-        "STAI kann ein globales Marktuniversum strukturieren. Echte Vollabdeckung und Realtime für alle Boersen erfordern Anbieterplaene und Boersenlizenzen."
+        "STAI kann ein globales Marktuniversum strukturieren. Echte Vollabdeckung und Realtime für alle Börsen erfordern Anbieterplaene und Börsenlizenzen."
     };
   }
 }

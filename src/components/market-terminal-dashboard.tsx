@@ -22,9 +22,9 @@ function uniqueAssets(data: DashboardData) {
 
 function trendLabel(item: AssetSummary) {
   const momentum = item.professionalScores?.momentum ?? item.scores.trend;
-  if (momentum >= 70) return "Aufwaerts";
-  if (momentum <= 35) return "Abwaerts";
-  return "Seitwaerts";
+  if (momentum >= 70) return "Aufwärts";
+  if (momentum <= 35) return "Abwärts";
+  return "Seitwärts";
 }
 
 function assetSparkline(item: AssetSummary, quote: Quote) {
@@ -87,7 +87,7 @@ export function MarketTerminalDashboard({ data, liveQuotes }: { data: DashboardD
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan">Live Market Terminal</p>
-          <h2 className="mt-2 text-2xl font-semibold text-mist">Realtime-Kursuebersicht</h2>
+          <h2 className="mt-2 text-2xl font-semibold text-mist">Realtime-Kursübersicht</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
             Aktien, ETFs, Krypto, Indizes und Forex sind provider-normalisiert. Wenn kein echter Feed aktiv ist, bleibt jeder Kurs sichtbar als Mock markiert.
           </p>

@@ -126,6 +126,35 @@ export function requireSameOrigin(request: Request) {
   return null;
 }
 
+async function readLimitedText(request: Request, maxBytes: number) {
+  if (!request.body) return { ok: true as const, text: "" };
+
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let bytes = 0;
+  let text = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      bytes += value.byteLength;
+      if (bytes > maxBytes) {
+        await reader.cancel();
+        return { ok: false as const };
+      }
+
+      text += decoder.decode(value, { stream: true });
+    }
+
+    text += decoder.decode();
+    return { ok: true as const, text };
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 export async function parseJsonBody<T>(request: Request, schema: z.ZodSchema<T>) {
   const contentType = request.headers.get("content-type") ?? "";
 
@@ -146,16 +175,16 @@ export async function parseJsonBody<T>(request: Request, schema: z.ZodSchema<T>)
   }
 
   try {
-    const rawBody = await request.text();
+    const limitedBody = await readLimitedText(request, MAX_JSON_BODY_BYTES);
 
-    if (rawBody.length > MAX_JSON_BODY_BYTES) {
+    if (!limitedBody.ok) {
       return {
         ok: false as const,
         response: jsonError("JSON-Body ist zu gross.", 413)
       };
     }
 
-    const body = JSON.parse(rawBody);
+    const body = JSON.parse(limitedBody.text);
     const parsed = schema.safeParse(body);
 
     if (!parsed.success) {

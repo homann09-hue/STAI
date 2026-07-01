@@ -1,5 +1,6 @@
 import { assessDataQuality } from "@/lib/data-quality";
 import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
+import { logEvent } from "@/lib/observability";
 import { getServerCacheAdapter } from "@/lib/server-cache";
 import type {
   Asset,
@@ -261,7 +262,7 @@ function startProviderBackoff(provider: QuoteProvider, error: unknown) {
   void quoteSharedCache.set(providerBackoffCacheKey(provider), nextUntil, Math.max(1, nextUntil - now));
 
   if (currentUntil <= now) {
-    console.warn("market-provider rate-limit backoff active", {
+    logEvent("warn", "market_provider.rate_limit_backoff", {
       provider: provider.providerName,
       retryInMs: nextUntil - now
     });
@@ -374,7 +375,7 @@ async function getCachedProviderQuotes(provider: QuoteProvider, symbols: string[
           !(error instanceof ProviderRateLimitBackoffError) &&
           !(error instanceof ProviderAccessUnavailableError)
         ) {
-          console.error("market-provider quote failed", { provider: provider.providerName, symbol, error });
+          logEvent("error", "market_provider.quote_failed", { provider: provider.providerName, symbol, error });
         }
       }
     }
@@ -1172,7 +1173,7 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
           !(error instanceof ProviderRateLimitBackoffError) &&
           !(error instanceof ProviderAccessUnavailableError)
         ) {
-          console.error("crypto-provider quote failed", {
+          logEvent("error", "crypto_provider.quote_failed", {
             provider: this.cryptoProvider.providerName,
             symbol,
             error
@@ -1189,8 +1190,8 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
         !(error instanceof ProviderConfigurationError) &&
         !(error instanceof ProviderRateLimitBackoffError) &&
         !(error instanceof ProviderAccessUnavailableError)
-      ) {
-        console.error("market-provider quote failed", { provider: this.providerName, symbol, error });
+        ) {
+        logEvent("error", "market_provider.quote_failed", { provider: this.providerName, symbol, error });
       }
     }
 
@@ -1210,7 +1211,7 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
       try {
         cryptoQuotes = await this.cryptoProvider.getQuotes(cryptoSymbols);
       } catch (error) {
-        console.error("crypto-provider batch failed", {
+        logEvent("error", "crypto_provider.batch_failed", {
           provider: this.cryptoProvider.providerName,
           error
         });
@@ -1225,7 +1226,7 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
       realQuotes = await this.quoteProvider.getQuotes(primaryRequested);
     } catch (error) {
       if (!(error instanceof ProviderConfigurationError)) {
-        console.error("market-provider batch failed", { provider: this.providerName, error });
+        logEvent("error", "market_provider.batch_failed", { provider: this.providerName, error });
       }
     }
 

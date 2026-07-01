@@ -127,7 +127,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-mist">Mein Profil</p>
-              <p className="text-xs text-muted">Pro Plan</p>
+              <p className="text-xs text-muted">Demo / kein Billingstatus</p>
             </div>
             <button className="ml-auto rounded-xl border border-stroke bg-panel px-2 py-1 text-xs text-muted" type="button" aria-label="Profil Optionen">
               ⋯

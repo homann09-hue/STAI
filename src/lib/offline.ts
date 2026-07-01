@@ -5,15 +5,22 @@ export const OFFLINE_KEYS = {
   alerts: "stockpilot:alerts"
 } as const;
 
+const MAX_OFFLINE_PAYLOAD_CHARS = 750000;
+
 export function saveOfflineValue<T>(key: string, value: T) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(
-    key,
-    JSON.stringify({
+
+  try {
+    const payload = JSON.stringify({
       value,
       savedAt: new Date().toISOString()
-    })
-  );
+    });
+
+    if (payload.length > MAX_OFFLINE_PAYLOAD_CHARS) return;
+    window.localStorage.setItem(key, payload);
+  } catch {
+    // Storage may be full, blocked or unavailable in private/offline contexts.
+  }
 }
 
 export function readOfflineValue<T>(key: string): T | null {
@@ -23,9 +30,15 @@ export function readOfflineValue<T>(key: string): T | null {
   if (!raw) return null;
 
   try {
-    const parsed = JSON.parse(raw) as { value: T };
-    return parsed.value;
+    const parsed = JSON.parse(raw) as { value?: T };
+    if (!parsed || typeof parsed !== "object" || !("value" in parsed)) return null;
+    return parsed.value ?? null;
   } catch {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Ignore storage cleanup failures.
+    }
     return null;
   }
 }

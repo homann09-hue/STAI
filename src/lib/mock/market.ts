@@ -65,7 +65,7 @@ const assets: Asset[] = [
     currency: "USD",
     sector: "Software / Cloud",
     description:
-      "Microsoft skaliert Cloud, Produktivitat, Security und KI-Infrastruktur uber Azure und Copilot."
+      "Microsoft skaliert Cloud, Produktivität, Security und KI-Infrastruktur über Azure und Copilot."
   },
   {
     symbol: "VOO",
@@ -75,7 +75,7 @@ const assets: Asset[] = [
     currency: "USD",
     sector: "US Large Cap ETF",
     description:
-      "VOO bildet den S&P 500 ab und bietet breite Streuung uber die groessten US-Unternehmen."
+      "VOO bildet den S&P 500 ab und bietet breite Streuung über die größten US-Unternehmen."
   },
   {
     symbol: "BTC-USD",
@@ -291,7 +291,7 @@ const newsItems: NewsItem[] = [
   {
     id: "n3",
     symbol: "MSFT",
-    title: "Azure-Wachstum bleibt uber Branchenschnitt",
+    title: "Azure-Wachstum bleibt über Branchenschnitt",
     source: "TechLedger Mock",
     publishedAt: "2026-06-27T06:20:00+02:00",
     relevance: 88,
@@ -341,21 +341,21 @@ const analysisMap: Record<string, AiAnalysisBase> = {
     downsideDrivers: [
       "Sehr hohe Erwartungen im Kurs",
       "Export- und Lieferkettenrisiken",
-      "Mogliche Margennormalisierung bei mehr Wettbewerb"
+      "Mögliche Margennormalisierung bei mehr Wettbewerb"
     ],
     bullCase:
-      "KI-Ausgaben bleiben uber mehrere Jahre strukturell hoch und NVIDIA verteidigt die dominante Plattformposition.",
+      "KI-Ausgaben bleiben über mehrere Jahre strukturell hoch und NVIDIA verteidigt die dominante Plattformposition.",
     bearCase:
-      "Capex-Wachstum kuhlt ab, Kunden optimieren Bestande und die Bewertung kontrahiert.",
+      "Capex-Wachstum kuhlt ab, Kunden optimieren Bestände und die Bewertung kontrahiert.",
     neutralCase:
       "Gewinne wachsen weiter, aber der Kurs konsolidiert, bis die Bewertung wieder mehr Puffer bietet.",
     shortTerm: "Positiv, aber anfällig für Gewinnmitnahmen.",
-    mediumTerm: "Positiv, solange Rechenzentrumsumsatze uber Konsens wachsen.",
+    mediumTerm: "Positiv, solange Rechenzentrumsumsätze über Konsens wachsen.",
     longTerm: "Strukturell attraktiv, mit hoher Bewertungs- und Zykliksensitivitat.",
     riskLevel: "hoch",
     probabilities: { up: 54, down: 28, sideways: 18 },
     modelNote:
-      "Modellbasierte Schatzung aus Mock-Kursen, Nachrichten, Fundamentaldaten und technischen Signalen. Keine Garantie."
+      "Modellbasierte Schätzung aus Mock-Kursen, Nachrichten, Fundamentaldaten und technischen Signalen. Keine Garantie."
   },
   AAPL: {
     summary:
@@ -368,18 +368,18 @@ const analysisMap: Record<string, AiAnalysisBase> = {
     downsideDrivers: [
       "Regulatorischer Druck auf App-Store-Modelle",
       "Schwaches Hardware-Wachstum",
-      "Hohe Abhangigkeit vom iPhone-Zyklus"
+      "Hohe Abhängigkeit vom iPhone-Zyklus"
     ],
     bullCase: "KI-Funktionen und Services reaktivieren Wachstum bei stabilen Margen.",
     bearCase: "Regulierung und Hardware-Sattigung drucken Bewertungsmultiples.",
     neutralCase: "Aktie bleibt defensiv, aber ohne klaren kurzfristigen Ausbruch.",
     shortTerm: "Neutral bis leicht schwach.",
     mediumTerm: "Neutral, bis Umsatzwachstum wieder beschleunigt.",
-    longTerm: "Qualitat bleibt hoch, Rendite hangt an Innovations- und Servicewachstum.",
+    longTerm: "Qualität bleibt hoch, Rendite hangt an Innovations- und Servicewachstum.",
     riskLevel: "mittel",
     probabilities: { up: 34, down: 36, sideways: 30 },
     modelNote:
-      "Modellbasierte Schatzung aus Mock-Kursen, Nachrichten, Fundamentaldaten und technischen Signalen. Keine Garantie."
+      "Modellbasierte Schätzung aus Mock-Kursen, Nachrichten, Fundamentaldaten und technischen Signalen. Keine Garantie."
   },
   MSFT: {
     summary:
@@ -387,7 +387,7 @@ const analysisMap: Record<string, AiAnalysisBase> = {
     upsideDrivers: [
       "Azure und Security wachsen robust",
       "Copilot-Umsätze könnten Margen erweitern",
-      "Diversifiziertes Enterprise-Geschaft"
+      "Diversifiziertes Enterprise-Geschäft"
     ],
     downsideDrivers: [
       "Hohe Capex-Anforderungen für KI",
@@ -403,7 +403,7 @@ const analysisMap: Record<string, AiAnalysisBase> = {
     riskLevel: "mittel",
     probabilities: { up: 48, down: 24, sideways: 28 },
     modelNote:
-      "Modellbasierte Schatzung aus Mock-Kursen, Nachrichten, Fundamentaldaten und technischen Signalen. Keine Garantie."
+      "Modellbasierte Schätzung aus Mock-Kursen, Nachrichten, Fundamentaldaten und technischen Signalen. Keine Garantie."
   },
   VOO: {
     summary:
@@ -427,7 +427,7 @@ const analysisMap: Record<string, AiAnalysisBase> = {
     riskLevel: "niedrig",
     probabilities: { up: 43, down: 22, sideways: 35 },
     modelNote:
-      "Modellbasierte Schatzung aus Mock-Kursen, Nachrichten, Fundamentaldaten und technischen Signalen. Keine Garantie."
+      "Modellbasierte Schätzung aus Mock-Kursen, Nachrichten, Fundamentaldaten und technischen Signalen. Keine Garantie."
   },
   "BTC-USD": {
     summary:
@@ -451,7 +451,7 @@ const analysisMap: Record<string, AiAnalysisBase> = {
     riskLevel: "hoch",
     probabilities: { up: 46, down: 32, sideways: 22 },
     modelNote:
-      "Modellbasierte Schatzung aus Mock-Kursen, Nachrichten, Fundamentaldaten und technischen Signalen. Keine Garantie."
+      "Modellbasierte Schätzung aus Mock-Kursen, Nachrichten, Fundamentaldaten und technischen Signalen. Keine Garantie."
   },
   "ETH-USD": {
     summary:
@@ -459,14 +459,14 @@ const analysisMap: Record<string, AiAnalysisBase> = {
     upsideDrivers: [
       "Tokenisierung und Layer-2-Wachstum",
       "Staking-Ertrage",
-      "Mogliche institutionelle Produktzuflusse"
+      "Mögliche institutionelle Produktzuflusse"
     ],
     downsideDrivers: [
       "Schwache Netzwerkgebuhren",
       "Konkurrenz durch alternative Chains",
       "Hohe Beta-Sensitivität bei Kryptomarktstress"
     ],
-    bullCase: "On-chain Nachfrage kehrt zuruck und ETH profitiert von Angebotsdynamik.",
+    bullCase: "On-chain Nachfrage kehrt zurück und ETH profitiert von Angebotsdynamik.",
     bearCase: "Aktivität bleibt schwach und Kapital rotiert in andere Assets.",
     neutralCase: "ETH folgt Bitcoin, ohne eigene relative Starke.",
     shortTerm: "Schwach.",
@@ -475,7 +475,7 @@ const analysisMap: Record<string, AiAnalysisBase> = {
     riskLevel: "hoch",
     probabilities: { up: 30, down: 42, sideways: 28 },
     modelNote:
-      "Modellbasierte Schatzung aus Mock-Kursen, Nachrichten, Fundamentaldaten und technischen Signalen. Keine Garantie."
+      "Modellbasierte Schätzung aus Mock-Kursen, Nachrichten, Fundamentaldaten und technischen Signalen. Keine Garantie."
   }
 };
 
@@ -581,7 +581,7 @@ function makeMacroFactors(symbol: string): MacroFactor[] {
   const crypto = symbol.includes("USD");
   return [
     {
-      label: crypto ? "US-Dollar Liquiditaet" : "Zinsniveau",
+      label: crypto ? "US-Dollar Liquidität" : "Zinsniveau",
       impact: crypto ? "neutral" : "negative",
       detail: crypto
         ? "Liquiditätsbedingungen bleiben ein zentraler Treiber für digitale Assets."
@@ -634,7 +634,7 @@ function makeAnalysisLayers(detail: AssetDetailCore & { professionalScores: Prof
       updatedAt: detail.news[0]?.publishedAt ?? detail.quote.asOf
     },
     {
-      label: "Volatilitaet",
+      label: "Volatilität",
       value: volatility === "risk" ? "erhoeht" : "normal",
       status: volatility,
       detail: "Bewertet aus 1M-Kerzenbewegung und Tagesausschlag.",
@@ -860,7 +860,7 @@ export const mockAlerts: AlertRule[] = [
     symbol: "NVDA",
     type: "price",
     label: "Kursalarm",
-    condition: "uber 155,00 USD",
+    condition: "über 155,00 USD",
     enabled: true
   },
   {
@@ -900,7 +900,7 @@ export const mockAlerts: AlertRule[] = [
     symbol: "PORTFOLIO",
     type: "portfolio-risk",
     label: "Portfolio-Risikoalarm",
-    condition: "Gesamtrisiko ueber 70/100",
+    condition: "Gesamtrisiko über 70/100",
     enabled: true
   }
 ];

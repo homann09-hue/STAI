@@ -18,10 +18,10 @@ describe("data quality branch coverage", () => {
     expect(validation.valid).toBe(false);
     expect(validation.issues).toEqual(
       expect.arrayContaining([
-        "Kursdaten sind unvollstaendig oder ungültig.",
+        "Kursdaten sind unvollständig oder ungültig.",
         "Asset-Stammdaten fehlen.",
         "Mindestens ein Chart-Zeitraum hat zu wenige Kerzen.",
-        "Mindestens eine News-Quelle ist unvollstaendig.",
+        "Mindestens eine News-Quelle ist unvollständig.",
         "KGV fehlt für ein nicht-krypto Asset."
       ])
     );
@@ -35,7 +35,7 @@ describe("data quality branch coverage", () => {
 
     const staleReport = assessDataQuality(stale, new Date("2026-06-30T12:00:00+02:00"));
     expect(staleReport.freshness).toBe("stale");
-    expect(staleReport.sourceLabel).toBe("Nicht verfuegbar");
+    expect(staleReport.sourceLabel).toBe("Nicht verfügbar");
     expect(staleReport.sufficientForAnalysis).toBe(false);
     expect(staleReport.warnings).toEqual(
       expect.arrayContaining([
@@ -52,7 +52,7 @@ describe("data quality branch coverage", () => {
     const delayedReport = assessDataQuality(delayed, new Date("2026-06-30T12:00:00+02:00"));
     expect(delayedReport.freshness).toBe("delayed");
     expect(delayedReport.sources[0].status).toBe("delayed");
-    expect(delayedReport.warnings).toContain("Daten sind verzogert und nicht als Live-Kurs geeignet.");
+    expect(delayedReport.warnings).toContain("Daten sind verzögert und nicht als Live-Kurs geeignet.");
 
     const contradictory = cloneDetail("AAPL");
     contradictory.quote.quality = "near_realtime";
@@ -76,9 +76,11 @@ describe("data quality branch coverage", () => {
 
     const realtime = cloneDetail("VOO");
     realtime.quote.quality = "realtime";
+    realtime.quote.provider = "Unit Test Realtime Provider";
     const realtimeReport = assessDataQuality(realtime, new Date(realtime.quote.asOf));
     expect(realtimeReport.sourceLabel).toBe("Realtime-Daten");
     expect(realtimeReport.freshness).toBe("fresh");
+    expect(realtimeReport.sufficientForAnalysis).toBe(true);
   });
 });
 

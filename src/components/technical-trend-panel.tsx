@@ -10,9 +10,9 @@ function rangeMomentum(candles: Candle[]) {
 }
 
 function trendFromMomentum(value: number) {
-  if (value >= 4) return "Aufwaertstrend";
-  if (value <= -4) return "Abwaertstrend";
-  return "Seitwaerts";
+  if (value >= 4) return "Aufwärtstrend";
+  if (value <= -4) return "Abwärtstrend";
+  return "Seitwärts";
 }
 
 function volumeTrend(candles: Candle[]) {
@@ -24,8 +24,8 @@ function volumeTrend(candles: Candle[]) {
 }
 
 function signalColor(label: string) {
-  if (label.includes("Aufwaerts") || label.includes("bullisch")) return "text-profit";
-  if (label.includes("Abwaerts") || label.includes("ueberhitzt") || label.includes("bearisch")) return "text-loss";
+  if (label.includes("Aufwärts") || label.includes("bullisch")) return "text-profit";
+  if (label.includes("Abwärts") || label.includes("überhitzt") || label.includes("bearisch")) return "text-loss";
   return "text-amber";
 }
 
@@ -43,14 +43,14 @@ export function TechnicalTrendPanel({ detail }: { detail: AssetDetail }) {
       : detail.indicators.movingAverages.ma20 < detail.indicators.movingAverages.ma50
         ? "SMA-Struktur bearisch"
         : "SMA-Struktur neutral";
-  const rsiSignal = detail.indicators.rsi > 70 ? "RSI ueberhitzt" : detail.indicators.rsi < 30 ? "RSI schwach" : "RSI neutral";
+  const rsiSignal = detail.indicators.rsi > 70 ? "RSI überhitzt" : detail.indicators.rsi < 30 ? "RSI schwach" : "RSI neutral";
   const macdSignal = detail.indicators.macd.histogram >= 0 ? "MACD positiv vorbereitet" : "MACD negativ vorbereitet";
 
   const cards = [
     { label: "Kurzfristiger Trend", value: trendFromMomentum(shortMomentum), detail: formatPercent(shortMomentum), icon: Activity },
     { label: "Mittelfristiger Trend", value: trendFromMomentum(midMomentum), detail: formatPercent(midMomentum), icon: LineChart },
     { label: "Langfristiger Trend", value: trendFromMomentum(longMomentum), detail: formatPercent(longMomentum), icon: Radar },
-    { label: "Volatilitaet", value: `${volatility.toFixed(2)}%`, detail: "1M Kerzenbewegung", icon: Waves },
+    { label: "Volatilität", value: `${volatility.toFixed(2)}%`, detail: "1M Kerzenbewegung", icon: Waves },
     { label: "Tagesrange", value: formatCurrency(dayRange, detail.asset.currency), detail: `${formatCurrency(detail.quote.dayLow, detail.asset.currency)} bis ${formatCurrency(detail.quote.dayHigh, detail.asset.currency)}`, icon: BarChart3 },
     { label: "Volumen-Trend", value: formatPercent(volumeChange), detail: formatCompact(detail.quote.volume), icon: BarChart3 }
   ];
@@ -62,7 +62,7 @@ export function TechnicalTrendPanel({ detail }: { detail: AssetDetail }) {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan">Technische Trendanalyse</p>
-          <h2 className="mt-2 text-2xl font-semibold text-mist">Momentum, Volatilitaet und Signale</h2>
+          <h2 className="mt-2 text-2xl font-semibold text-mist">Momentum, Volatilität und Signale</h2>
         </div>
         <div className="rounded-2xl border border-amber/25 bg-amber/10 px-3 py-2 text-xs text-amber">
           MACD und Trendlinien sind vorbereitet und werden je Provider-Datenqualität erweitert.
