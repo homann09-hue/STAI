@@ -165,7 +165,7 @@ export function WatchlistTable({ items, liveQuotes }: { items: AssetSummary[]; l
     <section className="rounded-[1.65rem] border border-stroke bg-coal/76 p-4">
       <h3 className="font-semibold text-mist">Watchlist</h3>
       <div className="mt-3 overflow-hidden rounded-2xl border border-stroke">
-        {items.map((item) => {
+        {items.length ? items.map((item) => {
           const quote = quoteFromSummary(item, liveQuotes[item.asset.symbol]);
 
           return (
@@ -179,7 +179,14 @@ export function WatchlistTable({ items, liveQuotes }: { items: AssetSummary[]; l
               <DataQualityBadge quality={quote.quality} marketStatus={quote.marketStatus} />
             </Link>
           );
-        })}
+        }) : (
+          <div className="bg-panel/55 p-5" role="status">
+            <p className="font-semibold text-mist">Noch keine Watchlist-Einträge.</p>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              Füge ein Symbol hinzu oder melde dich mit Supabase an. Ohne echte Kursdaten werden keine Signale abgeleitet.
+            </p>
+          </div>
+        )}
       </div>
     </section>
   );

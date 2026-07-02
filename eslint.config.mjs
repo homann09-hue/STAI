@@ -20,7 +20,10 @@ export default [
   {
     ignores: [
       ".next/**",
+      ".vercel/**",
       "node_modules/**",
+      "out/**",
+      "ios/**",
       "coverage/**",
       "playwright-report/**",
       "test-results/**"

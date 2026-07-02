@@ -2,10 +2,12 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { ConnectionBadge } from "@/components/live-market-widgets";
 import { WatchlistTable } from "@/components/market-boxes";
 import { readOfflineValue, saveOfflineValue, OFFLINE_KEYS } from "@/lib/offline";
 import { refreshIntervals, defaultRefreshIntervalMs } from "@/lib/refresh-config";
 import { fetchWithSupabaseAuth } from "@/lib/supabase/client-fetch";
+import { useMarketStream } from "@/lib/use-market-stream";
 import { normalizeSymbolInput } from "@/lib/validation";
 import type { AssetSummary, AssetType } from "@/lib/types";
 
@@ -78,6 +80,11 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
     if (offlineItems.length) return offlineItems;
     return initialItems;
   }, [cloudItems, initialItems, offlineItems]);
+  const visibleSymbols = useMemo(
+    () => [...new Set(visibleItems.slice(0, 30).map((item) => item.asset.symbol))],
+    [visibleItems]
+  );
+  const stream = useMarketStream(visibleSymbols, visibleSymbols.length > 0, refreshInterval);
 
   useEffect(() => {
     if (!offlineReady) return;
@@ -242,6 +249,13 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
             UI-Updates werden gebündelt; große Listen werden auf 200 sichtbare Zeilen begrenzt.
           </p>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-stroke bg-coal px-3 py-2">
+          <ConnectionBadge status={stream.connectionStatus} mode={stream.refreshMode} intervalMs={stream.intervalMs} />
+          <p className="text-xs leading-5 text-muted">
+            Live-Quotes für sichtbare Watchlist-Symbole. Bei Rate-Limits wird automatisch langsamer gepollt oder Cache genutzt.
+          </p>
+          {stream.error ? <p className="text-xs text-amber">{stream.error}</p> : null}
+        </div>
         {inputError ? <p className="mt-3 rounded-xl border border-loss/30 bg-loss/10 px-3 py-2 text-xs text-loss">{inputError}</p> : null}
 
         {cloudItems.length ? (
@@ -266,7 +280,7 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
           {visibleItems.length} Einträge geladen. Aus Performance-Gründen werden die ersten 200 Einträge angezeigt.
         </p>
       ) : null}
-      <WatchlistTable items={visibleItems.slice(0, 200)} liveQuotes={{}} />
+      <WatchlistTable items={visibleItems.slice(0, 200)} liveQuotes={stream.quotes} />
     </section>
   );
 }

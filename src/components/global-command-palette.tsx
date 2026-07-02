@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Activity, BarChart3, Bell, Briefcase, Command, LineChart, Search, Settings2, Star, X } from "lucide-react";
+import { formatCurrency, formatPercent } from "@/lib/scoring";
+import type { MarketUniverseInstrument, NormalizedQuote } from "@/lib/types";
 
 type CommandItem = {
   href: string;
@@ -45,6 +47,9 @@ const quickActions = [
 export function GlobalCommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [assetResults, setAssetResults] = useState<MarketUniverseInstrument[]>([]);
+  const [quotes, setQuotes] = useState<Record<string, NormalizedQuote>>({});
+  const [assetSearchStatus, setAssetSearchStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const results = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return commandItems.slice(0, 8);
@@ -52,6 +57,66 @@ export function GlobalCommandPalette() {
       .filter((item) => `${item.label} ${item.group} ${item.hint} ${item.keywords}`.toLowerCase().includes(normalized))
       .slice(0, 10);
   }, [query]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      const normalized = query.trim();
+      const params = new URLSearchParams({
+        q: normalized,
+        limit: normalized ? "8" : "6"
+      });
+
+      try {
+        setAssetSearchStatus("loading");
+        const response = await fetch(`/api/market/universe?${params.toString()}`, {
+          cache: "no-store",
+          signal: controller.signal
+        });
+
+        if (!response.ok) throw new Error("Universe search failed");
+
+        const payload = (await response.json()) as { instruments?: MarketUniverseInstrument[] };
+        const instruments = payload.instruments ?? [];
+        setAssetResults(instruments);
+
+        const symbols = instruments
+          .map((item) => item.symbol)
+          .filter((symbol) => /^[A-Z0-9.-]{1,18}$/.test(symbol))
+          .slice(0, 8);
+
+        if (symbols.length) {
+          const quoteResponse = await fetch(`/api/market/quotes?symbols=${encodeURIComponent(symbols.join(","))}`, {
+            cache: "no-store",
+            signal: controller.signal
+          });
+
+          if (quoteResponse.ok) {
+            const quotePayload = (await quoteResponse.json()) as { quotes?: NormalizedQuote[] };
+            setQuotes(Object.fromEntries((quotePayload.quotes ?? []).map((quote) => [quote.symbol, quote])));
+          } else {
+            setQuotes({});
+          }
+        } else {
+          setQuotes({});
+        }
+
+        setAssetSearchStatus("ready");
+      } catch {
+        if (controller.signal.aborted) return;
+        setAssetSearchStatus("error");
+        setAssetResults([]);
+        setQuotes({});
+      }
+    }, 180);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [open, query]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -121,6 +186,56 @@ export function GlobalCommandPalette() {
             </div>
 
             <div className="max-h-[55vh] overflow-y-auto p-2">
+              {assetSearchStatus === "loading" ? (
+                <div className="mx-2 mb-2 rounded-2xl border border-stroke bg-panel/60 p-3" role="status" aria-live="polite">
+                  <div className="h-3 w-36 animate-pulse rounded-full bg-cyan/25" />
+                  <div className="mt-3 h-3 w-56 animate-pulse rounded-full bg-white/10" />
+                </div>
+              ) : null}
+
+              {assetResults.length ? (
+                <div className="mb-2 border-b border-stroke pb-2">
+                  <p className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan">Asset-Autocomplete</p>
+                  {assetResults.map((item) => {
+                    const quote = quotes[item.symbol];
+                    return (
+                      <Link
+                        key={`${item.symbol}-${item.exchange}`}
+                        href={`/assets/${encodeURIComponent(item.symbol)}`}
+                        onClick={() => setOpen(false)}
+                        className="grid gap-2 rounded-2xl px-4 py-3 transition hover:bg-panel md:grid-cols-[1fr_auto] md:items-center"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-mono font-semibold text-mist">{item.symbol}</p>
+                            <span className="rounded-full border border-stroke bg-coal px-2 py-1 text-[10px] uppercase text-muted">
+                              {item.assetClass}
+                            </span>
+                            <span className="rounded-full border border-cyan/25 bg-cyan/10 px-2 py-1 text-[10px] uppercase text-cyan">
+                              {item.quoteQuality}
+                            </span>
+                          </div>
+                          <p className="mt-1 truncate text-sm text-muted">{item.name}</p>
+                          <p className="mt-1 text-xs text-muted">{item.exchange} · {item.provider}</p>
+                        </div>
+                        <div className="text-left md:text-right">
+                          {quote ? (
+                            <>
+                              <p className="font-mono text-sm font-semibold text-mist">{formatCurrency(quote.price, quote.currency)}</p>
+                              <p className={quote.changePercent >= 0 ? "font-mono text-xs text-profit" : "font-mono text-xs text-loss"}>
+                                {formatPercent(quote.changePercent)}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-xs text-muted">Kurs nicht verfügbar</p>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : null}
+
               {results.length ? results.map((item) => (
                 <Link
                   key={item.href}
@@ -136,12 +251,20 @@ export function GlobalCommandPalette() {
                   </div>
                   <p className="text-sm text-muted">{item.hint}</p>
                 </Link>
-              )) : (
+              )) : !assetResults.length && assetSearchStatus !== "loading" ? (
                 <div className="px-4 py-10 text-center" role="status">
                   <p className="font-semibold text-mist">Kein Treffer.</p>
-                  <p className="mt-2 text-sm text-muted">Versuche Symbol, Assetklasse, Provider oder Funktionsname.</p>
+                  <p className="mt-2 text-sm text-muted">
+                    Versuche Symbol, Assetklasse, Provider oder Funktionsname. Fehlende Realtime-Daten werden bewusst nicht erfunden.
+                  </p>
                 </div>
-              )}
+              ) : null}
+
+              {assetSearchStatus === "error" ? (
+                <div className="mx-2 mt-2 rounded-2xl border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber" role="status">
+                  Asset-Suche momentan nicht erreichbar. Navigation und statische Schnellzugriffe bleiben verfügbar.
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

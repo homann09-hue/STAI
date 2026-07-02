@@ -32,7 +32,7 @@ function parseEventData<T>(event: MessageEvent, fallback: T | null = null) {
   }
 }
 
-export function useMarketStream(symbols: string[], enabled = true) {
+export function useMarketStream(symbols: string[], enabled = true, preferredIntervalMs: RefreshInterval = defaultRefreshIntervalMs) {
   const symbolKey = useMemo(() => normalizeSymbols(symbols).join(","), [symbols]);
   const [state, setState] = useState<MarketStreamState>({
     quotes: {},
@@ -54,10 +54,11 @@ export function useMarketStream(symbols: string[], enabled = true) {
     let pollingStarted = false;
     let pendingQuotes: Record<string, NormalizedQuote> = {};
     const encodedSymbols = encodeURIComponent(symbolKey);
+    const activeIntervalMs = preferredIntervalMs;
 
     function nextPollDelay() {
       const backgroundMultiplier = document.visibilityState === "hidden" ? BACKGROUND_POLL_MULTIPLIER : 1;
-      return defaultRefreshIntervalMs * backgroundMultiplier;
+      return activeIntervalMs * backgroundMultiplier;
     }
 
     function commitQuotes(quotes: NormalizedQuote[]) {
@@ -91,7 +92,7 @@ export function useMarketStream(symbols: string[], enabled = true) {
           status: "polling",
           connectionStatus: "polling",
           refreshMode: "polling",
-          intervalMs: defaultRefreshIntervalMs
+          intervalMs: activeIntervalMs
         }));
         const response = await fetch(`/api/market/quotes?symbols=${encodedSymbols}`, { cache: "no-store" });
         if (response.status === 429) {
@@ -141,7 +142,7 @@ export function useMarketStream(symbols: string[], enabled = true) {
       status: "streaming",
       connectionStatus: "connected",
       refreshMode: "sse",
-      intervalMs: defaultRefreshIntervalMs,
+      intervalMs: activeIntervalMs,
       error: null
     }));
 
@@ -191,7 +192,7 @@ export function useMarketStream(symbols: string[], enabled = true) {
       if (pollTimer !== null) window.clearTimeout(pollTimer);
       if (commitTimer !== null) window.clearTimeout(commitTimer);
     };
-  }, [enabled, symbolKey]);
+  }, [enabled, preferredIntervalMs, symbolKey]);
 
   return state;
 }

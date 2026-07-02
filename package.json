@@ -25,9 +25,15 @@
     "qa:grammar": "node scripts/qa/grammar-audit.mjs",
     "qa:redteam": "npm run typecheck && npm run lint && npm run test && npm run build && npm run test:e2e && npm run test:load && npm run qa:grammar && npm run audit:moderate && npm run audit:safe",
     "audit:safe": "npm audit --audit-level=high",
-    "audit:moderate": "npm audit --audit-level=moderate"
+    "audit:moderate": "npm audit --audit-level=moderate",
+    "cap:prepare": "node scripts/capacitor/prepare-web.mjs",
+    "cap:sync:ios": "npm run cap:prepare && npx cap sync ios",
+    "cap:open:ios": "npm run cap:prepare && npx cap open ios"
   },
   "dependencies": {
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
     "@supabase/supabase-js": "2.108.2",
     "lucide-react": "0.475.0",
     "next": "16.2.9",
