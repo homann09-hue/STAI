@@ -27,7 +27,7 @@ jobs:
       STOCKPILOT_MONITOR_BASE_URL: ${{ github.event.inputs.base_url || 'https://stockpilot-ai-beta.vercel.app' }}
     steps:
       - name: Checkout StockPilot AI only
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
