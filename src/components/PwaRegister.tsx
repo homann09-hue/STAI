@@ -16,7 +16,7 @@ const noticeTone = {
 
 export function PwaRegister() {
   const [notice, setNotice] = useState<PwaNotice>(null);
-  const [waitingRegistration, setWaitingRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const updateActivationRequested = useRef(false);
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export function PwaRegister() {
     const refreshServiceWorker = () => registration?.update().catch(() => undefined);
     const watchRegistration = (nextRegistration: ServiceWorkerRegistration) => {
       if (nextRegistration.waiting && navigator.serviceWorker.controller) {
-        setWaitingRegistration(nextRegistration);
+        setWaitingWorker(nextRegistration.waiting);
         showNotice(
           {
             kind: "update",
@@ -61,7 +61,7 @@ export function PwaRegister() {
 
         worker.addEventListener("statechange", () => {
           if (worker.state === "installed" && navigator.serviceWorker.controller) {
-            setWaitingRegistration(nextRegistration);
+            setWaitingWorker(worker);
             showNotice(
               {
                 kind: "update",
@@ -127,16 +127,16 @@ export function PwaRegister() {
 
   const activateUpdate = () => {
     updateActivationRequested.current = true;
-    const waitingWorker = waitingRegistration?.waiting;
+    const updateWorker = waitingWorker;
     setNotice(null);
-    setWaitingRegistration(null);
+    setWaitingWorker(null);
 
-    if (!waitingWorker) {
+    if (!updateWorker) {
       window.location.reload();
       return;
     }
 
-    waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    updateWorker.postMessage({ type: "SKIP_WAITING" });
     window.setTimeout(() => window.location.reload(), 5000);
   };
 
