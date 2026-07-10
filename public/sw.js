@@ -1,4 +1,4 @@
-const STATIC_CACHE = "stockpilot-static-v5";
+const STATIC_CACHE = "stockpilot-static-v6";
 const DATA_CACHE = "stockpilot-data-v3";
 const STATIC_ASSETS = ["/", "/offline", "/manifest.webmanifest", "/icons/icon.svg"];
 const STATIC_ASSET_PREFIXES = ["/_next/static/", "/icons/"];
@@ -96,12 +96,7 @@ async function cachedOfflineApiResponse(request) {
 }
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(STATIC_CACHE)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_ASSETS)));
 });
 
 self.addEventListener("activate", (event) => {
@@ -121,7 +116,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
-    self.skipWaiting();
+    event.waitUntil(self.skipWaiting());
   }
 });
 
@@ -166,15 +161,4 @@ self.addEventListener("fetch", (event) => {
         .catch(() => caches.match(request))
     );
   }
-});
-
-// Activate newly installed app shells when the trusted client asks for it.
-self.addEventListener("message", (event) => {
-  if (event.data?.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-});
-
-self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
 });

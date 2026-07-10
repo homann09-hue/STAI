@@ -128,13 +128,16 @@ export function PwaRegister() {
   const activateUpdate = () => {
     updateActivationRequested.current = true;
     const waitingWorker = waitingRegistration?.waiting;
+    setNotice(null);
+    setWaitingRegistration(null);
+
     if (!waitingWorker) {
       window.location.reload();
       return;
     }
 
     waitingWorker.postMessage({ type: "SKIP_WAITING" });
-    window.setTimeout(() => window.location.reload(), 1800);
+    window.setTimeout(() => window.location.reload(), 5000);
   };
 
   if (!notice) return null;
