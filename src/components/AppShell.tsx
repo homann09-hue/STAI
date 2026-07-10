@@ -232,7 +232,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <div className="border-t border-stroke/70 bg-amber/10 px-4 py-2 text-center text-[11px] leading-snug text-amber lg:fixed lg:bottom-0 lg:left-64 lg:right-0 lg:z-40 lg:flex lg:h-8 lg:items-center lg:justify-center lg:gap-5 lg:border-[#1b2a3f] lg:bg-[#07111f]/96 lg:px-4 lg:py-0 lg:text-muted lg:backdrop-blur-xl">
-          {legalDisclaimer}
+          <span>{legalDisclaimer}</span>
+          <Link href="/legal" className="inline-flex min-h-6 items-center px-1 font-semibold text-cyan underline-offset-2 hover:underline">
+            Datenschutz & Recht
+          </Link>
         </div>
       </header>
 

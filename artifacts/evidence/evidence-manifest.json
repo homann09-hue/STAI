@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "stockpilot-evidence/1.0.0",
+  "generatedAt": "2026-07-10T22:13:11.318Z",
+  "status": "generated_not_attested",
+  "caveat": "Automatisch erzeugte Nachweise sind keine Zertifizierung und ersetzen keine unabhängige Prüfung.",
+  "containsProductionData": false,
+  "evidence": [
+    {
+      "path": "package-lock.json",
+      "sha256": "c0a6663b65e1a194cda134e85050a802a8da35649e7f82ea9977cccd46ae6015",
+      "bytes": 323213
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "ad8e26dab65c511620f1340b491ea47597e1589e0ba50bb626306bfa80945b96",
+      "bytes": 2001
+    },
+    {
+      "path": ".github/workflows/database-tests.yml",
+      "sha256": "d79ab9534380a9f336c7f11f113d69b70a2435f96e783f60d216a60341fdd5cb",
+      "bytes": 519
+    },
+    {
+      "path": "supabase/tests/database/rls_and_integrity.test.sql",
+      "sha256": "860a198f929781e2b757b9d115eac8a1a9b101db533d27157c6f5a78f61ba0c8",
+      "bytes": 2959
+    },
+    {
+      "path": "supabase/tests/database/institutional_controls.test.sql",
+      "sha256": "9dbad559c27e31d3a586a8335b61e87ffaf180d3f15ebbbd16332777317f387b",
+      "bytes": 4620
+    },
+    {
+      "path": "supabase/migrations/20260630132652_stockpilot_initial_schema.sql",
+      "sha256": "f9d5fce88e1531f427f0dc140d452b9d1091ace62e7b1861ea7a9cc7e32dc0a7",
+      "bytes": 21268
+    },
+    {
+      "path": "supabase/migrations/20260710221030_add_institutional_governance_controls.sql",
+      "sha256": "8298d592ae23bced6a60537ad3caed073d9a051e2c53ca5685989008d30b9bd1",
+      "bytes": 21755
+    },
+    {
+      "path": "supabase/migrations/20260710221046_harden_institutional_governance_indexes_and_policies.sql",
+      "sha256": "d4d14767b149c239122cc339369a1ea3884aff54b92071e362a9d7d0b73bf1a9",
+      "bytes": 2016
+    },
+    {
+      "path": "docs/institutional-readiness/security-control-matrix.md",
+      "sha256": "be0baaaec97e86f377420ab16e65f7452730d8f6d4918f4fa16128bfc4a532c1",
+      "bytes": 2639
+    },
+    {
+      "path": "docs/institutional-readiness/local-database-validation.md",
+      "sha256": "3445cdcf5d4c2be43400dc27d1b08c30e2ccb38fa445977d87566e6d1342a681",
+      "bytes": 3650
+    },
+    {
+      "path": "docs/institutional-readiness/final-readiness-report.md",
+      "sha256": "7f26f0699fd64b7ba1441f0e923eba6f7d3768c8cc6eccc21139191148b0d088",
+      "bytes": 8821
+    },
+    {
+      "path": "artifacts/evidence/model-validation.json",
+      "sha256": "9a6bbb102861964f876416a78e810b2c2b4955c774ad8b58ccd97029cb03a63c",
+      "bytes": 6637
+    },
+    {
+      "path": "artifacts/evidence/sbom.cdx.json",
+      "sha256": "3ca9c551502dd0eba49f89fd00b97e8f24e08456c9f1b1d8e773fd4e9586223b",
+      "bytes": 203861
+    }
+  ]
+}

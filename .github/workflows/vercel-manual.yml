@@ -50,6 +50,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Format hygiene
+        run: npm run format:check
+
       - name: Require explicit production confirmation
         if: ${{ github.event.inputs.target == 'production' }}
         env:
@@ -75,8 +78,17 @@ jobs:
       - name: Safe dependency audit
         run: npm run audit:safe
 
+      - name: Institutional static controls
+        run: npm run enterprise:check -- --local-only
+
+      - name: Generate deployment evidence and SBOM
+        run: npm run evidence:generate
+
       - name: Production build for browser gate
         run: npm run build
+
+      - name: JavaScript performance budget
+        run: npm run performance:budget
 
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium

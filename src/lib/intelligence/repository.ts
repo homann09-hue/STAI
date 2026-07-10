@@ -13,6 +13,7 @@ import type {
   NormalizedIntelligenceEvent,
   RawSourceEvent
 } from "@/lib/intelligence/types";
+import type { InstitutionalDataQualityReport } from "@/lib/institutional/data-quality";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 type ServiceClient = SupabaseClient;
@@ -39,6 +40,11 @@ export interface IntelligenceRepository {
   ensureSource(adapter: IntelligenceSourceAdapter): Promise<IntelligenceSourceState>;
   markSourceSuccess(source: IntelligenceSourceState, cursor: AdapterCursor): Promise<void>;
   markSourceError(sourceId: string, message: string): Promise<void>;
+  quarantineEvent(
+    sourceId: string,
+    event: NormalizedIntelligenceEvent,
+    report: InstitutionalDataQualityReport
+  ): Promise<void>;
   saveRawEvent(sourceId: string, event: NormalizedIntelligenceEvent): Promise<PersistedRawEvent>;
   saveNormalizedEvent(rawEventId: string, event: NormalizedIntelligenceEvent): Promise<string>;
   createProcessingJob(eventId: string): Promise<string>;
@@ -50,7 +56,7 @@ export interface IntelligenceRepository {
     execution: Awaited<ReturnType<IntelligenceAnalyzer["analyze"]>>,
     score: ImpactScoreResult,
     independentSourceCount: number,
-    sourceUrl: string
+    event: NormalizedIntelligenceEvent
   ): Promise<void>;
   updateCompanyState(event: NormalizedIntelligenceEvent, score: ImpactScoreResult): Promise<void>;
   createWatchlistAlerts(eventId: string, event: NormalizedIntelligenceEvent, analysis: IntelligenceAnalysis, score: ImpactScoreResult): Promise<number>;
@@ -139,6 +145,15 @@ function mapFeedItem(value: unknown): IntelligenceFeedItem {
     citations: stringArray(row.citations),
     modelProvider: stringValue(row.model_provider),
     modelName: stringValue(row.model_name),
+    analysisId: stringValue(row.analysis_id),
+    modelVersion: stringValue(row.model_version, "legacy_unverified"),
+    promptVersion: stringValue(row.prompt_version, "legacy_unverified"),
+    inputHash: stringValue(row.input_hash),
+    scoringVersion: stringValue(row.scoring_version, "legacy_unverified"),
+    processingVersion: stringValue(row.processing_version, "legacy_unverified"),
+    normalizationVersion: stringValue(row.normalization_version, "legacy_unverified"),
+    validationStatus: stringValue(row.validation_status, "legacy_unverified"),
+    analyzedAt: stringValue(row.analyzed_at, new Date(0).toISOString()),
     requiresHumanReview: row.requires_human_review === true,
     scoreComponents: scoreComponents(row.score_components),
     independentSourceCount: numberValue(row.independent_source_count, 1)
@@ -180,6 +195,32 @@ async function withIntelligenceReadTimeout<T>(operation: Promise<T>) {
 
 export class SupabaseIntelligenceRepository implements IntelligenceRepository {
   constructor(private readonly client: ServiceClient) {}
+
+  private async appendAuditEvent(input: {
+    action: string;
+    targetType: string;
+    targetId: string;
+    outcome: string;
+    previousState?: Record<string, unknown>;
+    newState?: Record<string, unknown>;
+    reason?: string;
+  }) {
+    const { error } = await this.client.rpc("append_institutional_audit_event", {
+      p_actor_user_id: null,
+      p_actor_role: "service_account",
+      p_tenant_id: null,
+      p_action: input.action,
+      p_target_type: input.targetType,
+      p_target_id: input.targetId,
+      p_outcome: input.outcome,
+      p_correlation_id: crypto.randomUUID(),
+      p_previous_state: input.previousState ?? {},
+      p_new_state: input.newState ?? {},
+      p_reason: input.reason ?? null,
+      p_session_context: { component: "intelligence_repository" }
+    });
+    if (error) throw error;
+  }
 
   async ensureSource(adapter: IntelligenceSourceAdapter) {
     const descriptor = adapter.descriptor;
@@ -252,6 +293,42 @@ export class SupabaseIntelligenceRepository implements IntelligenceRepository {
       const fallback = await this.client.from("intelligence_sources").update({ last_error_at: new Date().toISOString() }).eq("id", sourceId);
       if (fallback.error) throw fallback.error;
     }
+  }
+
+  async quarantineEvent(
+    sourceId: string,
+    event: NormalizedIntelligenceEvent,
+    report: InstitutionalDataQualityReport
+  ) {
+    const { data, error } = await this.client
+      .from("data_quality_quarantine")
+      .insert({
+        source_id: sourceId,
+        record_type: "intelligence:" + event.canonicalEventType,
+        external_id: event.externalId,
+        payload: event,
+        issues: report.issues,
+        quality_scores: report.scores,
+        status: "pending_review",
+        detected_at: report.checkedAt
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+
+    await this.appendAuditEvent({
+      action: "data_quality.quarantined",
+      targetType: "data_quality_quarantine",
+      targetId: stringValue(data.id),
+      outcome: "quarantined",
+      newState: {
+        sourceId,
+        externalId: event.externalId,
+        disposition: report.disposition,
+        issueCodes: report.issues.map((item) => item.code)
+      },
+      reason: "Institutional data-quality validation failed"
+    });
   }
 
   async saveRawEvent(sourceId: string, event: NormalizedIntelligenceEvent) {
@@ -390,11 +467,11 @@ export class SupabaseIntelligenceRepository implements IntelligenceRepository {
     execution: Awaited<ReturnType<IntelligenceAnalyzer["analyze"]>>,
     score: ImpactScoreResult,
     independentSourceCount: number,
-    sourceUrl: string
+    event: NormalizedIntelligenceEvent
   ) {
     const analysis = execution.analysis;
     const confidenceScore = score.components.modelConfidence;
-    const { error } = await this.client.from("intelligence_analyses").insert({
+    const { data, error } = await this.client.from("intelligence_analyses").insert({
       event_id: eventId,
       model_provider: execution.modelProvider,
       model_name: execution.modelName,
@@ -417,8 +494,18 @@ export class SupabaseIntelligenceRepository implements IntelligenceRepository {
       direction: score.direction,
       confidence_score: confidenceScore,
       reasoning_summary: analysis.reasoningSummary,
-      citations: [sourceUrl],
+      citations: [event.sourceUrl],
       input_hash: execution.inputHash,
+      input_snapshot: event,
+      system_configuration: {
+        analyzerFallbackUsed: execution.fallbackUsed,
+        independentSourceCount,
+        sourceType: event.sourceType
+      },
+      scoring_version: "impact-score/1.0.0",
+      processing_version: "intelligence-pipeline/2.0.0",
+      normalization_version: "intelligence-normalization/2.0.0",
+      validation_status: analysis.requiresHumanReview ? "pending_human_review" : "automated_validated",
       score_components: score.components,
       independent_source_count: independentSourceCount,
       requires_human_review: analysis.requiresHumanReview,
@@ -426,8 +513,25 @@ export class SupabaseIntelligenceRepository implements IntelligenceRepository {
       output_tokens: execution.outputTokens,
       estimated_cost_usd: execution.estimatedCostUsd,
       fallback_used: execution.fallbackUsed
-    });
+    }).select("id").single();
     if (error) throw error;
+
+    await this.appendAuditEvent({
+      action: "analysis.created",
+      targetType: "intelligence_analysis",
+      targetId: stringValue(data.id),
+      outcome: "created",
+      newState: {
+        eventId,
+        inputHash: execution.inputHash,
+        modelProvider: execution.modelProvider,
+        modelName: execution.modelName,
+        modelVersion: execution.modelVersion,
+        promptVersion: execution.promptVersion,
+        scoringVersion: "impact-score/1.0.0",
+        validationStatus: analysis.requiresHumanReview ? "pending_human_review" : "automated_validated"
+      }
+    });
   }
 
   async updateCompanyState(event: NormalizedIntelligenceEvent, score: ImpactScoreResult) {

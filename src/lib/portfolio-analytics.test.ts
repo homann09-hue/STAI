@@ -35,6 +35,6 @@ describe("portfolio analytics", () => {
     });
 
     expect(analyzePortfolio(withBuy).positions.some((item) => item.symbol === "MSFT")).toBe(true);
-    expect(withSell.some((item) => item.symbol === "MSFT")).toBe(false);
+    expect(withSell.find((item) => item.symbol === "MSFT")?.quantity).toBe(2);
   });
 });

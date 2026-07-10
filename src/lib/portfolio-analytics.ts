@@ -140,6 +140,10 @@ export function applyPortfolioTrade(positions: PortfolioPosition[], trade: Portf
     return positions;
   }
 
+  if (existing && trade.side === "sell" && trade.quantity > existing.quantity) {
+    return positions;
+  }
+
   if (!existing) {
     return [
       ...positions,

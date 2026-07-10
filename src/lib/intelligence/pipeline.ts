@@ -2,12 +2,14 @@ import { calculateImpactScore, detectDuplicate, getIntelligenceAnalyzer, normali
 import type { IntelligenceAnalyzer } from "@/lib/intelligence/analysis";
 import type { CompanyReference, IntelligenceSourceAdapter } from "@/lib/intelligence/types";
 import type { IntelligenceRepository } from "@/lib/intelligence/repository";
+import { assessIntelligenceEventData } from "@/lib/institutional/data-quality";
 import { logEvent } from "@/lib/observability";
 
 export type IntelligencePipelineResult = {
   provider: string;
   received: number;
   stored: number;
+  quarantined: number;
   analyzed: number;
   duplicates: number;
   alertsCreated: number;
@@ -37,6 +39,7 @@ export async function runIntelligencePipeline(
     provider: adapter.descriptor.provider,
     received: 0,
     stored: 0,
+    quarantined: 0,
     analyzed: 0,
     duplicates: 0,
     alertsCreated: 0,
@@ -60,6 +63,12 @@ export async function runIntelligencePipeline(
     let jobId: string | null = null;
     try {
       const normalized = resolveEventEntities(normalizeSourceEvent(rawEvent), options.companyCatalog);
+      const quality = assessIntelligenceEventData(normalized);
+      if (quality.disposition === "quarantined") {
+        await repository.quarantineEvent(source.id, normalized, quality);
+        result.quarantined += 1;
+        continue;
+      }
       const raw = await repository.saveRawEvent(source.id, normalized);
       if (!raw.created) continue;
       result.stored += 1;
@@ -78,7 +87,7 @@ export async function runIntelligencePipeline(
       const execution = await analyzer.analyze(normalized);
       const independentSourceCount = 1;
       const score = calculateImpactScore(normalized, execution.analysis, { independentSourceCount });
-      await repository.saveAnalysis(eventId, execution, score, independentSourceCount, normalized.sourceUrl);
+      await repository.saveAnalysis(eventId, execution, score, independentSourceCount, normalized);
       await repository.updateCompanyState(normalized, score);
 
       if (
@@ -110,6 +119,7 @@ export async function runIntelligencePipeline(
     provider: result.provider,
     received: result.received,
     stored: result.stored,
+    quarantined: result.quarantined,
     analyzed: result.analyzed,
     duplicates: result.duplicates,
     alertsCreated: result.alertsCreated,

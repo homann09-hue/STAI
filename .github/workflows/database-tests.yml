@@ -1,0 +1,24 @@
+name: Database Tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pgtap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+      - name: Start isolated Supabase stack
+        run: supabase start
+      - name: Reset schema from migrations
+        run: supabase db reset --local --no-seed
+      - name: Run RLS and integrity tests
+        run: supabase test db

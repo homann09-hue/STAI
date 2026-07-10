@@ -224,7 +224,7 @@ Der Vercel-Workflow läuft bewusst nur manuell und nutzt StockPilot-spezifische 
 
 1. Supabase-Projekt erstellen.
 2. Für neue Projekte bevorzugt die SQL-Migrationen aus `supabase/migrations/` anwenden.
-3. Alternativ kann das konsolidierte Schema aus `supabase/schema.sql` im SQL Editor ausgeführt werden.
+3. `supabase/schema.sql` ist nur eine historische Baseline. Für neue und bestehende Umgebungen gelten ausschließlich die versionierten Migrationen.
 4. `.env.local` mit Supabase URL und Keys befüllen.
 5. Auth-UI und echte Persistenz können auf den vorhandenen Tabellen aufgebaut werden.
 
@@ -238,3 +238,21 @@ Zeilen begrenzt. `SUPABASE_SERVICE_ROLE_KEY` darf ausschließlich serverseitig v
 - [Red-Team Report](./docs/RED_TEAM_REPORT.md)
 - [Test Report](./docs/TEST_REPORT.md)
 - [Known Limitations](./docs/LIMITATIONS.md)
+- [Vollständiger Auditbericht](./docs/full-audit/final-report.md)
+
+## Institutional Readiness
+
+Die technische Due-Diligence-Dokumentation befindet sich unter `docs/institutional-readiness/`. Der aktuelle, nicht zertifizierte Status ist `pilot_ready_with_restrictions`.
+
+Wichtige Befehle:
+
+```bash
+npm run qa:institutional
+npm run institutional:check
+npm run test:model
+npm run test:data-quality
+npm run test:capacity
+npm run evidence:generate
+```
+
+Die neue Governance-Migration muss vor einem Deployment in einer isolierten Supabase-Umgebung mit pgTAP geprüft werden. Sie wurde bewusst nicht unkontrolliert auf Produktion angewendet.

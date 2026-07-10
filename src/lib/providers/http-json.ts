@@ -67,7 +67,7 @@ function isAllowedProviderHost(hostname: string) {
   return allowedHosts.some((allowedHost) => normalized === allowedHost || normalized.endsWith(`.${allowedHost}`));
 }
 
-async function readBoundedResponseText(response: Response, providerName: string, maxBytes: number) {
+export async function readBoundedResponseText(response: Response, providerName: string, maxBytes: number) {
   const contentLength = Number(response.headers.get("content-length") ?? 0);
 
   if (Number.isFinite(contentLength) && contentLength > maxBytes) {

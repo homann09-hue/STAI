@@ -1,7 +1,7 @@
 # StockPilot AI Redteam Report
 
-Datum: 2026-07-01  
-Scope: STAI / StockPilot AI Web-App in `/Users/angelo/Documents/PWA-Akti`  
+Datum: 2026-07-01
+Scope: STAI / StockPilot AI Web-App in `/Users/angelo/Documents/PWA-Akti`
 Nicht im Scope: BauPro und andere Projekte
 
 ## Ergebnis

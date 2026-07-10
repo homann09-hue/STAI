@@ -39,6 +39,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Format hygiene
+        run: npm run format:check
+
       - name: TypeScript
         run: npm run typecheck
 
@@ -51,6 +54,9 @@ jobs:
       - name: Production build
         run: npm run build
 
+      - name: JavaScript performance budget
+        run: npm run performance:budget
+
       - name: Enterprise static readiness gates
         run: npm run enterprise:check -- --local-only
 
@@ -59,3 +65,20 @@ jobs:
 
       - name: Dependency audit
         run: npm run audit:moderate
+
+      - name: Dependency licence audit
+        run: npm run audit:licenses
+
+      - name: Generate institutional evidence and CycloneDX SBOM
+        run: npm run evidence:generate
+
+      - name: Institutional control verification
+        run: npm run institutional:check
+
+      - name: Upload institutional evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: stockpilot-institutional-evidence
+          path: artifacts/evidence/
+          if-no-files-found: error
+          retention-days: 30

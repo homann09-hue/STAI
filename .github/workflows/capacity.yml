@@ -1,0 +1,33 @@
+name: StockPilot Local Capacity Drill
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockpilot-local-capacity
+  cancel-in-progress: false
+
+jobs:
+  capacity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      STOCKPILOT_MARKET_PROVIDER: mock
+      STOCKPILOT_NEWS_PROVIDER: mock
+      STOCKPILOT_FUNDAMENTALS_PROVIDER: mock
+      STOCKPILOT_AI_PROVIDER: mock
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run performance:budget
+      - name: Simulate 10,000 local sessions without external providers
+        run: npm run test:capacity

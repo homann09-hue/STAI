@@ -276,6 +276,15 @@ export type IntelligenceFeedItem = {
   citations: string[];
   modelProvider: string;
   modelName: string;
+  analysisId: string;
+  modelVersion: string;
+  promptVersion: string;
+  inputHash: string;
+  scoringVersion: string;
+  processingVersion: string;
+  normalizationVersion: string;
+  validationStatus: string;
+  analyzedAt: string;
   requiresHumanReview: boolean;
   scoreComponents: ImpactScoreComponents;
   independentSourceCount: number;

@@ -1,6 +1,12 @@
 import { getMockPortfolio } from "@/lib/mock/market";
 import { jsonError, jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
-import { applyUserPortfolioTrade, deleteUserPortfolioPosition, getSupabaseAuth, getUserPortfolio } from "@/lib/supabase/user-data";
+import {
+  applyUserPortfolioTrade,
+  deleteUserPortfolioPosition,
+  getSupabaseAuth,
+  getUserPortfolio,
+  PortfolioTradeConflictError
+} from "@/lib/supabase/user-data";
 import { portfolioDeleteInputSchema, portfolioTradeInputSchema } from "@/lib/validation";
 
 const userDataHeaders = {
@@ -53,8 +59,13 @@ export async function POST(request: Request) {
   const auth = await getSupabaseAuth(request);
 
   if (auth.ok) {
-    const portfolio = await applyUserPortfolioTrade(auth, parsed.data);
-    return jsonOk({ portfolio, mode: "supabase" }, { status: 201, headers: userDataHeaders });
+    try {
+      const portfolio = await applyUserPortfolioTrade(auth, parsed.data);
+      return jsonOk({ portfolio, mode: "supabase" }, { status: 201, headers: userDataHeaders });
+    } catch (error) {
+      if (error instanceof PortfolioTradeConflictError) return jsonError(error.message, 409);
+      return jsonError("Portfolio-Transaktion konnte nicht sicher gespeichert werden.", 503);
+    }
   }
 
   return jsonError("Anmeldung erforderlich. Portfolio-Änderungen werden nur lokal im Client gespeichert.", 401, {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type PwaNotice = {
   kind: "offline" | "online" | "update";
@@ -17,6 +17,7 @@ const noticeTone = {
 export function PwaRegister() {
   const [notice, setNotice] = useState<PwaNotice>(null);
   const [waitingRegistration, setWaitingRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const updateActivationRequested = useRef(false);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
@@ -75,7 +76,7 @@ export function PwaRegister() {
     };
 
     const handleControllerChange = () => {
-      if (disposed || controllerReloaded) return;
+      if (disposed || controllerReloaded || !updateActivationRequested.current) return;
       controllerReloaded = true;
       window.location.reload();
     };
@@ -125,6 +126,7 @@ export function PwaRegister() {
   }, []);
 
   const activateUpdate = () => {
+    updateActivationRequested.current = true;
     const waitingWorker = waitingRegistration?.waiting;
     if (!waitingWorker) {
       window.location.reload();

@@ -45,6 +45,20 @@ export function IntelligenceDetail({ event }: { event: IntelligenceFeedItem }) {
         <div className="rounded-2xl border border-stroke bg-panel p-5"><h2 className="font-bold text-mist">Score-Aufschlüsselung</h2><div className="mt-4 space-y-2">{Object.entries(event.scoreComponents).map(([key, value]) => <div key={key} className="flex items-center justify-between border-b border-stroke py-2 text-sm"><span className="text-muted">{key.replace(/([A-Z])/g, " $1")}</span><span className="font-mono text-mist">{value === null ? "n/a" : Math.round(value)}</span></div>)}</div><p className="mt-3 text-xs leading-5 text-muted">Ein hoher Impact misst erwartete Bedeutung. Er ist kein Kauf- oder Verkaufssignal.</p></div>
       </section>
 
+      <section className="rounded-2xl border border-stroke bg-panel p-5">
+        <h2 className="font-bold text-mist">Analyse-Lineage</h2>
+        <div className="mt-4 grid gap-3 text-xs sm:grid-cols-2 xl:grid-cols-4">
+          <p className="rounded-xl bg-panel2 p-3 text-muted">Analyse-ID<br /><span className="font-mono text-mist">{event.analysisId || "legacy_unverified"}</span></p>
+          <p className="rounded-xl bg-panel2 p-3 text-muted">Modell<br /><span className="font-mono text-mist">{event.modelProvider}/{event.modelName}@{event.modelVersion}</span></p>
+          <p className="rounded-xl bg-panel2 p-3 text-muted">Prompt / Scoring<br /><span className="font-mono text-mist">{event.promptVersion} / {event.scoringVersion}</span></p>
+          <p className="rounded-xl bg-panel2 p-3 text-muted">Pipeline / Normalisierung<br /><span className="font-mono text-mist">{event.processingVersion} / {event.normalizationVersion}</span></p>
+          <p className="rounded-xl bg-panel2 p-3 text-muted">Input-Hash<br /><span className="font-mono text-mist">{event.inputHash ? event.inputHash.slice(0, 16) + "…" : "legacy_unverified"}</span></p>
+          <p className="rounded-xl bg-panel2 p-3 text-muted">Validierung<br /><span className="font-mono text-mist">{event.validationStatus}</span></p>
+          <p className="rounded-xl bg-panel2 p-3 text-muted">Analysiert<br /><span className="font-mono text-mist">{new Date(event.analyzedAt).toLocaleString("de-DE")}</span></p>
+          <p className="rounded-xl bg-panel2 p-3 text-muted">Reproduzierbarkeit<br /><span className="text-mist">{event.inputHash ? "Snapshot und Versionen vorhanden" : "Legacy, nicht verifizierbar"}</span></p>
+        </div>
+      </section>
+
       <p className="rounded-2xl border border-stroke bg-panel2 p-4 text-xs leading-5 text-muted">Keine Anlageberatung. Fakten, algorithmische Interpretation und Unsicherheiten sind getrennt dargestellt. Quelle, Zeitstempel und Bestätigungsstatus vor jeder Entscheidung selbst prüfen.</p>
     </div>
   );
