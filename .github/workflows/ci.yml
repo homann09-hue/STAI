@@ -28,10 +28,10 @@ jobs:
       STOCKPILOT_AI_PROVIDER: mock
     steps:
       - name: Checkout StockPilot AI only
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -76,7 +76,7 @@ jobs:
         run: npm run institutional:check
 
       - name: Upload institutional evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: stockpilot-institutional-evidence
           path: artifacts/evidence/
