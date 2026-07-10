@@ -230,7 +230,7 @@ async function runRateLimitScenario() {
               "User-Agent": "StockPilot-QA-ChaosTest/rate-limit",
               "X-Forwarded-For": fixedIp
             },
-            method: "GET",
+            method: "POST",
             timeout: timeoutMs
           },
           (response) => {

@@ -9,7 +9,6 @@ playwright-report
 test-results
 docs
 tests
-scripts/qa
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

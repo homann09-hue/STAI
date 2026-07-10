@@ -3,7 +3,7 @@
 ## Voraussetzungen
 
 1. Supabase-Variablen und Service-Secret ausschließlich serverseitig konfigurieren.
-2. Migration `20260710145249_create_realtime_intelligence.sql` anwenden.
+2. Migration `20260710155942_create_realtime_intelligence.sql` anwenden.
 3. `FMP_API_KEY` für FMP-News setzen.
 4. `SEC_EDGAR_USER_AGENT` im Format `Produkt/Organisation kontakt@example.com` setzen.
 5. Starkes `STOCKPILOT_INTELLIGENCE_INGEST_SECRET` mit mindestens 24 Zeichen setzen.

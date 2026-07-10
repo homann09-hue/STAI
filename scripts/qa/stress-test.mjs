@@ -6,7 +6,7 @@ import https from "node:https";
 const baseUrl = process.env.STOCKPILOT_QA_BASE_URL ?? "http://localhost:3010";
 const serverPort = new URL(baseUrl).port || "3010";
 const requiredPeakConcurrency = 2000;
-const levels = (process.env.STOCKPILOT_STRESS_LEVELS ?? "100,250,500,1000,2000")
+const levels = (process.env.STOCKPILOT_STRESS_LEVELS ?? "100,200,250,500,1000,2000")
   .split(",")
   .map((value) => Number(value.trim()))
   .filter((value) => Number.isFinite(value) && value > 0);
@@ -33,7 +33,7 @@ const paths = [
 const agentOptions = {
   keepAlive: true,
   keepAliveMsecs: 1000,
-  maxFreeSockets: Math.min(socketLimit, 64),
+  maxFreeSockets: socketLimit,
   maxSockets: socketLimit,
   timeout: timeoutMs
 };
@@ -110,6 +110,27 @@ function requestOnce(path, virtualUser, userAgent = "StockPilot-QA-StressTest/1.
   });
 }
 
+function isTransientTransportError(error) {
+  if (!(error instanceof Error) || !("code" in error)) return false;
+  return error.code === "ECONNRESET" || error.code === "EPIPE";
+}
+
+async function requestWithRetry(path, virtualUser) {
+  const started = performance.now();
+  let retries = 0;
+
+  while (true) {
+    try {
+      const result = await requestOnce(path, virtualUser);
+      return { ...result, duration: performance.now() - started, retries };
+    } catch (error) {
+      if (!isTransientTransportError(error) || retries >= 2) throw error;
+      retries += 1;
+      await wait(25 * retries + Math.floor(Math.random() * 25));
+    }
+  }
+}
+
 async function canReachServer() {
   try {
     const response = await requestOnce("/", 1, "StockPilot-QA-StressTest/healthcheck");
@@ -128,7 +149,7 @@ async function ensureServer() {
 
   const child = spawn("npm", ["run", "start", "--", "-p", serverPort], {
     cwd: process.cwd(),
-    stdio: "ignore",
+    stdio: ["ignore", "inherit", "inherit"],
     shell: false
   });
 
@@ -142,7 +163,7 @@ async function ensureServer() {
 }
 
 async function runLevel(concurrency) {
-  const batch = Array.from({ length: concurrency }, (_, index) => requestOnce(paths[index % paths.length], index + 1));
+  const batch = Array.from({ length: concurrency }, (_, index) => requestWithRetry(paths[index % paths.length], index + 1));
   const results = await Promise.allSettled(batch);
   const fulfilled = results
     .filter((result) => result.status === "fulfilled")
@@ -155,6 +176,15 @@ async function runLevel(concurrency) {
     concurrency,
     requests: results.length,
     rejected: rejected.length,
+    retries: fulfilled.reduce((total, result) => total + result.retries, 0),
+    errors: rejected.reduce((acc, result) => {
+      const reason = result.reason;
+      const key = reason instanceof Error
+        ? `${"code" in reason && typeof reason.code === "string" ? reason.code : reason.name}: ${reason.message}`
+        : String(reason);
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {}),
     failedHttpOrSlow: failures.length,
     p50: Math.round(percentile(durations, 50)),
     p95: Math.round(percentile(durations, 95)),

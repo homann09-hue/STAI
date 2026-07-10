@@ -27,10 +27,10 @@ jobs:
       STOCKPILOT_MONITOR_BASE_URL: ${{ github.event.inputs.base_url || 'https://stockpilot-ai-beta.vercel.app' }}
     steps:
       - name: Checkout StockPilot AI only
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm

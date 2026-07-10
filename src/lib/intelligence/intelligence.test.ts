@@ -88,6 +88,7 @@ class MemoryRepository implements IntelligenceRepository {
   private readonly rawIds = new Map<string, string>();
   private readonly source: IntelligenceSourceState = { id: "source-1", configuration: {}, cursor: null };
   analyses = 0;
+  quarantined = 0;
   alerts = 0;
   sourceErrors = 0;
   candidates: DuplicateCandidate[] = [];
@@ -95,6 +96,7 @@ class MemoryRepository implements IntelligenceRepository {
   async ensureSource(_adapter: IntelligenceSourceAdapter) { return this.source; }
   async markSourceSuccess(_source: IntelligenceSourceState, cursor: unknown) { this.source.cursor = cursor as IntelligenceSourceState["cursor"]; }
   async markSourceError(_sourceId: string, _message: string) { this.sourceErrors += 1; }
+  async quarantineEvent(_sourceId: string, _event: NormalizedIntelligenceEvent) { this.quarantined += 1; }
   async saveRawEvent(_sourceId: string, event: NormalizedIntelligenceEvent) {
     const existing = this.rawIds.get(event.externalId);
     if (existing) return { id: existing, created: false };
@@ -107,7 +109,7 @@ class MemoryRepository implements IntelligenceRepository {
   async completeProcessingJob(_jobId: string, _status: "completed" | "failed", _error?: string) {}
   async findDuplicateCandidates(_eventId: string, _event: NormalizedIntelligenceEvent): Promise<DuplicateCandidate[]> { return this.candidates; }
   async recordDuplicate(_eventId: string, _decision: DuplicateDecision) {}
-  async saveAnalysis(_eventId: string, _execution: Awaited<ReturnType<DeterministicIntelligenceAnalyzer["analyze"]>>, _score: ImpactScoreResult, _sources: number, _sourceUrl: string) { this.analyses += 1; }
+  async saveAnalysis(_eventId: string, _execution: Awaited<ReturnType<DeterministicIntelligenceAnalyzer["analyze"]>>, _score: ImpactScoreResult, _sources: number, _event: NormalizedIntelligenceEvent) { this.analyses += 1; }
   async updateCompanyState(_event: NormalizedIntelligenceEvent, _score: ImpactScoreResult) {}
   async createWatchlistAlerts(_eventId: string, _event: NormalizedIntelligenceEvent, _analysis: IntelligenceAnalysis, _score: ImpactScoreResult) { this.alerts += 1; return 1; }
   async listFeed(_filters?: IntelligenceFeedFilters): Promise<IntelligenceFeedItem[]> { return []; }
@@ -360,6 +362,48 @@ describe("analysis and scoring safety", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it("bounds model output tokens and truncates oversized source text", async () => {
+    const event = resolveEventEntities(normalizeSourceEvent(confirmedEvent({ rawText: "evidence ".repeat(30_000) })));
+    const valid = (await new DeterministicIntelligenceAnalyzer().analyze(event)).analysis;
+    const fetchImpl = vi.fn<typeof fetch>(async (_input, init) => {
+      const body = JSON.parse(String(init?.body)) as { max_tokens?: number; messages?: Array<{ content?: string }> };
+      expect(body.max_tokens).toBe(1_400);
+      expect(body.messages?.[1]?.content?.length).toBeLessThan(20_000);
+      expect(body.messages?.[1]?.content).toContain("sourceTextTruncated");
+      return response({ choices: [{ message: { content: JSON.stringify(valid) } }] });
+    });
+    const analyzer = new OpenAiCompatibleIntelligenceAnalyzer({
+      baseUrl: "https://api.example.com/v1",
+      apiKey: "test-secret",
+      model: "test-model",
+      timeoutMs: 2_000,
+      maxConcurrency: 1,
+      fetchImpl
+    });
+
+    await expect(analyzer.analyze(event)).resolves.toMatchObject({ modelName: "test-model" });
+  });
+
+  it("rejects an oversized model response before parsing it", async () => {
+    const event = resolveEventEntities(normalizeSourceEvent(confirmedEvent()));
+    const fetchImpl = vi.fn<typeof fetch>(async () =>
+      new Response(JSON.stringify({ padding: "x".repeat(10_000) }), {
+        headers: { "content-type": "application/json", "content-length": "10020" }
+      })
+    );
+    const analyzer = new OpenAiCompatibleIntelligenceAnalyzer({
+      baseUrl: "https://api.example.com/v1",
+      apiKey: "test-secret",
+      model: "test-model",
+      timeoutMs: 2_000,
+      maxConcurrency: 1,
+      maxResponseBytes: 8_192,
+      fetchImpl
+    });
+
+    await expect(analyzer.analyze(event)).rejects.toThrow("zu groß");
+  });
+
   it("rejects a model response that remains invalid after one repair", async () => {
     const event = resolveEventEntities(normalizeSourceEvent(confirmedEvent()));
     const fetchImpl = vi.fn<typeof fetch>(async () => response({ choices: [{ message: { content: "still-not-json" } }] }));
@@ -476,7 +520,7 @@ describe("vertical pipeline", () => {
 
 describe("Supabase migration contract", () => {
   it("enables RLS and isolates user intelligence alerts", () => {
-    const sql = readFileSync("supabase/migrations/20260710145249_create_realtime_intelligence.sql", "utf8");
+    const sql = readFileSync("supabase/migrations/20260710155942_create_realtime_intelligence.sql", "utf8");
     expect(sql).toContain("alter table public.intelligence_alerts enable row level security");
     expect(sql).toContain("(select auth.uid()) = user_id");
     expect(sql).toContain("with (security_invoker = true)");

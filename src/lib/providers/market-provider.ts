@@ -645,6 +645,7 @@ async function* streamFinnhubWebSocket(
 
   const normalizedSymbols = uniqueSymbols(symbols);
   const socket = new WebSocket(`wss://ws.finnhub.io?token=${encodeURIComponent(token)}`);
+  const maxQueuedBatches = 32;
   const queue: NormalizedQuote[][] = [];
   let done = false;
   let wake: (() => void) | null = null;
@@ -693,7 +694,7 @@ async function* streamFinnhubWebSocket(
             volume: parseNumber(trade.v),
             timestamp: trade.t ? new Date(trade.t).toISOString() : nowIso(),
             provider: "Finnhub WebSocket",
-            quality: "realtime",
+            quality: provider.quality,
             latencyMs: trade.t ? Math.max(0, Date.now() - trade.t) : undefined,
             marketStatus: "unknown"
           });
@@ -701,6 +702,7 @@ async function* streamFinnhubWebSocket(
         .filter((quote): quote is NormalizedQuote => Boolean(quote));
 
       if (quotes.length) {
+        if (queue.length >= maxQueuedBatches) queue.shift();
         queue.push(quotes);
         wakeReader();
       }

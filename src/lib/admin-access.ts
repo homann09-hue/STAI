@@ -1,6 +1,7 @@
 import "server-only";
+import { createHash, timingSafeEqual } from "node:crypto";
 
-type SecretRole = "admin" | "provider_ping" | "intelligence_ingest";
+type SecretRole = "admin" | "provider_ping" | "intelligence_ingest" | "analysis_reproduction";
 
 const MIN_SECRET_LENGTH = 24;
 
@@ -15,8 +16,15 @@ function getBearerToken(request: Request) {
   return authorization.startsWith("Bearer ") ? authorization.slice("Bearer ".length).trim() : null;
 }
 
+function secretsEqual(candidate: string | null, expected: string) {
+  if (!candidate) return false;
+  const candidateDigest = createHash("sha256").update(candidate, "utf8").digest();
+  const expectedDigest = createHash("sha256").update(expected, "utf8").digest();
+  return timingSafeEqual(candidateDigest, expectedDigest);
+}
+
 function matchesSecret(request: Request, secret: string, headerName: string) {
-  return getBearerToken(request) === secret || request.headers.get(headerName)?.trim() === secret;
+  return secretsEqual(getBearerToken(request), secret) || secretsEqual(request.headers.get(headerName)?.trim() ?? null, secret);
 }
 
 function adminSecret() {

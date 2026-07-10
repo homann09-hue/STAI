@@ -13,6 +13,65 @@ $$;
 
 revoke execute on function public.set_updated_at() from public;
 
+-- This migration is the canonical bootstrap for a completely fresh database.
+-- The production project originally recorded these core tables together with
+-- the hardening statements below, so local resets must do the same.
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  display_name text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.watchlists (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  symbol text not null check (length(trim(symbol)) > 0),
+  asset_type text not null check (asset_type in ('stock', 'etf', 'crypto', 'forex', 'index', 'commodity', 'future', 'option', 'cash')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, symbol)
+);
+
+create table if not exists public.alert_rules (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  symbol text not null check (length(trim(symbol)) > 0),
+  alert_type text not null check (alert_type in ('price', 'rsi', 'news', 'volume', 'earnings', 'ai-risk', 'ai-shift', 'portfolio-risk')),
+  condition jsonb not null check (jsonb_typeof(condition) = 'object'),
+  enabled boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.portfolio_positions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  symbol text not null check (length(trim(symbol)) > 0),
+  name text,
+  asset_type text not null default 'stock' check (asset_type in ('stock', 'etf', 'crypto', 'forex', 'index', 'commodity', 'future', 'option', 'cash')),
+  sector text not null default 'Unclassified',
+  quantity numeric(28, 10) not null check (quantity >= 0),
+  average_price numeric(28, 10) not null check (average_price >= 0),
+  current_price numeric(28, 10) default 0 check (current_price is null or current_price >= 0),
+  currency text not null default 'USD' check (currency ~ '^[A-Z0-9]{2,12}$'),
+  risk_score integer default 55 check (risk_score is null or risk_score between 0 and 100),
+  purchased_at date,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.analysis_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  symbol text not null check (length(trim(symbol)) > 0),
+  provider text not null default 'mock',
+  payload jsonb not null check (jsonb_typeof(payload) = 'object'),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.profiles add column if not exists updated_at timestamptz default now();
 alter table public.watchlists add column if not exists updated_at timestamptz default now();
 alter table public.alert_rules add column if not exists updated_at timestamptz default now();

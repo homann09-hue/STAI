@@ -362,6 +362,16 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
       return;
     }
 
+    const heldPosition = positions.find((position) => position.symbol === parsedTrade.data.symbol);
+    if (parsedTrade.data.side === "sell" && (!heldPosition || parsedTrade.data.quantity > heldPosition.quantity)) {
+      setFormError(
+        heldPosition
+          ? `Maximal verkaufbar: ${heldPosition.quantity} ${heldPosition.symbol}.`
+          : "Für dieses Symbol ist keine verkaufbare Position vorhanden."
+      );
+      return;
+    }
+
     try {
       const response = await fetchWithSupabaseAuth("/api/portfolio", {
         method: "POST",
@@ -370,7 +380,13 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
         },
         body: JSON.stringify(parsedTrade.data)
       });
-      if (!response.ok) throw new Error("portfolio mutation not authenticated");
+      if (response.status === 401) throw new Error("portfolio-local-fallback");
+      if (!response.ok) {
+        const errorPayload = (await response.json().catch(() => null)) as { error?: string } | null;
+        setFormError(errorPayload?.error ?? "Portfolio-Transaktion wurde nicht gespeichert.");
+        setSyncStatus("Cloud-Transaktion abgelehnt. Das lokale Portfolio wurde nicht verändert.");
+        return;
+      }
       const data = await response.json() as { portfolio?: PortfolioSummary; mode?: string };
 
       if (data.portfolio?.positions) {

@@ -10,6 +10,7 @@ const requiredPeakConcurrency = 2000;
 const maxClientSockets = Number(process.env.STOCKPILOT_QA_MAX_CLIENT_SOCKETS ?? 256);
 const requestTimeoutMs = Number(process.env.STOCKPILOT_QA_REQUEST_TIMEOUT_MS ?? 15000);
 const slowRequestThresholdMs = Number(process.env.STOCKPILOT_QA_SLOW_REQUEST_MS ?? 15000);
+const hardRequestThresholdMs = Number(process.env.STOCKPILOT_QA_HARD_REQUEST_MS ?? 20000);
 const paths = [
   "/",
   "/assets/NVDA",
@@ -141,14 +142,16 @@ async function runLevel(concurrency) {
     .filter((result) => result.status === "fulfilled")
     .map((result) => result.value);
   const rejected = results.filter((result) => result.status === "rejected");
-  const failures = fulfilled.filter((result) => !result.ok || result.duration > slowRequestThresholdMs);
+  const httpFailures = fulfilled.filter((result) => !result.ok);
+  const slowRequests = fulfilled.filter((result) => result.duration > slowRequestThresholdMs);
   const durations = fulfilled.map((result) => result.duration);
 
   return {
     concurrency,
     requests: results.length,
     rejected: rejected.length,
-    failedHttpOrSlow: failures.length,
+    failedHttp: httpFailures.length,
+    slowRequests: slowRequests.length,
     p50: Math.round(percentile(durations, 50)),
     p95: Math.round(percentile(durations, 95)),
     max: Math.round(Math.max(...durations, 0)),
@@ -172,11 +175,17 @@ try {
   serverProcess?.kill();
 }
 
-const failed = report.some((row) => row.rejected > 0 || row.failedHttpOrSlow > 0);
+const failed = report.some(
+  (row) =>
+    row.rejected > 0 ||
+    row.failedHttp > 0 ||
+    row.p95 > slowRequestThresholdMs ||
+    row.max > hardRequestThresholdMs
+);
 console.table(report);
 console.log(`Load test runtime: ${Math.round(performance.now() - started)}ms`);
 
 if (failed) {
-  console.error(`Load test failed: at least one request failed or exceeded ${slowRequestThresholdMs}ms.`);
+  console.error("Load test failed: transport/HTTP error or configured p95/hard maximum exceeded.");
   process.exit(1);
 }

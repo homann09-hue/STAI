@@ -14,6 +14,7 @@ import type {
   ResolvedEntity
 } from "@/lib/intelligence/types";
 import { logEvent } from "@/lib/observability";
+import { readBoundedResponseText } from "@/lib/providers/http-json";
 
 const PROMPT_VERSION = "intelligence-v1.0.0";
 const ambiguousTickers = new Set(["AI", "CAT", "IT", "LIFE", "META", "ON", "OPEN", "ALL", "LOVE"]);
@@ -331,6 +332,15 @@ function sourceEvidence(event: NormalizedIntelligenceEvent) {
   return event.normalizedText.slice(0, 1_000) || event.normalizedTitle;
 }
 
+function safeGeneratedTitle(value: string) {
+  return value
+    .replace(/guaranteed\s+(?:profit|return)/gi, "[unzulässiges Renditeversprechen der Quelle]")
+    .replace(/risk[- ]free/gi, "[unzulässige Risikolos-Behauptung der Quelle]")
+    .replace(/garantiert(?:e|er|es)?\s+(?:rendite|gewinn|kurs)/gi, "[unzulässiges Renditeversprechen der Quelle]")
+    .replace(/sicher(?:er|e)?\s+gewinn/gi, "[unzulässiges Gewinnversprechen der Quelle]")
+    .replace(/risikolos/gi, "[unzulässige Risikolos-Behauptung der Quelle]");
+}
+
 export class DeterministicIntelligenceAnalyzer {
   async analyze(event: NormalizedIntelligenceEvent): Promise<AnalysisExecution> {
     const sentiment = keywordSentiment(event);
@@ -341,8 +351,8 @@ export class DeterministicIntelligenceAnalyzer {
       : "Die spätere Marktreaktion ist offen und wurde nicht vorweggenommen.";
     const analysis: IntelligenceAnalysis = {
       eventType: event.canonicalEventType,
-      summary: `${event.normalizedTitle}. Diese Zusammenfassung basiert ausschließlich auf den gespeicherten Quellenfeldern.`,
-      facts: [{ statement: event.normalizedTitle, sourceEvidence: sourceEvidence(event), confidence: event.sourceCredibilityScore }],
+      summary: safeGeneratedTitle(event.normalizedTitle) + ". Diese Zusammenfassung basiert ausschließlich auf den gespeicherten Quellenfeldern.",
+      facts: [{ statement: safeGeneratedTitle(event.normalizedTitle), sourceEvidence: sourceEvidence(event), confidence: event.sourceCredibilityScore }],
       affectedCompanies: event.entities
         .filter((entity) => entity.symbol)
         .map((entity) => ({ symbol: entity.symbol as string, relationship: entity.relationshipType, confidence: entity.confidence })),
@@ -379,6 +389,7 @@ export class DeterministicIntelligenceAnalyzer {
 }
 
 export function buildAnalysisMessages(event: NormalizedIntelligenceEvent) {
+  const sourceText = event.normalizedText.slice(0, 12_000);
   const system = [
     "You are a financial event extraction engine.",
     "Return only JSON matching the supplied schema.",
@@ -391,7 +402,8 @@ export function buildAnalysisMessages(event: NormalizedIntelligenceEvent) {
     schemaVersion: PROMPT_VERSION,
     untrustedSourceData: {
       title: event.normalizedTitle,
-      text: event.normalizedText,
+      text: sourceText,
+      sourceTextTruncated: sourceText.length < event.normalizedText.length,
       provider: event.provider,
       publisher: event.publisher,
       sourceUrl: event.sourceUrl,
@@ -440,6 +452,8 @@ export class OpenAiCompatibleIntelligenceAnalyzer {
       maxConcurrency: number;
       inputCostPerMillion?: number;
       outputCostPerMillion?: number;
+      maxOutputTokens?: number;
+      maxResponseBytes?: number;
       fetchImpl?: typeof fetch;
     }
   ) {
@@ -479,13 +493,24 @@ export class OpenAiCompatibleIntelligenceAnalyzer {
           model: this.config.model,
           messages,
           temperature: 0,
+          max_tokens: Math.min(Math.max(this.config.maxOutputTokens ?? 1_400, 128), 4_000),
           response_format: { type: "json_object" }
         }),
         signal: controller.signal,
         cache: "no-store"
       });
       if (!response.ok) throw new Error(`AI provider HTTP ${response.status}`);
-      const payload = (await response.json()) as ChatCompletionPayload;
+      const responseText = await readBoundedResponseText(
+        response,
+        "AI provider",
+        Math.min(Math.max(this.config.maxResponseBytes ?? 64_000, 8_192), 256_000)
+      );
+      let payload: ChatCompletionPayload;
+      try {
+        payload = JSON.parse(responseText) as ChatCompletionPayload;
+      } catch {
+        throw new Error("AI provider returned invalid JSON");
+      }
       const content = payload.choices?.[0]?.message?.content;
       if (!content) throw new Error("AI provider returned no content");
       return { content, usage: payload.usage };
@@ -562,7 +587,6 @@ class ResilientIntelligenceAnalyzer implements IntelligenceAnalyzer {
     try {
       return await this.primary.analyze(event);
     } catch (error) {
-      if (error instanceof AnalysisValidationError) throw error;
       logEvent("warn", "intelligence.ai_fallback", { error, provider: "openai_compatible" });
       const result = await this.fallback.analyze(event);
       return { ...result, fallbackUsed: true };
@@ -590,7 +614,9 @@ export function getIntelligenceAnalyzer(): IntelligenceAnalyzer {
     timeoutMs: finiteEnvNumber("AI_TIMEOUT_MS") ?? 12_000,
     maxConcurrency: finiteEnvNumber("AI_MAX_CONCURRENCY") ?? 2,
     inputCostPerMillion: finiteEnvNumber("AI_INPUT_COST_PER_MILLION"),
-    outputCostPerMillion: finiteEnvNumber("AI_OUTPUT_COST_PER_MILLION")
+    outputCostPerMillion: finiteEnvNumber("AI_OUTPUT_COST_PER_MILLION"),
+    maxOutputTokens: finiteEnvNumber("AI_MAX_OUTPUT_TOKENS") ?? 1_400,
+    maxResponseBytes: finiteEnvNumber("AI_MAX_RESPONSE_BYTES") ?? 64_000
   });
   return new ResilientIntelligenceAnalyzer(primary, fallback);
 }

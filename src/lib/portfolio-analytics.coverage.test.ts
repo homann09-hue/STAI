@@ -67,8 +67,8 @@ describe("portfolio analytics branch coverage", () => {
     const reduced = applyPortfolioTrade(averaged, trade("NVDA", "sell", 5, 130));
     expect(reduced.find((item) => item.symbol === "NVDA")?.quantity).toBe(15);
 
-    const removed = applyPortfolioTrade(reduced, trade("NVDA", "sell", 99, 130));
-    expect(removed.some((item) => item.symbol === "NVDA")).toBe(false);
+    const rejected = applyPortfolioTrade(reduced, trade("NVDA", "sell", 99, 130));
+    expect(rejected).toBe(reduced);
 
     vi.useRealTimers();
   });

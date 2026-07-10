@@ -1,6 +1,6 @@
 import "server-only";
 
-import { analyzePortfolio, applyPortfolioTrade } from "@/lib/portfolio-analytics";
+import { analyzePortfolio } from "@/lib/portfolio-analytics";
 import { logEvent } from "@/lib/observability";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import type { AlertFrequency, AlertNotificationChannel, AlertRule, AlertType, AssetType, PortfolioPosition, PortfolioSummary, PortfolioTradeInput } from "@/lib/types";
@@ -8,7 +8,7 @@ import type { AlertFrequency, AlertNotificationChannel, AlertRule, AlertType, As
 type SupabaseClient = NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
 
 type AuthResult =
-  | { ok: true; supabase: SupabaseClient; userId: string; email: string | null }
+  | { ok: true; supabase: SupabaseClient; userId: string; email: string | null; accessToken: string }
   | { ok: false; reason: "missing_client" | "anonymous" | "invalid_token" };
 
 type AlertRuleRow = {
@@ -46,11 +46,6 @@ type WatchlistRow = {
   symbol: string;
   asset_type: AssetType | string | null;
   created_at: string;
-};
-
-type SupabaseErrorLike = {
-  code?: string;
-  message?: string;
 };
 
 const alertLabels: Record<AlertType, string> = {
@@ -204,7 +199,8 @@ export async function getSupabaseAuth(request: Request): Promise<AuthResult> {
     ok: true,
     supabase,
     userId: data.user.id,
-    email: data.user.email ?? null
+    email: data.user.email ?? null,
+    accessToken: token
   };
 }
 
@@ -240,24 +236,6 @@ function positionFromRow(row: PortfolioPositionRow): PortfolioPosition {
     currentPrice,
     currency: safeCurrency(row.currency),
     riskScore: Math.round(clampNumber(row.risk_score, 55, 0, 100))
-  };
-}
-
-function normalizePortfolioPosition(position: PortfolioPosition): PortfolioPosition {
-  const symbol = safeSymbol(position.symbol);
-  const averagePrice = Math.max(0, safeFiniteNumber(position.averagePrice));
-
-  return {
-    id: safeRecordId(position.id),
-    symbol,
-    name: safeText(position.name, `${symbol} Position`, 100),
-    assetType: safeAssetType(position.assetType),
-    sector: safeText(position.sector, "Nicht klassifiziert", 80),
-    quantity: clampNumber(position.quantity, 0, 0, 1_000_000_000),
-    averagePrice,
-    currentPrice: Math.max(0, safeFiniteNumber(position.currentPrice, averagePrice)),
-    currency: safeCurrency(position.currency),
-    riskScore: Math.round(clampNumber(position.riskScore, 55, 0, 100))
   };
 }
 
@@ -400,66 +378,7 @@ export async function getUserPortfolio(auth: Extract<AuthResult, { ok: true }>):
   return analyzePortfolio(((data ?? []) as PortfolioPositionRow[]).map(positionFromRow));
 }
 
-async function savePortfolioPositions(
-  auth: Extract<AuthResult, { ok: true }>,
-  positions: PortfolioPosition[],
-  previousPositions: PortfolioPosition[] = []
-) {
-  const normalizedPositions = positions.map(normalizePortfolioPosition);
-  const nextIds = new Set(normalizedPositions.filter((position) => !position.id.startsWith("local-")).map((position) => position.id));
-  const removedIds = previousPositions
-    .filter((position) => !position.id.startsWith("local-") && !nextIds.has(position.id))
-    .map((position) => safeRecordId(position.id))
-    .filter(Boolean);
-
-  if (removedIds.length) {
-    const { error } = await auth.supabase
-      .from("portfolio_positions")
-      .delete()
-      .eq("user_id", auth.userId)
-      .in("id", removedIds);
-
-    if (error) throw error;
-  }
-
-  const rows = normalizedPositions.map((position) => ({
-    user_id: auth.userId,
-    symbol: position.symbol,
-    name: position.name,
-    asset_type: position.assetType,
-    sector: position.sector,
-    quantity: position.quantity,
-    average_price: position.averagePrice,
-    current_price: position.currentPrice,
-    currency: position.currency,
-    risk_score: position.riskScore
-  }));
-
-  if (!rows.length) return;
-
-  const existingRows = rows
-    .map((row, index) => ({ ...row, id: normalizedPositions[index].id }))
-    .filter((row) => !row.id.startsWith("local-"));
-  const newRows = rows.filter((_row, index) => normalizedPositions[index].id.startsWith("local-"));
-
-  if (existingRows.length) {
-    const { error } = await auth.supabase.from("portfolio_positions").upsert(existingRows, {
-      onConflict: "id"
-    });
-
-    if (error) throw error;
-  }
-
-  if (!newRows.length) return;
-
-  const { error } = await auth.supabase.from("portfolio_positions").insert(newRows);
-
-  if (error) throw error;
-}
-
-function isMissingPortfolioRpc(error: SupabaseErrorLike) {
-  return error.code === "PGRST202" || error.code === "42883" || /apply_portfolio_trade/i.test(error.message ?? "");
-}
+export class PortfolioTradeConflictError extends Error {}
 
 async function applyPortfolioTradeRpc(auth: Extract<AuthResult, { ok: true }>, trade: PortfolioTradeInput) {
   const normalizedTrade = normalizePortfolioTrade(trade);
@@ -476,46 +395,64 @@ async function applyPortfolioTradeRpc(auth: Extract<AuthResult, { ok: true }>, t
     p_risk_score: normalizedTrade.riskScore
   });
 
-  if (error) throw error;
+  if (error) {
+    if (/portfolio_sell_(?:position_missing|exceeds_position)/i.test(error.message ?? "")) {
+      throw new PortfolioTradeConflictError(
+        /position_missing/i.test(error.message ?? "")
+          ? "Für dieses Symbol ist keine verkaufbare Position vorhanden."
+          : "Die Verkaufsmenge übersteigt den vorhandenen Bestand."
+      );
+    }
+    throw error;
+  }
 }
 
 export async function applyUserPortfolioTrade(auth: Extract<AuthResult, { ok: true }>, trade: PortfolioTradeInput) {
   const normalizedTrade = normalizePortfolioTrade(trade);
+  await applyPortfolioTradeRpc(auth, normalizedTrade);
+  return getUserPortfolio(auth);
+}
 
-  try {
-    await applyPortfolioTradeRpc(auth, normalizedTrade);
-    return getUserPortfolio(auth);
-  } catch (error) {
-    const supabaseError = error as SupabaseErrorLike;
+const personalDataTables = [
+  { key: "profile", table: "profiles", ownerColumn: "id" },
+  { key: "watchlists", table: "watchlists", ownerColumn: "user_id" },
+  { key: "alerts", table: "alert_rules", ownerColumn: "user_id" },
+  { key: "alertEvents", table: "alert_events", ownerColumn: "user_id" },
+  { key: "portfolios", table: "portfolios", ownerColumn: "user_id" },
+  { key: "portfolioPositions", table: "portfolio_positions", ownerColumn: "user_id" },
+  { key: "portfolioTransactions", table: "portfolio_transactions", ownerColumn: "user_id" },
+  { key: "portfolioSnapshots", table: "portfolio_snapshots", ownerColumn: "user_id" },
+  { key: "analyses", table: "analysis_snapshots", ownerColumn: "user_id" },
+  { key: "notifications", table: "notifications", ownerColumn: "user_id" },
+  { key: "entitlements", table: "entitlements", ownerColumn: "user_id" },
+  { key: "intelligenceAlerts", table: "intelligence_alerts", ownerColumn: "user_id" }
+] as const;
 
-    if (!isMissingPortfolioRpc(supabaseError)) {
-      throw error;
-    }
+export async function exportUserData(auth: Extract<AuthResult, { ok: true }>) {
+  const entries = await Promise.all(
+    personalDataTables.map(async ({ key, table, ownerColumn }) => {
+      const { data, error } = await auth.supabase.from(table).select("*").eq(ownerColumn, auth.userId).limit(5_000);
+      if (error) throw error;
+      return [key, data ?? []] as const;
+    })
+  );
 
-    logEvent("warn", "portfolio.rpc_missing_fallback", {
-      code: supabaseError.code,
-      message: supabaseError.message
-    });
-  }
+  return {
+    format: "stockpilot-user-export-v1",
+    exportedAt: new Date().toISOString(),
+    user: { id: auth.userId, email: auth.email },
+    rowLimitPerTable: 5_000,
+    data: Object.fromEntries(entries)
+  };
+}
 
-  const current = await getUserPortfolio(auth);
-  const nextPositions = applyPortfolioTrade(current.positions, normalizedTrade);
+export async function deleteUserAccount(auth: Extract<AuthResult, { ok: true }>) {
+  const { error: signOutError } = await auth.supabase.auth.admin.signOut(auth.accessToken, "global");
+  const signOutStatus = (signOutError as { status?: number } | null)?.status;
+  if (signOutError && signOutStatus !== 401 && signOutStatus !== 404) throw signOutError;
 
-  const { error: transactionError } = await auth.supabase.from("portfolio_transactions").insert({
-    user_id: auth.userId,
-    symbol: normalizedTrade.symbol,
-    asset_type: normalizedTrade.assetType,
-    side: normalizedTrade.side,
-    quantity: normalizedTrade.quantity,
-    price: normalizedTrade.price,
-    currency: normalizedTrade.currency,
-    notes: normalizedTrade.name ?? null
-  });
-
-  if (transactionError) throw transactionError;
-
-  await savePortfolioPositions(auth, nextPositions, current.positions);
-  return analyzePortfolio(nextPositions);
+  const { error } = await auth.supabase.auth.admin.deleteUser(auth.userId);
+  if (error) throw error;
 }
 
 export async function deleteUserPortfolioPosition(auth: Extract<AuthResult, { ok: true }>, id: string) {

@@ -16,7 +16,8 @@ const staticRoutes: Array<{ path: string; priority: number; changeFrequency: Met
   { path: "/risk", priority: 0.7, changeFrequency: "daily" },
   { path: "/backtesting", priority: 0.65, changeFrequency: "weekly" },
   { path: "/learn", priority: 0.8, changeFrequency: "weekly" },
-  { path: "/pricing", priority: 0.65, changeFrequency: "monthly" }
+  { path: "/pricing", priority: 0.65, changeFrequency: "monthly" },
+  { path: "/legal", priority: 0.4, changeFrequency: "monthly" }
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
