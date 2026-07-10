@@ -20,6 +20,34 @@ const assetClasses: Array<{ key: MarketUniverseAssetClass | "all"; label: string
 
 const MAX_VISIBLE_MARKET_ROWS = 80;
 type SortKey = "symbol" | "assetClass" | "coverage" | "quality";
+type PresetKey = "all" | "live" | "momentum" | "income" | "license";
+const momentumAssetClasses: MarketUniverseAssetClass[] = ["stock", "crypto", "index"];
+const incomeAssetClasses: MarketUniverseAssetClass[] = ["etf", "fund"];
+
+const screenerPresets: Array<{ key: PresetKey; label: string; description: string }> = [
+  { key: "all", label: "Alle", description: "Komplettes vorbereitetes Marktuniversum." },
+  { key: "live", label: "Live-fähig", description: "Nur wirklich streambare Anbieter, keine vorbereiteten Public-Provider." },
+  { key: "momentum", label: "Momentum", description: "Aktien, Krypto und Indizes für Trendprüfung." },
+  { key: "income", label: "Income/ETF", description: "ETFs und Fonds für Kosten/Dividenden-Prüfung." },
+  { key: "license", label: "Lizenz nötig", description: "Professionelle Feeds, die nicht live gefaked werden." }
+];
+
+function normalizeFavorites(value: unknown) {
+  if (!Array.isArray(value)) return [];
+
+  return [
+    ...new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim().toUpperCase())
+        .filter((item) => /^[A-Z0-9./:-]{1,24}$/.test(item))
+    )
+  ].slice(0, 60);
+}
+
+function normalizeFavoriteSymbol(symbol: string) {
+  return symbol.trim().toUpperCase().replace(/[^A-Z0-9./:-]/g, "").slice(0, 24);
+}
 
 function coverageTone(coverage: MarketUniverseInstrument["coverage"]) {
   if (coverage === "available") return "border-profit/30 bg-profit/10 text-profit";
@@ -61,10 +89,12 @@ export function MarketUniverseExplorer({
   const [query, setQuery] = useState("");
   const [assetClass, setAssetClass] = useState<MarketUniverseAssetClass | "all">("all");
   const [sortKey, setSortKey] = useState<SortKey>("symbol");
+  const [preset, setPreset] = useState<PresetKey>("all");
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
 
   useEffect(() => {
-    setFavorites(readOfflineValue<string[]>(OFFLINE_KEYS.screenerFavorites) ?? []);
+    setFavorites(normalizeFavorites(readOfflineValue<unknown>(OFFLINE_KEYS.screenerFavorites)));
   }, []);
 
   useEffect(() => {
@@ -76,6 +106,11 @@ export function MarketUniverseExplorer({
 
     return instruments.filter((item) => {
       if (assetClass !== "all" && item.assetClass !== assetClass) return false;
+      if (favoritesOnly && !favorites.includes(item.symbol)) return false;
+      if (preset === "live" && !item.subscribable) return false;
+      if (preset === "momentum" && !momentumAssetClasses.includes(item.assetClass)) return false;
+      if (preset === "income" && !incomeAssetClasses.includes(item.assetClass)) return false;
+      if (preset === "license" && item.coverage !== "license_required") return false;
       if (!normalizedQuery) return true;
       return `${item.symbol} ${item.name} ${item.exchange} ${item.country} ${item.assetClass}`.toLowerCase().includes(normalizedQuery);
     }).sort((a, b) => {
@@ -84,7 +119,7 @@ export function MarketUniverseExplorer({
       if (sortKey === "coverage") return a.coverage.localeCompare(b.coverage) || a.symbol.localeCompare(b.symbol);
       return a.quoteQuality.localeCompare(b.quoteQuality) || a.symbol.localeCompare(b.symbol);
     });
-  }, [assetClass, instruments, query, sortKey]);
+  }, [assetClass, favorites, favoritesOnly, instruments, preset, query, sortKey]);
   const visibleResults = filtered.slice(0, MAX_VISIBLE_MARKET_ROWS);
   const hiddenResultCount = Math.max(0, filtered.length - visibleResults.length);
 
@@ -96,7 +131,9 @@ export function MarketUniverseExplorer({
   };
 
   function toggleFavorite(symbol: string) {
-    setFavorites((current) => current.includes(symbol) ? current.filter((item) => item !== symbol) : [symbol, ...current].slice(0, 60));
+    const normalizedSymbol = normalizeFavoriteSymbol(symbol);
+    if (!normalizedSymbol) return;
+    setFavorites((current) => current.includes(normalizedSymbol) ? current.filter((item) => item !== normalizedSymbol) : [normalizedSymbol, ...current].slice(0, 60));
   }
 
   return (
@@ -114,7 +151,7 @@ export function MarketUniverseExplorer({
           <div className="rounded-2xl border border-profit/25 bg-profit/10 p-3">
             <Radio className="h-4 w-4 text-profit" />
             <p className="mt-2 font-mono text-xl font-semibold text-profit">{stats.available}</p>
-            <p className="text-xs text-muted">{stats.subscribable} streambar</p>
+            <p className="text-xs text-muted">{stats.subscribable} bestätigt streambar</p>
           </div>
           <div className="rounded-2xl border border-cyan/25 bg-cyan/10 p-3">
             <Database className="h-4 w-4 text-cyan" />
@@ -164,6 +201,30 @@ export function MarketUniverseExplorer({
           <Star className="h-3.5 w-3.5 text-amber" />
           {favorites.length} Favoriten
         </span>
+        <button
+          type="button"
+          aria-pressed={favoritesOnly}
+          onClick={() => setFavoritesOnly((current) => !current)}
+          className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition ${
+            favoritesOnly ? "border-amber/40 bg-amber/10 text-amber" : "border-stroke bg-panel text-muted hover:text-mist"
+          }`}
+        >
+          <Star className="h-3.5 w-3.5" />
+          Nur Favoriten
+        </button>
+        {screenerPresets.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => setPreset(item.key)}
+            title={item.description}
+            className={`inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition ${
+              preset === item.key ? "border-profit/40 bg-profit/10 text-profit" : "border-stroke bg-panel text-muted hover:text-mist"
+            }`}
+          >
+            Preset: {item.label}
+          </button>
+        ))}
         {(["symbol", "assetClass", "coverage", "quality"] as SortKey[]).map((item) => (
           <button
             key={item}

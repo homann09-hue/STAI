@@ -3,7 +3,21 @@ import { expect, test } from "@playwright/test";
 async function acceptRiskNotice(page: import("@playwright/test").Page) {
   const button = page.getByRole("button", { name: "Verstanden" });
   if (await button.isVisible().catch(() => false)) {
-    await button.click();
+    await button.evaluate((element) => {
+      if (element instanceof HTMLButtonElement) element.click();
+    });
+  }
+}
+
+async function safeGoto(page: import("@playwright/test").Page, route: string) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await page.goto(route, { waitUntil: "load", timeout: 20_000 });
+      return;
+    } catch (error) {
+      if (attempt === 2 || !String(error).includes("ERR_ABORTED")) throw error;
+      await page.waitForTimeout(300);
+    }
   }
 }
 
@@ -55,8 +69,8 @@ test("learn and pricing pages explain beginner and business paths", async ({ pag
   await page.goto("/pricing");
   await acceptRiskNotice(page);
 
-  await expect(page.getByText("Free")).toBeVisible();
-  await expect(page.getByText("Elite / Business")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Free", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Elite / Business", exact: true })).toBeVisible();
   await expect(page.getByText("Feature-Gates vorbereitet")).toBeVisible();
 });
 
@@ -73,26 +87,26 @@ test("settings contains investor mode instead of dashboard", async ({ page }) =>
 });
 
 test("professional finance terminal pages render core data areas", async ({ page }) => {
-  await page.goto("/markets");
+  await safeGoto(page, "/markets");
   await acceptRiskNotice(page);
   await expect(page.getByText("Global Market Overview").first()).toBeVisible();
   await expect(page.getByText("Profi-Datenzentrum")).toBeVisible();
   await expect(page.getByText("Qualitäts-Summary")).toBeVisible();
 
-  await page.goto("/stocks");
+  await safeGoto(page, "/stocks");
   await expect(page.getByText("Aktien-Screener").first()).toBeVisible();
   await expect(page.getByText("Forward P/E").first()).toBeVisible();
 
-  await page.goto("/etfs");
+  await safeGoto(page, "/etfs");
   await expect(page.getByText("ETF-Screener").first()).toBeVisible();
   await expect(page.getByText("Top 10 Holdings").first()).toBeVisible();
 
-  await page.goto("/crypto");
+  await safeGoto(page, "/crypto");
   await expect(page.getByText("Krypto-Screener").first()).toBeVisible();
   await expect(page.getByText("Exchange-Daten").first()).toBeVisible();
 
   await page.goto("/news-terminal");
-  await expect(page.getByText("News & Events near-realtime vorbereitet")).toBeVisible();
+  await expect(page.getByText("News & Events mit Quellenstatus")).toBeVisible();
 
   await page.goto("/risk");
   await expect(page.getByText("Risiko-Dashboard").first()).toBeVisible();

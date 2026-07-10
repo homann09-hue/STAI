@@ -86,6 +86,7 @@ STOCKPILOT_NEWS_TTL_MS=120000
 STOCKPILOT_FUNDAMENTALS_TTL_MS=3600000
 STOCKPILOT_AI_TTL_MS=300000
 STOCKPILOT_CRON_SECRET=
+STOCKPILOT_ENABLE_SIMULATED_ALERT_WORKER=false
 ```
 
 ## Architektur
@@ -142,7 +143,7 @@ Yahoo oder inoffizielle Quellen sind bewusst nicht als professionelle Hauptquell
 
 `FMP_ENABLE_ETF_QUOTES=false` ist bewusst der sichere Default, weil kleine/neue FMP-Pläne ETF-Quotes häufig mit HTTP 402 blockieren. Wenn dein FMP-Plan ETF-Quotes enthält, kann der Schalter auf `true` gesetzt werden.
 
-`STOCKPILOT_CRYPTO_PROVIDER=binance` ist der Default für Krypto-Symbole wie `BTC-USD` und `ETH-USD`. Aktien/ETFs laufen weiter über den gewaehlten Marktanbieter, z. B. Finnhub. Wenn Aktienanbieter keine Bid/Ask-Daten liefern, zeigt die UI bewusst „vom Anbieter nicht geliefert“ statt geschaetzte Spreads zu erfinden.
+`STOCKPILOT_CRYPTO_PROVIDER=binance` ist der Default für Krypto-Symbole wie `BTC-USD` und `ETH-USD`. Aktien/ETFs laufen weiter über den gewählten Marktanbieter, z. B. Finnhub. Wenn Aktienanbieter keine Bid/Ask-Daten liefern, zeigt die UI bewusst „vom Anbieter nicht geliefert“ statt geschätzte Spreads zu erfinden.
 
 Jeder Kurs führt `provider`, `quality`, `marketStatus`, `timestamp`, `latencyMs`, `bid`, `ask`, `spread`, `high`, `low`, `open`, `previousClose` und `volume`, soweit der Anbieter diese Felder liefert.
 
@@ -217,7 +218,7 @@ Das Projekt ist für ein eigenes GitHub-Repository und ein eigenes Vercel-Projek
 
 Der Vercel-Workflow läuft bewusst nur manuell und nutzt StockPilot-spezifische Secrets mit `STOCKPILOT_`-Präfix.
 
-`STOCKPILOT_CRON_SECRET` schützt `/api/alerts/run`. Auf Vercel Hobby ist der Cron in `vercel.json` bewusst täglich geplant, weil häufigere Cron-Ausführung einen Pro-Plan oder externen Scheduler benötigt.
+`STOCKPILOT_CRON_SECRET` schützt `/api/alerts/run`. Auf Vercel Hobby ist der Cron in `vercel.json` bewusst täglich geplant, weil häufigere Cron-Ausführung einen Pro-Plan oder externen Scheduler benötigt. Der Alert-Worker bleibt standardmäßig im Dry-Run und schreibt keine simulierten Events. `STOCKPILOT_ENABLE_SIMULATED_ALERT_WORKER=true` darf nur für kontrollierte Tests gesetzt werden, bis echte serverseitige Providerwerte angebunden sind.
 
 ## Supabase
 

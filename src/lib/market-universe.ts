@@ -25,7 +25,7 @@ export const marketUniverseCoverage: MarketUniverseCoverage[] = [
     exchanges: ["Binance", "Coinbase", "Kraken", "Crypto.com"],
     providerCandidates: ["Binance", "Coinbase", "CCXT-kompatible Provider"],
     status: "connected",
-    note: "BTC/USD und ETH/USD sind bereits near-realtime über freie Krypto-Provider vorbereitet."
+    note: "BTC/USD und ETH/USD sind über freie Krypto-Provider vorbereitet. Aktualität, Limits und Verfügbarkeit werden erst beim Quote-Abruf bestätigt."
   },
   {
     label: "Indizes, Rohstoffe, Forex",
@@ -66,7 +66,7 @@ function configuredProviderQuality(assetClass: MarketUniverseAssetClass, coverag
   if (assetClass === "crypto") {
     const cryptoProvider = selectedCryptoProvider();
     if (cryptoProvider === "none" || cryptoProvider === "off") return "unavailable" as const;
-    return "near_realtime" as const;
+    return "delayed" as const;
   }
 
   const provider = selectedMarketProvider();
@@ -121,6 +121,8 @@ const universeSeeds: MarketUniverseInstrument[] = [
     note:
       quoteQuality === "near_realtime"
         ? "Anbieterstruktur aktiv. Realtime/Near-Realtime haengt vom konkreten Feed ab."
+        : typedAssetClass === "crypto" && quoteQuality === "delayed"
+          ? "Krypto-Public-Provider vorbereitet. Echte Aktualität wird beim Quote-Abruf geprüft und nicht im Universum garantiert."
         : typedCoverage === "prepared"
           ? "Datenmodell vorbereitet, echter Anbieter noch nicht verbunden."
           : typedCoverage === "license_required"

@@ -34,7 +34,7 @@ describe("cost controls", () => {
 
     expect(controls.quoteTtlMs).toBe(1000);
     expect(controls.streamDefaultIntervalMs).toBe(10000);
-    expect(getStreamIntervalMs(new Request("https://stockpilot.test/api/market/stream?intervalMs=50"))).toBe(2000);
+    expect(getStreamIntervalMs(new Request("https://stockpilot.test/api/market/stream?intervalMs=50"))).toBe(5000);
     expect(getStreamIntervalMs(new Request("https://stockpilot.test/api/market/stream?intervalMs=20000"))).toBe(10000);
     expect(getStreamIntervalMs(new Request("https://stockpilot.test/api/market/stream?pollMs=7000"))).toBe(7000);
     expect(getStreamIntervalMs(new Request("https://stockpilot.test/api/market/stream?pollMs=nope"))).toBe(10000);

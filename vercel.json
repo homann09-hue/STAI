@@ -10,6 +10,10 @@
     {
       "path": "/api/alerts/run",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/intelligence/ingest",
+      "schedule": "0 6 * * *"
     }
   ]
 }

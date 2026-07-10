@@ -46,7 +46,7 @@ export default function Image() {
         </div>
 
         <div style={{ display: "flex", gap: 16, fontSize: 24, color: "#d7e2f3" }}>
-          {["Realtime-ready", "Risk-first", "Mobile-first", "PWA"].map((item) => (
+          {["Datenqualität sichtbar", "Risk-first", "Mobile-first", "PWA"].map((item) => (
             <div
               key={item}
               style={{

@@ -22,6 +22,11 @@ const chartDateTimeFormatter = new Intl.DateTimeFormat("de-DE", {
   timeZone: "Europe/Berlin"
 });
 
+function formatChartTimestamp(timestamp: string) {
+  const date = new Date(timestamp);
+  return Number.isFinite(date.getTime()) ? chartDateTimeFormatter.format(date) : "Zeitpunkt nicht verfügbar";
+}
+
 export function RangeSelector({ value, onChange }: { value: UiRange; onChange: (range: UiRange) => void }) {
   return (
     <div className="flex gap-1 overflow-x-auto rounded-2xl border border-stroke bg-coal p-1" role="group" aria-label="Chart-Zeitraum wählen">
@@ -84,15 +89,19 @@ export function ChartToolbar({
 }
 
 export function TechnicalIndicatorsPanel({ indicators, currency }: { indicators: TechnicalIndicators; currency: string }) {
+  const macdValue = Number.isFinite(indicators.macd.value) ? indicators.macd.value : "n/a";
+  const macdSignal = Number.isFinite(indicators.macd.signal) ? indicators.macd.signal : "n/a";
+  const support = indicators.support.length ? indicators.support.map((value) => formatCurrency(value, currency)).join(" · ") : "n/a";
+  const resistance = indicators.resistance.length ? indicators.resistance.map((value) => formatCurrency(value, currency)).join(" · ") : "n/a";
   const items = [
     ["RSI", indicators.rsi],
     ["SMA 20", formatCurrency(indicators.movingAverages.ma20, currency)],
     ["SMA 50", formatCurrency(indicators.movingAverages.ma50, currency)],
     ["SMA 200", formatCurrency(indicators.movingAverages.ma200, currency)],
-    ["MACD", `${indicators.macd.value} / ${indicators.macd.signal}`],
-    ["Bollinger", "vorbereitet"],
-    ["Support", indicators.support.map((value) => formatCurrency(value, currency)).join(" · ")],
-    ["Resistance", indicators.resistance.map((value) => formatCurrency(value, currency)).join(" · ")]
+    ["MACD", `${macdValue} / ${macdSignal}`],
+    ["Bollinger", "modelliert / vorbereitet"],
+    ["Support", support],
+    ["Resistance", resistance]
   ];
 
   return (
@@ -108,7 +117,14 @@ export function TechnicalIndicatorsPanel({ indicators, currency }: { indicators:
 }
 
 export function VolumeBars({ candles }: { candles: Candle[] }) {
-  const visible = candles.slice(-36);
+  const visible = candles
+    .slice(-36)
+    .map((candle) => ({
+      ...candle,
+      volume: Number.isFinite(candle.volume) && (candle.volume ?? 0) > 0 ? candle.volume : 0,
+      open: Number.isFinite(candle.open) ? candle.open : candle.close,
+      close: Number.isFinite(candle.close) ? candle.close : candle.open
+    }));
   const maxVolume = Math.max(...visible.map((candle) => candle.volume ?? 0), 1);
   const lastVolume = visible[visible.length - 1]?.volume ?? 0;
 
@@ -123,7 +139,7 @@ export function VolumeBars({ candles }: { candles: Candle[] }) {
           key={`${candle.timestamp}-${index}`}
           aria-hidden="true"
           className={candle.close >= candle.open ? "flex-1 rounded-t bg-profit/35" : "flex-1 rounded-t bg-loss/35"}
-          style={{ height: `${Math.max(10, ((candle.volume ?? 0) / maxVolume) * 100)}%` }}
+          style={{ height: `${Math.min(100, Math.max(10, ((candle.volume ?? 0) / maxVolume) * 100))}%` }}
           title={`Volumen ${formatCompact(candle.volume ?? 0)}`}
         />
       ))}
@@ -150,7 +166,7 @@ export function ChartStatusBar({
       <ConnectionBadge status={connectionStatus} mode={refreshMode} intervalMs={intervalMs} />
       <DataQualityBadge quality={quote.quality} marketStatus={quote.marketStatus} />
       <span>Provider: {quote.provider}</span>
-      <span>Last Updated: {chartDateTimeFormatter.format(new Date(timestamp))}</span>
+      <span>Last Updated: {formatChartTimestamp(timestamp)}</span>
       <span>Latency: {latency}</span>
     </div>
   );

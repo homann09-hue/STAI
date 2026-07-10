@@ -5,6 +5,21 @@ import { CheckCircle2, LogOut, Mail, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
+const MAX_AUTH_EMAIL_LENGTH = 254;
+
+function normalizeAuthEmail(value: string) {
+  return value.trim().toLowerCase().slice(0, MAX_AUTH_EMAIL_LENGTH);
+}
+
+function isValidAuthEmail(value: string) {
+  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(value);
+}
+
+function safeDisplayEmail(value: string | null | undefined) {
+  const normalized = normalizeAuthEmail(value ?? "");
+  return isValidAuthEmail(normalized) ? normalized : "angemeldeter Nutzer";
+}
+
 export function SupabaseAuthPanel() {
   const supabase = createSupabaseBrowserClient();
   const [session, setSession] = useState<Session | null>(null);
@@ -15,36 +30,68 @@ export function SupabaseAuthPanel() {
   useEffect(() => {
     if (!supabase) return;
 
-    supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
+    let disposed = false;
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!disposed) setSession(data.session ?? null);
+      })
+      .catch(() => {
+        if (!disposed) setSession(null);
+      });
+
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
+      if (!disposed) setSession(nextSession);
     });
 
-    return () => data.subscription.unsubscribe();
+    return () => {
+      disposed = true;
+      data.subscription.unsubscribe();
+    };
   }, [supabase]);
 
   async function signIn() {
-    if (!supabase || !email.trim()) return;
+    const normalizedEmail = normalizeAuthEmail(email);
+
+    if (!supabase || !normalizedEmail) return;
+
+    if (!isValidAuthEmail(normalizedEmail)) {
+      setMessage("Bitte eine gültige E-Mail-Adresse eingeben.");
+      return;
+    }
 
     setBusy(true);
     setMessage("");
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: `${window.location.origin}/settings`
-      }
-    });
-    setBusy(false);
-    setMessage(error ? error.message : "Magic Link wurde gesendet. Bitte E-Mail prüfen.");
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: normalizedEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/settings`
+        }
+      });
+
+      setMessage(error ? "Magic Link konnte nicht gesendet werden. Bitte E-Mail und Supabase-Konfiguration prüfen." : "Magic Link wurde gesendet. Bitte E-Mail prüfen.");
+    } catch {
+      setMessage("Magic Link konnte nicht gesendet werden. Bitte Verbindung und Supabase-Konfiguration prüfen.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function signOut() {
     if (!supabase) return;
 
     setBusy(true);
-    await supabase.auth.signOut();
-    setBusy(false);
-    setMessage("Du bist abgemeldet. Lokale Offline-Daten bleiben auf diesem Gerät.");
+    try {
+      const { error } = await supabase.auth.signOut();
+      setMessage(error ? "Abmeldung konnte nicht bestätigt werden. Bitte Verbindung prüfen." : "Du bist abgemeldet. Lokale Offline-Daten bleiben auf diesem Gerät.");
+    } catch {
+      setMessage("Abmeldung konnte nicht bestätigt werden. Bitte Verbindung prüfen.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -67,7 +114,7 @@ export function SupabaseAuthPanel() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-profit">
               <CheckCircle2 className="h-4 w-4" />
-              <span className="text-sm font-semibold">Verbunden als {session.user.email}</span>
+              <span className="text-sm font-semibold">Verbunden als {safeDisplayEmail(session.user.email)}</span>
             </div>
             <button
               type="button"
@@ -87,7 +134,8 @@ export function SupabaseAuthPanel() {
             <input
               value={email}
               type="email"
-              onChange={(event) => setEmail(event.target.value)}
+              maxLength={MAX_AUTH_EMAIL_LENGTH}
+              onChange={(event) => setEmail(event.target.value.slice(0, MAX_AUTH_EMAIL_LENGTH))}
               placeholder="deine@email.de"
               className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan"
             />

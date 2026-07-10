@@ -1,8 +1,35 @@
 import { mkdir, writeFile } from "node:fs/promises";
 
-const liveUrl = "https://stockpilot-ai-beta.vercel.app";
+const fallbackLiveUrl = "https://stockpilot-ai-beta.vercel.app";
+const liveUrl = resolveLiveUrl(process.env.CAPACITOR_SERVER_URL ?? fallbackLiveUrl);
+const liveUrlJson = JSON.stringify(liveUrl);
+const liveUrlHtml = escapeHtml(liveUrl);
 const outDir = new URL("../../out/", import.meta.url);
 const indexFile = new URL("index.html", outDir);
+
+function resolveLiveUrl(value) {
+  const candidate = String(value || "").trim();
+
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== "https:") {
+      throw new Error("CAPACITOR_SERVER_URL must use https.");
+    }
+    parsed.hash = "";
+    return parsed.toString();
+  } catch (error) {
+    throw new Error(`Invalid CAPACITOR_SERVER_URL: ${error instanceof Error ? error.message : "unknown error"}`);
+  }
+}
+
+function escapeHtml(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
 
 await mkdir(outDir, { recursive: true });
 
@@ -67,14 +94,14 @@ await writeFile(
       }
     </style>
     <script>
-      window.location.replace("${liveUrl}");
+      window.location.replace(${liveUrlJson});
     </script>
   </head>
   <body>
     <main>
       <h1>StockPilot AI</h1>
       <p>Die native App verbindet sich mit der sicheren Live-Version von StockPilot AI.</p>
-      <a href="${liveUrl}">App öffnen</a>
+      <a href="${liveUrlHtml}">App öffnen</a>
     </main>
   </body>
 </html>

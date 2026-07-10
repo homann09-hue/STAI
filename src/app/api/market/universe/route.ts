@@ -22,16 +22,31 @@ export async function GET(request: Request) {
   if (limited) return limited;
 
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get("q") ?? "";
+  const rawQuery = searchParams.get("q") ?? "";
+  const query = rawQuery.trim();
   const requestedAssetClass = searchParams.get("assetClass") ?? "all";
+
+  if (query.length > 80) {
+    return jsonError("Suchbegriff ist zu lang.", 400);
+  }
+
+  if (query && !/^[\p{L}\p{N}\s._:/&+\-()]{1,80}$/u.test(query)) {
+    return jsonError("Suchbegriff enthält ungültige Zeichen.", 400);
+  }
 
   if (!allowedAssetClasses.includes(requestedAssetClass as MarketUniverseAssetClass | "all")) {
     return jsonError("Ungültige Assetklasse.", 400);
   }
 
   const assetClass = requestedAssetClass as MarketUniverseAssetClass | "all";
-  const requestedLimit = Number(searchParams.get("limit") ?? 80);
-  const limit = Number.isFinite(requestedLimit) ? Math.min(200, Math.max(1, requestedLimit)) : 80;
+  const rawLimit = searchParams.get("limit");
+  const requestedLimit = rawLimit === null ? 80 : Number(rawLimit);
+
+  if (!Number.isFinite(requestedLimit) || requestedLimit < 1) {
+    return jsonError("Limit muss eine positive Zahl sein.", 400);
+  }
+
+  const limit = Math.min(200, Math.floor(requestedLimit));
 
   const provider = getMarketUniverseProvider();
   const result = await provider.search({ query, assetClass, limit });

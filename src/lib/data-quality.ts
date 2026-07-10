@@ -25,6 +25,18 @@ const sourceLabels: Record<MarketDataQuality, string> = {
   unavailable: "Nicht verfügbar"
 };
 
+function finiteDelayMinutes(value: number | undefined) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.min(1440, Math.max(1, Math.round(value)))
+    : 15;
+}
+
+function timestampAgeMinutes(timestamp: string, now: Date) {
+  const parsed = new Date(timestamp);
+  if (!Number.isFinite(parsed.getTime())) return Number.POSITIVE_INFINITY;
+  return Math.max(0, (now.getTime() - parsed.getTime()) / 60000);
+}
+
 export type DataQualityDisplayInput = {
   quality: MarketDataQuality;
   marketStatus?: MarketStatus;
@@ -34,7 +46,7 @@ export type DataQualityDisplayInput = {
 };
 
 export function getDataQualityDisplay(input: DataQualityDisplayInput) {
-  const delayedByMinutes = input.delayedByMinutes && input.delayedByMinutes > 0 ? input.delayedByMinutes : 15;
+  const delayedByMinutes = finiteDelayMinutes(input.delayedByMinutes);
 
   if (input.offline) {
     return {
@@ -143,9 +155,11 @@ export function assessDataQuality(
   now = new Date()
 ): DataQualityReport {
   const validation = validateAssetData(detail);
-  const quoteAgeMinutes = Math.max(0, (now.getTime() - new Date(detail.quote.asOf).getTime()) / 60000);
+  const quoteAgeMinutes = timestampAgeMinutes(detail.quote.asOf, now);
+  const hasInvalidQuoteTimestamp = !Number.isFinite(quoteAgeMinutes);
   const quoteQuality = detail.quote.quality ?? "mock";
-  const stale = quoteAgeMinutes > 60;
+  const sourceLabel = sourceLabels[quoteQuality] ?? sourceLabels.unavailable;
+  const stale = hasInvalidQuoteTimestamp || quoteAgeMinutes > 60;
   const delayed = quoteAgeMinutes > 20 || quoteQuality === "delayed";
   const missingNews = detail.news.length === 0;
   const cryptoFundamentalGap = detail.asset.type === "crypto" && detail.fundamentals.peRatio === null;
@@ -162,7 +176,7 @@ export function assessDataQuality(
       rank: 5,
       fetchedAt: detail.quote.asOf,
       status: providerSourceStatus,
-      note: `${sourceLabels[quoteQuality]} inklusive Provider, Timestamp und Latenzstatus.`
+      note: `${sourceLabel} inklusive Provider, Timestamp und Latenzstatus.`
     },
     {
       name: "StockPilot Mock News Feed",
@@ -184,6 +198,7 @@ export function assessDataQuality(
   const warnings = [
     ...(isMock ? ["Mock-Daten sind Demo-/Produktdaten und dürfen nicht als reale Marktdaten genutzt werden."] : []),
     ...(quoteQuality === "unavailable" ? ["Kursanbieter ist nicht erreichbar."] : []),
+    ...(hasInvalidQuoteTimestamp ? ["Kurs-Zeitstempel ist ungültig. Aktualität kann nicht bestätigt werden."] : []),
     ...(stale ? ["Daten sind veraltet und sollten vor Entscheidungen aktualisiert werden."] : []),
     ...(delayed && !stale ? ["Daten sind verzögert und nicht als Live-Kurs geeignet."] : []),
     ...(missingNews ? ["Keine verwertbaren News für dieses Symbol gefunden."] : []),
@@ -199,7 +214,7 @@ export function assessDataQuality(
   return {
     score,
     freshness: stale ? "stale" : delayed ? "delayed" : "fresh",
-    sourceLabel: sourceLabels[quoteQuality],
+    sourceLabel,
     isMock,
     updatedAt: detail.quote.asOf,
     stale,

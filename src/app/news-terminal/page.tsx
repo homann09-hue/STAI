@@ -6,7 +6,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "News-Terminal | StockPilot AI",
-  description: "News, Makro-Events, Earnings, Analysten-Updates und KI-Relevanzbewertung."
+  description:
+    "News-Terminal mit Quellenstatus, Zeitstempel, Datenqualität und modellbasierter Relevanzbewertung für Markt-, Makro- und Unternehmensereignisse."
 };
 
 export default async function NewsTerminalPage() {

@@ -17,6 +17,46 @@ const statusCopy: Record<FeatureGateStatus, { label: string; tone: string; icon:
   not_available: { label: "nicht verfügbar", tone: "border-stroke bg-coal text-muted", icon: Lock }
 };
 
+function featureStatusCopy(tier: (typeof pricingTiers)[number], status: FeatureGateStatus) {
+  if (tier.billingRequired && !billingGateStatus.active && status === "included") {
+    return {
+      label: "Basis aktiv / Plan nicht freigeschaltet",
+      tone: "border-amber/30 bg-amber/10 text-amber",
+      icon: Shield
+    };
+  }
+
+  return statusCopy[status];
+}
+
+const planRecommendations = [
+  ["Free", "Für Beobachten, Lernen und erste Watchlist ohne echte Profi-Workflows."],
+  ["Starter", "Für kleine Anleger, die Lernbereich, Watchlist und mehr Orientierung wollen."],
+  ["Pro", "Für aktive Nutzer mit Portfolio, Alerts, tieferen Analysen und mehr Kontrollbedarf."],
+  ["Elite/Business", "Für Teams, Unternehmer und Profis mit Export-, API-, Multi-Portfolio- und Governance-Bedarf."]
+];
+
+const backendGateChecklist = [
+  ["Auth", "User ist eindeutig angemeldet und Session ist gültig."],
+  ["Plan", "Billing-Provider bestätigt aktiven Tarif serverseitig."],
+  ["Limits", "Watchlist-, Alert-, Portfolio- und API-Limits werden im Backend erzwungen."],
+  ["Audit", "Gate-Entscheidungen sind für Support und Sicherheit nachvollziehbar."]
+];
+
+function tierStats(tier: (typeof pricingTiers)[number]) {
+  return featureDefinitions.reduce(
+    (stats, feature) => {
+      const status = tier.featureStatus[feature.id];
+      if (status === "included" && !(tier.billingRequired && !billingGateStatus.active)) stats.included += 1;
+      if (status === "included" && tier.billingRequired && !billingGateStatus.active) stats.demo += 1;
+      if (status === "demo") stats.demo += 1;
+      if (status === "locked" || status === "not_available") stats.locked += 1;
+      return stats;
+    },
+    { demo: 0, included: 0, locked: 0 }
+  );
+}
+
 export function PricingView() {
   return (
     <div className="space-y-7">
@@ -32,9 +72,74 @@ export function PricingView() {
         </p>
       </section>
 
+      <section className="grid gap-3 md:grid-cols-3">
+        <article className="rounded-[1.3rem] border border-profit/20 bg-profit/10 p-4">
+          <Check className="h-5 w-5 text-profit" />
+          <h2 className="mt-3 text-lg font-semibold text-mist">Aktiv heißt wirklich nutzbar</h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            Nur Funktionen mit bestätigter technischer Grundlage werden als aktiv dargestellt.
+          </p>
+        </article>
+        <article className="rounded-[1.3rem] border border-amber/20 bg-amber/10 p-4">
+          <Shield className="h-5 w-5 text-amber" />
+          <h2 className="mt-3 text-lg font-semibold text-mist">Demo bleibt Demo</h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            Profi-Funktionen ohne Billing/Auth werden vorbereitet, aber nicht als freigeschaltet verkauft.
+          </p>
+        </article>
+        <article className="rounded-[1.3rem] border border-stroke bg-panel p-4">
+          <Lock className="h-5 w-5 text-muted" />
+          <h2 className="mt-3 text-lg font-semibold text-mist">Backend-Gates fehlen noch</h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            Zahlung, Rollen, Limits und Entitlements müssen serverseitig bestätigt werden, bevor Upgrades aktiv sind.
+          </p>
+        </article>
+      </section>
+
+      <section className="rounded-[1.5rem] border border-stroke bg-panel/72 p-5">
+        <h2 className="text-xl font-semibold text-mist">Welche Stufe passt zu welchem Nutzer?</h2>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          Die Empfehlung ist bewusst konservativ. Sie beschreibt Nutzungsumfang, nicht Renditeerwartung.
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {planRecommendations.map(([title, text]) => (
+            <article key={title} className="rounded-2xl border border-stroke bg-coal/70 p-4">
+              <p className="font-semibold text-cyan">{title}</p>
+              <p className="mt-2 text-sm leading-6 text-muted">{text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-[1.5rem] border border-loss/25 bg-loss/10 p-5">
+        <div className="flex items-start gap-3">
+          <Lock className="mt-1 h-5 w-5 shrink-0 text-loss" />
+          <div>
+            <h2 className="text-xl font-semibold text-mist">Kein echter Bezahlstatus ohne Backend-Prüfung</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              Diese Seite zeigt Produktpläne und Feature-Gates. Aktiviert wird ein Plan erst, wenn Auth, Billing,
+              Entitlements und serverseitige Limits erfolgreich geprüft wurden.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[1.5rem] border border-stroke bg-panel/72 p-5">
+        <h2 className="text-xl font-semibold text-mist">Backend-Gate-Check vor Freischaltung</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {backendGateChecklist.map(([title, text]) => (
+            <article key={title} className="rounded-2xl border border-stroke bg-coal/70 p-4">
+              <p className="font-semibold text-cyan">{title}</p>
+              <p className="mt-2 text-sm leading-6 text-muted">{text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="grid gap-4 lg:grid-cols-4">
         {pricingTiers.map((tier) => {
           const Icon = tierIcons[tier.id];
+          const stats = tierStats(tier);
 
           return (
             <article key={tier.name} className="rounded-[1.3rem] border border-stroke bg-panel p-5 shadow-panel">
@@ -48,10 +153,24 @@ export function PricingView() {
               ) : null}
               <p className="mt-4 font-mono text-3xl font-semibold text-mist">{tier.price}</p>
               <p className="mt-3 rounded-xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">{tier.technicalStatus}</p>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <div className="rounded-xl border border-profit/20 bg-profit/10 p-2 text-center">
+                  <p className="font-mono text-lg font-semibold text-profit">{stats.included}</p>
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-muted">aktiv</p>
+                </div>
+                <div className="rounded-xl border border-amber/20 bg-amber/10 p-2 text-center">
+                  <p className="font-mono text-lg font-semibold text-amber">{stats.demo}</p>
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-muted">Demo</p>
+                </div>
+                <div className="rounded-xl border border-stroke bg-coal p-2 text-center">
+                  <p className="font-mono text-lg font-semibold text-muted">{stats.locked}</p>
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-muted">locked</p>
+                </div>
+              </div>
               <div className="mt-5 space-y-2">
                 {featureDefinitions.map((feature) => {
                   const status = tier.featureStatus[feature.id];
-                  const copy = statusCopy[status];
+                  const copy = featureStatusCopy(tier, status);
                   const StatusIcon = copy.icon;
 
                   return (
@@ -78,6 +197,27 @@ export function PricingView() {
             </article>
           );
         })}
+      </section>
+
+      <section className="rounded-[1.5rem] border border-stroke bg-panel/72 p-5">
+        <h2 className="text-xl font-semibold text-mist">Nächste Backend-Schritte für echte Monetarisierung</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            ["Auth", "Supabase-Session als Quelle für Userstatus und sichere user_id-Trennung."],
+            ["Billing", "Stripe/Vercel Marketplace Entitlements serverseitig prüfen, nicht im Client vertrauen."],
+            ["Limits", "Watchlist-, Alert-, Portfolio- und API-Limits pro Plan im Backend erzwingen."],
+            ["Audit", "Planwechsel, Zahlstatus und Gate-Entscheidungen protokollieren."]
+          ].map(([title, text]) => (
+            <article key={title} className="rounded-2xl border border-stroke bg-coal/70 p-4">
+              <p className="font-semibold text-cyan">{title}</p>
+              <p className="mt-2 text-sm leading-6 text-muted">{text}</p>
+            </article>
+          ))}
+        </div>
+        <p className="mt-4 rounded-2xl border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
+          Wichtig: Diese Preise und Gates sind Produktstruktur. Ohne serverseitig bestätigtes Billing wird kein Nutzer als Pro,
+          Elite oder Business behandelt.
+        </p>
       </section>
     </div>
   );

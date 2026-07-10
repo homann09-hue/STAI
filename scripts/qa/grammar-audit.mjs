@@ -42,8 +42,6 @@ const blocked = blockedFragments.filter((fragment) => combined.toLowerCase().inc
 const suspiciousAsciiGerman = [
   "fuer",
   "koennen",
-  "konnten",
-  "konnte",
   "durfen",
   "fur",
   "Pruefung",

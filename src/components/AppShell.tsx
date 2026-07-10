@@ -15,6 +15,7 @@ import {
   LineChart,
   ListFilter,
   Newspaper,
+  Radar,
   Search,
   Settings2,
   ShieldAlert,
@@ -40,6 +41,7 @@ const navItems = [
   { href: "/portfolio", label: "Portfolio", icon: Briefcase },
   { href: "/alerts", label: "Alerts", icon: Bell },
   { href: "/news-terminal", label: "News", icon: Newspaper },
+  { href: "/intelligence", label: "Intelligence", icon: Radar },
   { href: "/calendar", label: "Kalender", icon: CalendarDays },
   { href: "/analyses", label: "Analysen", icon: ShieldAlert },
   { href: "/backtesting", label: "Backtesting", icon: Activity },
@@ -59,7 +61,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setOnline(navigator.onLine);
-    setNoticeAccepted(window.localStorage.getItem("stockpilot:risk-notice") === "accepted");
+    try {
+      setNoticeAccepted(window.localStorage.getItem("stockpilot:risk-notice") === "accepted");
+    } catch {
+      setNoticeAccepted(false);
+    }
     const setOnlineState = () => setOnline(true);
     const setOfflineState = () => setOnline(false);
 
@@ -73,7 +79,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   function acceptNotice() {
-    window.localStorage.setItem("stockpilot:risk-notice", "accepted");
+    try {
+      window.localStorage.setItem("stockpilot:risk-notice", "accepted");
+    } catch {
+      // Der Hinweis bleibt für die aktuelle Sitzung akzeptiert, auch wenn Persistenz blockiert ist.
+    }
     setNoticeAccepted(true);
   }
 

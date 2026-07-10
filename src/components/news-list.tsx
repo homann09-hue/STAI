@@ -12,11 +12,23 @@ const sentimentLabels = {
   negative: "Negativ"
 };
 
+function safeExternalUrl(rawUrl: string | undefined) {
+  if (!rawUrl || rawUrl === "#") return null;
+
+  try {
+    const url = new URL(rawUrl);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function NewsList({ news }: { news: NewsItem[] }) {
   return (
     <div className="space-y-3">
       {news.map((item) => {
         const isMock = item.source.toLowerCase().includes("mock") || item.url === "#";
+        const sourceUrl = safeExternalUrl(item.url);
 
         return (
           <article key={item.id} className="rounded-md border border-stroke bg-panel p-4">
@@ -48,8 +60,8 @@ export function NewsList({ news }: { news: NewsItem[] }) {
                     Kursauswirkung {item.impactScore > 0 ? "+" : ""}
                     {item.impactScore}
                   </span>
-                  {item.url && item.url !== "#" ? (
-                    <Link className="rounded-md bg-panel2 px-2 py-1 text-cyan" href={item.url} target="_blank" rel="noreferrer">
+                  {sourceUrl ? (
+                    <Link className="rounded-md bg-panel2 px-2 py-1 text-cyan" href={sourceUrl} target="_blank" rel="noopener noreferrer">
                       Quelle öffnen
                     </Link>
                   ) : null}

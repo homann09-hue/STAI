@@ -19,26 +19,42 @@ export const probabilityDisclaimer =
 export const mockDataDisclaimer =
   "Mock-Daten: Werte dienen der Produktentwicklung und dürfen nicht als reale Marktdaten interpretiert werden.";
 
+function finiteOrNull(value: number) {
+  return Number.isFinite(value) ? value : null;
+}
+
+function safeCurrency(currency: string) {
+  return /^[A-Z]{3}$/.test(currency) ? currency : "USD";
+}
+
 export function clamp(value: number, min = 0, max = 100) {
+  if (!Number.isFinite(value)) return min;
   return Math.max(min, Math.min(max, value));
 }
 
 export function formatCurrency(value: number, currency = "USD") {
+  const safeValue = finiteOrNull(value);
+  if (safeValue === null) return "n/a";
+
   return new Intl.NumberFormat("de-DE", {
     style: "currency",
-    currency,
-    maximumFractionDigits: value > 1000 ? 0 : 2
-  }).format(value);
+    currency: safeCurrency(currency),
+    maximumFractionDigits: safeValue > 1000 ? 0 : 2
+  }).format(safeValue);
 }
 
 export function formatCompact(value: number) {
+  const safeValue = finiteOrNull(value);
+  if (safeValue === null) return "n/a";
+
   return new Intl.NumberFormat("de-DE", {
     notation: "compact",
     maximumFractionDigits: 1
-  }).format(value);
+  }).format(safeValue);
 }
 
 export function formatPercent(value: number) {
+  if (!Number.isFinite(value)) return "n/a";
   const sign = value > 0 ? "+" : "";
   return `${sign}${value.toFixed(2)}%`;
 }
@@ -87,12 +103,18 @@ export function calculateTotalScore(scores: Omit<Scores, "total">) {
 }
 
 export function calculateVolatility(candles: Candle[]) {
-  if (candles.length < 3) return 0;
+  const cleanCandles = candles.filter(
+    (candle) => Number.isFinite(candle.close) && candle.close > 0
+  );
 
-  const returns = candles.slice(1).map((candle, index) => {
-    const previous = candles[index].close || 1;
+  if (cleanCandles.length < 3) return 0;
+
+  const returns = cleanCandles.slice(1).map((candle, index) => {
+    const previous = cleanCandles[index].close || 1;
     return Math.abs(((candle.close - previous) / previous) * 100);
-  });
+  }).filter(Number.isFinite);
+
+  if (!returns.length) return 0;
 
   return Number((returns.reduce((sum, value) => sum + value, 0) / returns.length).toFixed(2));
 }

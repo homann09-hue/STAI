@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "StockPilot AI",
     short_name: "StockPilot",
     description:
-      "Mobile-first PWA für Aktien-, ETF- und Krypto-Analyse mit KI-Scores, Watchlists, Alerts und Portfolio.",
+      "Mobile-first PWA für Aktien-, ETF- und Krypto-Analyse mit Datenqualitätsstatus, Risiko-Hinweisen, Watchlists, Alerts und Portfolio-Übersicht.",
     start_url: "/",
     scope: "/",
     display: "standalone",

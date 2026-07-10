@@ -3,7 +3,7 @@ import { BacktestingLab } from "@/components/backtesting-lab";
 
 export const metadata: Metadata = {
   title: "Backtesting | StockPilot AI",
-  description: "Backtesting, Drawdown, Rendite/Risiko und Szenarioanalyse vorbereitet."
+  description: "Backtesting-Lab mit Demo-Szenarien, Drawdown, Rendite/Risiko und klar markierter Datenqualität."
 };
 
 export default function BacktestingPage() {

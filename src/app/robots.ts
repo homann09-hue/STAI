@@ -20,8 +20,7 @@ export default function robots(): MetadataRoute.Robots {
         "/risk",
         "/backtesting",
         "/learn",
-        "/pricing",
-        "/assets/"
+        "/pricing"
       ],
       disallow: ["/api/", "/offline", "/settings", "/portfolio", "/watchlist", "/alerts"]
     },

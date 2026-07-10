@@ -7,6 +7,7 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_READ_MAX = 600;
 const RATE_LIMIT_MUTATION_MAX = 120;
 const MAX_JSON_BODY_BYTES = 32_768;
+const MAX_MEMORY_RATE_LIMIT_BUCKETS = 5_000;
 const buckets = new Map<string, { count: number; resetAt: number }>();
 const rateLimitCache = getServerCacheAdapter();
 export const REQUEST_ID_HEADER = "X-StockPilot-Request-Id";
@@ -28,6 +29,44 @@ export const secureStreamHeaders = {
   "X-Robots-Tag": "noindex, nofollow"
 };
 
+function normalizeClientKey(value: string | null) {
+  if (!value) return null;
+
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9:._-]/g, "").slice(0, 128);
+  return normalized || null;
+}
+
+function getRateLimitClientKey(request: Request) {
+  const forwardedFor = request.headers
+    .get("x-forwarded-for")
+    ?.split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return (
+    normalizeClientKey(request.headers.get("x-real-ip")) ??
+    normalizeClientKey(request.headers.get("x-vercel-forwarded-for")) ??
+    normalizeClientKey(forwardedFor?.at(-1) ?? null) ??
+    "local"
+  );
+}
+
+function pruneMemoryRateLimitBuckets(now: number) {
+  if (buckets.size < MAX_MEMORY_RATE_LIMIT_BUCKETS) return;
+
+  for (const [key, bucket] of buckets.entries()) {
+    if (bucket.resetAt <= now) {
+      buckets.delete(key);
+    }
+  }
+
+  while (buckets.size >= MAX_MEMORY_RATE_LIMIT_BUCKETS) {
+    const oldestKey = buckets.keys().next().value as string | undefined;
+    if (!oldestKey) return;
+    buckets.delete(oldestKey);
+  }
+}
+
 function mergeHeaders(headers?: HeadersInit, requestId = crypto.randomUUID()) {
   const merged = new Headers(headers);
 
@@ -41,8 +80,7 @@ function mergeHeaders(headers?: HeadersInit, requestId = crypto.randomUUID()) {
 }
 
 export async function rateLimit(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const clientKey = forwarded || request.headers.get("x-real-ip") || "local";
+  const clientKey = getRateLimitClientKey(request);
   const method = request.method.toUpperCase();
   const limitClass = method === "GET" || method === "HEAD" ? "read" : "mutation";
   const maxRequests = limitClass === "read" ? RATE_LIMIT_READ_MAX : RATE_LIMIT_MUTATION_MAX;
@@ -71,6 +109,7 @@ export async function rateLimit(request: Request) {
     return null;
   }
 
+  pruneMemoryRateLimitBuckets(now);
   const current = buckets.get(bucketKey);
 
   if (!current || current.resetAt <= now) {
@@ -127,6 +166,11 @@ export function jsonError(message: string, status = 400, headers: HeadersInit = 
 
 export function requireSameOrigin(request: Request) {
   const origin = request.headers.get("origin");
+  const fetchSite = request.headers.get("sec-fetch-site")?.toLowerCase();
+
+  if (fetchSite === "cross-site") {
+    return jsonError("Cross-Origin Request abgelehnt.", 403);
+  }
 
   if (!origin) return null;
 
@@ -181,7 +225,7 @@ export async function parseJsonBody<T>(request: Request, schema: z.ZodSchema<T>)
   if (contentLength > MAX_JSON_BODY_BYTES) {
     return {
       ok: false as const,
-      response: jsonError("JSON-Body ist zu gross.", 413)
+      response: jsonError("JSON-Body ist zu groß.", 413)
     };
   }
 
@@ -191,7 +235,7 @@ export async function parseJsonBody<T>(request: Request, schema: z.ZodSchema<T>)
     if (!limitedBody.ok) {
       return {
         ok: false as const,
-        response: jsonError("JSON-Body ist zu gross.", 413)
+        response: jsonError("JSON-Body ist zu groß.", 413)
       };
     }
 

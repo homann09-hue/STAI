@@ -16,13 +16,64 @@ type SavedBacktest = {
   createdAt: string;
 };
 
+const MAX_SAVED_BACKTESTS = 12;
+const MAX_NUMERIC_INPUT_LENGTH = 24;
+const MAX_STRATEGY_LENGTH = 80;
+
 function toNumber(value: string, fallback: number) {
-  const parsed = Number(value.replace(",", "."));
+  const parsed = Number(value.slice(0, MAX_NUMERIC_INPUT_LENGTH).replace(",", "."));
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function clamp(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return min;
   return Math.min(max, Math.max(min, value));
+}
+
+function cleanText(value: unknown, maxLength: number, fallback: string) {
+  if (typeof value !== "string") return fallback;
+  const cleaned = value.replace(/[<>\u0000-\u001F\u007F]/gu, "").replace(/\s+/g, " ").trim().slice(0, maxLength);
+  return cleaned || fallback;
+}
+
+function cleanNumber(value: unknown, fallback: number, min: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return clamp(parsed, min, max);
+}
+
+function cleanDate(value: unknown) {
+  if (typeof value !== "string") return new Date().toISOString();
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : new Date().toISOString();
+}
+
+function normalizeSavedBacktests(value: unknown): SavedBacktest[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .slice(0, MAX_SAVED_BACKTESTS)
+    .map((item, index) => {
+      if (!item || typeof item !== "object") return null;
+      const candidate = item as Partial<SavedBacktest>;
+
+      return {
+        id: cleanText(candidate.id, 120, `bt-${index}`),
+        strategy: cleanText(candidate.strategy, MAX_STRATEGY_LENGTH, "Unbenannte Strategie"),
+        capital: cleanNumber(candidate.capital, 1000, 0, 1_000_000_000),
+        monthlyContribution: cleanNumber(candidate.monthlyContribution, 100, 0, 10_000_000),
+        expectedReturn: cleanNumber(candidate.expectedReturn, 7, -80, 80),
+        volatility: cleanNumber(candidate.volatility, 16, 0, 120),
+        years: cleanNumber(candidate.years, 10, 1, 50),
+        createdAt: cleanDate(candidate.createdAt)
+      };
+    })
+    .filter((item): item is SavedBacktest => Boolean(item));
+}
+
+function safeCurveWidth(value: number, finalValue: number) {
+  if (!Number.isFinite(value) || !Number.isFinite(finalValue) || finalValue <= 0) return 0;
+  return clamp((value / finalValue) * 100, 0, 100);
 }
 
 export function BacktestingLab() {
@@ -35,7 +86,7 @@ export function BacktestingLab() {
   const [saved, setSaved] = useState<SavedBacktest[]>([]);
 
   useEffect(() => {
-    setSaved(readOfflineValue<SavedBacktest[]>(OFFLINE_KEYS.backtests) ?? []);
+    setSaved(normalizeSavedBacktests(readOfflineValue<unknown>(OFFLINE_KEYS.backtests)));
   }, []);
 
   useEffect(() => {
@@ -93,7 +144,7 @@ export function BacktestingLab() {
   function saveScenario() {
     const next: SavedBacktest = {
       id: `bt-${Date.now()}`,
-      strategy: strategy.trim() || "Unbenannte Strategie",
+      strategy: cleanText(strategy, MAX_STRATEGY_LENGTH, "Unbenannte Strategie"),
       capital: model.start,
       monthlyContribution: model.monthly,
       expectedReturn: model.annualReturn * 100,
@@ -101,7 +152,7 @@ export function BacktestingLab() {
       years: model.durationYears,
       createdAt: new Date().toISOString()
     };
-    setSaved((current) => [next, ...current].slice(0, 12));
+    setSaved((current) => [next, ...current].slice(0, MAX_SAVED_BACKTESTS));
   }
 
   return (
@@ -124,28 +175,28 @@ export function BacktestingLab() {
           <div className="mt-4 grid gap-3">
             <label className="text-sm text-muted">
               Strategie
-              <input value={strategy} onChange={(event) => setStrategy(event.target.value.slice(0, 80))} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
+              <input value={strategy} maxLength={MAX_STRATEGY_LENGTH} onChange={(event) => setStrategy(event.target.value.slice(0, MAX_STRATEGY_LENGTH))} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
             </label>
             <label className="text-sm text-muted">
               Startkapital
-              <input value={capital} inputMode="decimal" onChange={(event) => setCapital(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
+              <input value={capital} inputMode="decimal" maxLength={MAX_NUMERIC_INPUT_LENGTH} onChange={(event) => setCapital(event.target.value.slice(0, MAX_NUMERIC_INPUT_LENGTH))} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
             </label>
             <label className="text-sm text-muted">
               Monatliche Einzahlung
-              <input value={monthlyContribution} inputMode="decimal" onChange={(event) => setMonthlyContribution(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
+              <input value={monthlyContribution} inputMode="decimal" maxLength={MAX_NUMERIC_INPUT_LENGTH} onChange={(event) => setMonthlyContribution(event.target.value.slice(0, MAX_NUMERIC_INPUT_LENGTH))} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
             </label>
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="text-sm text-muted">
                 Rendite p.a. %
-                <input value={expectedReturn} inputMode="decimal" onChange={(event) => setExpectedReturn(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
+                <input value={expectedReturn} inputMode="decimal" maxLength={MAX_NUMERIC_INPUT_LENGTH} onChange={(event) => setExpectedReturn(event.target.value.slice(0, MAX_NUMERIC_INPUT_LENGTH))} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
               </label>
               <label className="text-sm text-muted">
                 Volatilität %
-                <input value={volatility} inputMode="decimal" onChange={(event) => setVolatility(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
+                <input value={volatility} inputMode="decimal" maxLength={MAX_NUMERIC_INPUT_LENGTH} onChange={(event) => setVolatility(event.target.value.slice(0, MAX_NUMERIC_INPUT_LENGTH))} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
               </label>
               <label className="text-sm text-muted">
                 Jahre
-                <input value={years} inputMode="numeric" onChange={(event) => setYears(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
+                <input value={years} inputMode="numeric" maxLength={MAX_NUMERIC_INPUT_LENGTH} onChange={(event) => setYears(event.target.value.slice(0, MAX_NUMERIC_INPUT_LENGTH))} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
               </label>
             </div>
             <button type="button" onClick={saveScenario} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-profit px-4 font-semibold text-ink">
@@ -188,7 +239,7 @@ export function BacktestingLab() {
                     <span>{formatCurrency(point.value, "EUR")}</span>
                   </div>
                   <div className="mt-1 h-3 overflow-hidden rounded-full bg-coal">
-                    <div className="h-full rounded-full bg-cyan" style={{ width: `${Math.min(100, (point.value / model.finalValue) * 100)}%` }} />
+                    <div className="h-full rounded-full bg-cyan" style={{ width: `${safeCurveWidth(point.value, model.finalValue)}%` }} />
                   </div>
                 </div>
               ))}

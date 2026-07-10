@@ -4,34 +4,75 @@ type LogLevel = "info" | "warn" | "error";
 type LogDetails = Record<string, unknown>;
 
 const SECRET_KEY_PATTERN = /(api[_-]?key|secret|token|password|authorization|bearer|cookie|session)/i;
+const PRIVATE_IDENTIFIER_KEY_PATTERN =
+  /^(userId|user_id|user-id|clientKey|client_key|client-key|ip|ipAddress|ip_address|ip-address|xForwardedFor|x-forwarded-for|x_forwarded_for|xRealIp|x-real-ip|x_real_ip|email)$/i;
+const SENSITIVE_QUERY_VALUE_PATTERN = /([?&](?:api[_-]?key|apikey|api_token|token|access_token|secret|password|authorization)=)[^&#\s]+/gi;
+const BEARER_VALUE_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
+const EMAIL_VALUE_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const MAX_LOG_DEPTH = 4;
+const MAX_LOG_KEYS = 32;
+const MAX_LOG_ARRAY_ITEMS = 20;
+const MAX_LOG_STRING_LENGTH = 800;
 
-function redact(key: string, value: unknown): unknown {
+function redactSensitiveString(value: string) {
+  const redacted = value
+    .replace(SENSITIVE_QUERY_VALUE_PATTERN, "$1[REDACTED]")
+    .replace(BEARER_VALUE_PATTERN, "Bearer [REDACTED]")
+    .replace(EMAIL_VALUE_PATTERN, "[REDACTED_EMAIL]");
+
+  return redacted.length > MAX_LOG_STRING_LENGTH ? `${redacted.slice(0, MAX_LOG_STRING_LENGTH)}…[TRUNCATED]` : redacted;
+}
+
+function redact(key: string, value: unknown, depth: number): unknown {
   if (SECRET_KEY_PATTERN.test(key)) return "[REDACTED]";
+  if (PRIVATE_IDENTIFIER_KEY_PATTERN.test(key)) return "[REDACTED_IDENTIFIER]";
+  if (depth > MAX_LOG_DEPTH) return "[MAX_DEPTH]";
 
   if (value instanceof Error) {
     return {
       name: value.name,
-      message: value.message
+      message: redactSensitiveString(value.message)
     };
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => sanitizeDetails(item));
+    const sliced = value.slice(0, MAX_LOG_ARRAY_ITEMS).map((item) => sanitizeValue(item, depth + 1));
+    return value.length > MAX_LOG_ARRAY_ITEMS ? [...sliced, `[TRUNCATED_${value.length - MAX_LOG_ARRAY_ITEMS}_ITEMS]`] : sliced;
   }
 
   if (value && typeof value === "object") {
-    return sanitizeDetails(value);
+    return sanitizeDetails(value, depth + 1);
   }
 
-  return value;
+  return typeof value === "string" ? redactSensitiveString(value) : value;
 }
 
-function sanitizeDetails(input: unknown): Record<string, unknown> {
-  if (!input || typeof input !== "object") return {};
+function sanitizeValue(input: unknown, depth: number): unknown {
+  if (Array.isArray(input)) {
+    const sliced = input.slice(0, MAX_LOG_ARRAY_ITEMS).map((item) => sanitizeValue(item, depth + 1));
+    return input.length > MAX_LOG_ARRAY_ITEMS ? [...sliced, `[TRUNCATED_${input.length - MAX_LOG_ARRAY_ITEMS}_ITEMS]`] : sliced;
+  }
 
-  return Object.fromEntries(
-    Object.entries(input as Record<string, unknown>).map(([key, value]) => [key, redact(key, value)])
-  );
+  if (input && typeof input === "object") {
+    return sanitizeDetails(input, depth + 1);
+  }
+
+  return typeof input === "string" ? redactSensitiveString(input) : input;
+}
+
+function sanitizeDetails(input: unknown, depth = 0): Record<string, unknown> {
+  if (!input || typeof input !== "object") return {};
+  if (depth > MAX_LOG_DEPTH) return { truncated: "[MAX_DEPTH]" };
+
+  const entries = Object.entries(input as Record<string, unknown>).slice(0, MAX_LOG_KEYS);
+  const sanitized = Object.fromEntries(entries.map(([key, value]) => [key, redact(key, value, depth)]));
+  const totalKeys = Object.keys(input as Record<string, unknown>).length;
+
+  if (totalKeys > MAX_LOG_KEYS) {
+    sanitized.truncatedKeys = totalKeys - MAX_LOG_KEYS;
+  }
+
+  return sanitized;
 }
 
 export function logEvent(level: LogLevel, event: string, details: LogDetails = {}) {

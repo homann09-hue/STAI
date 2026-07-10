@@ -6,7 +6,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Krypto-Screener | StockPilot AI",
-  description: "Krypto-Screener mit Near-Realtime-Preis, Bid/Ask, Spread, Volumen, Market Cap und vorbereiteten On-Chain-Daten."
+  description:
+    "Krypto-Screener mit Providerstatus für Preise, Bid/Ask, Spread, Volumen, Market Cap und klar markierten vorbereiteten On-Chain-Feldern."
 };
 
 export default async function CryptoPage() {

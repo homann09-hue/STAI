@@ -32,6 +32,11 @@ export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    rules: {
+      "no-control-regex": "off"
+    }
+  },
+  {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
       globals: browserGlobals

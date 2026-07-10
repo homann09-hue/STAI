@@ -10,18 +10,32 @@ type ProviderCacheEntry<T> = {
 const providerCache = getServerCacheAdapter();
 const inFlightProviderLoads = new Map<string, Promise<unknown>>();
 
+function cacheAgeMs(entry: ProviderCacheEntry<unknown>) {
+  const storedAt = new Date(entry.storedAt).getTime();
+  const ageMs = Number.isFinite(storedAt) ? Date.now() - storedAt : Number.POSITIVE_INFINITY;
+  return Number.isFinite(ageMs) ? ageMs : Number.POSITIVE_INFINITY;
+}
+
+function isUsableCacheEntry<T>(entry: ProviderCacheEntry<T> | null, maxAgeMs: number): entry is ProviderCacheEntry<T> {
+  if (!entry) return false;
+  if (!Number.isFinite(entry.ttlMs) || entry.ttlMs <= 0) return false;
+  if (!Number.isFinite(maxAgeMs) || maxAgeMs <= 0) return false;
+  const ageMs = cacheAgeMs(entry);
+  return ageMs >= 0 && ageMs < maxAgeMs;
+}
+
 export async function withCacheFallback<T>(
   key: string,
   loader: () => Promise<T>,
   options: { allowEmpty?: boolean; staleTtlMs?: number; ttlMs?: number } = {},
 ) {
-  const ttlMs = options.ttlMs ?? 30000;
-  const staleTtlMs = Math.max(ttlMs, options.staleTtlMs ?? Math.max(ttlMs * 12, 300000));
+  const ttlMs = Math.max(1000, Math.min(3600000, options.ttlMs ?? 30000));
+  const staleTtlMs = Math.max(ttlMs, Math.min(86400000, options.staleTtlMs ?? Math.max(ttlMs * 12, 300000)));
   const cacheKey = `provider:${key}`;
 
   try {
     const cached = await providerCache.get<ProviderCacheEntry<T>>(cacheKey);
-    if (cached && Date.now() - new Date(cached.storedAt).getTime() < cached.ttlMs) {
+    if (isUsableCacheEntry(cached, cached?.ttlMs ?? 0)) {
       return {
         value: cached.value,
         fromCache: true,
@@ -51,7 +65,7 @@ export async function withCacheFallback<T>(
   } catch (error) {
     const cached = await providerCache.get<ProviderCacheEntry<T>>(cacheKey);
 
-    if (cached) {
+    if (isUsableCacheEntry(cached, staleTtlMs)) {
       logEvent("warn", "provider.cache_fallback", {
         key,
         cacheMode: providerCache.mode,

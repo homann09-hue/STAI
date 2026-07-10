@@ -1,31 +1,53 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
 import { getFundamentalsProvider } from "./fundamentals-provider";
+
+vi.mock("@/lib/providers/http-json", () => ({
+  fetchBoundedProviderJson: vi.fn()
+}));
+
+const mockedFetchBoundedProviderJson = vi.mocked(fetchBoundedProviderJson);
+
+const envKeys = [
+  "STOCKPILOT_FUNDAMENTALS_PROVIDER",
+  "FMP_API_KEY",
+  "FMP_API_BASE_URL",
+  "ALPHA_VANTAGE_API_KEY"
+] as const;
+const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+
+function stubProviderEnv(key: (typeof envKeys)[number], value: string) {
+  vi.stubEnv(key, value);
+  process.env[key] = value;
+}
 
 describe("fundamentals provider edge cases", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    mockedFetchBoundedProviderJson.mockReset();
+    for (const key of envKeys) {
+      const value = originalEnv[key];
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   });
 
   it("does not turn an unknown FMP symbol into fake zero fundamentals", async () => {
-    vi.stubEnv("STOCKPILOT_FUNDAMENTALS_PROVIDER", "fmp");
-    vi.stubEnv("FMP_API_KEY", "test-key");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(JSON.stringify([]), { status: 200 }))
-    );
+    stubProviderEnv("STOCKPILOT_FUNDAMENTALS_PROVIDER", "fmp");
+    stubProviderEnv("FMP_API_KEY", "test-key");
+    stubProviderEnv("FMP_API_BASE_URL", "https://financialmodelingprep.com/stable");
+    mockedFetchBoundedProviderJson.mockResolvedValue({ data: [], latencyMs: 1 });
 
     await expect(getFundamentalsProvider().getFundamentals("DOESNOTEXIST")).resolves.toBeNull();
   });
 
   it("keeps mock fallback fundamentals for known symbols when FMP has no payload", async () => {
-    vi.stubEnv("STOCKPILOT_FUNDAMENTALS_PROVIDER", "fmp");
-    vi.stubEnv("FMP_API_KEY", "test-key");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(JSON.stringify([]), { status: 200 }))
-    );
+    stubProviderEnv("STOCKPILOT_FUNDAMENTALS_PROVIDER", "fmp");
+    stubProviderEnv("FMP_API_KEY", "test-key");
+    stubProviderEnv("FMP_API_BASE_URL", "https://financialmodelingprep.com/stable");
+    mockedFetchBoundedProviderJson.mockResolvedValue({ data: [], latencyMs: 1 });
 
     const fundamentals = await getFundamentalsProvider().getFundamentals("AAPL");
 
@@ -36,12 +58,11 @@ describe("fundamentals provider edge cases", () => {
   });
 
   it("maps FMP stable payloads into normalized fundamentals", async () => {
-    vi.stubEnv("STOCKPILOT_FUNDAMENTALS_PROVIDER", "fmp");
-    vi.stubEnv("FMP_API_KEY", "test-key");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = new URL(String(input));
+    stubProviderEnv("STOCKPILOT_FUNDAMENTALS_PROVIDER", "fmp");
+    stubProviderEnv("FMP_API_KEY", "test-key");
+    stubProviderEnv("FMP_API_BASE_URL", "https://financialmodelingprep.com/stable");
+    mockedFetchBoundedProviderJson.mockImplementation(async (input) => {
+        const url = input as URL;
         const path = url.pathname;
         const payload = path.endsWith("/profile")
           ? [{ marketCap: 1000, price: 100, lastDividend: 2 }]
@@ -58,9 +79,8 @@ describe("fundamentals provider edge cases", () => {
                   ? [{ totalDebt: 200, totalStockholdersEquity: 400 }]
                   : [];
 
-        return new Response(JSON.stringify(payload), { status: 200 });
-      })
-    );
+        return { data: payload, latencyMs: 1 };
+      });
 
     await expect(getFundamentalsProvider().getFundamentals("AAPL")).resolves.toEqual({
       peRatio: 25,
@@ -74,9 +94,10 @@ describe("fundamentals provider edge cases", () => {
   });
 
   it("falls back to mock fundamentals when FMP has a provider error", async () => {
-    vi.stubEnv("STOCKPILOT_FUNDAMENTALS_PROVIDER", "fmp");
-    vi.stubEnv("FMP_API_KEY", "test-key");
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("blocked", { status: 402 })));
+    stubProviderEnv("STOCKPILOT_FUNDAMENTALS_PROVIDER", "fmp");
+    stubProviderEnv("FMP_API_KEY", "test-key");
+    stubProviderEnv("FMP_API_BASE_URL", "https://financialmodelingprep.com/stable");
+    mockedFetchBoundedProviderJson.mockRejectedValue(new Error("FMP HTTP 402"));
 
     const fundamentals = await getFundamentalsProvider().getFundamentals("MSFT");
 
@@ -87,24 +108,19 @@ describe("fundamentals provider edge cases", () => {
   });
 
   it("maps Alpha Vantage overview payloads and preserves null for unknown empty symbols", async () => {
-    vi.stubEnv("STOCKPILOT_FUNDAMENTALS_PROVIDER", "alpha_vantage");
-    vi.stubEnv("ALPHA_VANTAGE_API_KEY", "test-key");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        new Response(
-          JSON.stringify({
+    stubProviderEnv("STOCKPILOT_FUNDAMENTALS_PROVIDER", "alpha_vantage");
+    stubProviderEnv("ALPHA_VANTAGE_API_KEY", "test-key");
+    mockedFetchBoundedProviderJson.mockResolvedValue({
+      data: {
             PERatio: "18.5",
             QuarterlyRevenueGrowthYOY: "0.11",
             QuarterlyEarningsGrowthYOY: "-0.04",
             OperatingCashflowTTM: "123456",
             DividendYield: "0.012",
             MarketCapitalization: "987654321"
-          }),
-          { status: 200 }
-        )
-      )
-    );
+      },
+      latencyMs: 1
+    });
 
     await expect(getFundamentalsProvider().getFundamentals("AAPL")).resolves.toMatchObject({
       peRatio: 18.5,
@@ -115,15 +131,15 @@ describe("fundamentals provider edge cases", () => {
       marketCap: 987654321
     });
 
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })));
+    mockedFetchBoundedProviderJson.mockResolvedValue({ data: {}, latencyMs: 1 });
 
     await expect(getFundamentalsProvider().getFundamentals("DOESNOTEXIST")).resolves.toBeNull();
   });
 
   it("uses mock or null fallback when no fundamentals provider key is configured", async () => {
-    vi.stubEnv("STOCKPILOT_FUNDAMENTALS_PROVIDER", "auto");
-    vi.stubEnv("FMP_API_KEY", "");
-    vi.stubEnv("ALPHA_VANTAGE_API_KEY", "");
+    stubProviderEnv("STOCKPILOT_FUNDAMENTALS_PROVIDER", "auto");
+    stubProviderEnv("FMP_API_KEY", "");
+    stubProviderEnv("ALPHA_VANTAGE_API_KEY", "");
 
     await expect(getFundamentalsProvider().getFundamentals("NVDA")).resolves.toMatchObject({
       marketCap: expect.any(Number)

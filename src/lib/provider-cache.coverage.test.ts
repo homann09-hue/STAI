@@ -47,13 +47,13 @@ describe("provider cache branch coverage", () => {
   });
 
   it("refreshes expired values and falls back to stale cache on loader errors", async () => {
-    await withCacheFallback("refresh", async () => "old", { ttlMs: 100, staleTtlMs: 5000 });
-    vi.advanceTimersByTime(101);
+    await withCacheFallback("refresh", async () => "old", { ttlMs: 1000, staleTtlMs: 5000 });
+    vi.advanceTimersByTime(1001);
 
-    const refreshed = await withCacheFallback("refresh", async () => "new", { ttlMs: 100, staleTtlMs: 5000 });
+    const refreshed = await withCacheFallback("refresh", async () => "new", { ttlMs: 1000, staleTtlMs: 5000 });
     expect(refreshed).toMatchObject({ value: "new", fromCache: false });
 
-    vi.advanceTimersByTime(101);
+    vi.advanceTimersByTime(1001);
     const fallback = await withCacheFallback("refresh", async () => {
       throw new Error("provider down");
     });

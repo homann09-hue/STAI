@@ -19,23 +19,13 @@ const staticRoutes: Array<{ path: string; priority: number; changeFrequency: Met
   { path: "/pricing", priority: 0.65, changeFrequency: "monthly" }
 ];
 
-const featuredAssets = ["AAPL", "MSFT", "NVDA", "TSLA", "SPY", "QQQ", "BTC-USD", "ETH-USD"];
-
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
 
-  return [
-    ...staticRoutes.map((route) => ({
-      url: absoluteUrl(route.path),
-      lastModified,
-      changeFrequency: route.changeFrequency,
-      priority: route.priority
-    })),
-    ...featuredAssets.map((symbol) => ({
-      url: absoluteUrl(`/assets/${encodeURIComponent(symbol)}`),
-      lastModified,
-      changeFrequency: "hourly" as const,
-      priority: 0.72
-    }))
-  ];
+  return staticRoutes.map((route) => ({
+    url: absoluteUrl(route.path),
+    lastModified,
+    changeFrequency: route.changeFrequency,
+    priority: route.priority
+  }));
 }

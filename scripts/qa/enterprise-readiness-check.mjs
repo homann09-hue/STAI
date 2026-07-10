@@ -8,6 +8,33 @@ const args = process.argv.slice(2);
 const localOnly = args.includes("--local-only");
 const baseUrl = args.find((arg) => !arg.startsWith("--")) || process.env.STOCKPILOT_ENTERPRISE_BASE_URL || "";
 const report = [];
+const sensitiveEnvNames = [
+  "AI_GATEWAY_API_KEY",
+  "ALPHA_VANTAGE_API_KEY",
+  "CRON_SECRET",
+  "DATABENTO_API_KEY",
+  "EODHD_API_KEY",
+  "FINNHUB_API_KEY",
+  "FMP_API_KEY",
+  "GOOGLE_GENERATIVE_AI_API_KEY",
+  "KV_REST_API_TOKEN",
+  "LEMONSQUEEZY_API_KEY",
+  "MARKETAUX_API_KEY",
+  "MASSIVE_API_KEY",
+  "NEWS_API_KEY",
+  "NEWSAPI_API_KEY",
+  "OPENAI_API_KEY",
+  "POLYGON_API_KEY",
+  "STOCKPILOT_ADMIN_SECRET",
+  "STOCKPILOT_CRON_SECRET",
+  "STOCKPILOT_PROVIDER_PING_SECRET",
+  "STRIPE_SECRET_KEY",
+  "SUPABASE_SECRET_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "TWELVE_DATA_API_KEY",
+  "TWELVEDATA_API_KEY",
+  "UPSTASH_REDIS_REST_TOKEN"
+];
 
 function add(name, status, severity, detail) {
   report.push({ name, status, severity, detail });
@@ -154,7 +181,7 @@ function checkSecurityHeaders() {
   }
 
   const apiGuard = read("src/lib/api-guard.ts");
-  const apiControls = ["RATE_LIMIT_MAX", "MAX_JSON_BODY_BYTES", "requireSameOrigin", "parseJsonBody", "secureJsonHeaders"];
+  const apiControls = ["RATE_LIMIT_READ_MAX", "RATE_LIMIT_MUTATION_MAX", "MAX_JSON_BODY_BYTES", "requireSameOrigin", "parseJsonBody", "secureJsonHeaders"];
 
   if (includesAll(apiGuard, apiControls)) pass("api perimeter controls", "rate limit, body cap, same-origin and secure JSON headers present");
   else fail("api perimeter controls", "API guard is missing one or more perimeter controls");
@@ -168,9 +195,39 @@ function checkSecurityHeaders() {
 }
 
 function checkSecrets() {
+  const sensitiveEnvNames = [
+    "AI_GATEWAY_API_KEY",
+    "ALPHA_VANTAGE_API_KEY",
+    "CRON_SECRET",
+    "DATABENTO_API_KEY",
+    "EODHD_API_KEY",
+    "FINNHUB_API_KEY",
+    "FMP_API_KEY",
+    "GOOGLE_GENERATIVE_AI_API_KEY",
+    "KV_REST_API_TOKEN",
+    "LEMONSQUEEZY_API_KEY",
+    "MARKETAUX_API_KEY",
+    "MASSIVE_API_KEY",
+    "NEWS_API_KEY",
+    "NEWSAPI_API_KEY",
+    "OPENAI_API_KEY",
+    "POLYGON_API_KEY",
+    "STOCKPILOT_ADMIN_SECRET",
+    "STOCKPILOT_CRON_SECRET",
+    "STOCKPILOT_PROVIDER_PING_SECRET",
+    "STRIPE_SECRET_KEY",
+    "SUPABASE_SECRET_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "TWELVE_DATA_API_KEY",
+    "TWELVEDATA_API_KEY",
+    "UPSTASH_REDIS_REST_TOKEN"
+  ];
   const secretPatterns = [
     /sb_secret_[A-Za-z0-9._-]{10,}/,
-    /\b(?:FMP_API_KEY|FINNHUB_API_KEY|ALPHA_VANTAGE_API_KEY|MARKETAUX_API_KEY|NEWSAPI_API_KEY|NEWS_API_KEY|UPSTASH_REDIS_REST_TOKEN|KV_REST_API_TOKEN|SUPABASE_SERVICE_ROLE_KEY)[ \t]*[:=][ \t]*["']?(?!<|your-|change-me|REDACTED|example|mock|fake|test|invalid|demo|placeholder|local)[A-Za-z0-9._-]{12,}/i,
+    new RegExp(
+      `\\b(?:${sensitiveEnvNames.join("|")})[ \\t]*[:=][ \\t]*["']?(?!<|your-|change-me|REDACTED|example|mock|fake|test|invalid|demo|placeholder|local)[A-Za-z0-9._-]{12,}`,
+      "i"
+    ),
     /authorization[ \t]*[:=][ \t]*["']?bearer[ \t]+[A-Za-z0-9._-]{20,}/i,
     /service_role_[A-Za-z0-9._-]{10,}/i,
   ];
@@ -204,8 +261,10 @@ function checkSecrets() {
     "NEWSAPI_API_KEY",
     "UPSTASH_REDIS_REST_URL",
     "UPSTASH_REDIS_REST_TOKEN",
+    "CAPACITOR_SERVER_URL",
     "STOCKPILOT_ENTERPRISE_BASELINE_MONITORING_ENABLED",
     "STOCKPILOT_ENTERPRISE_PROVIDER_LICENSE_REVIEWED",
+    "STOCKPILOT_ENTERPRISE_SUPABASE_RLS_VERIFIED",
     "STOCKPILOT_ENTERPRISE_SUPABASE_PITR_ENABLED",
     "STOCKPILOT_ENTERPRISE_MONITORING_ENABLED",
     "STOCKPILOT_ENTERPRISE_SLA_DOCUMENTED",
@@ -402,7 +461,10 @@ async function checkLiveTarget() {
       fail("live enterprise status", `status=${enterprise.response.status}`);
     }
 
-    const sensitiveLivePattern = /(sb_secret|service_role|authorization|bearer\s+[a-z0-9._-]{12,}|FMP_API_KEY|FINNHUB_API_KEY|SUPABASE_SERVICE_ROLE_KEY)/i;
+    const sensitiveLivePattern = new RegExp(
+      `(sb_secret|service_role|authorization|bearer\\s+[a-z0-9._-]{12,}|${sensitiveEnvNames.join("|")})`,
+      "i"
+    );
     if (sensitiveLivePattern.test(home.text) || sensitiveLivePattern.test(JSON.stringify(health.json ?? {}))) {
       fail("live secret exposure", "secret-looking value appears in public response");
     } else {

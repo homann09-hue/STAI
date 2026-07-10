@@ -24,6 +24,7 @@ export type PricingTier = {
   price: string;
   audience: string;
   technicalStatus: string;
+  billingRequired: boolean;
   featureStatus: Record<FeatureDefinition["id"], FeatureGateStatus>;
 };
 
@@ -99,6 +100,7 @@ export const pricingTiers: PricingTier[] = [
     price: "0 €",
     audience: "Basis-Watchlist und einfache Analysen",
     technicalStatus: "Aktiv als lokaler Demo-Modus",
+    billingRequired: false,
     featureStatus: {
       watchlist_basic: "included",
       watchlist_extended: "locked",
@@ -119,6 +121,7 @@ export const pricingTiers: PricingTier[] = [
     price: "9 €",
     audience: "kleine Anleger und Sparpläne",
     technicalStatus: "Vorbereitet, Billing-Gate nicht aktiv",
+    billingRequired: true,
     featureStatus: {
       watchlist_basic: "included",
       watchlist_extended: "demo",
@@ -139,6 +142,7 @@ export const pricingTiers: PricingTier[] = [
     price: "29 €",
     audience: "aktive Investoren und Trader",
     technicalStatus: "Vorbereitet, nicht freigeschaltet",
+    billingRequired: true,
     featureStatus: {
       watchlist_basic: "included",
       watchlist_extended: "demo",
@@ -159,6 +163,7 @@ export const pricingTiers: PricingTier[] = [
     price: "auf Anfrage",
     audience: "Teams, Unternehmer und große Vermögen",
     technicalStatus: "Enterprise-Struktur vorbereitet, Vertrag/Billing nötig",
+    billingRequired: true,
     featureStatus: {
       watchlist_basic: "included",
       watchlist_extended: "demo",
@@ -181,6 +186,11 @@ export function getFeatureGateStatus(planId: PlanId, featureId: FeatureDefinitio
 }
 
 export function isFeatureTechnicallyActive(planId: PlanId, featureId: FeatureDefinition["id"], billingActive = billingGateStatus.active) {
+  const tier = pricingTiers.find((item) => item.id === planId);
+  if (!tier) return false;
+
   const status = getFeatureGateStatus(planId, featureId);
-  return status === "included" || (billingActive && status === "demo");
+  if (tier.billingRequired && !billingActive) return false;
+
+  return status === "included";
 }

@@ -13,6 +13,27 @@ function weightTone(weight: number): RiskLevel {
   return "niedrig";
 }
 
+function finiteNumber(value: number, fallback = 0) {
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function sanitizePosition(position: PortfolioPosition): PortfolioPosition | null {
+  const quantity = finiteNumber(position.quantity);
+  const averagePrice = finiteNumber(position.averagePrice);
+  const currentPrice = finiteNumber(position.currentPrice);
+  const riskScore = Math.max(0, Math.min(100, finiteNumber(position.riskScore, 55)));
+
+  if (quantity <= 0 || averagePrice < 0 || currentPrice < 0) return null;
+
+  return {
+    ...position,
+    quantity,
+    averagePrice,
+    currentPrice,
+    riskScore
+  };
+}
+
 function allocations(positions: PortfolioPosition[], totalValue: number, key: "sector" | "assetType") {
   const grouped = new Map<string, number>();
 
@@ -32,7 +53,9 @@ function allocations(positions: PortfolioPosition[], totalValue: number, key: "s
 }
 
 export function analyzePortfolio(positions: PortfolioPosition[]): PortfolioSummary {
-  const activePositions = positions.filter((position) => position.quantity > 0);
+  const activePositions = positions
+    .map(sanitizePosition)
+    .filter((position): position is PortfolioPosition => Boolean(position));
   const totalValue = activePositions.reduce((sum, item) => sum + item.quantity * item.currentPrice, 0);
   const totalCost = activePositions.reduce((sum, item) => sum + item.quantity * item.averagePrice, 0);
   const totalRisk = totalValue

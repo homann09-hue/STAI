@@ -3,6 +3,10 @@ import { jsonError, jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "
 import { createUserAlert, deleteUserAlert, getSupabaseAuth, listUserAlerts, updateUserAlert } from "@/lib/supabase/user-data";
 import { alertInputSchema, alertUpdateInputSchema } from "@/lib/validation";
 
+const userDataHeaders = {
+  "Cache-Control": "private, no-store"
+};
+
 export async function GET(request: Request) {
   const limited = await rateLimit(request);
   if (limited) return limited;
@@ -11,10 +15,31 @@ export async function GET(request: Request) {
 
   if (auth.ok) {
     const alerts = await listUserAlerts(auth);
-    return jsonOk({ alerts, mode: "supabase" });
+    return jsonOk({
+      alerts,
+      mode: "supabase",
+      metadata: {
+        storage: "supabase",
+        dataQuality: "user_data",
+        demo: false,
+        execution: "backend_prepared",
+        disclaimer: "Alerts sind nutzerbezogen. Ausführung hängt von Backend-/Cron-Konfiguration ab."
+      }
+    }, { headers: userDataHeaders });
   }
 
-  return jsonOk({ alerts: mockAlerts, mode: "local", reason: auth.reason });
+  return jsonOk({
+    alerts: mockAlerts,
+    mode: "local",
+    reason: auth.reason,
+    metadata: {
+      storage: "client",
+      dataQuality: "mock",
+      demo: true,
+      execution: "demo_only",
+      disclaimer: "Demo-Alerts aus Mock-Daten. Sie wirken nicht als echte Server-Benachrichtigungen."
+    }
+  }, { headers: userDataHeaders });
 }
 
 export async function POST(request: Request) {
@@ -31,7 +56,7 @@ export async function POST(request: Request) {
 
   if (auth.ok) {
     const alert = await createUserAlert(auth, parsed.data);
-    return jsonOk({ alert, mode: "supabase" }, { status: 201 });
+    return jsonOk({ alert, mode: "supabase" }, { status: 201, headers: userDataHeaders });
   }
 
   return jsonError("Anmeldung erforderlich. Alarm-Änderungen werden nur lokal im Client gespeichert.", 401, {
@@ -53,7 +78,7 @@ export async function PATCH(request: Request) {
 
   if (auth.ok) {
     const alert = await updateUserAlert(auth, parsed.data.id, parsed.data.enabled);
-    return jsonOk({ alert, mode: "supabase" });
+    return jsonOk({ alert, mode: "supabase" }, { headers: userDataHeaders });
   }
 
   return jsonError("Anmeldung erforderlich. Alarm-Änderungen werden nur lokal im Client gespeichert.", 401, {
@@ -75,7 +100,7 @@ export async function DELETE(request: Request) {
 
   if (auth.ok) {
     await deleteUserAlert(auth, parsed.data.id);
-    return jsonOk({ ok: true, mode: "supabase" });
+    return jsonOk({ ok: true, mode: "supabase" }, { headers: userDataHeaders });
   }
 
   return jsonError("Anmeldung erforderlich. Alarm-Änderungen werden nur lokal im Client gespeichert.", 401, {

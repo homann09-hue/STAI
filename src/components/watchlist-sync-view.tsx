@@ -18,9 +18,84 @@ type WatchlistItem = {
   assetType?: AssetType;
 };
 
+const WATCHLIST_OVERRIDE_KEY = "stockpilot:watchlist-user-override";
+const MAX_CLIENT_WATCHLIST_ITEMS = 500;
+const MAX_SYMBOL_INPUT_CHARS = 32;
+const assetTypes = new Set<AssetType>(["stock", "etf", "crypto", "forex", "index"]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function safeAssetType(value: unknown): AssetType {
+  return assetTypes.has(value as AssetType) ? (value as AssetType) : "stock";
+}
+
+function safeWatchlistItem(value: unknown): WatchlistItem | null {
+  if (!isRecord(value)) return null;
+  const parsed = normalizeSymbolInput(typeof value.symbol === "string" ? value.symbol : "");
+  if (!parsed.ok) return null;
+
+  return {
+    id: typeof value.id === "string" ? value.id.slice(0, 96) : undefined,
+    symbol: parsed.symbol,
+    asset_type: safeAssetType(value.asset_type ?? value.assetType)
+  };
+}
+
+function safeWatchlistItems(value: unknown): WatchlistItem[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  const items: WatchlistItem[] = [];
+
+  for (const candidate of value) {
+    const item = safeWatchlistItem(candidate);
+    if (!item || seen.has(item.symbol)) continue;
+    seen.add(item.symbol);
+    items.push(item);
+    if (items.length >= MAX_CLIENT_WATCHLIST_ITEMS) break;
+  }
+
+  return items;
+}
+
+function safeAssetSummary(value: unknown): AssetSummary | null {
+  if (!isRecord(value) || !isRecord(value.asset)) return null;
+  const parsed = normalizeSymbolInput(typeof value.asset.symbol === "string" ? value.asset.symbol : "");
+  if (!parsed.ok) return null;
+
+  const summary = value as unknown as AssetSummary;
+  return {
+    ...summary,
+    asset: {
+      ...summary.asset,
+      symbol: parsed.symbol,
+      type: safeAssetType(summary.asset.type)
+    }
+  };
+}
+
+function safeAssetSummaries(value: unknown): AssetSummary[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  const items: AssetSummary[] = [];
+
+  for (const candidate of value) {
+    const item = safeAssetSummary(candidate);
+    if (!item || seen.has(item.asset.symbol)) continue;
+    seen.add(item.asset.symbol);
+    items.push(item);
+    if (items.length >= MAX_CLIENT_WATCHLIST_ITEMS) break;
+  }
+
+  return items;
+}
+
 function placeholderSummary(item: WatchlistItem): AssetSummary {
-  const symbol = item.symbol.toUpperCase();
-  const assetType = item.asset_type ?? item.assetType ?? "stock";
+  const symbol = safeWatchlistItem(item)?.symbol ?? "UNKNOWN";
+  const assetType = safeAssetType(item.asset_type ?? item.assetType);
   const now = new Date().toISOString();
 
   return {
@@ -68,18 +143,31 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
   const [syncStatus, setSyncStatus] = useState("Lokaler Demo-/Offline-Modus aktiv.");
   const [inputError, setInputError] = useState("");
   const [refreshInterval, setRefreshInterval] = useState(defaultRefreshIntervalMs);
+  const [deletedLocalSymbols, setDeletedLocalSymbols] = useState<Set<string>>(() => new Set());
+  const [hasUserWatchlistOverride, setHasUserWatchlistOverride] = useState(false);
+  const [cloudReady, setCloudReady] = useState(false);
 
   const visibleItems = useMemo(() => {
-    if (cloudItems.length) {
-      return cloudItems.map((item) => {
+    const removeDeleted = (items: AssetSummary[]) =>
+      items.filter((item) => !deletedLocalSymbols.has(item.asset.symbol.toUpperCase()));
+
+    if (cloudReady && syncMode === "supabase") {
+      return removeDeleted(cloudItems.map((item) => {
         const normalized = item.symbol.toUpperCase();
         return initialItems.find((summary) => summary.asset.symbol === normalized) ?? placeholderSummary(item);
-      });
+      }));
     }
 
-    if (offlineItems.length) return offlineItems;
-    return initialItems;
-  }, [cloudItems, initialItems, offlineItems]);
+    if (cloudItems.length) {
+      return removeDeleted(cloudItems.map((item) => {
+        const normalized = item.symbol.toUpperCase();
+        return initialItems.find((summary) => summary.asset.symbol === normalized) ?? placeholderSummary(item);
+      }));
+    }
+
+    if (offlineItems.length || hasUserWatchlistOverride) return removeDeleted(offlineItems);
+    return removeDeleted(initialItems);
+  }, [cloudItems, cloudReady, deletedLocalSymbols, hasUserWatchlistOverride, initialItems, offlineItems, syncMode]);
   const visibleSymbols = useMemo(
     () => [...new Set(visibleItems.slice(0, 30).map((item) => item.asset.symbol))],
     [visibleItems]
@@ -87,15 +175,25 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
   const stream = useMarketStream(visibleSymbols, visibleSymbols.length > 0, refreshInterval);
 
   useEffect(() => {
-    if (!offlineReady) return;
+    if (!offlineReady || !hasUserWatchlistOverride) return;
     saveOfflineValue(OFFLINE_KEYS.watchlist, visibleItems);
-  }, [offlineReady, visibleItems]);
+  }, [hasUserWatchlistOverride, offlineReady, visibleItems]);
+
+  useEffect(() => {
+    if (!offlineReady) return;
+    saveOfflineValue(WATCHLIST_OVERRIDE_KEY, hasUserWatchlistOverride);
+  }, [hasUserWatchlistOverride, offlineReady]);
 
   useEffect(() => {
     let cancelled = false;
-    const stored = readOfflineValue<AssetSummary[]>(OFFLINE_KEYS.watchlist);
+    const stored = safeAssetSummaries(readOfflineValue<AssetSummary[]>(OFFLINE_KEYS.watchlist));
+    const storedOverride = readOfflineValue<boolean>(WATCHLIST_OVERRIDE_KEY);
 
-    if (stored?.length) {
+    if (storedOverride || stored.length) {
+      setHasUserWatchlistOverride(true);
+    }
+
+    if (stored.length) {
       setOfflineItems(stored);
       if (!navigator.onLine) setSyncStatus("Offline-Watchlist aus lokalem Speicher geladen.");
     }
@@ -106,22 +204,26 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
       .then((data: { items?: WatchlistItem[]; mode?: string }) => {
         if (cancelled) return;
         if (data.mode === "supabase") {
-          setCloudItems(data.items ?? []);
+          setCloudItems(safeWatchlistItems(data.items));
+          setCloudReady(true);
           setSyncMode("supabase");
           setSyncStatus("Supabase-Cloud-Sync aktiv. Watchlist wird nutzerbezogen gespeichert.");
           return;
         }
 
         setCloudItems([]);
+        setCloudReady(false);
         setSyncMode("local");
         setSyncStatus("Kein Supabase-Login. Lokaler Demo-/Offline-Modus aktiv.");
       })
       .catch(() => {
         if (!cancelled) {
           const fallback = readOfflineValue<AssetSummary[]>(OFFLINE_KEYS.watchlist);
-          if (fallback?.length) setOfflineItems(fallback);
+          const safeFallback = safeAssetSummaries(fallback);
+          if (safeFallback.length) setOfflineItems(safeFallback);
+          setCloudReady(false);
           setSyncMode("local");
-          setSyncStatus(fallback?.length ? "Offline-Watchlist aus lokalem Speicher geladen." : "Supabase nicht erreichbar. Lokale Demo-Watchlist aktiv.");
+          setSyncStatus(safeFallback.length ? "Offline-Watchlist aus lokalem Speicher geladen." : "Supabase nicht erreichbar. Lokale Demo-Watchlist aktiv.");
         }
       });
 
@@ -158,11 +260,24 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
       });
       if (!response.ok) throw new Error("watchlist mutation not authenticated");
       const data = await response.json() as { item?: WatchlistItem; mode?: string };
-      setCloudItems((current) => [data.item ?? { symbol: normalizedSymbol, assetType }, ...current.filter((item) => item.symbol !== normalizedSymbol)]);
+      const safeItem = safeWatchlistItem(data.item) ?? { symbol: normalizedSymbol, asset_type: assetType };
+      setDeletedLocalSymbols((current) => {
+        const next = new Set(current);
+        next.delete(normalizedSymbol);
+        return next;
+      });
+      setHasUserWatchlistOverride(true);
+      setCloudItems((current) => [safeItem, ...current.filter((item) => item.symbol !== normalizedSymbol)].slice(0, MAX_CLIENT_WATCHLIST_ITEMS));
       setSyncMode(data.mode === "supabase" ? "supabase" : "local");
       setSyncStatus(data.mode === "supabase" ? "Symbol in Supabase gespeichert." : "Symbol lokal gespeichert. Cloud-Sync nicht aktiv.");
     } catch {
-      setCloudItems((current) => [{ symbol: normalizedSymbol, assetType }, ...current.filter((item) => item.symbol !== normalizedSymbol)]);
+      setDeletedLocalSymbols((current) => {
+        const next = new Set(current);
+        next.delete(normalizedSymbol);
+        return next;
+      });
+      setHasUserWatchlistOverride(true);
+      setCloudItems((current) => [{ symbol: normalizedSymbol, asset_type: assetType }, ...current.filter((item) => item.symbol !== normalizedSymbol)].slice(0, MAX_CLIENT_WATCHLIST_ITEMS));
       setSyncMode("local");
       setSyncStatus("Nicht eingeloggt oder Supabase nicht erreichbar. Symbol lokal gespeichert.");
     }
@@ -171,7 +286,17 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
   }
 
   async function removeSymbol(nextSymbol: string) {
-    setCloudItems((current) => current.filter((item) => item.symbol !== nextSymbol));
+    const parsed = normalizeSymbolInput(nextSymbol);
+    if (!parsed.ok) {
+      setInputError(parsed.message);
+      return;
+    }
+
+    const normalizedSymbol = parsed.symbol;
+    setHasUserWatchlistOverride(true);
+    setDeletedLocalSymbols((current) => new Set(current).add(normalizedSymbol));
+    setCloudItems((current) => current.filter((item) => item.symbol.toUpperCase() !== normalizedSymbol));
+    setOfflineItems((current) => current.filter((item) => item.asset.symbol.toUpperCase() !== normalizedSymbol));
 
     try {
       const response = await fetchWithSupabaseAuth("/api/watchlist", {
@@ -179,7 +304,7 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ symbol: nextSymbol, assetType: "stock" })
+          body: JSON.stringify({ symbol: normalizedSymbol, assetType: "stock" })
       });
       if (!response.ok) throw new Error("watchlist delete not authenticated");
       const data = await response.json() as { mode?: string };
@@ -208,7 +333,7 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
           <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
             <input
               value={symbol}
-              onChange={(event) => setSymbol(event.target.value)}
+              onChange={(event) => setSymbol(event.target.value.slice(0, MAX_SYMBOL_INPUT_CHARS))}
               className="h-11 rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan"
               aria-label="Symbol zur Watchlist hinzufügen"
             />

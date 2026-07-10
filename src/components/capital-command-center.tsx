@@ -99,20 +99,33 @@ const riskMultipliers: Record<RiskLevel, number> = {
   hoch: 0.55,
   extrem: 0.25
 };
+const MIN_CAPITAL_EUR = 1;
+const MAX_CAPITAL_EUR = 1_000_000_000;
+const MAX_CAPITAL_INPUT_LENGTH = 18;
+
+function clampCapital(value: number, fallback: number) {
+  if (!Number.isFinite(value) || value <= 0) return fallback;
+  return Math.min(MAX_CAPITAL_EUR, Math.max(MIN_CAPITAL_EUR, value));
+}
+
+function cleanCapitalInput(value: string) {
+  return value.replace(/[^\d.,]/g, "").slice(0, MAX_CAPITAL_INPUT_LENGTH);
+}
 
 function parseCapital(value: string, fallback: number) {
   const normalized = value.replace(/\./g, "").replace(",", ".");
   const parsed = Number(normalized);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  return clampCapital(parsed, fallback);
 }
 
 function compactMoney(value: number) {
+  const safeValue = Number.isFinite(value) ? value : 0;
   return new Intl.NumberFormat("de-DE", {
-    notation: value >= 1000000 ? "compact" : "standard",
-    maximumFractionDigits: value >= 1000 ? 0 : 2,
+    notation: safeValue >= 1000000 ? "compact" : "standard",
+    maximumFractionDigits: safeValue >= 1000 ? 0 : 2,
     style: "currency",
     currency: "EUR"
-  }).format(value);
+  }).format(safeValue);
 }
 
 function convictionScore(item: AssetSummary) {
@@ -194,13 +207,17 @@ export function CapitalCommandCenter({ data }: { data: DashboardData }) {
       savedAt: new Date().toISOString()
     };
 
-    window.localStorage.setItem("stockpilot:capital-command-plan", JSON.stringify(payload));
-    setSavedAt(
-      new Intl.DateTimeFormat("de-DE", {
-        hour: "2-digit",
-        minute: "2-digit"
-      }).format(new Date())
-    );
+    try {
+      window.localStorage.setItem("stockpilot:capital-command-plan", JSON.stringify(payload));
+      setSavedAt(
+        new Intl.DateTimeFormat("de-DE", {
+          hour: "2-digit",
+          minute: "2-digit"
+        }).format(new Date())
+      );
+    } catch {
+      setSavedAt(null);
+    }
   }
 
   return (
@@ -208,7 +225,7 @@ export function CapitalCommandCenter({ data }: { data: DashboardData }) {
       <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
         <div className="relative border-b border-stroke/70 p-5 sm:p-6 lg:border-b-0 lg:border-r">
           <div className="absolute right-4 top-4 hidden rounded-full border border-profit/25 bg-profit/10 px-3 py-1 text-[10px] uppercase tracking-[0.26em] text-profit sm:block">
-            Live Modell
+            Planungsmodell
           </div>
           <div className="flex items-center gap-3">
             <div className="grid h-12 w-12 place-items-center rounded-2xl border border-cyan/30 bg-cyan/10 text-cyan shadow-glow">
@@ -255,7 +272,8 @@ export function CapitalCommandCenter({ data }: { data: DashboardData }) {
                 id="capital-input"
                 inputMode="decimal"
                 value={capitalInput}
-                onChange={(event) => setCapitalInput(event.target.value)}
+                maxLength={MAX_CAPITAL_INPUT_LENGTH}
+                onChange={(event) => setCapitalInput(cleanCapitalInput(event.target.value))}
                 className="h-12 min-w-0 flex-1 rounded-xl border border-stroke bg-coal px-4 font-mono text-xl text-mist outline-none transition focus:border-cyan"
                 aria-label="Kapitalbetrag"
               />

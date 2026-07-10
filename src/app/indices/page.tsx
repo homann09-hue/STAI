@@ -11,11 +11,11 @@ export default function IndicesPage() {
     <TerminalSectionView
       eyebrow="Indizes"
       title="Globale Index-Übersichten mit klarer Datenqualität"
-      description="Indexfeeds sind als eigener Bereich vorbereitet. Sobald lizenzierte Indexdaten angebunden sind, erscheinen hier Kurse, Futures, Marktstatus, Heatmaps und Benchmark-Vergleiche."
+      description="Diese Ansicht bündelt Index-Benchmarks, Datenstatus und Vergleichslogik. Lizenzpflichtige Realtime-Indexfeeds werden nicht simuliert und fehlende Daten bleiben sichtbar markiert."
       cards={[
-        { title: "US-Indizes", text: "S&P 500, Nasdaq und Dow Jones als Watchlist-/Benchmark-Struktur vorbereitet.", badge: "Provider" },
-        { title: "Europa", text: "DAX, SDAX, Euro Stoxx und weitere Indizes können über die Provider-Schicht normalisiert werden.", badge: "Lizenz" },
-        { title: "Benchmarking", text: "Portfolio vs MSCI World, S&P 500 und Nasdaq ist als Vergleichslogik im Datenmodell vorbereitet." }
+        { title: "US-Indizes", text: "S&P 500, Nasdaq und Dow Jones werden als Benchmark-Struktur mit sichtbarem Provider- und Qualitätsstatus geführt.", badge: "Status" },
+        { title: "Europa", text: "DAX, SDAX, Euro Stoxx und weitere Indizes laufen über die normalisierte Provider-Schicht, wenn lizenzierte Daten verfügbar sind.", badge: "Lizenz" },
+        { title: "Benchmarking", text: "Portfolio-Vergleiche gegen MSCI World, S&P 500 und Nasdaq bleiben als Analysemodell klar von echten Indexfeeds getrennt." }
       ]}
     />
   );

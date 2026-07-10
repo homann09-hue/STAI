@@ -2,14 +2,23 @@ import type { NextConfig } from "next";
 
 const isDevelopment = process.env.NODE_ENV !== "production";
 const scriptSrc = ["'self'", "'unsafe-inline'", isDevelopment ? "'unsafe-eval'" : ""].filter(Boolean).join(" ");
+const connectSrc = [
+  "'self'",
+  "https://*.supabase.co",
+  "wss://*.supabase.co",
+  isDevelopment ? "http://localhost:*" : "",
+  isDevelopment ? "ws://localhost:*" : ""
+].filter(Boolean).join(" ");
 const contentSecurityPolicy = [
   "default-src 'self'",
   `script-src ${scriptSrc}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://finnhub.io wss://ws.finnhub.io https://api.twelvedata.com https://eodhd.com https://api.polygon.io https://api.massive.com https://api.binance.com https://api.exchange.coinbase.com",
+  `connect-src ${connectSrc}`,
   "font-src 'self' data:",
+  "media-src 'self' blob:",
   "object-src 'none'",
+  "frame-src 'none'",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "frame-ancestors 'none'",
@@ -64,6 +73,14 @@ const nextConfig: NextConfig = {
           {
             key: "X-DNS-Prefetch-Control",
             value: "off"
+          },
+          {
+            key: "X-Permitted-Cross-Domain-Policies",
+            value: "none"
+          },
+          {
+            key: "X-Download-Options",
+            value: "noopen"
           }
         ]
       },

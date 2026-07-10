@@ -8,7 +8,7 @@ export function TerminalSectionView({
   ctaHref = "/markets",
   ctaLabel = "Zum Marktterminal",
   statusLabel = "Demo / Providerstatus sichtbar",
-  statusDescription = "Diese Seite liefert Produktnutzen, markiert aber lizenz- oder backendabhängige Funktionen klar als vorbereitet."
+  statusDescription = "Diese Seite liefert nutzbare Orientierung und trennt aktive, lizenzabhängige, gecachte und Demo-Daten sichtbar voneinander."
 }: {
   eyebrow: string;
   title: string;

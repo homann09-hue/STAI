@@ -18,13 +18,33 @@ const defaultProfile: OnboardingProfile = {
   risk: "mittel"
 };
 
+const allowedLevels: OnboardingProfile["level"][] = ["anfänger", "fortgeschritten", "profi"];
+const allowedGoals: OnboardingProfile["goal"][] = ["lernen", "watchlist", "portfolio", "trading"];
+const allowedCapital: OnboardingProfile["capital"][] = ["1-100", "100-1000", "1000-10000", "10000+"];
+const allowedRisk: OnboardingProfile["risk"][] = ["niedrig", "mittel", "hoch"];
+
+function pickAllowed<T extends string>(value: unknown, allowed: readonly T[], fallback: T) {
+  return typeof value === "string" && allowed.includes(value as T) ? (value as T) : fallback;
+}
+
+function normalizeOnboardingProfile(value: unknown): OnboardingProfile {
+  if (!value || typeof value !== "object") return defaultProfile;
+  const candidate = value as Partial<OnboardingProfile>;
+
+  return {
+    level: pickAllowed(candidate.level, allowedLevels, defaultProfile.level),
+    goal: pickAllowed(candidate.goal, allowedGoals, defaultProfile.goal),
+    capital: pickAllowed(candidate.capital, allowedCapital, defaultProfile.capital),
+    risk: pickAllowed(candidate.risk, allowedRisk, defaultProfile.risk)
+  };
+}
+
 export function OnboardingPanel() {
   const [profile, setProfile] = useState<OnboardingProfile>(defaultProfile);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = readOfflineValue<OnboardingProfile>(OFFLINE_KEYS.onboardingProfile);
-    if (stored) setProfile(stored);
+    setProfile(normalizeOnboardingProfile(readOfflineValue<unknown>(OFFLINE_KEYS.onboardingProfile)));
   }, []);
 
   function update<K extends keyof OnboardingProfile>(key: K, value: OnboardingProfile[K]) {

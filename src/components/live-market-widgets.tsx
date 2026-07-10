@@ -70,13 +70,16 @@ export function MiniSparkline({ candles, positive }: { candles: Candle[]; positi
   const width = 150;
   const height = 46;
   const { area, points } = useMemo(() => {
-    const values = candles.length ? candles.map((candle) => candle.close) : [1, 1.02, 1.01];
-    const min = Math.min(...values);
-    const max = Math.max(...values);
+    const values = candles
+      .map((candle) => candle.close)
+      .filter((value) => Number.isFinite(value) && value > 0);
+    const cleanValues = values.length ? values : [1, 1.02, 1.01];
+    const min = Math.min(...cleanValues);
+    const max = Math.max(...cleanValues);
     const spread = max - min || 1;
-    const sparkPoints = values
+    const sparkPoints = cleanValues
       .map((value, index) => {
-        const x = (index / Math.max(1, values.length - 1)) * width;
+        const x = (index / Math.max(1, cleanValues.length - 1)) * width;
         const y = height - ((value - min) / spread) * height;
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       })

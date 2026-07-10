@@ -18,8 +18,8 @@ export default function OfflinePage() {
         </div>
         <h1 className="mt-4 text-2xl font-semibold">Offline-Modus</h1>
         <p className="mt-3 text-sm leading-6 text-muted">
-          Watchlist und zuletzt geöffnete Analysen bleiben lokal verfügbar. Sobald die Verbindung
-          zurück ist, aktualisiert StockPilot AI die Daten automatisch.
+          Watchlist und zuletzt gespeicherte Ansichten bleiben lokal verfügbar. Neue Marktdaten,
+          News und KI-Analysen brauchen eine Verbindung und werden nach Rückkehr online neu geprüft.
         </p>
       </div>
     </div>

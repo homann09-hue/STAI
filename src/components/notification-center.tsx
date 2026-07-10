@@ -13,18 +13,108 @@ const severityTone: Record<AppNotificationSeverity, string> = {
   critical: "border-loss/25 bg-loss/10 text-loss"
 };
 
+const MAX_NOTIFICATIONS = 25;
+const MAX_READ_IDS = 200;
+const NOTIFICATION_TIMEOUT_MS = 8000;
+const SAFE_ID_PATTERN = /^[a-zA-Z0-9:._-]{1,120}$/;
+const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+const validCategories = new Set<AppNotification["category"]>(["alert", "provider", "portfolio", "system", "billing", "data"]);
+const validStatuses = new Set<AppNotification["status"]>(["new", "read", "blocked", "action_required"]);
+
+function normalizeReadIds(value: unknown) {
+  if (!Array.isArray(value)) return [];
+
+  return [
+    ...new Set(
+      value
+        .slice(0, MAX_READ_IDS * 5)
+        .filter((item): item is string => typeof item === "string" && SAFE_ID_PATTERN.test(item))
+    )
+  ].slice(0, MAX_READ_IDS);
+}
+
+function safeInternalHref(rawHref: unknown) {
+  if (typeof rawHref !== "string" || !rawHref.startsWith("/") || rawHref.startsWith("//")) return undefined;
+
+  try {
+    const url = new URL(rawHref, window.location.origin);
+    if (url.origin !== window.location.origin) return undefined;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return undefined;
+  }
+}
+
+function validDate(rawDate: unknown) {
+  if (typeof rawDate !== "string") return new Date().toISOString();
+  const timestamp = Date.parse(rawDate);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : new Date().toISOString();
+}
+
+function cleanText(value: unknown, maxLength: number, fallback: string) {
+  if (typeof value !== "string") return fallback;
+  const cleaned = value.replace(CONTROL_CHARS, "").trim().slice(0, maxLength);
+  return cleaned || fallback;
+}
+
+function cleanId(value: unknown) {
+  if (typeof value !== "string") return "";
+  const cleaned = value.replace(CONTROL_CHARS, "").trim().slice(0, 120);
+  return SAFE_ID_PATTERN.test(cleaned) ? cleaned : "";
+}
+
+function normalizeNotifications(value: unknown): AppNotification[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .slice(0, MAX_NOTIFICATIONS)
+    .map((item): AppNotification | null => {
+      if (!item || typeof item !== "object") return null;
+      const candidate = item as Partial<AppNotification>;
+      const severity = candidate.severity && candidate.severity in severityTone ? candidate.severity : "info";
+      const category = candidate.category && validCategories.has(candidate.category) ? candidate.category : "system";
+      const status = candidate.status && validStatuses.has(candidate.status) ? candidate.status : "new";
+      const id = cleanId(candidate.id);
+
+      if (!id) return null;
+
+      return {
+        id,
+        title: cleanText(candidate.title, 120, "Systemhinweis"),
+        message: cleanText(candidate.message, 500, "Hinweis konnte nicht vollständig geladen werden."),
+        severity,
+        category,
+        createdAt: validDate(candidate.createdAt),
+        source: cleanText(candidate.source, 120, "StockPilot System"),
+        status,
+        href: safeInternalHref(candidate.href)
+      };
+    })
+    .filter((item): item is AppNotification => item !== null);
+}
+
 export function NotificationCenter() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [readIds, setReadIds] = useState<string[]>([]);
 
   useEffect(() => {
-    setReadIds(readOfflineValue<string[]>(OFFLINE_KEYS.notificationReadIds) ?? []);
+    setReadIds(normalizeReadIds(readOfflineValue<unknown>(OFFLINE_KEYS.notificationReadIds)));
 
-    fetch("/api/notifications", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((payload: { notifications?: AppNotification[] }) => {
-        setNotifications(payload.notifications ?? []);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), NOTIFICATION_TIMEOUT_MS);
+
+    fetch("/api/notifications", {
+      cache: "no-store",
+      headers: { accept: "application/json" },
+      signal: controller.signal
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error("notifications_unavailable");
+        return response.json();
+      })
+      .then((payload: { notifications?: unknown }) => {
+        setNotifications(normalizeNotifications(payload.notifications));
       })
       .catch(() => {
         setNotifications([
@@ -39,11 +129,19 @@ export function NotificationCenter() {
             status: "blocked"
           }
         ]);
+      })
+      .finally(() => {
+        window.clearTimeout(timeout);
       });
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, []);
 
   useEffect(() => {
-    saveOfflineValue(OFFLINE_KEYS.notificationReadIds, readIds);
+    saveOfflineValue(OFFLINE_KEYS.notificationReadIds, normalizeReadIds(readIds));
   }, [readIds]);
 
   const unreadCount = useMemo(
@@ -52,11 +150,11 @@ export function NotificationCenter() {
   );
 
   function markAllRead() {
-    setReadIds(notifications.map((item) => item.id));
+    setReadIds(normalizeReadIds(notifications.map((item) => item.id)));
   }
 
   function markRead(id: string) {
-    setReadIds((current) => (current.includes(id) ? current : [...current, id]));
+    setReadIds((current) => (current.includes(id) ? current : normalizeReadIds([...current, id])));
   }
 
   return (
@@ -96,6 +194,7 @@ export function NotificationCenter() {
             <div className="h-[calc(100%-5.5rem)] overflow-y-auto p-3">
               {notifications.length ? notifications.map((item) => {
                 const read = readIds.includes(item.id);
+                const href = safeInternalHref(item.href);
                 return (
                   <article key={item.id} className={`mb-3 rounded-2xl border p-4 ${severityTone[item.severity]} ${read ? "opacity-70" : ""}`}>
                     <div className="flex items-start justify-between gap-3">
@@ -110,8 +209,8 @@ export function NotificationCenter() {
                         {read ? "gelesen" : "ok"}
                       </button>
                     </div>
-                    {item.href ? (
-                      <Link href={item.href} onClick={() => setOpen(false)} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-stroke bg-coal px-3 text-xs font-semibold text-mist">
+                    {href ? (
+                      <Link href={href} onClick={() => setOpen(false)} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-stroke bg-coal px-3 text-xs font-semibold text-mist">
                         Öffnen
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Link>

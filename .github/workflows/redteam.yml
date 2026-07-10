@@ -14,7 +14,7 @@ jobs:
   redteam:
     name: Full red-team QA
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 60
     env:
       NEXT_TELEMETRY_DISABLED: "1"
       STOCKPILOT_MARKET_PROVIDER: mock

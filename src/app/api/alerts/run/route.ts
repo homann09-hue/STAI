@@ -21,11 +21,15 @@ type AlertRow = {
 
 function isAuthorized(request: Request) {
   const secret = process.env.CRON_SECRET ?? process.env.STOCKPILOT_CRON_SECRET;
-  if (!secret) return { ok: true, mode: "unprotected-local" };
+  if (!secret) return { ok: false, mode: "missing_secret" };
   return {
     ok: request.headers.get("authorization") === `Bearer ${secret}`,
     mode: "secret"
   };
+}
+
+function isSimulatedAlertWorkerEnabled() {
+  return /^(1|true|yes|enabled)$/i.test(process.env.STOCKPILOT_ENABLE_SIMULATED_ALERT_WORKER ?? "");
 }
 
 function simulatedValue(alert: AlertRow) {
@@ -68,6 +72,25 @@ async function runAlertWorker() {
 
   const alerts = ((data ?? []) as AlertRow[]);
   const triggered = alerts.filter(shouldTrigger);
+  const simulationEnabled = isSimulatedAlertWorkerEnabled();
+
+  if (!simulationEnabled) {
+    logEvent("info", "alerts.worker_dry_run", {
+      checked: alerts.length,
+      wouldTrigger: triggered.length
+    });
+
+    return {
+      mode: "dry_run",
+      checked: alerts.length,
+      triggered: 0,
+      wouldTrigger: triggered.length,
+      simulated: true,
+      persisted: false,
+      message:
+        "Alert-Worker hat Regeln geprüft, aber keine Events geschrieben. Simulierte Providerwerte werden nur mit STOCKPILOT_ENABLE_SIMULATED_ALERT_WORKER=true persistiert."
+    };
+  }
 
   if (triggered.length) {
     const { error: insertError } = await supabase.from("alert_events").insert(
@@ -89,14 +112,19 @@ async function runAlertWorker() {
 
   logEvent("info", "alerts.worker_run", {
     checked: alerts.length,
-    triggered: triggered.length
+    triggered: triggered.length,
+    simulated: true
   });
 
   return {
-    mode: "supabase",
+    mode: "simulation_enabled",
     checked: alerts.length,
     triggered: triggered.length,
-    message: "Alert-Worker ausgeführt. Providerwerte sind als nächster Schritt serverseitig anzubinden."
+    wouldTrigger: triggered.length,
+    simulated: true,
+    persisted: triggered.length > 0,
+    message:
+      "Alert-Worker hat simulierte Events geschrieben. Für Produktion echte Providerwerte anbinden und Simulation deaktiviert lassen."
   };
 }
 
@@ -105,7 +133,14 @@ export async function GET(request: Request) {
   if (limited) return limited;
 
   const auth = isAuthorized(request);
-  if (!auth.ok) return jsonError("Cron nicht autorisiert.", 401);
+  if (!auth.ok) {
+    return jsonError(
+      auth.mode === "missing_secret"
+        ? "Cron Secret fehlt. Alert-Worker ist deaktiviert."
+        : "Cron nicht autorisiert.",
+      auth.mode === "missing_secret" ? 503 : 401
+    );
+  }
 
   try {
     const result = await runAlertWorker();

@@ -12,7 +12,19 @@ export async function getSupabaseAccessToken() {
 
 export async function fetchWithSupabaseAuth(input: RequestInfo | URL, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
-  const token = await getSupabaseAccessToken();
+  const targetUrl =
+    typeof input === "string"
+      ? new URL(input, window.location.origin)
+      : input instanceof URL
+        ? input
+        : new URL(input.url, window.location.origin);
+  const sameOrigin = targetUrl.origin === window.location.origin;
+  const sameOriginApi = sameOrigin && targetUrl.pathname.startsWith("/api/");
+  const token = sameOriginApi ? await getSupabaseAccessToken() : null;
+
+  if (!sameOriginApi) {
+    headers.delete("Authorization");
+  }
 
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);

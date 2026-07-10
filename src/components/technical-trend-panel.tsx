@@ -2,11 +2,17 @@ import { Activity, BarChart3, LineChart, Radar, Waves } from "lucide-react";
 import { calculateVolatility, formatCompact, formatCurrency, formatPercent } from "@/lib/scoring";
 import type { AssetDetail, Candle } from "@/lib/types";
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 function rangeMomentum(candles: Candle[]) {
-  const first = candles[0];
-  const last = candles[candles.length - 1];
+  const validCandles = candles.filter((candle) => isFiniteNumber(candle.close));
+  const first = validCandles[0];
+  const last = validCandles[validCandles.length - 1];
   if (!first || !last) return 0;
-  return ((last.close - first.close) / Math.max(first.close, 0.01)) * 100;
+  if (first.close <= 0) return 0;
+  return ((last.close - first.close) / first.close) * 100;
 }
 
 function trendFromMomentum(value: number) {
@@ -18,8 +24,8 @@ function trendFromMomentum(value: number) {
 function volumeTrend(candles: Candle[]) {
   if (candles.length < 8) return 0;
   const half = Math.floor(candles.length / 2);
-  const older = candles.slice(0, half).reduce((sum, candle) => sum + (candle.volume ?? 0), 0) / half;
-  const newer = candles.slice(half).reduce((sum, candle) => sum + (candle.volume ?? 0), 0) / Math.max(1, candles.length - half);
+  const older = candles.slice(0, half).reduce((sum, candle) => sum + (isFiniteNumber(candle.volume) ? Math.max(0, candle.volume) : 0), 0) / half;
+  const newer = candles.slice(half).reduce((sum, candle) => sum + (isFiniteNumber(candle.volume) ? Math.max(0, candle.volume) : 0), 0) / Math.max(1, candles.length - half);
   return older ? ((newer - older) / older) * 100 : 0;
 }
 
@@ -35,7 +41,10 @@ export function TechnicalTrendPanel({ detail }: { detail: AssetDetail }) {
   const longMomentum = rangeMomentum(detail.candles["1Y"]);
   const volatility = calculateVolatility(detail.candles["1M"]);
   const volumeChange = volumeTrend(detail.candles["1M"]);
-  const dayRange = detail.quote.dayHigh - detail.quote.dayLow;
+  const dayRange =
+    isFiniteNumber(detail.quote.dayHigh) && isFiniteNumber(detail.quote.dayLow) && detail.quote.dayHigh >= detail.quote.dayLow
+      ? detail.quote.dayHigh - detail.quote.dayLow
+      : 0;
   const smaSignal =
     detail.indicators.movingAverages.ma20 > detail.indicators.movingAverages.ma50 &&
     detail.indicators.movingAverages.ma50 > detail.indicators.movingAverages.ma200
@@ -44,7 +53,11 @@ export function TechnicalTrendPanel({ detail }: { detail: AssetDetail }) {
         ? "SMA-Struktur bearisch"
         : "SMA-Struktur neutral";
   const rsiSignal = detail.indicators.rsi > 70 ? "RSI überhitzt" : detail.indicators.rsi < 30 ? "RSI schwach" : "RSI neutral";
-  const macdSignal = detail.indicators.macd.histogram >= 0 ? "MACD positiv vorbereitet" : "MACD negativ vorbereitet";
+  const macdSignal = !isFiniteNumber(detail.indicators.macd.histogram)
+    ? "MACD nicht belastbar"
+    : detail.indicators.macd.histogram >= 0
+      ? "MACD positiv modelliert"
+      : "MACD negativ modelliert";
 
   const cards = [
     { label: "Kurzfristiger Trend", value: trendFromMomentum(shortMomentum), detail: formatPercent(shortMomentum), icon: Activity },
@@ -55,7 +68,7 @@ export function TechnicalTrendPanel({ detail }: { detail: AssetDetail }) {
     { label: "Volumen-Trend", value: formatPercent(volumeChange), detail: formatCompact(detail.quote.volume), icon: BarChart3 }
   ];
 
-  const signals = [smaSignal, rsiSignal, macdSignal, "Trendlinien vorbereitet", "Support/Resistance aktiv"];
+  const signals = [smaSignal, rsiSignal, macdSignal, "Trendlinien vorbereitet", "Support/Resistance modelliert"];
 
   return (
     <section className="rounded-[2rem] border border-stroke bg-panel/82 p-4 shadow-panel sm:p-5">

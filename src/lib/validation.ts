@@ -1,19 +1,21 @@
 import { z } from "zod";
 
+const unsafeTextPattern = /[\u0000-\u001F\u007F]|<[a-z!/]|on\w+\s*=|javascript:/iu;
+
 const safeTextSchema = (maxLength: number) =>
   z
     .string()
     .trim()
     .min(1)
     .max(maxLength)
-    .refine((value) => !/[<]/.test(value), "Text enthält ungültige Zeichen");
+    .refine((value) => !unsafeTextPattern.test(value), "Text enthält ungültige Zeichen");
 
 export const symbolSchema = z
   .string()
   .trim()
   .min(1, "Symbol fehlt")
   .max(18, "Symbol ist zu lang")
-  .regex(/^[A-Za-z0-9.-]+$/, "Symbol enthaelt ungültige Zeichen")
+  .regex(/^[A-Za-z0-9.-]+$/, "Symbol enthält ungültige Zeichen")
   .transform((value) => value.toUpperCase());
 
 export const alertInputSchema = z.object({
@@ -62,12 +64,16 @@ export const watchlistInputSchema = z.object({
   assetType: z.enum(["stock", "etf", "crypto", "forex", "index"]).default("stock")
 });
 
-export function validateSymbol(input: string) {
+export function safeDecodeURIComponent(input: string) {
   try {
-    return symbolSchema.safeParse(decodeURIComponent(input));
+    return decodeURIComponent(input);
   } catch {
-    return symbolSchema.safeParse("");
+    return input;
   }
+}
+
+export function validateSymbol(input: string) {
+  return symbolSchema.safeParse(safeDecodeURIComponent(input));
 }
 
 export function normalizeSymbolInput(input: string) {

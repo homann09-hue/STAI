@@ -2,6 +2,7 @@ import { assessDataQuality } from "@/lib/data-quality";
 import { analyzePortfolio } from "@/lib/portfolio-analytics";
 import { buildRiskReport } from "@/lib/risk-engine";
 import { calculateProfessionalScores, calculateTotalScore } from "@/lib/scoring";
+import { safeDecodeURIComponent } from "@/lib/validation";
 import type {
   AiAnalysis,
   AnalysisLayer,
@@ -656,7 +657,7 @@ function enrichAnalysis(symbol: string, base: AiAnalysisBase, dataQualityScore: 
     ],
     dataGaps: [
       "Echte Realtime-Kurse fehlen noch.",
-      "Institutionelle Flows und vollstaendige Insiderdaten sind nur als Adapter vorbereitet.",
+      "Institutionelle Flows und vollständige Insiderdaten sind nur als Adapter vorbereitet.",
       "Makro-Faktoren sind aktuell Mock-Signale."
     ],
     uncertainty: weak ? "hoch" : symbol.includes("USD") ? "hoch" : "mittel",
@@ -673,7 +674,7 @@ function enrichAnalysis(symbol: string, base: AiAnalysisBase, dataQualityScore: 
 }
 
 export function getMockAsset(symbol: string): AssetDetail | null {
-  const normalized = decodeURIComponent(symbol).toUpperCase();
+  const normalized = safeDecodeURIComponent(symbol).trim().toUpperCase();
   const asset = assets.find((item) => item.symbol.toUpperCase() === normalized);
   if (!asset) return null;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import {
   AnalysisLayersPanel,
   DataQualityPanel,
@@ -13,6 +13,9 @@ import {
   BarChart3,
   Brain,
   CalendarDays,
+  Layers3,
+  Maximize2,
+  Minimize2,
   ShieldAlert,
   TrendingDown,
   TrendingUp
@@ -22,7 +25,7 @@ import { AssetDecisionPanel } from "@/components/asset-decision-panel";
 import { MarketDataStatus } from "@/components/market-data-status";
 import { NewsList } from "@/components/news-list";
 import { TechnicalTrendPanel } from "@/components/technical-trend-panel";
-import { OFFLINE_KEYS, saveOfflineValue } from "@/lib/offline";
+import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
 import {
   formatCompact,
   formatCurrency,
@@ -33,8 +36,17 @@ import {
   scoreTone
 } from "@/lib/scoring";
 import { useMarketStream } from "@/lib/use-market-stream";
-import type { AssetDetail, Quote, TimeRange } from "@/lib/types";
+import type { AssetDetail, Candle, Quote, TimeRange } from "@/lib/types";
 import { timeRanges } from "@/lib/types";
+
+const CHART_PREFS_KEY = "stockpilot:chart-preferences";
+
+type ChartPreferences = {
+  range: TimeRange;
+  showSma: boolean;
+  showVolume: boolean;
+  showBenchmark: boolean;
+};
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
@@ -45,9 +57,52 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: s
   );
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isUsableCandle(candle: Candle) {
+  return (
+    isFiniteNumber(candle.open) &&
+    isFiniteNumber(candle.high) &&
+    isFiniteNumber(candle.low) &&
+    isFiniteNumber(candle.close) &&
+    candle.high >= candle.low &&
+    candle.close > 0
+  );
+}
+
+function formatMaybeCurrency(value: number | null | undefined, currency: string) {
+  return isFiniteNumber(value) ? formatCurrency(value, currency) : "n/a";
+}
+
+function formatMaybeNumber(value: number | null | undefined, digits = 2) {
+  return isFiniteNumber(value) ? value.toFixed(digits) : "n/a";
+}
+
 export function AssetDetailView({ detail }: { detail: AssetDetail }) {
   const [range, setRange] = useState<TimeRange>("1M");
-  const candles = detail.candles[range];
+  const [showSma, setShowSma] = useState(true);
+  const [showVolume, setShowVolume] = useState(true);
+  const [showBenchmark, setShowBenchmark] = useState(false);
+  const [chartFullscreen, setChartFullscreen] = useState(false);
+  useEffect(() => {
+    const stored = readOfflineValue<Partial<ChartPreferences>>(CHART_PREFS_KEY);
+    if (!stored) return;
+    if (stored.range && timeRanges.includes(stored.range)) setRange(stored.range);
+    if (typeof stored.showSma === "boolean") setShowSma(stored.showSma);
+    if (typeof stored.showVolume === "boolean") setShowVolume(stored.showVolume);
+    if (typeof stored.showBenchmark === "boolean") setShowBenchmark(stored.showBenchmark);
+  }, []);
+  useEffect(() => {
+    saveOfflineValue(CHART_PREFS_KEY, { range, showSma, showVolume, showBenchmark });
+  }, [range, showBenchmark, showSma, showVolume]);
+  const chartToggles: Array<{ label: string; value: boolean; set: Dispatch<SetStateAction<boolean>> }> = [
+    { label: "SMA 20/50/200", value: showSma, set: setShowSma },
+    { label: "Volumen", value: showVolume, set: setShowVolume },
+    { label: "Benchmark", value: showBenchmark, set: setShowBenchmark }
+  ];
+  const candles = useMemo(() => (detail.candles[range] ?? []).filter(isUsableCandle), [detail.candles, range]);
   const stream = useMarketStream([detail.asset.symbol]);
   const displayedQuote = useMemo<Quote>(() => {
     const liveQuote = stream.quotes[detail.asset.symbol];
@@ -76,7 +131,62 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
       marketStatus: liveQuote.marketStatus
     };
   }, [detail.asset.symbol, detail.quote, stream.quotes]);
-  const positive = displayedQuote.changePercent >= 0;
+  const positive = isFiniteNumber(displayedQuote.changePercent) ? displayedQuote.changePercent >= 0 : false;
+  const chartStats = useMemo(() => {
+    if (candles.length < 2) return null;
+    const first = candles[0];
+    if (!isFiniteNumber(first.close) || first.close <= 0) return null;
+    const closes = candles.map((candle) => candle.close);
+    const volumes = candles.map((candle) => candle.volume ?? 0);
+    const periodReturnPercent = first.close ? ((candles[candles.length - 1].close - first.close) / first.close) * 100 : 0;
+    const high = Math.max(...candles.map((candle) => candle.high));
+    const low = Math.min(...candles.map((candle) => candle.low));
+    const averageVolume = volumes.reduce((sum, value) => sum + value, 0) / Math.max(1, volumes.length);
+    const returns = closes
+      .slice(1)
+      .map((close, index) => Math.log(close / Math.max(0.0001, closes[index])))
+      .filter(Number.isFinite);
+    const averageReturn = returns.reduce((sum, value) => sum + value, 0) / Math.max(1, returns.length);
+    const variance = returns.reduce((sum, value) => sum + (value - averageReturn) ** 2, 0) / Math.max(1, returns.length);
+    const volatilityPercent = Math.sqrt(variance) * Math.sqrt(252) * 100;
+    let peak = first.close;
+    let maxDrawdownPercent = 0;
+
+    closes.forEach((close) => {
+      peak = Math.max(peak, close);
+      maxDrawdownPercent = Math.min(maxDrawdownPercent, ((close - peak) / peak) * 100);
+    });
+
+    return {
+      averageVolume,
+      high,
+      low,
+      maxDrawdownPercent,
+      periodReturnPercent,
+      volatilityPercent
+    };
+  }, [candles]);
+  const benchmarkCandles = useMemo(() => {
+    const base = isFiniteNumber(candles[0]?.close) && candles[0].close > 0
+      ? candles[0].close
+      : isFiniteNumber(displayedQuote.price) && displayedQuote.price > 0
+        ? displayedQuote.price
+        : 1;
+    return candles.map((candle, index) => {
+      const drift = 1 + index * 0.0018;
+      const wave = Math.sin(index / 3) * 0.012;
+      const close = base * (drift + wave);
+
+      return {
+        ...candle,
+        symbol: "SPX",
+        open: close * 0.997,
+        high: close * 1.006,
+        low: close * 0.994,
+        close
+      };
+    });
+  }, [candles, displayedQuote.price]);
   const aiCards = useMemo(
     () => [
       ["Bull Case", detail.aiAnalysis.bullCase],
@@ -156,7 +266,7 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
         <Metric
           label="Spread"
           value={displayedQuote.spread !== undefined ? formatCurrency(displayedQuote.spread, detail.asset.currency) : "vom Anbieter nicht geliefert"}
-          tone={displayedQuote.spread !== undefined && displayedQuote.price ? "text-cyan" : undefined}
+          tone={displayedQuote.spread !== undefined && isFiniteNumber(displayedQuote.price) ? "text-cyan" : undefined}
         />
         <Metric
           label="Tageshoch / Tief"
@@ -164,9 +274,7 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
         />
         <Metric
           label="Open / Prev. Close"
-          value={`${displayedQuote.open ? formatCurrency(displayedQuote.open, detail.asset.currency) : "n/a"} / ${
-            displayedQuote.previousClose ? formatCurrency(displayedQuote.previousClose, detail.asset.currency) : "n/a"
-          }`}
+          value={`${formatMaybeCurrency(displayedQuote.open, detail.asset.currency)} / ${formatMaybeCurrency(displayedQuote.previousClose, detail.asset.currency)}`}
         />
       </section>
 
@@ -183,27 +291,79 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
         <AnalysisLayersPanel layers={detail.analysisLayers} macroFactors={detail.macroFactors} />
       </section>
 
-      <section className="space-y-3">
+      <section className={`space-y-3 ${chartFullscreen ? "fixed inset-0 z-[80] overflow-y-auto bg-[#050b14] p-3 sm:p-6" : ""}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">Chart</h2>
-          <div className="flex max-w-full gap-1 overflow-x-auto rounded-md border border-stroke bg-panel p-1" role="group" aria-label="Chart-Zeitraum wählen">
-            {timeRanges.map((item) => (
-              <button
-                key={item}
-                type="button"
-                aria-pressed={range === item}
-                aria-label={`Zeitraum ${item} anzeigen`}
-                onClick={() => setRange(item)}
-                className={`min-h-11 min-w-11 shrink-0 rounded px-3 text-sm transition ${
-                  range === item ? "bg-profit text-ink" : "text-muted hover:bg-panel2 hover:text-mist"
-                }`}
-              >
-                {item}
-              </button>
-            ))}
+          <div>
+            <div className="flex items-center gap-2">
+              <Layers3 className="h-5 w-5 text-cyan" />
+              <h2 className="text-lg font-semibold">Profi-Chart</h2>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-muted">
+              Benchmark-Overlay ist modelliert. Echte Benchmark-Daten brauchen einen lizenzierten Index-/ETF-Provider.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex max-w-full gap-1 overflow-x-auto rounded-md border border-stroke bg-panel p-1" role="group" aria-label="Chart-Zeitraum wählen">
+              {timeRanges.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  aria-pressed={range === item}
+                  aria-label={`Zeitraum ${item} anzeigen`}
+                  onClick={() => setRange(item)}
+                  className={`min-h-11 min-w-11 shrink-0 rounded px-3 text-sm transition ${
+                    range === item ? "bg-profit text-ink" : "text-muted hover:bg-panel2 hover:text-mist"
+                  }`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setChartFullscreen((current) => !current)}
+              className="inline-flex h-11 items-center gap-2 rounded-md border border-cyan/30 bg-cyan/10 px-3 text-sm font-semibold text-cyan"
+            >
+              {chartFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              {chartFullscreen ? "Schließen" : "Vollbild"}
+            </button>
           </div>
         </div>
-        <PriceLineChart candles={candles} />
+        <div className="flex flex-wrap gap-2 rounded-md border border-stroke bg-panel p-2" role="group" aria-label="Chart-Indikatoren steuern">
+          {chartToggles.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              aria-pressed={item.value}
+              onClick={() => item.set((current) => !current)}
+              className={`min-h-10 rounded-xl border px-3 text-xs font-semibold transition ${
+                item.value ? "border-profit/35 bg-profit/10 text-profit" : "border-stroke bg-coal text-muted hover:text-mist"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <PriceLineChart
+          candles={candles}
+          benchmarkCandles={benchmarkCandles}
+          benchmarkLabel="Benchmark"
+          showBenchmark={showBenchmark}
+          showSma={showSma}
+          showVolume={showVolume}
+        />
+        {chartStats ? (
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <Metric label={`Performance ${range}`} value={formatPercent(chartStats.periodReturnPercent)} tone={chartStats.periodReturnPercent >= 0 ? "text-profit" : "text-loss"} />
+            <Metric label="Volatilität geschätzt" value={formatPercent(chartStats.volatilityPercent)} tone="text-amber" />
+            <Metric label="Max. Drawdown" value={formatPercent(chartStats.maxDrawdownPercent)} tone="text-loss" />
+            <Metric label="Ø Volumen" value={formatCompact(chartStats.averageVolume)} />
+            <Metric label="Range-Hoch" value={formatCurrency(chartStats.high, detail.asset.currency)} tone="text-profit" />
+            <Metric label="Range-Tief" value={formatCurrency(chartStats.low, detail.asset.currency)} tone="text-loss" />
+            <Metric label="Chart-Modus" value={showBenchmark ? "Benchmark aktiv" : "Asset pur"} tone="text-cyan" />
+            <Metric label="Präferenzen" value="Offline gespeichert" tone="text-cyan" />
+          </div>
+        ) : null}
         <CandlestickChart candles={candles} />
       </section>
 
@@ -225,16 +385,16 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Metric label="RSI" value={`${detail.indicators.rsi}`} tone={detail.indicators.rsi > 70 ? "text-loss" : detail.indicators.rsi < 30 ? "text-amber" : "text-profit"} />
-            <Metric label="MACD" value={`${detail.indicators.macd.value} / Signal ${detail.indicators.macd.signal}`} />
+            <Metric label="MACD" value={`${formatMaybeNumber(detail.indicators.macd.value)} / Signal ${formatMaybeNumber(detail.indicators.macd.signal)}`} />
             <Metric label="MA 20" value={formatCurrency(detail.indicators.movingAverages.ma20, detail.asset.currency)} />
             <Metric label="MA 50" value={formatCurrency(detail.indicators.movingAverages.ma50, detail.asset.currency)} />
             <Metric label="MA 200" value={formatCurrency(detail.indicators.movingAverages.ma200, detail.asset.currency)} />
             <Metric
               label="Bollinger Bands"
-              value={`${detail.indicators.bollingerBands.lower} - ${detail.indicators.bollingerBands.upper}`}
+              value={`${formatMaybeCurrency(detail.indicators.bollingerBands.lower, detail.asset.currency)} - ${formatMaybeCurrency(detail.indicators.bollingerBands.upper, detail.asset.currency)}`}
             />
-            <Metric label="Support" value={detail.indicators.support.join(" / ")} />
-            <Metric label="Resistance" value={detail.indicators.resistance.join(" / ")} />
+            <Metric label="Support" value={detail.indicators.support.length ? detail.indicators.support.map((value) => formatMaybeCurrency(value, detail.asset.currency)).join(" / ") : "n/a"} />
+            <Metric label="Resistance" value={detail.indicators.resistance.length ? detail.indicators.resistance.map((value) => formatMaybeCurrency(value, detail.asset.currency)).join(" / ") : "n/a"} />
           </div>
         </div>
 

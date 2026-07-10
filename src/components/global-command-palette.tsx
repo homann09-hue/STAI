@@ -44,6 +44,41 @@ const quickActions = [
   { href: "/settings", label: "Settings", icon: Settings2 }
 ];
 
+const SAFE_ASSET_SYMBOL_PATTERN = /^[A-Z0-9.\-:/]{1,24}$/i;
+const MAX_QUERY_CHARS = 80;
+
+function safeText(value: unknown, fallback: string, maxLength: number) {
+  if (typeof value !== "string") return fallback;
+  const cleaned = value
+    .replace(/[<>\u0000-\u001F\u007F]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+
+  return cleaned || fallback;
+}
+
+function safeSymbol(value: unknown) {
+  if (typeof value !== "string") return null;
+  const symbol = value.trim().toUpperCase();
+  return SAFE_ASSET_SYMBOL_PATTERN.test(symbol) ? symbol : null;
+}
+
+function safeInstrument(value: MarketUniverseInstrument): MarketUniverseInstrument | null {
+  const symbol = safeSymbol(value.symbol);
+  if (!symbol) return null;
+
+  return {
+    ...value,
+    symbol,
+    name: safeText(value.name, `${symbol} Asset`, 120),
+    exchange: safeText(value.exchange, "Exchange offen", 48),
+    provider: safeText(value.provider, "Provider offen", 64),
+    assetClass: safeText(value.assetClass, "asset", 24) as MarketUniverseInstrument["assetClass"],
+    quoteQuality: safeText(value.quoteQuality, "unavailable", 24) as MarketUniverseInstrument["quoteQuality"]
+  };
+}
+
 export function GlobalCommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -59,11 +94,16 @@ export function GlobalCommandPalette() {
   }, [query]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setAssetResults([]);
+      setQuotes({});
+      setAssetSearchStatus("idle");
+      return;
+    }
 
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
-      const normalized = query.trim();
+      const normalized = safeText(query, "", MAX_QUERY_CHARS);
       const params = new URLSearchParams({
         q: normalized,
         limit: normalized ? "8" : "6"
@@ -71,6 +111,8 @@ export function GlobalCommandPalette() {
 
       try {
         setAssetSearchStatus("loading");
+        setAssetResults([]);
+        setQuotes({});
         const response = await fetch(`/api/market/universe?${params.toString()}`, {
           cache: "no-store",
           signal: controller.signal
@@ -79,13 +121,19 @@ export function GlobalCommandPalette() {
         if (!response.ok) throw new Error("Universe search failed");
 
         const payload = (await response.json()) as { instruments?: MarketUniverseInstrument[] };
-        const instruments = payload.instruments ?? [];
+        if (controller.signal.aborted) return;
+
+        const instruments = (payload.instruments ?? [])
+          .map(safeInstrument)
+          .filter((item): item is MarketUniverseInstrument => Boolean(item))
+          .slice(0, 8);
         setAssetResults(instruments);
 
         const symbols = instruments
           .map((item) => item.symbol)
-          .filter((symbol) => /^[A-Z0-9.-]{1,18}$/.test(symbol))
+          .filter((symbol) => SAFE_ASSET_SYMBOL_PATTERN.test(symbol))
           .slice(0, 8);
+        const allowedSymbols = new Set(symbols);
 
         if (symbols.length) {
           const quoteResponse = await fetch(`/api/market/quotes?symbols=${encodeURIComponent(symbols.join(","))}`, {
@@ -93,9 +141,15 @@ export function GlobalCommandPalette() {
             signal: controller.signal
           });
 
+          if (controller.signal.aborted) return;
+
           if (quoteResponse.ok) {
             const quotePayload = (await quoteResponse.json()) as { quotes?: NormalizedQuote[] };
-            setQuotes(Object.fromEntries((quotePayload.quotes ?? []).map((quote) => [quote.symbol, quote])));
+            if (controller.signal.aborted) return;
+            setQuotes(Object.fromEntries((quotePayload.quotes ?? [])
+              .filter((quote) => allowedSymbols.has(safeSymbol(quote.symbol) ?? ""))
+              .slice(0, symbols.length)
+              .map((quote) => [safeSymbol(quote.symbol) ?? quote.symbol, quote])));
           } else {
             setQuotes({});
           }
@@ -151,7 +205,7 @@ export function GlobalCommandPalette() {
               <input
                 autoFocus
                 value={query}
-                onChange={(event) => setQuery(event.target.value.slice(0, 80))}
+                onChange={(event) => setQuery(event.target.value.slice(0, MAX_QUERY_CHARS))}
                 placeholder="Suche Seite, Asset, Funktion oder Provider..."
                 className="h-11 min-w-0 flex-1 bg-transparent text-base text-mist outline-none placeholder:text-muted"
                 aria-label="Globale Suche"

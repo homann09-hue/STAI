@@ -14,6 +14,8 @@ type CostControlConfig = {
   streamMinIntervalMs: number;
 };
 
+const ABSOLUTE_STREAM_MIN_INTERVAL_MS = 5000;
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -38,7 +40,12 @@ export function cacheControlHeaders(ttlMs: number, staleTtlMs: number) {
 }
 
 export function getCostControls(): CostControlConfig {
-  const streamMinIntervalMs = envNumber("STOCKPILOT_STREAM_MIN_INTERVAL_MS", 5000, 1000, 60000);
+  const streamMinIntervalMs = envNumber(
+    "STOCKPILOT_STREAM_MIN_INTERVAL_MS",
+    ABSOLUTE_STREAM_MIN_INTERVAL_MS,
+    ABSOLUTE_STREAM_MIN_INTERVAL_MS,
+    60000
+  );
   const streamMaxIntervalMs = envNumber("STOCKPILOT_STREAM_MAX_INTERVAL_MS", 60000, streamMinIntervalMs, 300000);
   const streamDefaultIntervalMs = envNumber(
     "STOCKPILOT_STREAM_INTERVAL_MS",

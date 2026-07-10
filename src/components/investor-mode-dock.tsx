@@ -27,13 +27,21 @@ export function InvestorModeDock() {
   const [mode, setMode] = useState<InvestorMode>("beginner");
 
   useEffect(() => {
-    const stored = window.localStorage.getItem("stockpilot:investor-mode") as InvestorMode | null;
-    if (stored && stored in modes) setMode(stored);
+    try {
+      const stored = window.localStorage.getItem("stockpilot:investor-mode") as InvestorMode | null;
+      if (stored && stored in modes) setMode(stored);
+    } catch {
+      setMode("beginner");
+    }
   }, []);
 
   function selectMode(nextMode: InvestorMode) {
     setMode(nextMode);
-    window.localStorage.setItem("stockpilot:investor-mode", nextMode);
+    try {
+      window.localStorage.setItem("stockpilot:investor-mode", nextMode);
+    } catch {
+      // Der Modus bleibt in der laufenden Sitzung aktiv, auch wenn localStorage blockiert ist.
+    }
     window.dispatchEvent(new CustomEvent("stockpilot:investor-mode", { detail: nextMode }));
   }
 

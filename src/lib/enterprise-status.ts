@@ -50,6 +50,8 @@ export function getEnterpriseStatus(): EnterpriseStatus {
     diagnostics.configured.alphaVantage ||
     diagnostics.configured.newsApi ||
     diagnostics.configured.marketaux;
+  const supabaseConfigured = diagnostics.configured.supabase;
+  const supabaseRlsVerified = enabled("STOCKPILOT_ENTERPRISE_SUPABASE_RLS_VERIFIED");
 
   const controls: EnterpriseControl[] = [
     control({
@@ -82,9 +84,13 @@ export function getEnterpriseStatus(): EnterpriseStatus {
     control({
       id: "supabase-rls",
       title: "Supabase RLS model",
-      state: "ready",
+      state: supabaseRlsVerified ? "ready" : supabaseConfigured ? "warning" : "missing",
       category: "security",
-      detail: "User-data tables have row-level security and owner-scoped policies prepared in the schema and migrations.",
+      detail: supabaseRlsVerified
+        ? "Supabase RLS has been externally verified for user-data tables and owner-scoped policies."
+        : supabaseConfigured
+          ? "Supabase is configured, but live RLS/advisor verification has not been marked complete. Do not treat this as enterprise-ready yet."
+          : "Supabase is not configured, so user-data RLS cannot be verified in this environment.",
       owner: "Engineering",
       runbook: "supabase/schema.sql",
     }),

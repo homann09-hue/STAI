@@ -18,10 +18,13 @@ export async function GET(request: Request, { params }: RouteContext) {
     return jsonError("Ungültiges Symbol.", 400);
   }
 
+  const provider = getMarketDataProvider();
+  const ttlMs = 5000;
+  const staleTtlMs = 120000;
   const result = await withCacheFallback(
     `asset:${parsed.data}`,
-    () => getMarketDataProvider().getAsset(parsed.data),
-    { ttlMs: 5000 }
+    () => provider.getAsset(parsed.data),
+    { ttlMs, staleTtlMs }
   );
   const detail = result.value;
 
@@ -29,10 +32,26 @@ export async function GET(request: Request, { params }: RouteContext) {
     return jsonError("Asset nicht gefunden.", 404);
   }
 
-  return jsonOk(detail, {
+  return jsonOk({
+    ...detail,
+    metadata: {
+      provider: provider.providerName,
+      quality: result.fromCache ? "cached" : detail.quote.quality,
+      streamMode: provider.streamMode,
+      fromCache: result.fromCache,
+      cacheStoredAt: result.cacheStoredAt,
+      cacheWarning: result.warning,
+      ttlMs,
+      staleTtlMs,
+      disclaimer:
+        "Asset-Details können realtime, delayed, cached oder mock sein. Scores und KI-Texte sind keine Anlageberatung."
+    }
+  }, {
     headers: {
       "Cache-Control": "s-maxage=30, stale-while-revalidate=120",
-      "X-StockPilot-Cache": result.fromCache ? "fallback" : "fresh"
+      "X-StockPilot-Cache": result.fromCache ? "fallback" : "fresh",
+      "X-StockPilot-Provider": provider.providerName,
+      "X-StockPilot-Data-Quality": result.fromCache ? "cached" : detail.quote.quality
     }
   });
 }

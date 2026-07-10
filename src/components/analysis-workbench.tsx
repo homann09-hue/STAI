@@ -13,10 +13,67 @@ type SavedAnalysis = {
   createdAt: string;
 };
 
+const MAX_SAVED_ANALYSES = 12;
+const MAX_SYMBOL_INPUT_LENGTH = 32;
+const MAX_SCORE_INPUT_LENGTH = 8;
+const MAX_NEWS_LENGTH = 240;
+
+function clampScore(value: unknown, fallback = 0) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(100, Math.max(0, parsed));
+}
+
+function cleanSymbol(value: unknown) {
+  return typeof value === "string"
+    ? value.trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "").slice(0, 16)
+    : "";
+}
+
+function cleanText(value: unknown, maxLength: number, fallback: string) {
+  if (typeof value !== "string") return fallback;
+  const cleaned = value.replace(/[<>\u0000-\u001F\u007F]/gu, "").replace(/\s+/g, " ").trim().slice(0, maxLength);
+  return cleaned || fallback;
+}
+
+function cleanDate(value: unknown) {
+  if (typeof value !== "string") return new Date().toISOString();
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : new Date().toISOString();
+}
+
+function normalizeSavedAnalyses(value: unknown): SavedAnalysis[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .slice(0, MAX_SAVED_ANALYSES)
+    .map((item, index) => {
+      if (!item || typeof item !== "object") return null;
+      const candidate = item as Partial<SavedAnalysis>;
+      const symbol = cleanSymbol(candidate.symbol);
+
+      if (!symbol) return null;
+
+      return {
+        id: cleanText(candidate.id, 120, `analysis-${index}`),
+        symbol,
+        score: Math.round(clampScore(candidate.score)),
+        risk: Math.round(clampScore(candidate.risk)),
+        news: cleanText(candidate.news, MAX_NEWS_LENGTH, "Datenlage nicht verfügbar."),
+        createdAt: cleanDate(candidate.createdAt)
+      };
+    })
+    .filter((item): item is SavedAnalysis => Boolean(item));
+}
+
 function tone(score: number) {
   if (score >= 70) return "text-profit";
   if (score >= 45) return "text-amber";
   return "text-loss";
+}
+
+function cleanScoreInput(value: string) {
+  return value.replace(/[^0-9.,-]/g, "").slice(0, MAX_SCORE_INPUT_LENGTH);
 }
 
 export function AnalysisWorkbench() {
@@ -27,7 +84,7 @@ export function AnalysisWorkbench() {
   const [saved, setSaved] = useState<SavedAnalysis[]>([]);
 
   useEffect(() => {
-    setSaved(readOfflineValue<SavedAnalysis[]>(OFFLINE_KEYS.analysisWorkbench) ?? []);
+    setSaved(normalizeSavedAnalyses(readOfflineValue<unknown>(OFFLINE_KEYS.analysisWorkbench)));
   }, []);
 
   useEffect(() => {
@@ -35,8 +92,8 @@ export function AnalysisWorkbench() {
   }, [saved]);
 
   const model = useMemo(() => {
-    const cleanScore = Math.min(100, Math.max(0, Number(score) || 0));
-    const cleanRisk = Math.min(100, Math.max(0, Number(risk) || 0));
+    const cleanScore = clampScore(score);
+    const cleanRisk = clampScore(risk);
     const rawUp = Math.min(82, Math.max(8, cleanScore * 0.72 + (100 - cleanRisk) * 0.18));
     const rawDown = Math.min(82, Math.max(8, cleanRisk * 0.58 + (100 - cleanScore) * 0.22));
     const rawSideways = Math.max(8, 100 - rawUp - rawDown);
@@ -57,19 +114,23 @@ export function AnalysisWorkbench() {
   }, [risk, score]);
 
   function saveAnalysis() {
-    const cleanSymbol = symbol.trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "").slice(0, 16);
-    if (!cleanSymbol) return;
+    const normalizedSymbol = cleanSymbol(symbol);
+    if (!normalizedSymbol) return;
     setSaved((current) => [
       {
         id: `analysis-${Date.now()}`,
-        symbol: cleanSymbol,
-        score: model.cleanScore,
-        risk: model.cleanRisk,
-        news: news.replace(/[<>]/g, "").slice(0, 240),
+        symbol: normalizedSymbol,
+        score: Math.round(model.cleanScore),
+        risk: Math.round(model.cleanRisk),
+        news: cleanText(news, MAX_NEWS_LENGTH, "Datenlage nicht verfügbar."),
         createdAt: new Date().toISOString()
       },
-      ...current
-    ].slice(0, 12));
+      ...current.filter((item) => item.symbol !== normalizedSymbol)
+    ].slice(0, MAX_SAVED_ANALYSES));
+    setSymbol(normalizedSymbol);
+    setScore(String(Math.round(model.cleanScore)));
+    setRisk(String(Math.round(model.cleanRisk)));
+    setNews(cleanText(news, MAX_NEWS_LENGTH, "Datenlage nicht verfügbar."));
   }
 
   return (
@@ -92,19 +153,19 @@ export function AnalysisWorkbench() {
           <div className="mt-4 grid gap-3">
             <label className="text-sm text-muted">
               Symbol
-              <input value={symbol} onChange={(event) => setSymbol(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
+              <input value={symbol} maxLength={MAX_SYMBOL_INPUT_LENGTH} onChange={(event) => setSymbol(event.target.value.slice(0, MAX_SYMBOL_INPUT_LENGTH))} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
             </label>
             <label className="text-sm text-muted">
               Gesamt-Score 0-100
-              <input value={score} inputMode="numeric" onChange={(event) => setScore(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
+              <input value={score} inputMode="numeric" maxLength={MAX_SCORE_INPUT_LENGTH} onChange={(event) => setScore(cleanScoreInput(event.target.value))} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
             </label>
             <label className="text-sm text-muted">
               Risiko 0-100
-              <input value={risk} inputMode="numeric" onChange={(event) => setRisk(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
+              <input value={risk} inputMode="numeric" maxLength={MAX_SCORE_INPUT_LENGTH} onChange={(event) => setRisk(cleanScoreInput(event.target.value))} className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan" />
             </label>
             <label className="text-sm text-muted">
               Nachrichten-/Datenlage
-              <textarea value={news} onChange={(event) => setNews(event.target.value.slice(0, 240))} className="mt-2 min-h-28 w-full rounded-xl border border-stroke bg-coal px-3 py-3 text-mist outline-none focus:border-cyan" />
+              <textarea value={news} maxLength={MAX_NEWS_LENGTH} onChange={(event) => setNews(event.target.value.slice(0, MAX_NEWS_LENGTH))} className="mt-2 min-h-28 w-full rounded-xl border border-stroke bg-coal px-3 py-3 text-mist outline-none focus:border-cyan" />
             </label>
             <button type="button" onClick={saveAnalysis} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-profit px-4 font-semibold text-ink">
               <Save className="h-4 w-4" />

@@ -1,7 +1,9 @@
 import { assessDataQuality } from "@/lib/data-quality";
 import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
 import { logEvent } from "@/lib/observability";
+import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
 import { getServerCacheAdapter } from "@/lib/server-cache";
+import { safeDecodeURIComponent } from "@/lib/validation";
 import type {
   Asset,
   AssetDetail,
@@ -174,7 +176,7 @@ function inferAssetType(symbol: string, fallback?: Asset["type"]): Asset["type"]
 }
 
 function symbolForProvider(symbol: string, provider: MarketProviderId) {
-  const normalized = decodeURIComponent(symbol).toUpperCase();
+  const normalized = safeDecodeURIComponent(symbol).trim().toUpperCase();
 
   if (provider === "binance") {
     return normalized.replace("-USD", "USDT").replace("/", "");
@@ -196,7 +198,7 @@ function symbolForProvider(symbol: string, provider: MarketProviderId) {
 }
 
 function isCryptoSymbol(symbol: string) {
-  const normalized = decodeURIComponent(symbol).toUpperCase();
+  const normalized = safeDecodeURIComponent(symbol).trim().toUpperCase();
   return normalized.includes("-USD") || normalized.includes("/USD") || normalized.endsWith("USDT");
 }
 
@@ -204,16 +206,6 @@ function envQuality(name: string, fallback: MarketDataQuality) {
   const value = process.env[name] as MarketDataQuality | undefined;
   const allowed: MarketDataQuality[] = ["realtime", "near_realtime", "delayed", "historical", "mock", "unavailable"];
   return value && allowed.includes(value) ? value : fallback;
-}
-
-function parseRetryAfterMs(value: string | null) {
-  if (!value) return undefined;
-  const seconds = Number(value);
-  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
-
-  const date = Date.parse(value);
-  if (Number.isFinite(date)) return Math.max(0, date - Date.now());
-  return undefined;
 }
 
 function isRateLimitError(error: unknown) {
@@ -389,30 +381,20 @@ async function getCachedProviderQuotes(provider: QuoteProvider, symbols: string[
 }
 
 async function fetchJson<T>(url: URL, providerName: string, timeoutMs = 4500): Promise<{ data: T; latencyMs: number }> {
-  const started = Date.now();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
-    const response = await fetch(url, {
-      cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "StockPilotAI/0.1 market-data-layer"
-      },
-      signal: controller.signal
+    return await fetchBoundedProviderJson<T>(url, providerName, {
+      timeoutMs,
+      userAgent: "StockPilotAI/0.1 market-data-layer"
     });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const status = Number(message.match(/\bHTTP\s+(\d{3})\b/)?.[1]);
 
-    if (!response.ok) {
-      throw new ProviderHttpError(providerName, response.status, parseRetryAfterMs(response.headers.get("retry-after")));
+    if (Number.isFinite(status)) {
+      throw new ProviderHttpError(providerName, status, undefined);
     }
 
-    return {
-      data: (await response.json()) as T,
-      latencyMs: Date.now() - started
-    };
-  } finally {
-    clearTimeout(timeout);
+    throw error;
   }
 }
 
@@ -550,7 +532,7 @@ function enrichSummaryWithQuote(summary: AssetSummary, normalized: NormalizedQuo
 }
 
 function uniqueSymbols(symbols: string[]) {
-  return [...new Set(symbols.map((symbol) => decodeURIComponent(symbol).trim().toUpperCase()).filter(Boolean))].slice(0, MAX_BATCH_SIZE);
+  return [...new Set(symbols.map((symbol) => safeDecodeURIComponent(symbol).trim().toUpperCase()).filter(Boolean))].slice(0, MAX_BATCH_SIZE);
 }
 
 function pollingBatchKey(provider: NearRealtimeProvider, symbols: string[]) {

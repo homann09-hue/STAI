@@ -7,7 +7,7 @@ export default function NotFound() {
         <p className="text-sm text-muted">404</p>
         <h1 className="mt-2 text-2xl font-semibold">Analyse nicht gefunden</h1>
         <p className="mt-3 text-sm leading-6 text-muted">
-          Fur dieses Symbol liegen aktuell keine Mock-Daten vor.
+          Für dieses Symbol liegen aktuell keine belastbaren Daten vor. Bitte prüfe Symbol, Schreibweise und Datenquelle.
         </p>
         <Link
           href="/"

@@ -1,9 +1,29 @@
 import { getMockAsset } from "@/lib/mock/market";
-import type { Fundamentals } from "@/lib/types";
+import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import type { Fundamentals, MarketDataQuality } from "@/lib/types";
 
 export interface FundamentalsProvider {
   getFundamentals(symbol: string): Promise<Fundamentals | null>;
 }
+
+export type FundamentalsProviderMetadata = {
+  provider: string;
+  quality: MarketDataQuality;
+  fields: Partial<Record<keyof Fundamentals, "provider" | "mock" | "unavailable">>;
+  fieldCoverage: {
+    provider: number;
+    mock: number;
+    unavailable: number;
+    total: number;
+  };
+  caveat: string | null;
+  fallback: {
+    degraded: boolean;
+    mockLike: boolean;
+    fallbackFields: string[];
+    warning: string | null;
+  };
+};
 
 class MockFundamentalsProvider implements FundamentalsProvider {
   async getFundamentals(symbol: string) {
@@ -26,28 +46,107 @@ function hasObjectData(value: Record<string, unknown>) {
   return Object.keys(value).length > 0;
 }
 
-async function fetchJson<T>(url: URL, providerName: string, timeoutMs = 7000): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+function selectedFundamentalsProvider() {
+  return (process.env.STOCKPILOT_FUNDAMENTALS_PROVIDER ?? "mock").trim().toLowerCase();
+}
 
-  try {
-    const response = await fetch(url, {
-      cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "StockPilotAI/0.1 fundamentals-layer"
-      },
-      signal: controller.signal
-    });
+function hasConfiguredFundamentalsProvider(provider: string) {
+  if (provider === "fmp") return Boolean(process.env.FMP_API_KEY);
+  if (provider === "alpha_vantage") return Boolean(process.env.ALPHA_VANTAGE_API_KEY);
+  if (provider === "auto") return Boolean(process.env.FMP_API_KEY || process.env.ALPHA_VANTAGE_API_KEY);
+  return false;
+}
 
-    if (!response.ok) {
-      throw new Error(`${providerName} HTTP ${response.status}`);
+function fundamentalsProviderLabel(provider: string) {
+  if (provider === "fmp") return "Financial Modeling Prep";
+  if (provider === "alpha_vantage") return "Alpha Vantage";
+  if (provider === "auto") return "Fundamentals Provider Auto-Fallback";
+  return "StockPilot Mock Fundamentals";
+}
+
+function sameMetric(a: number | null | undefined, b: number | null | undefined) {
+  return a === b || (a === null && b === undefined) || (a === undefined && b === null);
+}
+
+const fundamentalsMetricKeys = [
+  "peRatio",
+  "revenueGrowth",
+  "earningsGrowth",
+  "debtToEquity",
+  "cashflow",
+  "dividendYield",
+  "marketCap"
+] as const satisfies ReadonlyArray<keyof Fundamentals>;
+
+function mockLikeFundamentalFields(symbol: string, fundamentals: Fundamentals | null) {
+  const mock = getMockAsset(symbol)?.fundamentals;
+  if (!mock || !fundamentals) return [];
+
+  return fundamentalsMetricKeys.filter((key) => sameMetric(fundamentals[key], mock[key]));
+}
+
+function fundamentalFieldSources(symbol: string, fundamentals: Fundamentals | null) {
+  const fallbackFields = mockLikeFundamentalFields(symbol, fundamentals);
+
+  return Object.fromEntries(
+    fundamentalsMetricKeys.map((key) => [
+      key,
+      !fundamentals || fundamentals[key] === null || fundamentals[key] === undefined
+        ? "unavailable"
+        : fallbackFields.includes(key)
+          ? "mock"
+          : "provider"
+    ])
+  ) as Partial<Record<keyof Fundamentals, "provider" | "mock" | "unavailable">>;
+}
+
+function buildFundamentalsMetadata(symbol: string, fundamentals: Fundamentals | null): FundamentalsProviderMetadata {
+  const provider = selectedFundamentalsProvider();
+  const configured = hasConfiguredFundamentalsProvider(provider);
+  const fallbackFields = mockLikeFundamentalFields(symbol, fundamentals);
+  const fields = fundamentalFieldSources(symbol, fundamentals);
+  const fieldCoverage = {
+    provider: fundamentalsMetricKeys.filter((key) => fields[key] === "provider").length,
+    mock: fundamentalsMetricKeys.filter((key) => fields[key] === "mock").length,
+    unavailable: fundamentalsMetricKeys.filter((key) => fields[key] === "unavailable").length,
+    total: fundamentalsMetricKeys.length
+  };
+  const mockLike = Boolean(fundamentals && fallbackFields.length === fundamentalsMetricKeys.length);
+  const partiallyMockLike = fallbackFields.length > 0;
+  const providerIsMock = provider === "mock";
+  const degraded = !fundamentals || partiallyMockLike || providerIsMock || !configured;
+  const quality: MarketDataQuality = !fundamentals
+    ? "unavailable"
+    : mockLike || providerIsMock || !configured
+      ? "mock"
+      : "delayed";
+
+  return {
+    provider: mockLike || providerIsMock ? "StockPilot Mock Fundamentals" : fundamentalsProviderLabel(provider),
+    quality,
+    fields,
+    fieldCoverage,
+    caveat: fundamentals && !degraded
+      ? "Providerdaten koennen je nach Anbieter verzögert, gecached oder unvollständig sein."
+      : null,
+    fallback: {
+      degraded,
+      mockLike,
+      fallbackFields,
+      warning: degraded
+        ? "Fundamentaldaten stammen ganz oder teilweise aus Mock-/Fallback-Daten. Nicht als bestätigte Unternehmenskennzahlen interpretieren."
+        : null
     }
+  };
+}
 
-    return (await response.json()) as T;
-  } finally {
-    clearTimeout(timeout);
-  }
+async function fetchJson<T>(url: URL, providerName: string, timeoutMs = 7000): Promise<T> {
+  const { data } = await fetchBoundedProviderJson<T>(url, providerName, {
+    timeoutMs,
+    userAgent: "StockPilotAI/0.1 fundamentals-layer"
+  });
+
+  return data;
 }
 
 class FmpFundamentalsProvider implements FundamentalsProvider {
@@ -181,7 +280,7 @@ class FallbackFundamentalsProvider implements FundamentalsProvider {
 }
 
 export function getFundamentalsProvider(): FundamentalsProvider {
-  const provider = (process.env.STOCKPILOT_FUNDAMENTALS_PROVIDER ?? "mock").trim().toLowerCase();
+  const provider = selectedFundamentalsProvider();
   const fmp = new FmpFundamentalsProvider();
   const alphaVantage = new AlphaVantageFundamentalsProvider();
   const mock = new MockFundamentalsProvider();
@@ -202,4 +301,13 @@ export function getFundamentalsProvider(): FundamentalsProvider {
     default:
       return mock;
   }
+}
+
+export async function getFundamentalsWithMetadata(symbol: string) {
+  const fundamentals = await getFundamentalsProvider().getFundamentals(symbol);
+
+  return {
+    fundamentals,
+    metadata: buildFundamentalsMetadata(symbol, fundamentals)
+  };
 }

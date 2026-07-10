@@ -6,7 +6,7 @@ import { absoluteUrl, siteConfig } from "@/lib/seo";
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: "StockPilot AI - Professionelle Investment-Analyse",
+    default: "StockPilot AI - Datenqualität, Risiko und Marktanalyse",
     template: "%s | StockPilot AI"
   },
   description: siteConfig.description,
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     locale: siteConfig.locale,
     url: siteConfig.url,
     siteName: siteConfig.name,
-    title: "StockPilot AI - Finanzterminal für Aktien, ETFs und Krypto",
+    title: "StockPilot AI - Marktanalyse mit transparentem Datenstatus",
     description: siteConfig.description,
     images: [
       {
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "StockPilot AI - Professionelle Investment-Analyse",
+    title: "StockPilot AI - Risiko- und Marktanalyse",
     description: siteConfig.description,
     images: [absoluteUrl("/opengraph-image")]
   },

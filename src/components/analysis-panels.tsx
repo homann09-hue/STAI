@@ -16,17 +16,22 @@ import type {
   RiskEngineReport
 } from "@/lib/types";
 
+function clampScore(value: number) {
+  return Number.isFinite(value) ? Math.min(100, Math.max(0, Math.round(value))) : 0;
+}
+
 function SmallMeter({ label, value, danger }: { label: string; value: number; danger?: boolean }) {
+  const safeValue = clampScore(value);
   return (
     <div className="rounded-md border border-stroke bg-panel p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-xs text-muted">{label}</p>
-        <p className="font-mono text-lg font-semibold">{value}</p>
+        <p className="font-mono text-lg font-semibold">{safeValue}</p>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-stroke">
         <div
           className={`h-full rounded-full ${danger ? "bg-gradient-to-r from-profit via-amber to-loss" : "bg-gradient-to-r from-loss via-amber to-profit"}`}
-          style={{ width: `${value}%` }}
+          style={{ width: `${safeValue}%` }}
         />
       </div>
     </div>
@@ -63,21 +68,25 @@ export function ProfessionalScoresPanel({ scores }: { scores: ProfessionalScores
 }
 
 export function ProbabilityPanel({ scores }: { scores: ProfessionalScores }) {
+  const up = clampScore(scores.probabilityUp);
+  const down = clampScore(scores.probabilityDown);
+  const sideways = clampScore(scores.probabilitySideways);
+
   return (
     <div className="rounded-md border border-amber/30 bg-amber/10 p-4">
       <p className="text-sm font-semibold text-amber">Modellbasierte Wahrscheinlichkeiten</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <div>
           <p className="text-xs text-muted">Steigender Kurs</p>
-          <p className="font-mono text-2xl text-profit">{scores.probabilityUp}%</p>
+          <p className="font-mono text-2xl text-profit">{up}%</p>
         </div>
         <div>
           <p className="text-xs text-muted">Fallender Kurs</p>
-          <p className="font-mono text-2xl text-loss">{scores.probabilityDown}%</p>
+          <p className="font-mono text-2xl text-loss">{down}%</p>
         </div>
         <div>
           <p className="text-xs text-muted">Seitwärts</p>
-          <p className="font-mono text-2xl text-amber">{scores.probabilitySideways}%</p>
+          <p className="font-mono text-2xl text-amber">{sideways}%</p>
         </div>
       </div>
       <p className="mt-3 text-xs leading-5 text-amber">{probabilityDisclaimer}</p>
@@ -86,6 +95,9 @@ export function ProbabilityPanel({ scores }: { scores: ProfessionalScores }) {
 }
 
 export function DataQualityPanel({ quality }: { quality: DataQualityReport }) {
+  const confidence = clampScore(quality.confidence);
+  const score = clampScore(quality.score);
+
   return (
     <div className="rounded-md border border-stroke bg-panel p-4">
       <div className="mb-4 flex items-start justify-between gap-3">
@@ -95,10 +107,10 @@ export function DataQualityPanel({ quality }: { quality: DataQualityReport }) {
             <p className="text-sm font-semibold">Datenqualität</p>
           </div>
           <p className="mt-1 text-xs text-muted">
-            {quality.sourceLabel}, Vertrauen {quality.confidence}/100, Status {quality.freshness}
+            {quality.sourceLabel}, Vertrauen {confidence}/100, Status {quality.freshness}
           </p>
         </div>
-        <p className="font-mono text-2xl font-semibold">{quality.score}</p>
+        <p className="font-mono text-2xl font-semibold">{score}</p>
       </div>
       <div className="space-y-2">
         {quality.sources.map((source) => (
@@ -123,6 +135,8 @@ export function DataQualityPanel({ quality }: { quality: DataQualityReport }) {
 }
 
 export function RiskEnginePanel({ report }: { report: RiskEngineReport }) {
+  const score = clampScore(report.score);
+
   return (
     <div className="rounded-md border border-stroke bg-panel p-4">
       <div className="mb-4 flex items-start justify-between gap-3">
@@ -134,7 +148,7 @@ export function RiskEnginePanel({ report }: { report: RiskEngineReport }) {
           <p className="mt-1 text-xs leading-5 text-muted">{report.summary}</p>
         </div>
         <span className={`rounded-md border px-3 py-2 text-sm ${riskTone(report.level)}`}>
-          {report.score}/100
+          {score}/100
         </span>
       </div>
       <div className="space-y-3">

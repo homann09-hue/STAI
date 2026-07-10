@@ -4,7 +4,7 @@ export const siteConfig = {
   name: "StockPilot AI",
   shortName: "STAI",
   description:
-    "Professionelle Investment-Analyse-App für Aktien, ETFs, Krypto, Indizes und Portfolio-Risiko mit Datenqualität, Watchlists, Charts und KI-Einschätzungen.",
+    "Finanzanalyse-PWA für Aktien, ETFs, Krypto, Indizes und Portfolios mit sichtbarer Datenqualität, Risiko-Hinweisen, Watchlists, Charts und modellbasierten KI-Einschätzungen.",
   url: siteUrlFromEnv(),
   locale: "de_DE",
   creator: "StockPilot AI",
@@ -16,7 +16,7 @@ export const siteConfig = {
     "Investment Dashboard",
     "Finanzterminal",
     "Marktdaten",
-    "KI Aktienanalyse",
+    "modellbasierte Aktienanalyse",
     "Watchlist",
     "Risikoanalyse"
   ]

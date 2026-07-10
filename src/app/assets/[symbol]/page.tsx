@@ -4,6 +4,7 @@ import { cache } from "react";
 import { AssetDetailView } from "@/components/asset-detail-view";
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
 import { absoluteUrl, siteConfig } from "@/lib/seo";
+import { validateSymbol } from "@/lib/validation";
 
 type PageProps = {
   params: Promise<{ symbol: string }>;
@@ -15,7 +16,19 @@ const getAssetDetail = cache(async (symbol: string) => getMarketDataProvider().g
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { symbol } = await params;
-  const normalizedSymbol = decodeURIComponent(symbol).toUpperCase();
+  const parsedSymbol = validateSymbol(symbol);
+
+  if (!parsedSymbol.success) {
+    return {
+      title: "Asset nicht gefunden",
+      robots: {
+        index: false,
+        follow: false
+      }
+    };
+  }
+
+  const normalizedSymbol = parsedSymbol.data;
   const detail = await getAssetDetail(normalizedSymbol);
 
   if (!detail) {
@@ -75,7 +88,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function AssetPage({ params }: PageProps) {
   const { symbol } = await params;
-  const detail = await getAssetDetail(decodeURIComponent(symbol).toUpperCase());
+  const parsedSymbol = validateSymbol(symbol);
+
+  if (!parsedSymbol.success) notFound();
+
+  const detail = await getAssetDetail(parsedSymbol.data);
 
   if (!detail) notFound();
 

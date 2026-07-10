@@ -11,6 +11,19 @@ type DataQualityProps = {
   compact?: boolean;
 };
 
+function formatUpdatedAt(updatedAt?: string) {
+  if (!updatedAt) return "nicht verfügbar";
+  const date = new Date(updatedAt);
+  return Number.isFinite(date.getTime())
+    ? new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "medium" }).format(date)
+    : "nicht verfügbar";
+}
+
+function safeProvider(provider?: string) {
+  const normalized = provider?.trim();
+  return normalized ? normalized.slice(0, 80) : "nicht verfügbar";
+}
+
 export function DataQualityBadge({
   quality,
   marketStatus = "unknown",
@@ -43,9 +56,7 @@ export function DataQualityNotice({
   title?: string;
 }) {
   const display = getDataQualityDisplay({ quality, marketStatus, delayedByMinutes, fromCache, offline });
-  const formattedUpdatedAt = updatedAt
-    ? new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "medium" }).format(new Date(updatedAt))
-    : "nicht verfügbar";
+  const formattedUpdatedAt = formatUpdatedAt(updatedAt);
 
   return (
     <div className={`rounded-2xl border p-3 text-xs leading-5 ${display.tone}`}>
@@ -62,7 +73,7 @@ export function DataQualityNotice({
       </div>
       <p className="mt-2">{display.warning ?? "Datenquelle meldet einen nutzbaren Status. Trotzdem Quelle und Zeitstempel prüfen."}</p>
       <p className="mt-1 opacity-80">
-        Provider: {provider ?? "nicht verfügbar"} · Letzte Aktualisierung: {formattedUpdatedAt}
+        Provider: {safeProvider(provider)} · Letzte Aktualisierung: {formattedUpdatedAt}
       </p>
     </div>
   );

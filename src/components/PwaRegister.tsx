@@ -16,12 +16,15 @@ const noticeTone = {
 
 export function PwaRegister() {
   const [notice, setNotice] = useState<PwaNotice>(null);
+  const [waitingRegistration, setWaitingRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
     let registration: ServiceWorkerRegistration | undefined;
     let noticeTimer: number | undefined;
+    let disposed = false;
+    let controllerReloaded = false;
 
     const clearNoticeTimer = () => {
       if (noticeTimer !== undefined) window.clearTimeout(noticeTimer);
@@ -29,6 +32,7 @@ export function PwaRegister() {
     };
 
     const showNotice = (nextNotice: NonNullable<PwaNotice>, autoHide = true) => {
+      if (disposed) return;
       clearNoticeTimer();
       setNotice(nextNotice);
       if (autoHide) {
@@ -39,6 +43,7 @@ export function PwaRegister() {
     const refreshServiceWorker = () => registration?.update().catch(() => undefined);
     const watchRegistration = (nextRegistration: ServiceWorkerRegistration) => {
       if (nextRegistration.waiting && navigator.serviceWorker.controller) {
+        setWaitingRegistration(nextRegistration);
         showNotice(
           {
             kind: "update",
@@ -55,6 +60,7 @@ export function PwaRegister() {
 
         worker.addEventListener("statechange", () => {
           if (worker.state === "installed" && navigator.serviceWorker.controller) {
+            setWaitingRegistration(nextRegistration);
             showNotice(
               {
                 kind: "update",
@@ -68,9 +74,16 @@ export function PwaRegister() {
       });
     };
 
+    const handleControllerChange = () => {
+      if (disposed || controllerReloaded) return;
+      controllerReloaded = true;
+      window.location.reload();
+    };
+
     navigator.serviceWorker
       .register("/sw.js")
       .then((nextRegistration) => {
+        if (disposed) return;
         registration = nextRegistration;
         watchRegistration(nextRegistration);
         refreshServiceWorker();
@@ -100,13 +113,27 @@ export function PwaRegister() {
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+    navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
 
     return () => {
+      disposed = true;
       clearNoticeTimer();
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
     };
   }, []);
+
+  const activateUpdate = () => {
+    const waitingWorker = waitingRegistration?.waiting;
+    if (!waitingWorker) {
+      window.location.reload();
+      return;
+    }
+
+    waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    window.setTimeout(() => window.location.reload(), 1800);
+  };
 
   if (!notice) return null;
 
@@ -125,7 +152,7 @@ export function PwaRegister() {
           {notice.kind === "update" ? (
             <button
               type="button"
-              onClick={() => window.location.reload()}
+              onClick={activateUpdate}
               className="min-h-10 rounded-xl border border-cyan/35 bg-cyan/10 px-3 text-xs font-semibold text-cyan"
             >
               Aktualisieren

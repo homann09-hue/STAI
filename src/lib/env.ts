@@ -37,12 +37,37 @@ export function envNumber(value: unknown, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-export function siteUrlFromEnv() {
-  const rawUrl =
-    env.NEXT_PUBLIC_SITE_URL ||
-    env.VERCEL_PROJECT_PRODUCTION_URL ||
-    env.VERCEL_URL ||
-    "https://stockpilot-ai-beta.vercel.app";
+const FALLBACK_SITE_URL = "https://stockpilot-ai-beta.vercel.app";
 
-  return rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`;
+function normalizeSiteUrl(value?: string) {
+  if (!value) return undefined;
+
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  try {
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const url = new URL(withProtocol);
+
+    if (!["http:", "https:"].includes(url.protocol) || !url.hostname) {
+      return undefined;
+    }
+
+    url.pathname = url.pathname.replace(/\/+$/, "");
+    url.search = "";
+    url.hash = "";
+
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return undefined;
+  }
+}
+
+export function siteUrlFromEnv() {
+  return (
+    normalizeSiteUrl(env.NEXT_PUBLIC_SITE_URL) ||
+    normalizeSiteUrl(env.VERCEL_PROJECT_PRODUCTION_URL) ||
+    normalizeSiteUrl(env.VERCEL_URL) ||
+    FALLBACK_SITE_URL
+  );
 }

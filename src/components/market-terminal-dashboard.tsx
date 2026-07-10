@@ -241,7 +241,7 @@ export function MarketTerminalDashboard({ data, liveQuotes }: { data: DashboardD
           <p className="text-sm font-semibold text-mist">Trending Assets</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {data.trendingAssets.map((item) => (
-              <Link key={item.asset.symbol} href={`/assets/${item.asset.symbol}`} className="rounded-xl border border-cyan/20 bg-cyan/10 px-3 py-2 text-sm text-cyan">
+              <Link key={item.asset.symbol} href={`/assets/${encodeURIComponent(item.asset.symbol)}`} className="rounded-xl border border-cyan/20 bg-cyan/10 px-3 py-2 text-sm text-cyan">
                 {item.asset.symbol} {formatPercent(item.quote.changePercent)}
               </Link>
             ))}

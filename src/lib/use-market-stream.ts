@@ -19,17 +19,24 @@ type MarketStreamState = {
 
 const UI_THROTTLE_MS = 700;
 const BACKGROUND_POLL_MULTIPLIER = 6;
+const MAX_STREAM_EVENT_CHARS = 200000;
 
 function normalizeSymbols(symbols: string[]) {
   return [...new Set(symbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean))].slice(0, 30);
 }
 
 function parseEventData<T>(event: MessageEvent, fallback: T | null = null) {
+  if (typeof event.data !== "string" || event.data.length > MAX_STREAM_EVENT_CHARS) return fallback;
+
   try {
     return JSON.parse(event.data) as T;
   } catch {
     return fallback;
   }
+}
+
+function normalizeQuoteSymbol(symbol: unknown) {
+  return typeof symbol === "string" ? symbol.trim().toUpperCase() : "";
 }
 
 export function useMarketStream(symbols: string[], enabled = true, preferredIntervalMs: RefreshInterval = defaultRefreshIntervalMs) {
@@ -46,15 +53,35 @@ export function useMarketStream(symbols: string[], enabled = true, preferredInte
   });
 
   useEffect(() => {
-    if (!enabled || !symbolKey) return;
+    if (!enabled || !symbolKey) {
+      setState((current) => ({
+        ...current,
+        quotes: {},
+        status: "idle",
+        connectionStatus: "offline",
+        refreshMode: "polling",
+        provider: null,
+        error: null,
+        lastHeartbeat: null
+      }));
+      return;
+    }
 
     let closed = false;
     let pollTimer: number | null = null;
     let commitTimer: number | null = null;
     let pollingStarted = false;
     let pendingQuotes: Record<string, NormalizedQuote> = {};
+    const allowedSymbols = new Set(symbolKey.split(","));
     const encodedSymbols = encodeURIComponent(symbolKey);
     const activeIntervalMs = preferredIntervalMs;
+    const abortController = new AbortController();
+
+    setState((current) => ({
+      ...current,
+      quotes: Object.fromEntries(Object.entries(current.quotes).filter(([symbol]) => allowedSymbols.has(symbol))),
+      error: null
+    }));
 
     function nextPollDelay() {
       const backgroundMultiplier = document.visibilityState === "hidden" ? BACKGROUND_POLL_MULTIPLIER : 1;
@@ -62,9 +89,15 @@ export function useMarketStream(symbols: string[], enabled = true, preferredInte
     }
 
     function commitQuotes(quotes: NormalizedQuote[]) {
+      const safeQuotes = quotes
+        .filter((quote) => allowedSymbols.has(normalizeQuoteSymbol(quote.symbol)))
+        .slice(0, allowedSymbols.size);
+
+      if (!safeQuotes.length) return;
+
       pendingQuotes = {
         ...pendingQuotes,
-        ...Object.fromEntries(quotes.map((quote) => [quote.symbol, quote]))
+        ...Object.fromEntries(safeQuotes.map((quote) => [normalizeQuoteSymbol(quote.symbol), quote]))
       };
 
       if (commitTimer !== null) return;
@@ -94,13 +127,18 @@ export function useMarketStream(symbols: string[], enabled = true, preferredInte
           refreshMode: "polling",
           intervalMs: activeIntervalMs
         }));
-        const response = await fetch(`/api/market/quotes?symbols=${encodedSymbols}`, { cache: "no-store" });
+        const response = await fetch(`/api/market/quotes?symbols=${encodedSymbols}`, {
+          cache: "no-store",
+          signal: abortController.signal
+        });
+        if (closed) return;
         if (response.status === 429) {
           setState((current) => ({ ...current, connectionStatus: "rate_limited" }));
           throw new Error("Rate-Limit aktiv");
         }
         if (!response.ok) throw new Error("Polling fehlgeschlagen");
         const payload = (await response.json()) as { quotes?: NormalizedQuote[]; provider?: string };
+        if (closed) return;
         if (payload.quotes?.length) commitQuotes(payload.quotes);
         setState((current) => ({
           ...current,
@@ -109,6 +147,7 @@ export function useMarketStream(symbols: string[], enabled = true, preferredInte
           error: null
         }));
       } catch {
+        if (closed) return;
         setState((current) => ({
           ...current,
           status: "error",
@@ -188,6 +227,7 @@ export function useMarketStream(symbols: string[], enabled = true, preferredInte
 
     return () => {
       closed = true;
+      abortController.abort();
       events.close();
       if (pollTimer !== null) window.clearTimeout(pollTimer);
       if (commitTimer !== null) window.clearTimeout(commitTimer);

@@ -3,15 +3,16 @@ import { existsSync } from "node:fs";
 import http from "node:http";
 import https from "node:https";
 
-const baseUrl = process.env.STOCKPILOT_QA_BASE_URL ?? "http://127.0.0.1:3010";
+const baseUrl = process.env.STOCKPILOT_QA_BASE_URL ?? "http://localhost:3010";
 const serverPort = new URL(baseUrl).port || "3010";
-const levels = (process.env.STOCKPILOT_STRESS_LEVELS ?? "100,250,500")
+const requiredPeakConcurrency = 2000;
+const levels = (process.env.STOCKPILOT_STRESS_LEVELS ?? "100,250,500,1000,2000")
   .split(",")
   .map((value) => Number(value.trim()))
   .filter((value) => Number.isFinite(value) && value > 0);
-const timeoutMs = Number(process.env.STOCKPILOT_STRESS_TIMEOUT_MS) || 10000;
-const socketLimit = Number(process.env.STOCKPILOT_STRESS_SOCKETS) || 128;
-const slowThresholdMs = Number(process.env.STOCKPILOT_STRESS_SLOW_MS) || 5000;
+const timeoutMs = Number(process.env.STOCKPILOT_STRESS_TIMEOUT_MS) || 15000;
+const socketLimit = Number(process.env.STOCKPILOT_STRESS_SOCKETS) || 256;
+const slowThresholdMs = Number(process.env.STOCKPILOT_STRESS_SLOW_MS) || 15000;
 const paths = [
   "/",
   "/assets/NVDA",
@@ -38,6 +39,21 @@ const agentOptions = {
 };
 const httpAgent = new http.Agent(agentOptions);
 const httpsAgent = new https.Agent(agentOptions);
+
+function isLocalBaseUrl() {
+  const { hostname } = new URL(baseUrl);
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+if (!levels.includes(requiredPeakConcurrency)) {
+  throw new Error(`Stress test must include ${requiredPeakConcurrency} active users.`);
+}
+
+if (!isLocalBaseUrl() && process.env.STOCKPILOT_QA_ALLOW_REMOTE_2000 !== "true") {
+  throw new Error(
+    "2,000 active-user stress tests are blocked for remote URLs by default. Set STOCKPILOT_QA_ALLOW_REMOTE_2000=true only when you intentionally want to stress a remote deployment."
+  );
+}
 
 function percentile(values, percent) {
   if (!values.length) return 0;

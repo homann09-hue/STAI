@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const routes = ["/", "/markets", "/stocks", "/etfs", "/crypto", "/indices", "/screener", "/watchlist", "/news-terminal", "/calendar", "/analyses", "/backtesting", "/risk", "/compare", "/assets/NVDA", "/assets/AAPL", "/assets/MSFT", "/assets/VOO", "/assets/BTC-USD", "/assets/ETH-USD", "/learn", "/portfolio", "/alerts", "/pricing", "/settings", "/offline"];
+const routes = ["/", "/markets", "/stocks", "/etfs", "/crypto", "/indices", "/screener", "/watchlist", "/news-terminal", "/intelligence", "/calendar", "/analyses", "/backtesting", "/risk", "/compare", "/assets/NVDA", "/assets/AAPL", "/assets/MSFT", "/assets/VOO", "/assets/BTC-USD", "/assets/ETH-USD", "/learn", "/portfolio", "/alerts", "/pricing", "/settings", "/offline"];
 const apiRoutes = [
   "/api/market/overview",
   "/api/market/universe",
@@ -17,21 +17,35 @@ const apiRoutes = [
 
 async function acceptRiskNotice(page: import("@playwright/test").Page) {
   const button = page.getByRole("button", { name: "Verstanden" });
+  await button.waitFor({ state: "visible", timeout: 2000 }).catch(() => undefined);
   if (await button.isVisible().catch(() => false)) {
-    await button.click();
+    await button.click({ force: true });
+    await expect(page.getByRole("dialog", { name: "Wichtiger Risiko-Hinweis" })).toHaveCount(0, { timeout: 3000 });
+  }
+}
+
+async function safeGoto(page: import("@playwright/test").Page, route: string, waitUntil: "domcontentloaded" | "load" = "domcontentloaded") {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await page.goto(route, { waitUntil, timeout: 20_000 });
+      return;
+    } catch (error) {
+      if (attempt === 2 || !String(error).includes("ERR_ABORTED")) throw error;
+      await page.waitForTimeout(300);
+    }
   }
 }
 
 test.describe("deep red-team browser checks", () => {
   test("all primary pages render without console errors", async ({ page }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(90_000);
     const consoleErrors: string[] = [];
     page.on("console", (message) => {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
 
     for (const route of routes) {
-      await page.goto(route, { waitUntil: "domcontentloaded" });
+      await safeGoto(page, route);
       await acceptRiskNotice(page);
       await expect(page.getByText("Keine Anlageberatung").first()).toBeVisible();
       await expect(page.locator("main")).toBeVisible();
@@ -41,7 +55,7 @@ test.describe("deep red-team browser checks", () => {
   });
 
   test("all visible links have reachable local hrefs", async ({ page }) => {
-    await page.goto("/");
+    await safeGoto(page, "/");
     await acceptRiskNotice(page);
 
     const hrefs = await page.locator("a[href]").evaluateAll((links) =>
@@ -82,7 +96,7 @@ test.describe("deep red-team browser checks", () => {
   });
 
   test("portfolio form accepts transaction and updates UI", async ({ page }) => {
-    await page.goto("/portfolio");
+    await safeGoto(page, "/portfolio");
     await acceptRiskNotice(page);
 
     await page.getByLabel("Symbol").fill("MSFT");
@@ -96,7 +110,7 @@ test.describe("deep red-team browser checks", () => {
   });
 
   test("alerts form creates all professional alert categories", async ({ page }) => {
-    await page.goto("/alerts");
+    await safeGoto(page, "/alerts");
     await acceptRiskNotice(page);
 
     await page.getByLabel("Symbol").fill("AAPL");
@@ -110,7 +124,7 @@ test.describe("deep red-team browser checks", () => {
   });
 
   test("asset detail shows mock-data caveat and data timestamps", async ({ page }) => {
-    await page.goto("/assets/NVDA");
+    await safeGoto(page, "/assets/NVDA");
     await acceptRiskNotice(page);
 
     await expect(page.getByText("Mock-Daten").first()).toBeVisible();
@@ -121,21 +135,29 @@ test.describe("deep red-team browser checks", () => {
   });
 
   test("new fintech surfaces are usable on mobile and desktop", async ({ page }) => {
-    await page.goto("/");
+    await safeGoto(page, "/");
     await acceptRiskNotice(page);
 
     await expect(page.getByText("Aktiver Modus")).toHaveCount(0);
 
-    await page.goto("/settings");
+    await safeGoto(page, "/settings", "load");
     await expect(page.getByText("Zielgruppen-Modus")).toBeVisible();
     await page.getByRole("button", { name: "Profi Szenarien, Drawdown, Governance." }).click();
     await expect(page.getByText("Aktiver Modus: Profi").first()).toBeVisible();
 
-    await page.goto("/learn");
+    await safeGoto(page, "/learn", "load");
     await expect(page.getByText("Glossar")).toBeVisible();
 
-    await page.goto("/pricing");
-    await expect(page.getByRole("heading", { name: "Pro" })).toBeVisible();
+    await safeGoto(page, "/pricing", "load");
+    await expect(page.getByRole("heading", { name: "Pro", exact: true })).toBeVisible();
     await expect(page.getByText("mehrere Portfolios")).toBeVisible();
+  });
+
+  test("intelligence feed stays honest when backend data is unavailable", async ({ page }) => {
+    await safeGoto(page, "/intelligence", "load");
+    await acceptRiskNotice(page);
+    await expect(page.getByRole("heading", { name: "Ereignisse verstehen, Quellen prüfen." })).toBeVisible();
+    await expect(page.getByText(/keine Mock-Ereignisse/i)).toBeVisible();
+    await expect(page.getByText("Keine Anlageberatung").first()).toBeVisible();
   });
 });

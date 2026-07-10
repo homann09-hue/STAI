@@ -6,7 +6,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "ETF-Screener | StockPilot AI",
-  description: "ETF-Daten zu Kosten, AUM, Holdings, Sektoren, Ländern, Risiko und Benchmark."
+  description:
+    "ETF-Screener mit Kosten-, AUM-, Holdings-, Risiko- und Benchmark-Feldern, klar getrennt nach echten, gecachten, vorbereiteten und Demo-Daten."
 };
 
 export default async function EtfsPage() {

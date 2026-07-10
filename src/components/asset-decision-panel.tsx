@@ -4,8 +4,19 @@ import { AlertTriangle, ArrowRight, CheckCircle2, Eye, Gauge, ShieldAlert } from
 import { formatPercent, riskTone, scoreLabel, scoreTone } from "@/lib/scoring";
 import type { AssetDetail } from "@/lib/types";
 
+function clampScore(value: number) {
+  return Number.isFinite(value) ? Math.min(100, Math.max(0, Math.round(value))) : 0;
+}
+
+function probabilityPercent(value: number) {
+  return formatPercent(clampScore(value) / 100);
+}
+
 function getDecision(detail: AssetDetail) {
-  if (detail.aiRisk === "extrem" || detail.riskReport.score >= 78) {
+  const riskScore = clampScore(detail.riskReport.score);
+  const totalScore = clampScore(detail.scores.total);
+
+  if (detail.aiRisk === "extrem" || riskScore >= 78) {
     return {
       label: "Hohes Risiko",
       tone: "border-loss/35 bg-loss/10 text-loss",
@@ -14,7 +25,7 @@ function getDecision(detail: AssetDetail) {
     };
   }
 
-  if (detail.scores.total >= 68 && detail.dataQuality.sufficientForAnalysis && detail.aiRisk !== "hoch") {
+  if (totalScore >= 68 && detail.dataQuality.sufficientForAnalysis && detail.aiRisk !== "hoch") {
     return {
       label: "Interessant",
       tone: "border-profit/35 bg-profit/10 text-profit",
@@ -23,7 +34,7 @@ function getDecision(detail: AssetDetail) {
     };
   }
 
-  if (detail.riskReport.score >= 58 || detail.aiRisk === "hoch") {
+  if (riskScore >= 58 || detail.aiRisk === "hoch") {
     return {
       label: "Vorsicht",
       tone: "border-amber/35 bg-amber/10 text-amber",
@@ -43,6 +54,9 @@ function getDecision(detail: AssetDetail) {
 export function AssetDecisionPanel({ detail }: { detail: AssetDetail }) {
   const decision = getDecision(detail);
   const Icon = decision.icon;
+  const totalScore = clampScore(detail.scores.total);
+  const volatilityRisk = clampScore(detail.professionalScores.volatilityRisk);
+  const dataQualityScore = clampScore(detail.dataQuality.score);
   const drivers = [
     { label: "Kurzfazit", value: detail.aiAnalysis.summary },
     { label: "News-Auswirkung", value: detail.news[0]?.summary ?? "Keine aktuelle News im Mock-Modell." },
@@ -65,13 +79,13 @@ export function AssetDecisionPanel({ detail }: { detail: AssetDetail }) {
         <div className="mt-5 grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-current/20 bg-ink/30 p-3">
             <p className="text-xs opacity-70">Gesamt-Score</p>
-            <p className={`mt-1 font-mono text-2xl font-semibold ${scoreTone(detail.scores.total)}`}>
-              {detail.scores.total}
+            <p className={`mt-1 font-mono text-2xl font-semibold ${scoreTone(totalScore)}`}>
+              {totalScore}
             </p>
           </div>
           <div className="rounded-2xl border border-current/20 bg-ink/30 p-3">
             <p className="text-xs opacity-70">Volatilitätsrisiko</p>
-            <p className="mt-1 font-mono text-2xl font-semibold">{detail.professionalScores.volatilityRisk}</p>
+            <p className="mt-1 font-mono text-2xl font-semibold">{volatilityRisk}</p>
           </div>
         </div>
         <p className="mt-4 text-xs leading-5 opacity-75">
@@ -103,21 +117,21 @@ export function AssetDecisionPanel({ detail }: { detail: AssetDetail }) {
           <div className="rounded-2xl bg-panel2 p-3">
             <Gauge className="h-4 w-4 text-profit" />
             <p className="mt-2 text-xs text-muted">Chance steigend</p>
-            <p className="font-mono text-xl font-semibold">{formatPercent(detail.aiAnalysis.probabilities.up / 100)}</p>
+            <p className="font-mono text-xl font-semibold">{probabilityPercent(detail.aiAnalysis.probabilities.up)}</p>
           </div>
           <div className="rounded-2xl bg-panel2 p-3">
             <Gauge className="h-4 w-4 text-loss" />
             <p className="mt-2 text-xs text-muted">Chance fallend</p>
-            <p className="font-mono text-xl font-semibold">{formatPercent(detail.aiAnalysis.probabilities.down / 100)}</p>
+            <p className="font-mono text-xl font-semibold">{probabilityPercent(detail.aiAnalysis.probabilities.down)}</p>
           </div>
           <div className="rounded-2xl bg-panel2 p-3">
             <ArrowRight className="h-4 w-4 text-cyan" />
             <p className="mt-2 text-xs text-muted">Seitwärts</p>
-            <p className="font-mono text-xl font-semibold">{formatPercent(detail.aiAnalysis.probabilities.sideways / 100)}</p>
+            <p className="font-mono text-xl font-semibold">{probabilityPercent(detail.aiAnalysis.probabilities.sideways)}</p>
           </div>
         </div>
         <p className="mt-4 text-xs text-muted">
-          Score-Label: {scoreLabel(detail.scores.total)} · Datenqualität {detail.dataQuality.score}/100 ·
+          Score-Label: {scoreLabel(totalScore)} · Datenqualität {dataQualityScore}/100 ·
           Unsicherheit {detail.aiAnalysis.uncertainty}
         </p>
       </div>

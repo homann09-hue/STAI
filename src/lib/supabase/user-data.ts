@@ -14,14 +14,8 @@ type AuthResult =
 type AlertRuleRow = {
   id: string;
   symbol: string;
-  alert_type: AlertType;
-  condition: {
-    text?: string;
-    label?: string;
-    threshold?: number;
-    frequency?: AlertFrequency;
-    notificationChannel?: AlertNotificationChannel;
-  } | null;
+  alert_type: AlertType | string | null;
+  condition: unknown;
   enabled: boolean;
 };
 
@@ -38,7 +32,7 @@ type PortfolioPositionRow = {
   id: string;
   symbol: string;
   name: string | null;
-  asset_type: AssetType;
+  asset_type: AssetType | string | null;
   sector: string;
   quantity: string | number;
   average_price: string | number;
@@ -50,7 +44,7 @@ type PortfolioPositionRow = {
 type WatchlistRow = {
   id: string;
   symbol: string;
-  asset_type: AssetType;
+  asset_type: AssetType | string | null;
   created_at: string;
 };
 
@@ -70,6 +64,112 @@ const alertLabels: Record<AlertType, string> = {
   "portfolio-risk": "Portfolio-Risikoalarm"
 };
 
+const validAlertTypes = new Set<AlertType>([
+  "price",
+  "rsi",
+  "news",
+  "volume",
+  "earnings",
+  "ai-risk",
+  "ai-shift",
+  "portfolio-risk"
+]);
+
+const validAlertFrequencies = new Set<AlertFrequency>(["manual", "10s", "30s", "60s", "5min"]);
+const validNotificationChannels = new Set<AlertNotificationChannel>(["none", "in_app", "push", "email", "webhook"]);
+const validAssetTypes = new Set<string>(["stock", "etf", "crypto", "forex", "index"]);
+
+function stripUnsafeTextChars(value: string) {
+  let next = "";
+
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    if (code <= 31 || code === 127 || char === "<" || char === ">") continue;
+    next += char;
+  }
+
+  return next.replace(/\s+/g, " ").trim();
+}
+
+function safeProfileText(value: unknown, maxLength: number) {
+  if (typeof value !== "string") return null;
+
+  const cleaned = stripUnsafeTextChars(value).slice(0, maxLength);
+
+  return cleaned || null;
+}
+
+function safeText(value: unknown, fallback: string, maxLength: number) {
+  if (typeof value !== "string") return fallback;
+  return stripUnsafeTextChars(value).slice(0, maxLength) || fallback;
+}
+
+function safeRecordId(value: unknown) {
+  return safeText(value, "", 96);
+}
+
+function safeSymbol(value: unknown) {
+  if (typeof value !== "string") return "UNKNOWN";
+
+  const normalized = value
+    .toUpperCase()
+    .replace(/[^A-Z0-9._:/=^+-]/g, "")
+    .slice(0, 32);
+
+  return normalized || "UNKNOWN";
+}
+
+function safeCurrency(value: unknown) {
+  if (typeof value !== "string") return "USD";
+
+  const normalized = value
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "")
+    .slice(0, 3);
+
+  return normalized.length === 3 ? normalized : "USD";
+}
+
+function safeFiniteNumber(value: unknown, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function clampNumber(value: unknown, fallback: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, safeFiniteNumber(value, fallback)));
+}
+
+function safeAssetType(value: unknown): AssetType {
+  return validAssetTypes.has(String(value)) ? (value as AssetType) : "stock";
+}
+
+function safeAlertType(value: unknown): AlertType {
+  return validAlertTypes.has(value as AlertType) ? (value as AlertType) : "price";
+}
+
+function safeAlertFrequency(value: unknown): AlertFrequency | undefined {
+  return validAlertFrequencies.has(value as AlertFrequency) ? (value as AlertFrequency) : undefined;
+}
+
+function safeNotificationChannel(value: unknown): AlertNotificationChannel | undefined {
+  return validNotificationChannels.has(value as AlertNotificationChannel) ? (value as AlertNotificationChannel) : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function portfolioBookFromRow(row: PortfolioBookRow): PortfolioBookRow {
+  return {
+    id: safeRecordId(row.id),
+    name: safeText(row.name, "Portfolio", 80),
+    base_currency: safeCurrency(row.base_currency),
+    is_default: row.is_default === true,
+    created_at: safeText(row.created_at, new Date(0).toISOString(), 40),
+    updated_at: safeText(row.updated_at, new Date(0).toISOString(), 40)
+  };
+}
+
 export async function getSupabaseAuth(request: Request): Promise<AuthResult> {
   const supabase = createSupabaseServiceClient();
   if (!supabase) return { ok: false, reason: "missing_client" };
@@ -85,11 +185,20 @@ export async function getSupabaseAuth(request: Request): Promise<AuthResult> {
     return { ok: false, reason: "invalid_token" };
   }
 
-  await supabase.from("profiles").upsert({
+  const { error: profileError } = await supabase.from("profiles").upsert({
     id: data.user.id,
-    email: data.user.email,
-    display_name: data.user.user_metadata?.name ?? data.user.email?.split("@")[0] ?? null
+    email: safeProfileText(data.user.email, 254),
+    display_name:
+      safeProfileText(data.user.user_metadata?.name, 80) ??
+      safeProfileText(data.user.email?.split("@")[0], 80)
   });
+
+  if (profileError) {
+    logEvent("warn", "supabase.profile_upsert_failed", {
+      code: profileError.code,
+      message: profileError.message
+    });
+  }
 
   return {
     ok: true,
@@ -100,34 +209,78 @@ export async function getSupabaseAuth(request: Request): Promise<AuthResult> {
 }
 
 function alertFromRow(row: AlertRuleRow): AlertRule {
+  const alertType = safeAlertType(row.alert_type);
+  const condition = isRecord(row.condition) ? row.condition : {};
+
   return {
-    id: row.id,
-    symbol: row.symbol,
-    type: row.alert_type,
-    label: row.condition?.label ?? alertLabels[row.alert_type] ?? "Alarm",
-    condition: row.condition?.text ?? "Bedingung gespeichert",
+    id: safeRecordId(row.id),
+    symbol: safeSymbol(row.symbol),
+    type: alertType,
+    label: safeText(condition.label, alertLabels[alertType] ?? "Alarm", 90),
+    condition: safeText(condition.text, "Bedingung gespeichert", 140),
     enabled: row.enabled,
-    threshold: typeof row.condition?.threshold === "number" ? row.condition.threshold : undefined,
-    frequency: row.condition?.frequency as AlertFrequency | undefined,
-    notificationChannel: row.condition?.notificationChannel as AlertNotificationChannel | undefined
+    threshold: Number.isFinite(Number(condition.threshold)) ? Number(condition.threshold) : undefined,
+    frequency: safeAlertFrequency(condition.frequency),
+    notificationChannel: safeNotificationChannel(condition.notificationChannel)
   };
 }
 
 function positionFromRow(row: PortfolioPositionRow): PortfolioPosition {
-  const averagePrice = Number(row.average_price);
-  const currentPrice = row.current_price === null ? averagePrice : Number(row.current_price);
+  const averagePrice = Math.max(0, safeFiniteNumber(row.average_price));
+  const currentPrice = row.current_price === null ? averagePrice : Math.max(0, safeFiniteNumber(row.current_price, averagePrice));
 
   return {
-    id: row.id,
-    symbol: row.symbol,
-    name: row.name ?? `${row.symbol} Position`,
-    assetType: row.asset_type,
-    sector: row.sector,
-    quantity: Number(row.quantity),
+    id: safeRecordId(row.id),
+    symbol: safeSymbol(row.symbol),
+    name: safeText(row.name, `${safeSymbol(row.symbol)} Position`, 100),
+    assetType: safeAssetType(row.asset_type),
+    sector: safeText(row.sector, "Nicht klassifiziert", 80),
+    quantity: clampNumber(row.quantity, 0, 0, 1_000_000_000),
     averagePrice,
     currentPrice,
-    currency: row.currency,
-    riskScore: row.risk_score ?? 55
+    currency: safeCurrency(row.currency),
+    riskScore: Math.round(clampNumber(row.risk_score, 55, 0, 100))
+  };
+}
+
+function normalizePortfolioPosition(position: PortfolioPosition): PortfolioPosition {
+  const symbol = safeSymbol(position.symbol);
+  const averagePrice = Math.max(0, safeFiniteNumber(position.averagePrice));
+
+  return {
+    id: safeRecordId(position.id),
+    symbol,
+    name: safeText(position.name, `${symbol} Position`, 100),
+    assetType: safeAssetType(position.assetType),
+    sector: safeText(position.sector, "Nicht klassifiziert", 80),
+    quantity: clampNumber(position.quantity, 0, 0, 1_000_000_000),
+    averagePrice,
+    currentPrice: Math.max(0, safeFiniteNumber(position.currentPrice, averagePrice)),
+    currency: safeCurrency(position.currency),
+    riskScore: Math.round(clampNumber(position.riskScore, 55, 0, 100))
+  };
+}
+
+function normalizePortfolioTrade(trade: PortfolioTradeInput): PortfolioTradeInput {
+  return {
+    symbol: safeSymbol(trade.symbol),
+    name: trade.name ? safeText(trade.name, safeSymbol(trade.symbol), 100) : undefined,
+    assetType: safeAssetType(trade.assetType),
+    sector: safeText(trade.sector, "Nicht klassifiziert", 80),
+    side: trade.side === "sell" ? "sell" : "buy",
+    quantity: clampNumber(trade.quantity, 0, 0, 1_000_000_000),
+    price: Math.max(0, safeFiniteNumber(trade.price)),
+    currency: safeCurrency(trade.currency),
+    riskScore: Math.round(clampNumber(trade.riskScore, 55, 0, 100))
+  };
+}
+
+function watchlistFromRow(row: WatchlistRow): WatchlistRow {
+  return {
+    id: safeRecordId(row.id),
+    symbol: safeSymbol(row.symbol),
+    asset_type: safeAssetType(row.asset_type),
+    created_at: safeText(row.created_at, new Date(0).toISOString(), 40)
   };
 }
 
@@ -136,7 +289,8 @@ export async function listUserAlerts(auth: Extract<AuthResult, { ok: true }>) {
     .from("alert_rules")
     .select("id,symbol,alert_type,condition,enabled")
     .eq("user_id", auth.userId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(250);
 
   if (error) throw error;
   return ((data ?? []) as AlertRuleRow[]).map(alertFromRow);
@@ -146,18 +300,21 @@ export async function createUserAlert(
   auth: Extract<AuthResult, { ok: true }>,
   input: { symbol: string; type: AlertType; label: string; condition: string; enabled: boolean; threshold?: number; frequency?: AlertFrequency; notificationChannel?: AlertNotificationChannel }
 ) {
+  const alertType = safeAlertType(input.type);
+  const symbol = safeSymbol(input.symbol);
+
   const { data, error } = await auth.supabase
     .from("alert_rules")
     .insert({
       user_id: auth.userId,
-      symbol: input.symbol,
-      alert_type: input.type,
+      symbol,
+      alert_type: alertType,
       condition: {
-        text: input.condition,
-        label: input.label,
-        threshold: input.threshold,
-        frequency: input.frequency ?? "manual",
-        notificationChannel: input.notificationChannel ?? "none"
+        text: safeText(input.condition, "Bedingung gespeichert", 140),
+        label: safeText(input.label, alertLabels[alertType] ?? "Alarm", 90),
+        threshold: Number.isFinite(Number(input.threshold)) ? Number(input.threshold) : undefined,
+        frequency: safeAlertFrequency(input.frequency) ?? "manual",
+        notificationChannel: safeNotificationChannel(input.notificationChannel) ?? "none"
       },
       enabled: input.enabled
     })
@@ -172,7 +329,7 @@ export async function updateUserAlert(auth: Extract<AuthResult, { ok: true }>, i
   const { data, error } = await auth.supabase
     .from("alert_rules")
     .update({ enabled })
-    .eq("id", id)
+    .eq("id", safeRecordId(id))
     .eq("user_id", auth.userId)
     .select("id,symbol,alert_type,condition,enabled")
     .single();
@@ -185,7 +342,7 @@ export async function deleteUserAlert(auth: Extract<AuthResult, { ok: true }>, i
   const { error } = await auth.supabase
     .from("alert_rules")
     .delete()
-    .eq("id", id)
+    .eq("id", safeRecordId(id))
     .eq("user_id", auth.userId);
 
   if (error) throw error;
@@ -197,10 +354,11 @@ export async function listUserPortfolioBooks(auth: Extract<AuthResult, { ok: tru
     .select("id,name,base_currency,is_default,created_at,updated_at")
     .eq("user_id", auth.userId)
     .order("is_default", { ascending: false })
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .limit(25);
 
   if (error) throw error;
-  return (data ?? []) as PortfolioBookRow[];
+  return ((data ?? []) as PortfolioBookRow[]).map(portfolioBookFromRow);
 }
 
 export async function createUserPortfolioBook(auth: Extract<AuthResult, { ok: true }>, name: string) {
@@ -209,7 +367,7 @@ export async function createUserPortfolioBook(auth: Extract<AuthResult, { ok: tr
     .from("portfolios")
     .insert({
       user_id: auth.userId,
-      name,
+      name: safeText(name, "Portfolio", 80),
       base_currency: "USD",
       is_default: existing.length === 0
     })
@@ -217,14 +375,14 @@ export async function createUserPortfolioBook(auth: Extract<AuthResult, { ok: tr
     .single();
 
   if (error) throw error;
-  return data as PortfolioBookRow;
+  return portfolioBookFromRow(data as PortfolioBookRow);
 }
 
 export async function deleteUserPortfolioBook(auth: Extract<AuthResult, { ok: true }>, id: string) {
   const { error } = await auth.supabase
     .from("portfolios")
     .delete()
-    .eq("id", id)
+    .eq("id", safeRecordId(id))
     .eq("user_id", auth.userId);
 
   if (error) throw error;
@@ -235,7 +393,8 @@ export async function getUserPortfolio(auth: Extract<AuthResult, { ok: true }>):
     .from("portfolio_positions")
     .select("id,symbol,name,asset_type,sector,quantity,average_price,current_price,currency,risk_score")
     .eq("user_id", auth.userId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .limit(500);
 
   if (error) throw error;
   return analyzePortfolio(((data ?? []) as PortfolioPositionRow[]).map(positionFromRow));
@@ -246,10 +405,12 @@ async function savePortfolioPositions(
   positions: PortfolioPosition[],
   previousPositions: PortfolioPosition[] = []
 ) {
-  const nextIds = new Set(positions.filter((position) => !position.id.startsWith("local-")).map((position) => position.id));
+  const normalizedPositions = positions.map(normalizePortfolioPosition);
+  const nextIds = new Set(normalizedPositions.filter((position) => !position.id.startsWith("local-")).map((position) => position.id));
   const removedIds = previousPositions
     .filter((position) => !position.id.startsWith("local-") && !nextIds.has(position.id))
-    .map((position) => position.id);
+    .map((position) => safeRecordId(position.id))
+    .filter(Boolean);
 
   if (removedIds.length) {
     const { error } = await auth.supabase
@@ -261,7 +422,7 @@ async function savePortfolioPositions(
     if (error) throw error;
   }
 
-  const rows = positions.map((position) => ({
+  const rows = normalizedPositions.map((position) => ({
     user_id: auth.userId,
     symbol: position.symbol,
     name: position.name,
@@ -277,9 +438,9 @@ async function savePortfolioPositions(
   if (!rows.length) return;
 
   const existingRows = rows
-    .map((row, index) => ({ ...row, id: positions[index].id }))
+    .map((row, index) => ({ ...row, id: normalizedPositions[index].id }))
     .filter((row) => !row.id.startsWith("local-"));
-  const newRows = rows.filter((_row, index) => positions[index].id.startsWith("local-"));
+  const newRows = rows.filter((_row, index) => normalizedPositions[index].id.startsWith("local-"));
 
   if (existingRows.length) {
     const { error } = await auth.supabase.from("portfolio_positions").upsert(existingRows, {
@@ -301,25 +462,28 @@ function isMissingPortfolioRpc(error: SupabaseErrorLike) {
 }
 
 async function applyPortfolioTradeRpc(auth: Extract<AuthResult, { ok: true }>, trade: PortfolioTradeInput) {
+  const normalizedTrade = normalizePortfolioTrade(trade);
   const { error } = await auth.supabase.rpc("apply_portfolio_trade", {
     p_user_id: auth.userId,
-    p_symbol: trade.symbol,
-    p_name: trade.name ?? null,
-    p_asset_type: trade.assetType,
-    p_sector: trade.sector,
-    p_side: trade.side,
-    p_quantity: trade.quantity,
-    p_price: trade.price,
-    p_currency: trade.currency,
-    p_risk_score: trade.riskScore
+    p_symbol: normalizedTrade.symbol,
+    p_name: normalizedTrade.name ?? null,
+    p_asset_type: normalizedTrade.assetType,
+    p_sector: normalizedTrade.sector,
+    p_side: normalizedTrade.side,
+    p_quantity: normalizedTrade.quantity,
+    p_price: normalizedTrade.price,
+    p_currency: normalizedTrade.currency,
+    p_risk_score: normalizedTrade.riskScore
   });
 
   if (error) throw error;
 }
 
 export async function applyUserPortfolioTrade(auth: Extract<AuthResult, { ok: true }>, trade: PortfolioTradeInput) {
+  const normalizedTrade = normalizePortfolioTrade(trade);
+
   try {
-    await applyPortfolioTradeRpc(auth, trade);
+    await applyPortfolioTradeRpc(auth, normalizedTrade);
     return getUserPortfolio(auth);
   } catch (error) {
     const supabaseError = error as SupabaseErrorLike;
@@ -335,17 +499,17 @@ export async function applyUserPortfolioTrade(auth: Extract<AuthResult, { ok: tr
   }
 
   const current = await getUserPortfolio(auth);
-  const nextPositions = applyPortfolioTrade(current.positions, trade);
+  const nextPositions = applyPortfolioTrade(current.positions, normalizedTrade);
 
   const { error: transactionError } = await auth.supabase.from("portfolio_transactions").insert({
     user_id: auth.userId,
-    symbol: trade.symbol,
-    asset_type: trade.assetType,
-    side: trade.side,
-    quantity: trade.quantity,
-    price: trade.price,
-    currency: trade.currency,
-    notes: trade.name ?? null
+    symbol: normalizedTrade.symbol,
+    asset_type: normalizedTrade.assetType,
+    side: normalizedTrade.side,
+    quantity: normalizedTrade.quantity,
+    price: normalizedTrade.price,
+    currency: normalizedTrade.currency,
+    notes: normalizedTrade.name ?? null
   });
 
   if (transactionError) throw transactionError;
@@ -358,7 +522,7 @@ export async function deleteUserPortfolioPosition(auth: Extract<AuthResult, { ok
   const { error } = await auth.supabase
     .from("portfolio_positions")
     .delete()
-    .eq("id", id)
+    .eq("id", safeRecordId(id))
     .eq("user_id", auth.userId);
 
   if (error) throw error;
@@ -370,10 +534,11 @@ export async function listUserWatchlist(auth: Extract<AuthResult, { ok: true }>)
     .from("watchlists")
     .select("id,symbol,asset_type,created_at")
     .eq("user_id", auth.userId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(500);
 
   if (error) throw error;
-  return (data ?? []) as WatchlistRow[];
+  return ((data ?? []) as WatchlistRow[]).map(watchlistFromRow);
 }
 
 export async function addUserWatchlistItem(auth: Extract<AuthResult, { ok: true }>, symbol: string, assetType: AssetType) {
@@ -381,8 +546,8 @@ export async function addUserWatchlistItem(auth: Extract<AuthResult, { ok: true 
     .from("watchlists")
     .upsert({
       user_id: auth.userId,
-      symbol,
-      asset_type: assetType
+      symbol: safeSymbol(symbol),
+      asset_type: safeAssetType(assetType)
     }, {
       onConflict: "user_id,symbol"
     })
@@ -390,7 +555,7 @@ export async function addUserWatchlistItem(auth: Extract<AuthResult, { ok: true 
     .single();
 
   if (error) throw error;
-  return data as WatchlistRow;
+  return watchlistFromRow(data as WatchlistRow);
 }
 
 export async function removeUserWatchlistItem(auth: Extract<AuthResult, { ok: true }>, symbol: string) {
@@ -398,7 +563,7 @@ export async function removeUserWatchlistItem(auth: Extract<AuthResult, { ok: tr
     .from("watchlists")
     .delete()
     .eq("user_id", auth.userId)
-    .eq("symbol", symbol);
+    .eq("symbol", safeSymbol(symbol));
 
   if (error) throw error;
 }
