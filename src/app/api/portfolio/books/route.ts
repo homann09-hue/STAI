@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { jsonError, jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
 import { getSupabaseAuth, listUserPortfolioBooks, createUserPortfolioBook, deleteUserPortfolioBook } from "@/lib/supabase/user-data";
+import {
+  evaluateResourceLimit,
+  isPlanLimitError,
+  resourceLimitHeaders
+} from "@/lib/billing/entitlements";
+import { getUserEntitlements } from "@/lib/billing/server";
 
 function hasUnsafeBookNameChars(value: string) {
   return Array.from(value).some((char) => {
@@ -77,8 +83,21 @@ export async function POST(request: Request) {
     });
   }
 
-  const portfolio = await createUserPortfolioBook(auth, parsed.data.name);
-  return jsonOk({ portfolio, mode: "supabase" }, { status: 201, headers: userDataHeaders });
+  const [entitlements, portfolios] = await Promise.all([getUserEntitlements(auth), listUserPortfolioBooks(auth)]);
+  const decision = evaluateResourceLimit(entitlements, "portfolios", portfolios.length);
+  if (!decision.allowed) {
+    return jsonError(`Portfolio-Limit des Tarifs erreicht (${decision.limit}).`, 403, resourceLimitHeaders(entitlements, decision.limit));
+  }
+
+  try {
+    const portfolio = await createUserPortfolioBook(auth, parsed.data.name);
+    return jsonOk({ portfolio, mode: "supabase", entitlement: { plan: entitlements.plan, limit: decision.limit } }, { status: 201, headers: userDataHeaders });
+  } catch (error) {
+    if (isPlanLimitError(error)) {
+      return jsonError(`Portfolio-Limit des Tarifs erreicht (${decision.limit}).`, 403, resourceLimitHeaders(entitlements, decision.limit));
+    }
+    throw error;
+  }
 }
 
 export async function DELETE(request: Request) {

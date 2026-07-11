@@ -19,5 +19,6 @@
 | ADR-015 | Modellhosting | proposed |
 | ADR-016 | Alerting | accepted, restricted |
 | ADR-017 | Mobile | accepted, web-first |
+| ADR-018 | Subscription Billing | accepted, disabled-by-default |
 
 ADRs sind technische Entscheidungen, keine Zertifizierung. Änderungen benötigen einen neuen ADR oder eine nachvollziehbare Supersession.

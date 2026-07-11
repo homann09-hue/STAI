@@ -1,21 +1,31 @@
 export type PlanId = "free" | "starter" | "pro" | "elite";
 export type FeatureGateStatus = "included" | "demo" | "locked" | "not_available";
 
+export type FeatureId =
+  | "watchlist_basic"
+  | "watchlist_extended"
+  | "learning"
+  | "asset_analysis"
+  | "portfolio"
+  | "alerts"
+  | "ai_news"
+  | "pro_terminal"
+  | "exports"
+  | "api"
+  | "team";
+
 export type FeatureDefinition = {
-  id:
-    | "watchlist_basic"
-    | "watchlist_extended"
-    | "learning"
-    | "asset_analysis"
-    | "portfolio"
-    | "alerts"
-    | "ai_news"
-    | "pro_terminal"
-    | "exports"
-    | "api"
-    | "team";
+  id: FeatureId;
   label: string;
   description: string;
+};
+
+export type PlanLimits = {
+  watchlistItems: number;
+  alerts: number;
+  portfolios: number;
+  aiAnalysesPerDay: number;
+  apiRequestsPerDay: number;
 };
 
 export type PricingTier = {
@@ -25,26 +35,27 @@ export type PricingTier = {
   audience: string;
   technicalStatus: string;
   billingRequired: boolean;
-  featureStatus: Record<FeatureDefinition["id"], FeatureGateStatus>;
+  featureStatus: Record<FeatureId, FeatureGateStatus>;
+  limits: PlanLimits;
 };
 
 export const billingGateStatus = {
   active: false,
-  label: "Demo / Billing nicht aktiv",
+  label: "Serverseitige Prüfung erforderlich",
   explanation:
-    "Feature-Gates sind produktseitig vorbereitet. Ohne geprüften Auth-/Billingstatus werden kostenpflichtige Funktionen nicht als freigeschaltet dargestellt."
+    "Kostenpflichtige Funktionen werden nur nach gültiger Supabase-Session, bestätigtem Providerstatus und serverseitiger Entitlement-Prüfung freigeschaltet."
 } as const;
 
 export const featureDefinitions: FeatureDefinition[] = [
   {
     id: "watchlist_basic",
     label: "Basis-Watchlist",
-    description: "Kleine lokale oder synchronisierte Watchlist mit sichtbarer Datenqualität."
+    description: "Private Watchlist mit sichtbarer Datenqualität und Cloud-Sync nach Anmeldung."
   },
   {
     id: "watchlist_extended",
     label: "Erweiterte Watchlist",
-    description: "Mehr Symbole, Batching, Rate-Limit-Schutz und größere Listen."
+    description: "Größere Listen, Batching und höhere serverseitige Nutzungslimits."
   },
   {
     id: "learning",
@@ -64,12 +75,12 @@ export const featureDefinitions: FeatureDefinition[] = [
   {
     id: "alerts",
     label: "Alerts",
-    description: "Regelmodell für Kurs, RSI, News, Volumen, Earnings und KI-Risiko."
+    description: "Regeln für Kurs, RSI, News, Volumen, Earnings und KI-Risiko."
   },
   {
     id: "ai_news",
     label: "News-KI",
-    description: "Relevanz, Sentiment, Impact und Quellenstatus."
+    description: "Relevanz, Sentiment, Impact und transparenter Quellenstatus."
   },
   {
     id: "pro_terminal",
@@ -78,18 +89,18 @@ export const featureDefinitions: FeatureDefinition[] = [
   },
   {
     id: "exports",
-    label: "Export",
-    description: "PDF/CSV/API-Exports für professionelle Workflows."
+    label: "Analyse-Export",
+    description: "Geplante PDF-/CSV-Exporte für professionelle Analyse-Workflows."
   },
   {
     id: "api",
     label: "API-Zugriff",
-    description: "Programmierbare Abfragen für Teams und Business-Nutzer."
+    description: "Geplanter programmierbarer Zugriff mit eigenen Quoten und Auditierung."
   },
   {
     id: "team",
     label: "Teamfunktionen",
-    description: "Mehrere Nutzer, Rollen, Governance und Audit-Trail."
+    description: "Geplante Rollen, Governance, mehrere Nutzer und Audit-Trail."
   }
 ];
 
@@ -98,63 +109,84 @@ export const pricingTiers: PricingTier[] = [
     id: "free",
     name: "Free",
     price: "0 €",
-    audience: "Basis-Watchlist und einfache Analysen",
-    technicalStatus: "Aktiv als lokaler Demo-Modus",
+    audience: "Beobachten, lernen und erste Analysen",
+    technicalStatus: "Ohne Zahlung aktiv, mit serverseitigen Free-Limits",
     billingRequired: false,
     featureStatus: {
       watchlist_basic: "included",
       watchlist_extended: "locked",
       learning: "included",
-      asset_analysis: "demo",
-      portfolio: "demo",
-      alerts: "demo",
-      ai_news: "demo",
+      asset_analysis: "included",
+      portfolio: "included",
+      alerts: "included",
+      ai_news: "included",
       pro_terminal: "locked",
       exports: "locked",
       api: "locked",
       team: "locked"
+    },
+    limits: {
+      watchlistItems: 10,
+      alerts: 3,
+      portfolios: 1,
+      aiAnalysesPerDay: 3,
+      apiRequestsPerDay: 0
     }
   },
   {
     id: "starter",
     name: "Starter",
-    price: "9 €",
-    audience: "kleine Anleger und Sparpläne",
-    technicalStatus: "Vorbereitet, Billing-Gate nicht aktiv",
+    price: "9 € / Monat",
+    audience: "Kleine Anleger und strukturierte Sparpläne",
+    technicalStatus: "Freigabe ausschließlich über Checkout und signierten Webhook",
     billingRequired: true,
     featureStatus: {
       watchlist_basic: "included",
-      watchlist_extended: "demo",
+      watchlist_extended: "included",
       learning: "included",
-      asset_analysis: "demo",
-      portfolio: "demo",
-      alerts: "demo",
-      ai_news: "demo",
+      asset_analysis: "included",
+      portfolio: "included",
+      alerts: "included",
+      ai_news: "included",
       pro_terminal: "locked",
       exports: "locked",
       api: "locked",
       team: "locked"
+    },
+    limits: {
+      watchlistItems: 50,
+      alerts: 25,
+      portfolios: 2,
+      aiAnalysesPerDay: 20,
+      apiRequestsPerDay: 0
     }
   },
   {
     id: "pro",
     name: "Pro",
-    price: "29 €",
-    audience: "aktive Investoren und Trader",
-    technicalStatus: "Vorbereitet, nicht freigeschaltet",
+    price: "29 € / Monat",
+    audience: "Aktive Investoren und professionelle Einzelanwender",
+    technicalStatus: "Freigabe ausschließlich über Checkout und signierten Webhook",
     billingRequired: true,
     featureStatus: {
       watchlist_basic: "included",
-      watchlist_extended: "demo",
+      watchlist_extended: "included",
       learning: "included",
-      asset_analysis: "demo",
-      portfolio: "demo",
-      alerts: "demo",
-      ai_news: "demo",
-      pro_terminal: "demo",
-      exports: "locked",
+      asset_analysis: "included",
+      portfolio: "included",
+      alerts: "included",
+      ai_news: "included",
+      pro_terminal: "included",
+      exports: "demo",
       api: "locked",
       team: "locked"
+    },
+    limits: {
+      watchlistItems: 250,
+      alerts: 100,
+      portfolios: 10,
+      aiAnalysesPerDay: 100,
+      apiRequestsPerDay: 1_000
     }
   },
   {
@@ -162,35 +194,49 @@ export const pricingTiers: PricingTier[] = [
     name: "Elite / Business",
     price: "auf Anfrage",
     audience: "Teams, Unternehmer und große Vermögen",
-    technicalStatus: "Enterprise-Struktur vorbereitet, Vertrag/Billing nötig",
+    technicalStatus: "Manuelle Vertrags- und Rollenfreigabe erforderlich",
     billingRequired: true,
     featureStatus: {
       watchlist_basic: "included",
-      watchlist_extended: "demo",
+      watchlist_extended: "included",
       learning: "included",
-      asset_analysis: "demo",
-      portfolio: "demo",
-      alerts: "demo",
-      ai_news: "demo",
-      pro_terminal: "demo",
+      asset_analysis: "included",
+      portfolio: "included",
+      alerts: "included",
+      ai_news: "included",
+      pro_terminal: "included",
       exports: "demo",
       api: "demo",
       team: "demo"
+    },
+    limits: {
+      watchlistItems: 1_000,
+      alerts: 500,
+      portfolios: 25,
+      aiAnalysesPerDay: 1_000,
+      apiRequestsPerDay: 10_000
     }
   }
 ];
 
-export function getFeatureGateStatus(planId: PlanId, featureId: FeatureDefinition["id"]) {
-  const tier = pricingTiers.find((item) => item.id === planId);
-  return tier?.featureStatus[featureId] ?? "not_available";
+export function getPricingTier(planId: PlanId) {
+  return pricingTiers.find((item) => item.id === planId) ?? pricingTiers[0];
 }
 
-export function isFeatureTechnicallyActive(planId: PlanId, featureId: FeatureDefinition["id"], billingActive = billingGateStatus.active) {
-  const tier = pricingTiers.find((item) => item.id === planId);
-  if (!tier) return false;
+export function getFeatureGateStatus(planId: PlanId, featureId: FeatureId) {
+  return getPricingTier(planId).featureStatus[featureId] ?? "not_available";
+}
 
-  const status = getFeatureGateStatus(planId, featureId);
+export function getPlanLimits(planId: PlanId) {
+  return getPricingTier(planId).limits;
+}
+
+export function isFeatureTechnicallyActive(
+  planId: PlanId,
+  featureId: FeatureId,
+  billingActive = planId === "free"
+) {
+  const tier = getPricingTier(planId);
   if (tier.billingRequired && !billingActive) return false;
-
-  return status === "included";
+  return getFeatureGateStatus(planId, featureId) === "included";
 }

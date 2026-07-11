@@ -2,6 +2,12 @@ import { mockAlerts } from "@/lib/mock/market";
 import { jsonError, jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
 import { createUserAlert, deleteUserAlert, getSupabaseAuth, listUserAlerts, updateUserAlert } from "@/lib/supabase/user-data";
 import { alertInputSchema, alertUpdateInputSchema } from "@/lib/validation";
+import {
+  evaluateResourceLimit,
+  isPlanLimitError,
+  resourceLimitHeaders
+} from "@/lib/billing/entitlements";
+import { getUserEntitlements } from "@/lib/billing/server";
 
 const userDataHeaders = {
   "Cache-Control": "private, no-store"
@@ -55,8 +61,20 @@ export async function POST(request: Request) {
   const auth = await getSupabaseAuth(request);
 
   if (auth.ok) {
-    const alert = await createUserAlert(auth, parsed.data);
-    return jsonOk({ alert, mode: "supabase" }, { status: 201, headers: userDataHeaders });
+    const [entitlements, alerts] = await Promise.all([getUserEntitlements(auth), listUserAlerts(auth)]);
+    const decision = evaluateResourceLimit(entitlements, "alerts", alerts.length);
+    if (!decision.allowed) {
+      return jsonError(`Alert-Limit des Tarifs erreicht (${decision.limit}).`, 403, resourceLimitHeaders(entitlements, decision.limit));
+    }
+    try {
+      const alert = await createUserAlert(auth, parsed.data);
+      return jsonOk({ alert, mode: "supabase", entitlement: { plan: entitlements.plan, limit: decision.limit } }, { status: 201, headers: userDataHeaders });
+    } catch (error) {
+      if (isPlanLimitError(error)) {
+        return jsonError(`Alert-Limit des Tarifs erreicht (${decision.limit}).`, 403, resourceLimitHeaders(entitlements, decision.limit));
+      }
+      throw error;
+    }
   }
 
   return jsonError("Anmeldung erforderlich. Alarm-Änderungen werden nur lokal im Client gespeichert.", 401, {

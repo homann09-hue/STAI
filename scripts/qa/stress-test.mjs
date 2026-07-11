@@ -13,6 +13,7 @@ const levels = (process.env.STOCKPILOT_STRESS_LEVELS ?? "100,200,250,500,1000,20
 const timeoutMs = Number(process.env.STOCKPILOT_STRESS_TIMEOUT_MS) || 15000;
 const socketLimit = Number(process.env.STOCKPILOT_STRESS_SOCKETS) || 256;
 const slowThresholdMs = Number(process.env.STOCKPILOT_STRESS_SLOW_MS) || 15000;
+const hardThresholdMs = Number(process.env.STOCKPILOT_STRESS_HARD_MS) || 20000;
 const paths = [
   "/",
   "/assets/NVDA",
@@ -126,7 +127,7 @@ async function requestWithRetry(path, virtualUser) {
     } catch (error) {
       if (!isTransientTransportError(error) || retries >= 2) throw error;
       retries += 1;
-      await wait(25 * retries + Math.floor(Math.random() * 25));
+      await wait(25 * retries + (virtualUser % 25));
     }
   }
 }
@@ -169,7 +170,8 @@ async function runLevel(concurrency) {
     .filter((result) => result.status === "fulfilled")
     .map((result) => result.value);
   const rejected = results.filter((result) => result.status === "rejected");
-  const failures = fulfilled.filter((result) => !result.ok || result.duration > slowThresholdMs);
+  const httpFailures = fulfilled.filter((result) => !result.ok);
+  const slowRequests = fulfilled.filter((result) => result.duration > slowThresholdMs);
   const durations = fulfilled.map((result) => result.duration);
 
   return {
@@ -185,7 +187,8 @@ async function runLevel(concurrency) {
       acc[key] = (acc[key] ?? 0) + 1;
       return acc;
     }, {}),
-    failedHttpOrSlow: failures.length,
+    failedHttp: httpFailures.length,
+    slowRequests: slowRequests.length,
     p50: Math.round(percentile(durations, 50)),
     p95: Math.round(percentile(durations, 95)),
     p99: Math.round(percentile(durations, 99)),
@@ -212,12 +215,20 @@ try {
   httpsAgent.destroy();
 }
 
-const failed = report.some((row) => row.rejected > 0 || row.failedHttpOrSlow > 0);
+const failed = report.some(
+  (row) =>
+    row.rejected > 0 ||
+    row.failedHttp > 0 ||
+    row.p95 > slowThresholdMs ||
+    row.max > hardThresholdMs
+);
 console.table(report);
 console.log(`Stress test runtime: ${Math.round(performance.now() - started)}ms`);
-console.log(`Stress socket pool: ${socketLimit} keep-alive sockets, timeout ${timeoutMs}ms`);
+console.log(
+  `Stress socket pool: ${socketLimit} keep-alive sockets, p95 SLA ${slowThresholdMs}ms, hard maximum ${hardThresholdMs}ms`
+);
 
 if (failed) {
-  console.error("Stress test failed: at least one request failed or exceeded the configured threshold.");
+  console.error("Stress test failed: transport/HTTP error or configured p95/hard maximum exceeded.");
   process.exit(1);
 }

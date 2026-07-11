@@ -425,6 +425,7 @@ const personalDataTables = [
   { key: "analyses", table: "analysis_snapshots", ownerColumn: "user_id" },
   { key: "notifications", table: "notifications", ownerColumn: "user_id" },
   { key: "entitlements", table: "entitlements", ownerColumn: "user_id" },
+  { key: "billingEvents", table: "billing_events", ownerColumn: "user_id" },
   { key: "intelligenceAlerts", table: "intelligence_alerts", ownerColumn: "user_id" }
 ] as const;
 

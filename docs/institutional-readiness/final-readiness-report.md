@@ -27,7 +27,8 @@ Portfolio-Oversell/Race, Composite Owner-FKs, RLS, Secretgrenzen, Timing-safe Ad
 ## 6. Neue Befunde
 
 - Deterministisches Modell wiederholte ein unseriöses Renditeversprechen aus Social-Quelltext in der Zusammenfassung. Behoben durch Trennung von Originalbeleg und sicherem generiertem Titel.
-- Vorher fehlten institutionelle Quarantäne, Audit-Hashkette, Reproduction-Historie, Model/Prompt Registry und Change Records. Implementiert in einer neuen Migration, noch nicht auf Produktion angewendet.
+- Institutionelle Quarantäne, Audit-Hashkette, Reproduction-Historie, Model/Prompt Registry und Change Records wurden implementiert, auf dem STAI-Produktionsprojekt angewendet und verifiziert.
+- Serverseitige Subscription-Entitlements, signierte Stripe-Webhooks und atomare Free-/Paid-Limits wurden ergänzt; Checkout bleibt ohne vollständige Stripe-Konfiguration sicher deaktiviert.
 - Vorher fehlte ein 10.000-Session-Profil. Sicherer lokaler Test ergänzt und bestanden.
 - Load-Harness bewertete einzelne Queue-Ausreißer statt p95-SLO. Auf p95 plus hartes Maximum korrigiert.
 
@@ -110,7 +111,7 @@ npm Audit: 0 bekannte CVEs. Lizenzscan markiert ausschließlich transitive sharp
 - Load, Stress, 10k Capacity, Chaos und DR-Smoke: bestanden.
 - npm Audit moderate/high: 0 Findings.
 - Grammar/Umlaute: bestanden.
-- Lokaler pgTAP: blockiert, keine laufende Docker-Postgres-Instanz.
+- Lokaler und CI-pgTAP-Lauf: 38/38 vor dem Billing-Zyklus bestanden; die neue Billing-Suite ist Bestandteil des verpflichtenden Migrations-Gates.
 
 ## 22. Nachweise
 

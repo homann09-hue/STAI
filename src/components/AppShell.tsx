@@ -25,6 +25,7 @@ import {
 import { useEffect, useState } from "react";
 import { legalDisclaimer } from "@/lib/scoring";
 import { GlobalCommandPalette } from "@/components/global-command-palette";
+import { BillingPlanBadge } from "@/components/billing-plan-badge";
 import { NotificationCenter } from "@/components/notification-center";
 import { PwaRegister } from "@/components/PwaRegister";
 import { RiskNoticeDialog } from "@/components/risk-notice-dialog";
@@ -139,7 +140,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-mist">Mein Profil</p>
-              <p className="text-xs text-muted">Demo / kein Billingstatus</p>
+              <BillingPlanBadge />
             </div>
             <button className="ml-auto rounded-xl border border-stroke bg-panel px-2 py-1 text-xs text-muted" type="button" aria-label="Profil Optionen">
               ⋯

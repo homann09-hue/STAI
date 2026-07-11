@@ -6,6 +6,12 @@ import {
   removeUserWatchlistItem
 } from "@/lib/supabase/user-data";
 import { watchlistInputSchema } from "@/lib/validation";
+import {
+  evaluateResourceLimit,
+  isPlanLimitError,
+  resourceLimitHeaders
+} from "@/lib/billing/entitlements";
+import { getUserEntitlements } from "@/lib/billing/server";
 
 const userDataHeaders = {
   "Cache-Control": "private, no-store"
@@ -62,8 +68,22 @@ export async function POST(request: Request) {
     });
   }
 
-  const item = await addUserWatchlistItem(auth, parsed.data.symbol, parsed.data.assetType);
-  return jsonOk({ item, mode: "supabase" }, { status: 201, headers: userDataHeaders });
+  const [entitlements, items] = await Promise.all([getUserEntitlements(auth), listUserWatchlist(auth)]);
+  const existingItem = items.some((item) => item.symbol === parsed.data.symbol);
+  const decision = evaluateResourceLimit(entitlements, "watchlistItems", items.length, existingItem);
+  if (!decision.allowed) {
+    return jsonError(`Watchlist-Limit des Tarifs erreicht (${decision.limit}).`, 403, resourceLimitHeaders(entitlements, decision.limit));
+  }
+
+  try {
+    const item = await addUserWatchlistItem(auth, parsed.data.symbol, parsed.data.assetType);
+    return jsonOk({ item, mode: "supabase", entitlement: { plan: entitlements.plan, limit: decision.limit } }, { status: 201, headers: userDataHeaders });
+  } catch (error) {
+    if (isPlanLimitError(error)) {
+      return jsonError(`Watchlist-Limit des Tarifs erreicht (${decision.limit}).`, 403, resourceLimitHeaders(entitlements, decision.limit));
+    }
+    throw error;
+  }
 }
 
 export async function DELETE(request: Request) {
