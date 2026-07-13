@@ -76,7 +76,7 @@ jobs:
         run: npm run institutional:check
 
       - name: Upload institutional evidence
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: stockpilot-institutional-evidence
           path: artifacts/evidence/
