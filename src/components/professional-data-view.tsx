@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Activity, AlertTriangle, BarChart3, BriefcaseBusiness, Building2, Coins, Gauge, Layers3, Newspaper, Scale, Search, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { formatCompact, formatCurrency, formatPercent, riskTone } from "@/lib/scoring";
+import type { ProviderOperationalStatus, PublicProviderCapabilityReport } from "@/lib/provider-health";
 import type {
   CryptoProfessionalProfile,
   ETFProfessionalProfile,
@@ -27,6 +28,19 @@ const MAX_COMPARISON_ROWS = 12;
 const MAX_REBALANCING_ITEMS = 8;
 const MAX_FOCUS_CHOICES = 12;
 const knownQualities: MarketDataQuality[] = ["realtime", "near_realtime", "delayed", "historical", "mock", "unavailable"];
+const providerStatusTone: Record<ProviderOperationalStatus, string> = {
+  ready: "border-profit/30 bg-profit/10 text-profit",
+  configured: "border-cyan/30 bg-cyan/10 text-cyan",
+  degraded: "border-amber/30 bg-amber/10 text-amber",
+  missing_key: "border-loss/30 bg-loss/10 text-loss",
+  license_required: "border-amber/30 bg-amber/10 text-amber",
+  demo: "border-steel/30 bg-steel/10 text-steel"
+};
+const liveClaimLabels: Record<"allowed" | "limited" | "blocked", string> = {
+  allowed: "Live zulässig",
+  limited: "Near/limitiert",
+  blocked: "Nicht als Live"
+};
 
 const modeCopy: Record<Mode, { eyebrow: string; title: string; subtitle: string }> = {
   overview: {
@@ -257,6 +271,74 @@ function MarketPulsePanel({ report, rows }: { report: ProfessionalMarketReport; 
         </div>
       </div>
     </section>
+  );
+}
+
+function ProviderCapabilityPanel({ capabilities }: { capabilities: PublicProviderCapabilityReport }) {
+  return (
+    <Section title="Provider- und Datenrechte-Cockpit" icon={ShieldAlert}>
+      <div className="grid gap-3 lg:grid-cols-[0.8fr_1.2fr]">
+        <div className="rounded-2xl border border-cyan/25 bg-cyan/10 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan">Daten-Readiness</p>
+          <p className="mt-3 font-mono text-4xl font-semibold text-mist">{capabilities.readinessScore}/100</p>
+          <p className="mt-2 text-sm leading-6 text-muted">{capabilities.publicNotice}</p>
+          <p className="mt-3 text-xs text-muted">Aktualisiert: {formatReportTimestamp(capabilities.generatedAt)}</p>
+        </div>
+        <div className="rounded-2xl border border-amber/25 bg-amber/10 p-4">
+          <p className="text-sm font-semibold text-amber">Warum fehlen noch Daten?</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {takeSafe(capabilities.criticalLimitations, 6).map((item) => (
+              <p key={item} className="rounded-xl border border-amber/20 bg-coal/45 px-3 py-2 text-xs leading-5 text-muted">
+                {safeText(item, "Limitierung ohne Detail", 180)}
+              </p>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="mt-4 overflow-hidden rounded-2xl border border-stroke">
+        <div className="hidden grid-cols-[0.9fr_0.7fr_0.7fr_0.7fr_1.35fr_1.35fr] gap-3 border-b border-stroke bg-panel px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted xl:grid">
+          <span>Datenbereich</span>
+          <span>Status</span>
+          <span>Qualität</span>
+          <span>Live-Claim</span>
+          <span>Fähigkeiten</span>
+          <span>Nächster Schritt</span>
+        </div>
+        <div className="divide-y divide-stroke">
+          {capabilities.categories.map((category) => (
+            <article key={category.id} className="grid gap-3 bg-panel/55 px-4 py-4 xl:grid-cols-[0.9fr_0.7fr_0.7fr_0.7fr_1.35fr_1.35fr] xl:items-start">
+              <div>
+                <p className="font-semibold text-mist">{category.label}</p>
+                <p className="mt-1 text-xs text-muted">{category.configuredCount}/{category.totalCount} Quelle(n) konfiguriert · {category.readinessScore}/100</p>
+              </div>
+              <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold ${providerStatusTone[category.status]}`}>
+                {category.status}
+              </span>
+              <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold ${category.quality === "cached" || category.quality === "not_applicable" ? "border-stroke bg-coal text-muted" : qualityTone(category.quality)}`}>
+                {category.quality === "not_applicable" ? "n/a" : String(category.quality).toUpperCase()}
+              </span>
+              <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-xs font-semibold ${
+                category.liveClaim === "allowed" ? "border-profit/30 bg-profit/10 text-profit" : category.liveClaim === "limited" ? "border-cyan/30 bg-cyan/10 text-cyan" : "border-amber/30 bg-amber/10 text-amber"
+              }`}>
+                {liveClaimLabels[category.liveClaim]}
+              </span>
+              <p className="text-sm leading-6 text-muted">{safeText(category.capabilities.join(", "), "Keine Capability aktiv", 240)}</p>
+              <p className="text-sm leading-6 text-muted">{safeText(category.nextAction || category.userImpact, "Keine Aktion hinterlegt", 240)}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+      <div className="mt-4 rounded-2xl border border-stroke bg-coal/70 p-4">
+        <p className="text-sm font-semibold text-mist">Operative nächste Schritte</p>
+        <div className="mt-3 grid gap-2 md:grid-cols-2">
+          {takeSafe(capabilities.nextActions, 5).map((item) => (
+            <p key={item} className="rounded-xl border border-stroke bg-panel/70 px-3 py-2 text-xs leading-5 text-muted">
+              {safeText(item, "Nächster Schritt fehlt", 180)}
+            </p>
+          ))}
+        </div>
+      </div>
+    </Section>
   );
 }
 
@@ -613,7 +695,15 @@ function PortfolioPanel({ report }: { report: ProfessionalMarketReport }) {
   );
 }
 
-export function ProfessionalDataView({ report, mode }: { report: ProfessionalMarketReport; mode: Mode }) {
+export function ProfessionalDataView({
+  report,
+  mode,
+  providerCapabilities
+}: {
+  report: ProfessionalMarketReport;
+  mode: Mode;
+  providerCapabilities?: PublicProviderCapabilityReport;
+}) {
   const copy = modeCopy[mode];
   const [newsQuery, setNewsQuery] = useState("");
   const [newsQuality, setNewsQuality] = useState<MarketDataQuality | "all">("all");
@@ -679,6 +769,7 @@ export function ProfessionalDataView({ report, mode }: { report: ProfessionalMar
           <Section title="Global Market Overview" icon={Activity}>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{takeSafe(report.globalOverview, MAX_CARD_GRID_ITEMS).map((item) => <DataPointCard key={item.label} point={item} />)}</div>
           </Section>
+          {providerCapabilities ? <ProviderCapabilityPanel capabilities={providerCapabilities} /> : null}
           <CoverageMatrix rows={allRows} />
           <div className="grid gap-4 xl:grid-cols-3">
             <MarketMoverRail title="Top Gewinner" rows={rankedGainers} icon={TrendingUp} />

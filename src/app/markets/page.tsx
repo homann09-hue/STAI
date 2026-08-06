@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ProfessionalDataView } from "@/components/professional-data-view";
+import { getPublicProviderCapabilityReport } from "@/lib/provider-health";
 import { getProfessionalDataProvider } from "@/lib/providers/professional-data-provider";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,10 @@ export const metadata: Metadata = {
 };
 
 export default async function MarketsPage() {
-  const report = await getProfessionalDataProvider().getMarketReport();
-  return <ProfessionalDataView report={report} mode="overview" />;
+  const [report, providerCapabilities] = await Promise.all([
+    getProfessionalDataProvider().getMarketReport(),
+    getPublicProviderCapabilityReport()
+  ]);
+
+  return <ProfessionalDataView report={report} mode="overview" providerCapabilities={providerCapabilities} />;
 }
