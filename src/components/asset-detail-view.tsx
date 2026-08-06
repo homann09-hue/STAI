@@ -13,6 +13,7 @@ import {
   BarChart3,
   Brain,
   CalendarDays,
+  DatabaseZap,
   Layers3,
   Maximize2,
   Minimize2,
@@ -35,6 +36,7 @@ import {
   scoreLabel,
   scoreTone
 } from "@/lib/scoring";
+import { buildAssetReadiness, buildFundamentalMetrics } from "@/lib/asset-readiness";
 import { useMarketStream } from "@/lib/use-market-stream";
 import type { AssetDetail, Candle, Quote, TimeRange } from "@/lib/types";
 import { timeRanges } from "@/lib/types";
@@ -55,6 +57,16 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: s
       <p className={`mt-2 font-mono text-lg font-semibold ${tone ?? "text-mist"}`}>{value}</p>
     </div>
   );
+}
+
+function readinessTone(status: ReturnType<typeof buildAssetReadiness>["status"]) {
+  if (status === "ready") return "border-profit/30 bg-profit/10 text-profit";
+  if (status === "limited") return "border-amber/30 bg-amber/10 text-amber";
+  return "border-loss/35 bg-loss/10 text-loss";
+}
+
+function qualityTone(available: boolean) {
+  return available ? "border-profit/25 bg-profit/10 text-profit" : "border-amber/25 bg-amber/10 text-amber";
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -131,6 +143,9 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
       marketStatus: liveQuote.marketStatus
     };
   }, [detail.asset.symbol, detail.quote, stream.quotes]);
+  const displayedDetail = useMemo<AssetDetail>(() => ({ ...detail, quote: displayedQuote }), [detail, displayedQuote]);
+  const readiness = useMemo(() => buildAssetReadiness(displayedDetail), [displayedDetail]);
+  const fundamentalMetrics = useMemo(() => buildFundamentalMetrics(displayedDetail), [displayedDetail]);
   const positive = isFiniteNumber(displayedQuote.changePercent) ? displayedQuote.changePercent >= 0 : false;
   const chartStats = useMemo(() => {
     if (candles.length < 2) return null;
@@ -278,6 +293,61 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
         />
       </section>
 
+      <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+        <div className={`rounded-[1.5rem] border p-5 shadow-panel ${readinessTone(readiness.status)}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] opacity-75">Analysefreigabe</p>
+              <h2 className="mt-2 text-2xl font-semibold">{readiness.label}</h2>
+            </div>
+            <DatabaseZap className="h-6 w-6" />
+          </div>
+          <p className="mt-3 text-sm leading-6 opacity-90">{readiness.detail}</p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-current/20 bg-ink/25 p-3">
+              <p className="text-xs opacity-70">Datenqualität</p>
+              <p className="mt-1 font-mono text-2xl font-semibold">{readiness.qualityScore}/100</p>
+            </div>
+            <div className="rounded-2xl border border-current/20 bg-ink/25 p-3">
+              <p className="text-xs opacity-70">Konfidenz</p>
+              <p className="mt-1 font-mono text-2xl font-semibold">{readiness.confidence}/100</p>
+            </div>
+          </div>
+          {readiness.missingAreas.length ? (
+            <p className="mt-4 text-xs leading-5 opacity-80">
+              Fehlende Bereiche: {readiness.missingAreas.join(", ")}.
+            </p>
+          ) : null}
+        </div>
+        <div className="rounded-[1.5rem] border border-stroke bg-panel/82 p-5 shadow-panel">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan">Datenabdeckung</p>
+              <h2 className="mt-2 text-xl font-semibold text-mist">Was ist wirklich nutzbar?</h2>
+            </div>
+            <span className="rounded-xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">
+              Provider: {displayedQuote.provider}
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {readiness.coverage.map((item) => (
+              <article key={item.label} className={`rounded-2xl border p-3 ${qualityTone(item.available)}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">{item.label}</p>
+                  <span className="rounded-full border border-current/25 px-2 py-1 text-[10px] uppercase">
+                    {item.available ? "verfügbar" : "fehlt"}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-muted">{item.note}</p>
+              </article>
+            ))}
+          </div>
+          <p className="mt-4 rounded-2xl border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
+            Wenn Daten fehlen, zeigt STAI keine Ersatz-Fundamentals und keine scheinpräzise Prognose. Das ist Absicht, nicht ein Darstellungsfehler.
+          </p>
+        </div>
+      </section>
+
       <AssetDecisionPanel detail={detail} />
 
       <TechnicalTrendPanel detail={{ ...detail, quote: displayedQuote }} />
@@ -404,15 +474,20 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
             <h2 className="text-lg font-semibold">Fundamentaldaten</h2>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Metric label="KGV" value={detail.fundamentals.peRatio === null ? "n/a" : `${detail.fundamentals.peRatio}`} />
-            <Metric label="Umsatzwachstum" value={formatPercent(detail.fundamentals.revenueGrowth)} />
-            <Metric label="Gewinnwachstum" value={formatPercent(detail.fundamentals.earningsGrowth)} />
-            <Metric label="Verschuldung" value={`${detail.fundamentals.debtToEquity.toFixed(2)} D/E`} />
-            <Metric label="Cashflow" value={formatCompact(detail.fundamentals.cashflow)} />
-            <Metric label="Dividende" value={detail.fundamentals.dividendYield === null ? "n/a" : `${detail.fundamentals.dividendYield}%`} />
-            <Metric label="Marktkapitalisierung" value={formatCompact(detail.fundamentals.marketCap)} />
-            <Metric label="Volumen" value={formatCompact(displayedQuote.volume)} />
+            {fundamentalMetrics.map((metric) => (
+              <Metric
+                key={metric.label}
+                label={metric.label}
+                value={metric.value}
+                tone={metric.available ? undefined : "text-amber"}
+              />
+            ))}
           </div>
+          {!readiness.trustedFundamentals ? (
+            <p className="mt-3 rounded-md border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
+              Fundamentaldaten sind für dieses Symbol aktuell nicht ausreichend verifiziert. STAI zeigt deshalb keine Nullwerte als echte Kennzahlen.
+            </p>
+          ) : null}
         </div>
       </section>
 
