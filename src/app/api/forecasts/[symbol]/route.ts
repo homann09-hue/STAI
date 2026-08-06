@@ -1,5 +1,6 @@
 import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
 import { buildForecastLedgerResponse } from "@/lib/forecast-ledger";
+import { persistForecastLedgerResponse } from "@/lib/forecast-ledger-store";
 import { withCacheFallback } from "@/lib/provider-cache";
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
 import { validateSymbol } from "@/lib/validation";
@@ -35,6 +36,15 @@ export async function GET(request: Request, { params }: RouteContext) {
     return jsonError("Forecast nicht verfügbar, weil das Asset nicht gefunden wurde.", 404);
   }
 
+  const persistence = result.fromCache
+    ? {
+        status: "skipped" as const,
+        forecastId: null,
+        outcomeId: null,
+        reason: "Persistenz wurde für Cache-Fallback-Antworten übersprungen, um doppelte Schreiblast zu vermeiden."
+      }
+    : await persistForecastLedgerResponse(result.value);
+
   return jsonOk(
     {
       ...result.value,
@@ -48,6 +58,7 @@ export async function GET(request: Request, { params }: RouteContext) {
           ttlMs,
           staleTtlMs
         },
+        persistence,
         status:
           result.value.ledgerEntry.promotionGate === "approved"
             ? "forecast_ready"
