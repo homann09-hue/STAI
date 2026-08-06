@@ -14,6 +14,7 @@ import {
   Brain,
   CalendarDays,
   DatabaseZap,
+  FileSearch,
   Layers3,
   Maximize2,
   Minimize2,
@@ -37,6 +38,7 @@ import {
   scoreTone
 } from "@/lib/scoring";
 import { buildAssetReadiness, buildFundamentalMetrics } from "@/lib/asset-readiness";
+import { buildAssetProvenancePassport, type AssetProvenanceEntry } from "@/lib/asset-provenance";
 import { useMarketStream } from "@/lib/use-market-stream";
 import type { AssetDetail, Candle, Quote, TimeRange } from "@/lib/types";
 import { timeRanges } from "@/lib/types";
@@ -69,6 +71,15 @@ function qualityTone(available: boolean) {
   return available ? "border-profit/25 bg-profit/10 text-profit" : "border-amber/25 bg-amber/10 text-amber";
 }
 
+function provenanceStatusTone(status: AssetProvenanceEntry["status"]) {
+  if (status === "fresh") return "border-profit/25 bg-profit/10 text-profit";
+  if (status === "delayed") return "border-amber/25 bg-amber/10 text-amber";
+  if (status === "stale") return "border-loss/25 bg-loss/10 text-loss";
+  if (status === "mock") return "border-cyan/25 bg-cyan/10 text-cyan";
+  if (status === "blocked") return "border-loss/30 bg-loss/10 text-loss";
+  return "border-stroke bg-coal text-muted";
+}
+
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -90,6 +101,83 @@ function formatMaybeCurrency(value: number | null | undefined, currency: string)
 
 function formatMaybeNumber(value: number | null | undefined, digits = 2) {
   return isFiniteNumber(value) ? value.toFixed(digits) : "n/a";
+}
+
+function formatTimestamp(value: string) {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toLocaleString("de-DE") : "nicht verfügbar";
+}
+
+function AssetProvenancePanel({ passport }: { passport: ReturnType<typeof buildAssetProvenancePassport> }) {
+  return (
+    <section className="rounded-[1.5rem] border border-stroke bg-panel/82 p-5 shadow-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <FileSearch className="h-5 w-5 text-cyan" />
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan">Data Passport</p>
+          </div>
+          <h2 className="mt-2 text-xl font-semibold text-mist">Quellen, Frische und Analyse-Gates</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{passport.userMessage}</p>
+        </div>
+        <div className="rounded-2xl border border-stroke bg-coal px-4 py-3 text-sm text-muted">
+          <p>Provider: <span className="text-mist">{passport.primaryProvider}</span></p>
+          <p className="mt-1">Erstellt: {formatTimestamp(passport.generatedAt)}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <Metric label="Entscheidung" value={passport.decision.replace("analysis_", "")} tone={passport.decision === "analysis_blocked" ? "text-loss" : passport.decision === "analysis_limited" ? "text-amber" : "text-profit"} />
+        <Metric label="Qualität" value={`${passport.qualityScore}/100`} tone="text-cyan" />
+        <Metric label="Konfidenz" value={`${passport.confidence}/100`} tone="text-cyan" />
+        <Metric label="Fehlend/blockiert" value={`${passport.missingSources}`} tone={passport.missingSources ? "text-amber" : "text-profit"} />
+        <Metric label="Mock-Quellen" value={`${passport.mockSources}`} tone={passport.mockSources ? "text-loss" : "text-profit"} />
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-2xl border border-stroke">
+        <div className="hidden grid-cols-[0.85fr_0.75fr_0.75fr_0.9fr_1fr_1.25fr] gap-3 border-b border-stroke bg-coal px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted xl:grid">
+          <span>Bereich</span>
+          <span>Status</span>
+          <span>Qualität</span>
+          <span>asOf</span>
+          <span>Referenz</span>
+          <span>Hinweis</span>
+        </div>
+        <div className="divide-y divide-stroke">
+          {passport.entries.map((entry) => (
+            <article key={entry.id} className="grid gap-3 bg-panel/55 px-4 py-4 xl:grid-cols-[0.85fr_0.75fr_0.75fr_0.9fr_1fr_1.25fr] xl:items-start">
+              <div>
+                <p className="font-semibold text-mist">{entry.label}</p>
+                <p className="mt-1 text-xs text-muted">{entry.provider}</p>
+              </div>
+              <span className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold ${provenanceStatusTone(entry.status)}`}>
+                {entry.status}
+              </span>
+              <span className="w-fit rounded-full border border-stroke bg-coal px-3 py-1 text-xs font-semibold text-muted">
+                {entry.quality.toUpperCase()}
+              </span>
+              <p className="text-xs leading-5 text-muted">{formatTimestamp(entry.asOf)}<br />{entry.timezone}</p>
+              <p className="break-all font-mono text-[11px] leading-5 text-cyan">{entry.sourceReference}</p>
+              <p className="text-xs leading-5 text-muted">{entry.note}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      {passport.blockers.length ? (
+        <div className="mt-4 rounded-2xl border border-amber/25 bg-amber/10 p-4">
+          <p className="text-sm font-semibold text-amber">Blocker und Unsicherheiten</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {passport.blockers.map((blocker) => (
+              <p key={blocker} className="rounded-xl border border-amber/20 bg-coal/45 px-3 py-2 text-xs leading-5 text-muted">
+                {blocker}
+              </p>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
 }
 
 export function AssetDetailView({ detail }: { detail: AssetDetail }) {
@@ -146,6 +234,7 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
   const displayedDetail = useMemo<AssetDetail>(() => ({ ...detail, quote: displayedQuote }), [detail, displayedQuote]);
   const readiness = useMemo(() => buildAssetReadiness(displayedDetail), [displayedDetail]);
   const fundamentalMetrics = useMemo(() => buildFundamentalMetrics(displayedDetail), [displayedDetail]);
+  const provenancePassport = useMemo(() => buildAssetProvenancePassport(displayedDetail), [displayedDetail]);
   const positive = isFiniteNumber(displayedQuote.changePercent) ? displayedQuote.changePercent >= 0 : false;
   const chartStats = useMemo(() => {
     if (candles.length < 2) return null;
@@ -347,6 +436,8 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
           </p>
         </div>
       </section>
+
+      <AssetProvenancePanel passport={provenancePassport} />
 
       <AssetDecisionPanel detail={detail} />
 
