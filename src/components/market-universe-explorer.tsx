@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowUpDown, CheckCircle2, Database, Fingerprint, LockKeyhole, Loader2, Radio, Search, ShieldAlert, Star } from "lucide-react";
 import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
+import { buildMarketCoverageIntelligenceReport, type MarketCoverageStage, type MarketCoverageTone } from "@/lib/market-coverage-intelligence";
 import { buildMarketOperationsReport, type MarketActivationStatus, type MarketOperationsTone } from "@/lib/market-operations";
 import type { MarketUniverseAssetClass, MarketUniverseCoverage, MarketUniverseInstrument } from "@/lib/types";
 
@@ -125,6 +126,20 @@ function activationLabel(status: MarketActivationStatus) {
   return "blockiert";
 }
 
+function coverageIntelligenceTone(tone: MarketCoverageTone) {
+  if (tone === "profit") return "border-profit/25 bg-profit/10 text-profit";
+  if (tone === "cyan") return "border-cyan/25 bg-cyan/10 text-cyan";
+  if (tone === "amber") return "border-amber/25 bg-amber/10 text-amber";
+  return "border-loss/25 bg-loss/10 text-loss";
+}
+
+function coverageStageLabel(status: MarketCoverageStage) {
+  if (status === "production_ready") return "Produktionsnah";
+  if (status === "live_candidate") return "Research nutzbar";
+  if (status === "limited") return "Eingeschränkt";
+  return "Blockiert";
+}
+
 export function MarketUniverseExplorer({
   instruments,
   coverage,
@@ -237,6 +252,10 @@ export function MarketUniverseExplorer({
   const operations = useMemo(
     () => buildMarketOperationsReport(filtered, coverage, remoteProvider),
     [coverage, filtered, remoteProvider]
+  );
+  const coverageIntelligence = useMemo(
+    () => buildMarketCoverageIntelligenceReport(filtered, coverage),
+    [coverage, filtered]
   );
 
   const stats = {
@@ -366,6 +385,106 @@ export function MarketUniverseExplorer({
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="rounded-[1.5rem] border border-stroke bg-[radial-gradient(circle_at_10%_10%,rgba(88,166,255,0.16),transparent_34%),linear-gradient(135deg,rgba(7,13,24,0.94),rgba(2,6,12,0.98))] p-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan">Coverage Intelligence</p>
+            <h3 className="mt-2 text-xl font-semibold text-mist">Wie professionell ist dieses Marktfenster wirklich?</h3>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-muted">{coverageIntelligence.conclusion}</p>
+          </div>
+          <div className="grid min-w-full gap-2 sm:grid-cols-3 xl:min-w-[28rem]">
+            <div className={`rounded-2xl border p-3 ${coverageIntelligenceTone(coverageIntelligence.tone)}`}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em]">Status</p>
+              <p className="mt-2 text-lg font-semibold text-mist">{coverageStageLabel(coverageIntelligence.status)}</p>
+            </div>
+            <div className="rounded-2xl border border-cyan/25 bg-cyan/10 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan">Coverage</p>
+              <p className="mt-2 font-mono text-2xl font-semibold text-mist">{coverageIntelligence.coverageScore}/100</p>
+            </div>
+            <div className="rounded-2xl border border-profit/25 bg-profit/10 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-profit">Echtheit</p>
+              <p className="mt-2 font-mono text-2xl font-semibold text-mist">{coverageIntelligence.truthScore}/100</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          {coverageIntelligence.lanes.map((lane) => (
+            <article key={lane.id} className={`rounded-2xl border p-4 ${coverageIntelligenceTone(lane.tone)}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-mist">{lane.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted">{lane.detail}</p>
+                </div>
+                <span className="rounded-full border border-current/20 px-2 py-1 font-mono text-xs">{lane.score}</span>
+              </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/30">
+                <div className="h-full rounded-full bg-current" style={{ width: `${lane.score}%` }} />
+              </div>
+              <p className="mt-3 text-xs text-muted">
+                Bereit {lane.ready} · eingeschränkt {lane.limited} · blockiert {lane.blocked}
+              </p>
+            </article>
+          ))}
+        </div>
+
+        <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_0.9fr]">
+          <div className="rounded-2xl border border-stroke bg-coal/70 p-4">
+            <p className="text-sm font-semibold text-mist">Nächste technische Prioritäten</p>
+            <div className="mt-3 space-y-2">
+              {coverageIntelligence.priorities.map((item) => (
+                <article key={item.id} className="rounded-xl border border-stroke bg-panel p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-mist">{item.label}</p>
+                    <span className="rounded-full border border-amber/25 bg-amber/10 px-2 py-1 text-[10px] uppercase text-amber">
+                      {item.impact} · {item.status.replaceAll("_", " ")}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-muted">{item.action}</p>
+                </article>
+              ))}
+              {!coverageIntelligence.priorities.length ? (
+                <p className="rounded-xl border border-profit/25 bg-profit/10 p-3 text-sm text-profit">
+                  Keine akute Coverage-Lücke im aktuellen Trefferfenster erkannt.
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-stroke bg-coal/70 p-4">
+            <p className="text-sm font-semibold text-mist">Provider-Fähigkeiten</p>
+            <div className="mt-3 space-y-2">
+              {coverageIntelligence.providerCapabilities.slice(0, 5).map((item) => (
+                <article key={item.provider} className="rounded-xl border border-stroke bg-panel p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-mist">{item.provider}</p>
+                    <span className={`rounded-full px-2 py-1 text-[10px] uppercase ${
+                      item.status === "connected" ? "bg-profit/10 text-profit" : item.status === "prepared" ? "bg-cyan/10 text-cyan" : "bg-amber/10 text-amber"
+                    }`}>
+                      {item.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-muted">Assetklassen: {item.assetClasses}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted">Kandidaten: {item.unlocks}</p>
+                  {item.blocker ? <p className="mt-1 text-xs leading-5 text-amber">{item.blocker}</p> : null}
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {coverageIntelligence.riskFlags.length ? (
+          <div className="mt-4 rounded-2xl border border-loss/25 bg-loss/10 p-4">
+            <p className="text-sm font-semibold text-loss">Datenrisiken im aktuellen Trefferfenster</p>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+              {coverageIntelligence.riskFlags.map((flag) => (
+                <p key={flag} className="rounded-xl border border-loss/20 bg-black/20 p-3 text-xs leading-5 text-muted">{flag}</p>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">

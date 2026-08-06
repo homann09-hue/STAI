@@ -13,8 +13,9 @@ STAI wird schrittweise von einer Demo-Watchlist zu einem ehrlichen, providerbasi
 - Forecast-Ledger-API-Slice unter `/api/forecasts/[symbol]` mit Promotion-Gate, Daten-Cutoff, Modellversion, Input-Digest und Outcome-Plan.
 - Supabase-Migration für `model_registry`, `forecasts`, `forecast_outcomes` und `model_evaluations` mit RLS, server-only Grants, Immutability-Trigger und pgTAP-Tests.
 - Optionaler serverseitiger Supabase-Persistenzpfad für Forecast-Ledger-Antworten mit klarem Status `stored`, `duplicate`, `skipped` oder `failed`.
+- Coverage-Intelligence im Marktuniversum: bewertet Kursabdeckung, Identität, Analysefähigkeit, Lizenzstatus, Mock-Schutz und Assetklassenbreite als sichtbaren Produktreife-Score.
 - Sichtbare Trennung von nutzbarer Kursabdeckung, Analysefreigabe, Lizenzbedarf, vorbereiteten Datenbereichen und Provider-Lücken.
-- Tests gegen Mock-as-Live-Verwechslung, leere Provider-Ergebnisse, blockierte Analysezustände, blockierte Forecasts, Forecast-Ledger-RLS und Forecast-Persistenz-Fallback.
+- Tests gegen Mock-as-Live-Verwechslung, leere Provider-Ergebnisse, blockierte Analysezustände, blockierte Forecasts, Forecast-Ledger-RLS, Forecast-Persistenz-Fallback und Coverage-Intelligence.
 
 ## Verifiziert
 
@@ -22,7 +23,7 @@ STAI wird schrittweise von einer Demo-Watchlist zu einem ehrlichen, providerbasi
 - `npm run typecheck` zuletzt erfolgreich.
 - `npm run lint` erfolgreich am 2026-08-06.
 - `npm run typecheck` erfolgreich am 2026-08-06.
-- `npm test` erfolgreich am 2026-08-06: 36 Testdateien, 150 Tests.
+- `npm test` erfolgreich am 2026-08-06: 37 Testdateien, 153 Tests.
 - `npm run build` erfolgreich am 2026-08-06.
 
 ## Bekannte Grenze
