@@ -1,4 +1,5 @@
 import type {
+  InstrumentAnalysisReadiness,
   InstrumentIdentifier,
   InstrumentResolutionStatus,
   MarketDataQuality,
@@ -27,6 +28,15 @@ function cleanToken(value: unknown, fallback = "") {
   if (typeof value !== "string") return fallback;
   const normalized = value.trim().replace(/\s+/g, " ");
   return normalized || fallback;
+}
+
+function normalizeSearchText(value: unknown) {
+  return cleanToken(value)
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9./:-]+/g, " ")
+    .trim();
 }
 
 export function normalizeInstrumentSymbol(symbol: unknown) {
@@ -148,6 +158,104 @@ function betterInstrument(a: MarketUniverseInstrument, b: MarketUniverseInstrume
   return bScore > aScore ? b : a;
 }
 
+function analysisReadiness(item: MarketUniverseInstrument): {
+  status: InstrumentAnalysisReadiness;
+  blockers: string[];
+} {
+  const blockers: string[] = [];
+
+  if (item.resolutionStatus === "invalid") blockers.push("Instrument kann nicht eindeutig genutzt werden.");
+  if (item.resolutionStatus === "ambiguous") blockers.push("Symbolkonflikt oder fehlender Handelsplatz muss geprüft werden.");
+  if (item.coverage === "license_required") blockers.push("Börsen- oder Datenlizenz erforderlich.");
+  if (item.coverage === "provider_missing") blockers.push("Kein aktiver Provider für diesen Datenbereich.");
+  if (item.coverage === "prepared") blockers.push("Datenmodell vorbereitet, aber noch kein produktiver Anbieter bestätigt.");
+  if (item.quoteQuality === "unavailable") blockers.push("Aktuelle Kursdaten nicht verfügbar.");
+  if (item.quoteQuality === "mock") blockers.push("Nur Mock-/Demo-Daten verfügbar.");
+
+  if (blockers.some((blocker) => blocker.includes("nicht eindeutig") || blocker.includes("Kein aktiver Provider") || blocker.includes("nicht verfügbar"))) {
+    return { status: "blocked", blockers };
+  }
+
+  if (blockers.length || item.quoteQuality === "delayed" || item.quoteQuality === "historical") {
+    return { status: "limited", blockers };
+  }
+
+  return { status: "ready", blockers };
+}
+
+function searchContext(item: MarketUniverseInstrument, query?: string) {
+  const normalizedQuery = normalizeSearchText(query);
+  const tokens = normalizedQuery ? normalizedQuery.split(/\s+/).filter(Boolean).slice(0, 6) : [];
+  const symbol = normalizeSearchText(item.symbol);
+  const name = normalizeSearchText(item.name);
+  const exchange = normalizeSearchText(item.exchange);
+  const country = normalizeSearchText(item.country);
+  const currency = normalizeSearchText(item.currency);
+  const assetClass = normalizeSearchText(item.assetClass);
+  const identifiers = (item.identifiers ?? []).map((identifier) => normalizeSearchText(identifier.value));
+  const reasons = new Set<string>();
+  let score = Math.round(item.identityConfidence ?? 0);
+
+  if (!tokens.length) {
+    reasons.add("Startuniversum");
+    score += item.coverage === "available" ? 12 : 4;
+  }
+
+  tokens.forEach((token) => {
+    if (symbol === token) {
+      score += 60;
+      reasons.add("Ticker passt exakt");
+    } else if (symbol.includes(token)) {
+      score += 34;
+      reasons.add("Ticker enthält Suchbegriff");
+    }
+
+    if (identifiers.some((identifier) => identifier === token || identifier.includes(token))) {
+      score += 42;
+      reasons.add("Identifier passt");
+    }
+
+    if (name.includes(token)) {
+      score += 24;
+      reasons.add("Name passt");
+    }
+
+    if (exchange.includes(token)) {
+      score += 14;
+      reasons.add("Börse passt");
+    }
+
+    if (country.includes(token)) {
+      score += 10;
+      reasons.add("Land passt");
+    }
+
+    if (currency.includes(token)) {
+      score += 8;
+      reasons.add("Währung passt");
+    }
+
+    if (assetClass.includes(token)) {
+      score += 12;
+      reasons.add("Assetklasse passt");
+    }
+  });
+
+  if (item.resolutionStatus === "ambiguous") reasons.add("Symbolkonflikt sichtbar");
+  if (item.coverage === "license_required") reasons.add("Lizenzstatus sichtbar");
+  if (item.quoteQuality === "unavailable") reasons.add("Datenlücke sichtbar");
+
+  const readiness = analysisReadiness(item);
+
+  return {
+    searchScore: Math.max(0, Math.min(100, score)),
+    matchReasons: [...reasons].slice(0, 5),
+    detailHref: `/assets/${encodeURIComponent(item.symbol)}`,
+    analysisReadiness: readiness.status,
+    analysisBlockers: readiness.blockers.slice(0, 5)
+  };
+}
+
 export function resolveInstrumentUniverse(
   instruments: MarketUniverseInstrument[],
   limit = 250
@@ -207,4 +315,21 @@ export function resolveInstrumentUniverse(
   });
 
   return [...byCanonical.values()].slice(0, Math.max(1, Math.min(limit, 250)));
+}
+
+export function enrichInstrumentSearchResults(
+  instruments: MarketUniverseInstrument[],
+  query?: string,
+  limit = 250
+): MarketUniverseInstrument[] {
+  return instruments
+    .map((item) => ({
+      ...item,
+      ...searchContext(item, query)
+    }))
+    .sort((a, b) => {
+      if ((b.searchScore ?? 0) !== (a.searchScore ?? 0)) return (b.searchScore ?? 0) - (a.searchScore ?? 0);
+      return a.symbol.localeCompare(b.symbol);
+    })
+    .slice(0, Math.max(1, Math.min(limit, 250)));
 }

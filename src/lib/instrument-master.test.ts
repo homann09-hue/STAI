@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MarketUniverseInstrument } from "@/lib/types";
-import { normalizeInstrumentSymbol, resolveInstrumentUniverse } from "./instrument-master";
+import { enrichInstrumentSearchResults, normalizeInstrumentSymbol, resolveInstrumentUniverse } from "./instrument-master";
 
 function instrument(overrides: Partial<MarketUniverseInstrument> = {}): MarketUniverseInstrument {
   return {
@@ -85,5 +85,21 @@ describe("instrument master", () => {
     expect(resolved[0]?.quoteQuality).toBe("unavailable");
     expect(resolved[0]?.subscribable).toBe(false);
     expect(resolved[0]?.resolutionWarnings?.join(" ")).toContain("Börsenlizenz");
+  });
+
+  it("adds explainable search context and analysis readiness", () => {
+    const resolved = resolveInstrumentUniverse([
+      instrument({ symbol: "AAPL", name: "Apple Inc.", exchange: "NASDAQ", coverage: "available", quoteQuality: "near_realtime" }),
+      instrument({ symbol: "ES", name: "E-mini S&P 500 Futures", assetClass: "future", exchange: "CME", coverage: "license_required", quoteQuality: "unavailable" })
+    ]);
+    const enriched = enrichInstrumentSearchResults(resolved, "apple nasdaq");
+    const apple = enriched.find((item) => item.symbol === "AAPL");
+    const future = enrichInstrumentSearchResults(resolved, "ES")[0];
+
+    expect(apple?.matchReasons).toEqual(expect.arrayContaining(["Name passt", "Börse passt"]));
+    expect(apple?.analysisReadiness).toBe("ready");
+    expect(apple?.detailHref).toBe("/assets/AAPL");
+    expect(future?.analysisReadiness).toBe("blocked");
+    expect(future?.analysisBlockers?.join(" ")).toContain("Börsen- oder Datenlizenz");
   });
 });

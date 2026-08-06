@@ -1,5 +1,5 @@
 import type { MarketDataQuality, MarketUniverseAssetClass, MarketUniverseCoverage, MarketUniverseInstrument } from "@/lib/types";
-import { resolveInstrumentUniverse } from "@/lib/instrument-master";
+import { enrichInstrumentSearchResults, resolveInstrumentUniverse } from "@/lib/instrument-master";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
 import { getServerCacheAdapter } from "@/lib/server-cache";
 
@@ -271,11 +271,11 @@ function searchPreparedUniverse(input: UniverseSearchInput = {}) {
       return `${item.symbol} ${item.name} ${item.exchange} ${item.country} ${item.assetClass}`.toLowerCase().includes(query);
     });
 
-  return resolveInstrumentUniverse(matches, limit);
+  return enrichInstrumentSearchResults(resolveInstrumentUniverse(matches, limit), input.query, limit);
 }
 
-function mergeUniverseResults(primary: MarketUniverseInstrument[], fallback: MarketUniverseInstrument[], limit: number) {
-  return resolveInstrumentUniverse([...primary, ...fallback], limit);
+function mergeUniverseResults(primary: MarketUniverseInstrument[], fallback: MarketUniverseInstrument[], limit: number, query?: string) {
+  return enrichInstrumentSearchResults(resolveInstrumentUniverse([...primary, ...fallback], limit), query, limit);
 }
 
 class PreparedUniverseProvider implements UniverseProvider {
@@ -328,7 +328,7 @@ class ProviderBackedUniverseProvider implements UniverseProvider {
 
     return {
       ...fallback,
-      instruments: mergeUniverseResults(providerInstruments, fallback.instruments, limit),
+      instruments: mergeUniverseResults(providerInstruments, fallback.instruments, limit, query),
       provider: this.providerName,
       updatedAt: now(),
       disclaimer:

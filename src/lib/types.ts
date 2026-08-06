@@ -128,6 +128,7 @@ export interface InstrumentIdentifier {
 }
 
 export type InstrumentResolutionStatus = "resolved" | "ambiguous" | "provider_only" | "invalid";
+export type InstrumentAnalysisReadiness = "ready" | "limited" | "blocked";
 
 export interface MarketUniverseInstrument {
   symbol: string;
@@ -143,6 +144,11 @@ export interface MarketUniverseInstrument {
   identityConfidence?: number;
   resolutionStatus?: InstrumentResolutionStatus;
   resolutionWarnings?: string[];
+  searchScore?: number;
+  matchReasons?: string[];
+  detailHref?: string;
+  analysisReadiness?: InstrumentAnalysisReadiness;
+  analysisBlockers?: string[];
   provider: string;
   quality: MarketDataQuality;
   quoteQuality: MarketDataQuality;

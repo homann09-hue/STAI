@@ -93,6 +93,18 @@ function resolutionLabel(status: MarketUniverseInstrument["resolutionStatus"]) {
   return "Nicht nutzbar";
 }
 
+function readinessTone(status: MarketUniverseInstrument["analysisReadiness"]) {
+  if (status === "ready") return "border-profit/25 bg-profit/10 text-profit";
+  if (status === "limited") return "border-amber/25 bg-amber/10 text-amber";
+  return "border-loss/25 bg-loss/10 text-loss";
+}
+
+function readinessLabel(status: MarketUniverseInstrument["analysisReadiness"]) {
+  if (status === "ready") return "Analyse bereit";
+  if (status === "limited") return "Eingeschränkt";
+  return "Blockiert";
+}
+
 export function MarketUniverseExplorer({
   instruments,
   coverage,
@@ -150,13 +162,16 @@ export function MarketUniverseExplorer({
 
         if (!response.ok) throw new Error("Universe search failed");
         const payload = await response.json() as {
+          instruments?: MarketUniverseInstrument[];
+          provider?: string;
+          disclaimer?: string;
           data?: {
             instruments?: MarketUniverseInstrument[];
             provider?: string;
             disclaimer?: string;
           };
         };
-        const result = payload.data;
+        const result = payload.data ?? payload;
 
         setRemoteInstruments(Array.isArray(result?.instruments) ? result.instruments : []);
         setRemoteProvider(result?.provider ?? provider ?? "StockPilot Provider Universe");
@@ -188,7 +203,7 @@ export function MarketUniverseExplorer({
       if (preset === "income" && !incomeAssetClasses.includes(item.assetClass)) return false;
       if (preset === "license" && item.coverage !== "license_required") return false;
       if (!normalizedQuery) return true;
-      return `${item.symbol} ${item.name} ${item.exchange} ${item.country} ${item.assetClass}`.toLowerCase().includes(normalizedQuery);
+      return `${item.symbol} ${item.name} ${item.exchange} ${item.country} ${item.assetClass} ${item.identifiers?.map((identifier) => identifier.value).join(" ") ?? ""}`.toLowerCase().includes(normalizedQuery);
     }).sort((a, b) => {
       if (sortKey === "symbol") return a.symbol.localeCompare(b.symbol);
       if (sortKey === "assetClass") return a.assetClass.localeCompare(b.assetClass) || a.symbol.localeCompare(b.symbol);
@@ -206,7 +221,8 @@ export function MarketUniverseExplorer({
     license: remoteInstruments.filter((item) => item.coverage === "license_required").length,
     subscribable: remoteInstruments.filter((item) => item.subscribable).length,
     resolved: remoteInstruments.filter((item) => item.resolutionStatus === "resolved").length,
-    needsReview: remoteInstruments.filter((item) => item.resolutionStatus === "ambiguous" || item.resolutionStatus === "invalid").length
+    needsReview: remoteInstruments.filter((item) => item.resolutionStatus === "ambiguous" || item.resolutionStatus === "invalid").length,
+    analysisReady: remoteInstruments.filter((item) => item.analysisReadiness === "ready").length
   };
 
   function toggleFavorite(symbol: string) {
@@ -289,6 +305,7 @@ export function MarketUniverseExplorer({
             Gleiche Ticker können je Börse, Assetklasse oder Währung andere Instrumente bedeuten. STAI trennt diese Fälle,
             statt falsche Live- oder Analyse-Daten zusammenzumischen.
           </p>
+          <p className="mt-2 text-xs leading-5 text-cyan">{stats.analysisReady} Instrumente sind im aktuellen Trefferfenster direkt analysebereit.</p>
         </div>
       </div>
 
@@ -407,6 +424,9 @@ export function MarketUniverseExplorer({
                 <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${resolutionTone(item.resolutionStatus)}`}>
                   {resolutionLabel(item.resolutionStatus)} · {item.identityConfidence ?? 0}%
                 </span>
+                <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${readinessTone(item.analysisReadiness)}`}>
+                  {readinessLabel(item.analysisReadiness)}
+                </span>
                 <p className="mt-1 break-all font-mono text-[10px] leading-4 text-muted">{item.canonicalId ?? "keine Kennung"}</p>
               </div>
               <p className="text-sm text-muted">{item.provider}</p>
@@ -419,6 +439,12 @@ export function MarketUniverseExplorer({
                 </span>
                 {item.resolutionWarnings?.length ? (
                   <p className="mt-1 text-xs leading-5 text-amber">{item.resolutionWarnings.slice(0, 2).join(" ")}</p>
+                ) : null}
+                {item.matchReasons?.length ? (
+                  <p className="mt-1 text-xs leading-5 text-cyan">Treffer: {item.matchReasons.slice(0, 3).join(", ")} · Score {item.searchScore ?? 0}/100</p>
+                ) : null}
+                {item.analysisBlockers?.length ? (
+                  <p className="mt-1 text-xs leading-5 text-muted">Blocker: {item.analysisBlockers.slice(0, 2).join(" ")}</p>
                 ) : null}
                 <p className="mt-1 text-xs leading-5 text-muted">{item.note}</p>
               </div>

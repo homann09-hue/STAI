@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Activity, BarChart3, Bell, Briefcase, Command, LineChart, Search, Settings2, Star, X } from "lucide-react";
+import { Activity, BarChart3, Bell, Briefcase, Command, LineChart, Search, Settings2, ShieldAlert, Star, X } from "lucide-react";
 import { formatCurrency, formatPercent } from "@/lib/scoring";
 import type { MarketUniverseInstrument, NormalizedQuote } from "@/lib/types";
 
@@ -75,8 +75,26 @@ function safeInstrument(value: MarketUniverseInstrument): MarketUniverseInstrume
     exchange: safeText(value.exchange, "Exchange offen", 48),
     provider: safeText(value.provider, "Provider offen", 64),
     assetClass: safeText(value.assetClass, "asset", 24) as MarketUniverseInstrument["assetClass"],
-    quoteQuality: safeText(value.quoteQuality, "unavailable", 24) as MarketUniverseInstrument["quoteQuality"]
+    quoteQuality: safeText(value.quoteQuality, "unavailable", 24) as MarketUniverseInstrument["quoteQuality"],
+    matchReasons: Array.isArray(value.matchReasons) ? value.matchReasons.map((item) => safeText(item, "", 80)).filter(Boolean).slice(0, 4) : [],
+    analysisReadiness: value.analysisReadiness,
+    searchScore: typeof value.searchScore === "number" && Number.isFinite(value.searchScore) ? Math.max(0, Math.min(100, value.searchScore)) : undefined,
+    detailHref: safeText(value.detailHref, `/assets/${encodeURIComponent(symbol)}`, 120)
   };
+}
+
+function readinessCopy(status: MarketUniverseInstrument["analysisReadiness"]) {
+  if (status === "ready") return "Analyse bereit";
+  if (status === "limited") return "Eingeschränkt";
+  if (status === "blocked") return "Blockiert";
+  return "Status offen";
+}
+
+function readinessTone(status: MarketUniverseInstrument["analysisReadiness"]) {
+  if (status === "ready") return "border-profit/25 bg-profit/10 text-profit";
+  if (status === "limited") return "border-amber/25 bg-amber/10 text-amber";
+  if (status === "blocked") return "border-loss/25 bg-loss/10 text-loss";
+  return "border-stroke bg-coal text-muted";
 }
 
 export function GlobalCommandPalette() {
@@ -120,10 +138,13 @@ export function GlobalCommandPalette() {
 
         if (!response.ok) throw new Error("Universe search failed");
 
-        const payload = (await response.json()) as { instruments?: MarketUniverseInstrument[] };
+        const payload = (await response.json()) as {
+          instruments?: MarketUniverseInstrument[];
+          data?: { instruments?: MarketUniverseInstrument[] };
+        };
         if (controller.signal.aborted) return;
 
-        const instruments = (payload.instruments ?? [])
+        const instruments = (payload.data?.instruments ?? payload.instruments ?? [])
           .map(safeInstrument)
           .filter((item): item is MarketUniverseInstrument => Boolean(item))
           .slice(0, 8);
@@ -255,7 +276,7 @@ export function GlobalCommandPalette() {
                     return (
                       <Link
                         key={`${item.symbol}-${item.exchange}`}
-                        href={`/assets/${encodeURIComponent(item.symbol)}`}
+                        href={item.detailHref ?? `/assets/${encodeURIComponent(item.symbol)}`}
                         onClick={() => setOpen(false)}
                         className="grid gap-2 rounded-2xl px-4 py-3 transition hover:bg-panel md:grid-cols-[1fr_auto] md:items-center"
                       >
@@ -268,9 +289,16 @@ export function GlobalCommandPalette() {
                             <span className="rounded-full border border-cyan/25 bg-cyan/10 px-2 py-1 text-[10px] uppercase text-cyan">
                               {item.quoteQuality}
                             </span>
+                            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] uppercase ${readinessTone(item.analysisReadiness)}`}>
+                              <ShieldAlert className="h-3 w-3" />
+                              {readinessCopy(item.analysisReadiness)}
+                            </span>
                           </div>
                           <p className="mt-1 truncate text-sm text-muted">{item.name}</p>
                           <p className="mt-1 text-xs text-muted">{item.exchange} · {item.provider}</p>
+                          {item.matchReasons?.length ? (
+                            <p className="mt-1 text-xs text-cyan">Treffer: {item.matchReasons.slice(0, 2).join(", ")} · {item.searchScore ?? 0}/100</p>
+                          ) : null}
                         </div>
                         <div className="text-left md:text-right">
                           {quote ? (
