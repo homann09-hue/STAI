@@ -110,13 +110,39 @@ export type MarketUniverseAssetClass =
   | "warrant"
   | "fund";
 
+export type InstrumentIdentifierType =
+  | "ticker"
+  | "provider_symbol"
+  | "isin"
+  | "figi"
+  | "cusip"
+  | "sedol"
+  | "lei"
+  | "mic"
+  | "exchange";
+
+export interface InstrumentIdentifier {
+  type: InstrumentIdentifierType;
+  value: string;
+  provider?: string;
+}
+
+export type InstrumentResolutionStatus = "resolved" | "ambiguous" | "provider_only" | "invalid";
+
 export interface MarketUniverseInstrument {
   symbol: string;
+  displaySymbol?: string;
+  normalizedSymbol?: string;
+  canonicalId?: string;
   name: string;
   assetClass: MarketUniverseAssetClass;
   exchange: string;
   country: string;
   currency: string;
+  identifiers?: InstrumentIdentifier[];
+  identityConfidence?: number;
+  resolutionStatus?: InstrumentResolutionStatus;
+  resolutionWarnings?: string[];
   provider: string;
   quality: MarketDataQuality;
   quoteQuality: MarketDataQuality;

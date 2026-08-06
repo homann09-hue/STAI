@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpDown, Database, LockKeyhole, Loader2, Radio, Search, Star } from "lucide-react";
+import { ArrowUpDown, Database, Fingerprint, LockKeyhole, Loader2, Radio, Search, ShieldAlert, Star } from "lucide-react";
 import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
 import type { MarketUniverseAssetClass, MarketUniverseCoverage, MarketUniverseInstrument } from "@/lib/types";
 
@@ -19,7 +19,7 @@ const assetClasses: Array<{ key: MarketUniverseAssetClass | "all"; label: string
 ];
 
 const MAX_VISIBLE_MARKET_ROWS = 80;
-type SortKey = "symbol" | "assetClass" | "coverage" | "quality";
+type SortKey = "symbol" | "assetClass" | "coverage" | "quality" | "identity";
 type PresetKey = "all" | "live" | "momentum" | "income" | "license";
 const momentumAssetClasses: MarketUniverseAssetClass[] = ["stock", "crypto", "index"];
 const incomeAssetClasses: MarketUniverseAssetClass[] = ["etf", "fund"];
@@ -77,6 +77,20 @@ function qualityLabel(quality: MarketUniverseInstrument["quoteQuality"]) {
   if (quality === "historical") return "Historisch";
   if (quality === "mock") return "Mock";
   return "Nicht verfügbar";
+}
+
+function resolutionTone(status: MarketUniverseInstrument["resolutionStatus"]) {
+  if (status === "resolved") return "border-profit/25 bg-profit/10 text-profit";
+  if (status === "provider_only") return "border-cyan/25 bg-cyan/10 text-cyan";
+  if (status === "ambiguous") return "border-amber/25 bg-amber/10 text-amber";
+  return "border-loss/25 bg-loss/10 text-loss";
+}
+
+function resolutionLabel(status: MarketUniverseInstrument["resolutionStatus"]) {
+  if (status === "resolved") return "Eindeutig";
+  if (status === "provider_only") return "Provider-only";
+  if (status === "ambiguous") return "Prüfen";
+  return "Nicht nutzbar";
 }
 
 export function MarketUniverseExplorer({
@@ -179,6 +193,7 @@ export function MarketUniverseExplorer({
       if (sortKey === "symbol") return a.symbol.localeCompare(b.symbol);
       if (sortKey === "assetClass") return a.assetClass.localeCompare(b.assetClass) || a.symbol.localeCompare(b.symbol);
       if (sortKey === "coverage") return a.coverage.localeCompare(b.coverage) || a.symbol.localeCompare(b.symbol);
+      if (sortKey === "identity") return (b.identityConfidence ?? 0) - (a.identityConfidence ?? 0) || a.symbol.localeCompare(b.symbol);
       return a.quoteQuality.localeCompare(b.quoteQuality) || a.symbol.localeCompare(b.symbol);
     });
   }, [assetClass, favorites, favoritesOnly, preset, query, remoteInstruments, sortKey]);
@@ -189,7 +204,9 @@ export function MarketUniverseExplorer({
     available: remoteInstruments.filter((item) => item.coverage === "available").length,
     prepared: remoteInstruments.filter((item) => item.coverage === "prepared").length,
     license: remoteInstruments.filter((item) => item.coverage === "license_required").length,
-    subscribable: remoteInstruments.filter((item) => item.subscribable).length
+    subscribable: remoteInstruments.filter((item) => item.subscribable).length,
+    resolved: remoteInstruments.filter((item) => item.resolutionStatus === "resolved").length,
+    needsReview: remoteInstruments.filter((item) => item.resolutionStatus === "ambiguous" || item.resolutionStatus === "invalid").length
   };
 
   function toggleFavorite(symbol: string) {
@@ -246,6 +263,32 @@ export function MarketUniverseExplorer({
             <p className="mt-2 font-mono text-xl font-semibold text-amber">{stats.license}</p>
             <p className="text-xs text-muted">Lizenz nötig</p>
           </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-2xl border border-profit/20 bg-profit/8 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-profit">
+            <Fingerprint className="h-4 w-4" />
+            Instrument-Master aktiv
+          </div>
+          <p className="mt-2 font-mono text-2xl font-semibold text-mist">{stats.resolved}</p>
+          <p className="text-xs leading-5 text-muted">Instrumente mit eindeutiger interner Kennung, Börse, Währung und Assetklasse.</p>
+        </div>
+        <div className="rounded-2xl border border-amber/20 bg-amber/8 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-amber">
+            <ShieldAlert className="h-4 w-4" />
+            Prüfung nötig
+          </div>
+          <p className="mt-2 font-mono text-2xl font-semibold text-mist">{stats.needsReview}</p>
+          <p className="text-xs leading-5 text-muted">Uneindeutige Provider-Symbole, fehlender Handelsplatz oder nicht nutzbare Daten werden sichtbar markiert.</p>
+        </div>
+        <div className="rounded-2xl border border-stroke bg-coal/70 p-4">
+          <p className="text-sm font-semibold text-mist">Warum das wichtig ist</p>
+          <p className="mt-2 text-xs leading-5 text-muted">
+            Gleiche Ticker können je Börse, Assetklasse oder Währung andere Instrumente bedeuten. STAI trennt diese Fälle,
+            statt falsche Live- oder Analyse-Daten zusammenzumischen.
+          </p>
         </div>
       </div>
 
@@ -308,7 +351,7 @@ export function MarketUniverseExplorer({
             Preset: {item.label}
           </button>
         ))}
-        {(["symbol", "assetClass", "coverage", "quality"] as SortKey[]).map((item) => (
+        {(["symbol", "assetClass", "coverage", "quality", "identity"] as SortKey[]).map((item) => (
           <button
             key={item}
             type="button"
@@ -329,17 +372,18 @@ export function MarketUniverseExplorer({
       ) : null}
 
       <div className="overflow-hidden rounded-2xl border border-stroke">
-        <div className="hidden grid-cols-[0.8fr_1.5fr_0.8fr_0.8fr_0.9fr_1fr] gap-3 border-b border-stroke bg-coal px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted xl:grid">
+        <div className="hidden grid-cols-[0.8fr_1.4fr_0.7fr_0.75fr_0.85fr_0.85fr_1fr] gap-3 border-b border-stroke bg-coal px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted xl:grid">
           <span>Symbol</span>
           <span>Name</span>
           <span>Klasse</span>
           <span>Börse</span>
+          <span>Identität</span>
           <span>Provider</span>
           <span>Status</span>
         </div>
         <div className="divide-y divide-stroke">
           {visibleResults.length > 0 ? visibleResults.map((item) => (
-            <article key={`${item.symbol}-${item.exchange}`} className="grid gap-2 bg-panel/55 px-4 py-4 xl:grid-cols-[0.8fr_1.5fr_0.8fr_0.8fr_0.9fr_1fr] xl:items-center">
+            <article key={item.canonicalId ?? `${item.symbol}-${item.exchange}`} className="grid gap-2 bg-panel/55 px-4 py-4 xl:grid-cols-[0.8fr_1.4fr_0.7fr_0.75fr_0.85fr_0.85fr_1fr] xl:items-center">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -359,6 +403,12 @@ export function MarketUniverseExplorer({
               </div>
               <p className="text-sm uppercase tracking-[0.14em] text-muted">{item.assetClass}</p>
               <p className="text-sm text-muted">{item.exchange}</p>
+              <div>
+                <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${resolutionTone(item.resolutionStatus)}`}>
+                  {resolutionLabel(item.resolutionStatus)} · {item.identityConfidence ?? 0}%
+                </span>
+                <p className="mt-1 break-all font-mono text-[10px] leading-4 text-muted">{item.canonicalId ?? "keine Kennung"}</p>
+              </div>
               <p className="text-sm text-muted">{item.provider}</p>
               <div>
                 <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${coverageTone(item.coverage)}`}>
@@ -367,6 +417,9 @@ export function MarketUniverseExplorer({
                 <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${qualityTone(item.quoteQuality)}`}>
                   Kurs: {qualityLabel(item.quoteQuality)} · {item.subscribable ? "streambar" : "nicht streambar"}
                 </span>
+                {item.resolutionWarnings?.length ? (
+                  <p className="mt-1 text-xs leading-5 text-amber">{item.resolutionWarnings.slice(0, 2).join(" ")}</p>
+                ) : null}
                 <p className="mt-1 text-xs leading-5 text-muted">{item.note}</p>
               </div>
             </article>

@@ -1,4 +1,5 @@
 import type { MarketDataQuality, MarketUniverseAssetClass, MarketUniverseCoverage, MarketUniverseInstrument } from "@/lib/types";
+import { resolveInstrumentUniverse } from "@/lib/instrument-master";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
 import { getServerCacheAdapter } from "@/lib/server-cache";
 
@@ -264,24 +265,17 @@ function searchPreparedUniverse(input: UniverseSearchInput = {}) {
   const assetClass = input.assetClass ?? "all";
   const limit = Math.min(Math.max(input.limit ?? 80, 1), 250);
 
-  return universeSeeds
-    .filter((item) => {
+  const matches = universeSeeds.filter((item) => {
       if (assetClass !== "all" && item.assetClass !== assetClass) return false;
       if (!query) return true;
       return `${item.symbol} ${item.name} ${item.exchange} ${item.country} ${item.assetClass}`.toLowerCase().includes(query);
-    })
-    .slice(0, limit);
+    });
+
+  return resolveInstrumentUniverse(matches, limit);
 }
 
 function mergeUniverseResults(primary: MarketUniverseInstrument[], fallback: MarketUniverseInstrument[], limit: number) {
-  const byKey = new Map<string, MarketUniverseInstrument>();
-
-  [...primary, ...fallback].forEach((item) => {
-    const key = `${item.symbol}:${item.exchange}`;
-    if (!byKey.has(key)) byKey.set(key, item);
-  });
-
-  return [...byKey.values()].slice(0, limit);
+  return resolveInstrumentUniverse([...primary, ...fallback], limit);
 }
 
 class PreparedUniverseProvider implements UniverseProvider {
