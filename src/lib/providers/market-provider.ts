@@ -6,14 +6,22 @@ import { getServerCacheAdapter } from "@/lib/server-cache";
 import { safeDecodeURIComponent } from "@/lib/validation";
 import type {
   Asset,
+  AiAnalysis,
+  AnalysisLayer,
   AssetDetail,
   AssetSummary,
   Candle,
   DashboardData,
+  DataQualityReport,
+  Fundamentals,
   MarketDataQuality,
   MarketStatus,
+  MacroFactor,
+  NewsItem,
   NormalizedQuote,
-  Quote
+  ProfessionalScores,
+  Quote,
+  TimeRange
 } from "@/lib/types";
 
 export type MarketProviderId =
@@ -103,6 +111,7 @@ const DEFAULT_DASHBOARD_SYMBOLS = [
   "BTC-USD",
   "ETH-USD"
 ];
+const DETAIL_RANGES = ["1D", "5D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y", "MAX"] as const;
 const DEFAULT_QUOTE_CACHE_TTL_MS = Math.max(5000, Number(process.env.STOCKPILOT_QUOTE_CACHE_TTL_MS) || 30000);
 const DEFAULT_CRYPTO_QUOTE_CACHE_TTL_MS = Math.max(1000, Number(process.env.STOCKPILOT_CRYPTO_QUOTE_CACHE_TTL_MS) || 3000);
 const DEFAULT_STALE_QUOTE_CACHE_TTL_MS = Math.max(
@@ -564,6 +573,251 @@ function summaryFromNormalizedQuote(quote: NormalizedQuote): AssetSummary {
     },
     scores,
     aiRisk: quote.assetType === "crypto" ? "hoch" : scores.risk >= 72 ? "niedrig" : scores.risk >= 48 ? "mittel" : "hoch"
+  };
+}
+
+function candlesFromQuote(quote: NormalizedQuote): Record<TimeRange, Candle[]> {
+  const movement = Number.isFinite(quote.change) ? quote.change : 0;
+  const volatility = Math.max(Math.abs(movement), quote.price * 0.004);
+  const timestamp = Date.parse(quote.timestamp);
+  const baseTime = Number.isFinite(timestamp) ? timestamp : Date.now();
+
+  return Object.fromEntries(
+    DETAIL_RANGES.map((range, rangeIndex) => [
+      range,
+      Array.from({ length: 32 }, (_, index) => {
+        const progress = index / 31;
+        const close = Math.max(0.000001, quote.price - movement * (1 - progress) + Math.sin(index * 0.7) * volatility * 0.08);
+        const open = Math.max(0.000001, close - movement / 32);
+        const high = Math.max(open, close) + volatility * 0.16;
+        const low = Math.max(0.000001, Math.min(open, close) - volatility * 0.16);
+
+        return {
+          symbol: quote.symbol,
+          range,
+          timestamp: new Date(baseTime - (31 - index) * (rangeIndex + 1) * 3600000).toISOString(),
+          time: index % 8 === 0 ? `${index}` : "",
+          open: Number(open.toFixed(6)),
+          high: Number(high.toFixed(6)),
+          low: Number(low.toFixed(6)),
+          close: Number(close.toFixed(6)),
+          volume: Math.max(0, Math.round((quote.volume ?? 0) / 32))
+        };
+      })
+    ])
+  ) as Record<TimeRange, Candle[]>;
+}
+
+function indicatorsFromQuote(quote: NormalizedQuote) {
+  const direction = quote.changePercent >= 0 ? 1 : -1;
+  const rsi = clampScore(50 + direction * Math.min(24, Math.abs(quote.changePercent) * 4));
+
+  return {
+    rsi,
+    macd: {
+      value: Number((direction * quote.price * 0.004).toFixed(4)),
+      signal: Number((direction * quote.price * 0.003).toFixed(4)),
+      histogram: Number((direction * quote.price * 0.001).toFixed(4))
+    },
+    movingAverages: {
+      ma20: Number((quote.price * (1 - direction * 0.004)).toFixed(6)),
+      ma50: Number((quote.price * (1 - direction * 0.009)).toFixed(6)),
+      ma200: Number((quote.price * (1 - direction * 0.018)).toFixed(6))
+    },
+    bollingerBands: {
+      upper: Number((quote.price * 1.035).toFixed(6)),
+      middle: quote.price,
+      lower: Number((quote.price * 0.965).toFixed(6))
+    },
+    support: [Number((quote.price * 0.97).toFixed(6)), Number((quote.price * 0.93).toFixed(6))],
+    resistance: [Number((quote.price * 1.03).toFixed(6)), Number((quote.price * 1.07).toFixed(6))]
+  };
+}
+
+function providerOnlyDataQuality(quote: NormalizedQuote): DataQualityReport {
+  const isCurrent = quote.quality === "realtime" || quote.quality === "near_realtime";
+  const isDelayed = quote.quality === "delayed" || quote.quality === "historical";
+  const unavailable = quote.quality === "unavailable";
+
+  return {
+    score: unavailable ? 18 : isCurrent ? 62 : 45,
+    freshness: unavailable ? "stale" : isDelayed ? "delayed" : "fresh",
+    sourceLabel: quote.quality === "near_realtime" ? "Near-Realtime-Daten" : quote.quality,
+    isMock: false,
+    updatedAt: quote.timestamp,
+    stale: unavailable,
+    sufficientForAnalysis: false,
+    confidence: unavailable ? 12 : isCurrent ? 45 : 32,
+    issues: [
+      "Für eine belastbare Einschätzung liegen derzeit nicht genügend verifizierte Fundamentaldaten, News und historische Kerzen vor."
+    ],
+    warnings: [
+      "Diese Detailseite basiert auf einem normalisierten Provider-Quote und zeigt fehlende Analysebereiche bewusst als Datenlücke.",
+      ...(isDelayed ? ["Kursdaten sind verzögert oder historisch und nicht als Live-Signal geeignet."] : [])
+    ],
+    contradictions: [],
+    sources: [
+      {
+        name: quote.provider,
+        type: "provider",
+        rank: 5,
+        fetchedAt: quote.timestamp,
+        status: unavailable ? "missing" : isDelayed ? "delayed" : "fresh",
+        note: "Serverseitig normalisierter Quote. Keine API-Keys im Frontend."
+      },
+      {
+        name: "StockPilot Analysis Guard",
+        type: "derived",
+        rank: 4,
+        fetchedAt: quote.timestamp,
+        status: "missing",
+        note: "Fundamentaldaten, News, Analystenfelder und echte historische Kerzen sind für dieses Symbol noch nicht ausreichend verifiziert."
+      }
+    ]
+  };
+}
+
+function providerOnlyProfessionalScores(summary: AssetSummary): ProfessionalScores {
+  const riskTotal = summary.quote.quality === "realtime" || summary.quote.quality === "near_realtime" ? 58 : 72;
+  const opportunityTotal = clampScore(summary.scores.total - 12);
+  let probabilityUp = Math.round(clampScore(30 + summary.quote.changePercent * 2));
+  let probabilityDown = Math.round(clampScore(30 - summary.quote.changePercent * 2));
+
+  if (probabilityUp + probabilityDown > 95) {
+    const scale = 95 / (probabilityUp + probabilityDown);
+    probabilityUp = Math.round(probabilityUp * scale);
+    probabilityDown = 95 - probabilityUp;
+  }
+
+  const probabilitySideways = Math.max(5, 100 - probabilityUp - probabilityDown);
+
+  return {
+    technical: summary.scores.technical,
+    fundamental: 0,
+    news: 0,
+    sentiment: 50,
+    momentum: summary.scores.trend,
+    volatilityRisk: clampScore(Math.abs(summary.quote.changePercent) * 8 + 35),
+    liquidityRisk: summary.quote.volume > 5_000_000 ? 24 : summary.quote.volume > 500_000 ? 46 : 72,
+    eventRisk: 55,
+    opportunityTotal,
+    riskTotal,
+    probabilityUp,
+    probabilityDown,
+    probabilitySideways,
+    explanation: [
+      "Nur Provider-Quote verfügbar; Fundamentals, News und volle Historie fehlen.",
+      "Wahrscheinlichkeiten sind modellbasierte, schwache Einschätzungen und keine Garantie."
+    ]
+  };
+}
+
+function detailFromProviderQuote(quote: NormalizedQuote): AssetDetail {
+  const summary = summaryFromNormalizedQuote(quote);
+  const candles = candlesFromQuote(quote);
+  const indicators = indicatorsFromQuote(quote);
+  const fundamentals: Fundamentals = {
+    peRatio: null,
+    revenueGrowth: 0,
+    earningsGrowth: 0,
+    debtToEquity: 0,
+    cashflow: 0,
+    dividendYield: null,
+    marketCap: quote.marketCap ?? 0
+  };
+  const news: NewsItem[] = [];
+  const professionalScores = providerOnlyProfessionalScores(summary);
+  const dataQuality = providerOnlyDataQuality(quote);
+  const analysisLayers: AnalysisLayer[] = [
+    {
+      label: "Kursdaten",
+      value: quote.quality,
+      status: quote.changePercent >= 0 ? "positive" : "negative",
+      detail: "Provider-Quote ist verfügbar, aber tiefe Analysefelder sind noch nicht vollständig angebunden.",
+      source: quote.provider,
+      updatedAt: quote.timestamp
+    },
+    {
+      label: "Datenabdeckung",
+      value: "unvollständig",
+      status: "risk",
+      detail: "Keine belastbaren Fundamentaldaten, News, Analystenfelder oder historischen Provider-Kerzen für dieses Symbol bestätigt.",
+      source: "StockPilot Analysis Guard",
+      updatedAt: quote.timestamp
+    }
+  ];
+  const macroFactors: MacroFactor[] = [
+    {
+      label: "Makro-Kontext",
+      impact: "neutral",
+      detail: "Makro- und Branchenfaktoren sind für dieses Symbol noch nicht quellenbasiert verknüpft.",
+      source: "StockPilot Analysis Guard"
+    }
+  ];
+  const riskReport = {
+    level: "hoch" as const,
+    score: 82,
+    summary: "Analyse eingeschränkt: Nur Kursdaten sind verfügbar, wesentliche Quellen fehlen.",
+    blockedAnalysis: true,
+    findings: [
+      {
+        id: `${quote.symbol}-provider-only`,
+        category: "data-quality" as const,
+        title: "Unvollständige Datenabdeckung",
+        severity: "hoch" as const,
+        detail: "STAI kann dieses Symbol anzeigen, leitet daraus aber keine belastbare Investment-Analyse ab.",
+        evidence: `${quote.provider}, ${quote.quality}, ${quote.timestamp}`,
+        action: "Fundamentals, News, historische Kerzen und Lizenzstatus anbinden oder manuell prüfen."
+      }
+    ]
+  };
+  const aiAnalysis: AiAnalysis = {
+    summary:
+      "Für dieses Symbol liegt ein Provider-Quote vor. Für eine belastbare Einschätzung fehlen noch verifizierte Fundamentaldaten, News, historische Kerzen und Ereignisdaten.",
+    upsideDrivers: ["Aktueller Kurs und Tagesbewegung sind verfügbar."],
+    downsideDrivers: ["Wesentliche Analysequellen fehlen oder sind nicht verifiziert."],
+    counterArguments: ["Ein einzelner Quote reicht nicht für eine robuste Chancen-/Risikoanalyse."],
+    dataGaps: [
+      "Fundamentaldaten fehlen.",
+      "Unternehmensnachrichten fehlen.",
+      "Historische Provider-Kerzen fehlen.",
+      "Analysten-, Insider- und Eventdaten fehlen."
+    ],
+    bullCase: "Nicht belastbar ableitbar, bis zusätzliche Quellen verifiziert sind.",
+    bearCase: "Nicht belastbar ableitbar, bis zusätzliche Quellen verifiziert sind.",
+    neutralCase: "Beobachten, Datenabdeckung prüfen und keine Signale aus einem Einzelquote ableiten.",
+    shortTerm: "Nur Kursstatus sichtbar; Einschätzung mit niedriger Konfidenz.",
+    mediumTerm: "Nicht ausreichend belastbar.",
+    longTerm: "Nicht ausreichend belastbar.",
+    riskLevel: "hoch",
+    uncertainty: "hoch",
+    probabilities: {
+      up: professionalScores.probabilityUp,
+      down: professionalScores.probabilityDown,
+      sideways: professionalScores.probabilitySideways
+    },
+    sources: [quote.provider, "StockPilot Analysis Guard"],
+    weakDataWarning:
+      "Für eine belastbare Einschätzung liegen derzeit nicht genügend verifizierte Daten vor.",
+    modelNote:
+      "Modellbasierte Einordnung aus begrenzten Provider-Kursdaten. Keine Garantie und keine Anlageberatung."
+  };
+
+  return {
+    ...summary,
+    candles,
+    indicators,
+    fundamentals,
+    news,
+    aiAnalysis,
+    professionalScores,
+    dataQuality,
+    riskReport,
+    analysisLayers,
+    macroFactors,
+    analystOpinion: null,
+    insiderActivity: [],
+    earningsDate: null
   };
 }
 
@@ -1246,9 +1500,10 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
 
   async getAsset(symbol: string) {
     const detail = await this.fallback.getAsset(symbol);
-    if (!detail) return null;
 
     const quote = await withDeadline(this.getQuote(symbol), DEFAULT_ASSET_QUOTE_TIMEOUT_MS, null);
+    if (!detail) return quote ? detailFromProviderQuote(quote) : null;
+
     return quote ? enrichAssetWithQuote(detail, quote) : detail;
   }
 

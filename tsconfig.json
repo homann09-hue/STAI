@@ -30,12 +30,30 @@
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "scripts/**/*.mjs",
+    "tests/**/*.ts",
+    "next.config.ts",
+    "tailwind.config.ts",
+    "postcss.config.mjs",
+    "capacitor.config.ts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".git",
+    ".next",
+    ".vercel",
+    ".vercel*",
+    "ios",
+    "out",
+    "dist",
+    "coverage",
+    "playwright-report",
+    "test-results",
+    "artifacts",
+    "docs/audits"
   ]
 }
