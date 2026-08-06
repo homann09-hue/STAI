@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Activity, AlertTriangle, BarChart3, BriefcaseBusiness, Building2, Coins, Newspaper, Scale, Search, ShieldAlert } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, BriefcaseBusiness, Building2, Coins, Gauge, Layers3, Newspaper, Scale, Search, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { formatCompact, formatCurrency, formatPercent, riskTone } from "@/lib/scoring";
 import type {
@@ -25,6 +25,7 @@ const MAX_NEWS_ROWS = 60;
 const MAX_PROVIDER_BADGES = 8;
 const MAX_COMPARISON_ROWS = 12;
 const MAX_REBALANCING_ITEMS = 8;
+const MAX_FOCUS_CHOICES = 12;
 const knownQualities: MarketDataQuality[] = ["realtime", "near_realtime", "delayed", "historical", "mock", "unavailable"];
 
 const modeCopy: Record<Mode, { eyebrow: string; title: string; subtitle: string }> = {
@@ -127,6 +128,28 @@ function formatValue(point: ProfessionalDataPoint) {
   return safeText(String(point.value), "nicht geliefert", 180);
 }
 
+function collectReportRows(report: ProfessionalMarketReport) {
+  const bySymbol = new Map<string, ProfessionalScreenerRow>();
+  [
+    ...report.equityScreener,
+    ...report.etfScreener,
+    ...report.cryptoScreener,
+    ...report.watchlist,
+    ...report.topGainers,
+    ...report.topLosers,
+    ...report.mostActive
+  ].forEach((row) => {
+    bySymbol.set(safeSymbol(row.asset.symbol), row);
+  });
+
+  return [...bySymbol.values()];
+}
+
+function formatRatio(value: number, total: number) {
+  if (!total) return "0%";
+  return `${Math.round((value / total) * 100)}%`;
+}
+
 function QualityPill({ quality }: { quality: MarketDataQuality }) {
   const safeQuality = normalizeQuality(quality);
   const label = safeQuality === "near_realtime" ? "NEAR_REALTIME" : safeQuality.toUpperCase();
@@ -147,6 +170,33 @@ function DataPointCard({ point }: { point: ProfessionalDataPoint }) {
   );
 }
 
+function MetricCard({
+  label,
+  value,
+  note,
+  tone = "cyan"
+}: {
+  label: string;
+  value: string | number;
+  note: string;
+  tone?: "cyan" | "profit" | "amber" | "loss";
+}) {
+  const toneClass = {
+    cyan: "border-cyan/25 bg-cyan/10 text-cyan",
+    profit: "border-profit/25 bg-profit/10 text-profit",
+    amber: "border-amber/25 bg-amber/10 text-amber",
+    loss: "border-loss/25 bg-loss/10 text-loss"
+  }[tone];
+
+  return (
+    <article className={`rounded-2xl border p-4 ${toneClass}`}>
+      <p className="text-xs font-semibold uppercase tracking-[0.16em]">{label}</p>
+      <p className="mt-3 font-mono text-2xl font-semibold text-mist">{value}</p>
+      <p className="mt-2 text-xs leading-5 text-muted">{note}</p>
+    </article>
+  );
+}
+
 function Section({ title, children, icon: Icon }: { title: string; children: React.ReactNode; icon: typeof Activity }) {
   return (
     <section className="rounded-[2rem] border border-stroke bg-coal/50 p-4 shadow-panel sm:p-5">
@@ -156,6 +206,215 @@ function Section({ title, children, icon: Icon }: { title: string; children: Rea
       </div>
       {children}
     </section>
+  );
+}
+
+function MarketPulsePanel({ report, rows }: { report: ProfessionalMarketReport; rows: ProfessionalScreenerRow[] }) {
+  const liveLike = rows.filter((row) => row.quote.quality === "realtime" || row.quote.quality === "near_realtime").length;
+  const blockedAnalysis = rows.filter((row) => row.dataQuality && !row.dataQuality.sufficientForAnalysis).length;
+  const assetClasses = new Set(rows.map((row) => row.asset.type)).size;
+  const averageScore = Math.round(rows.reduce((sum, row) => sum + row.scores.total, 0) / Math.max(1, rows.length));
+
+  return (
+    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <MetricCard
+        label="Instrumente"
+        value={rows.length}
+        note="Aktive, provider-normalisierte Assets im aktuellen Profi-Report."
+        tone="cyan"
+      />
+      <MetricCard
+        label="Live/Near"
+        value={`${liveLike}/${rows.length}`}
+        note={`${formatRatio(liveLike, rows.length)} der Kurszeilen sind realtime oder near-realtime markiert.`}
+        tone={liveLike ? "profit" : "amber"}
+      />
+      <MetricCard
+        label="Assetklassen"
+        value={assetClasses}
+        note="Aktien, ETFs, Krypto und weitere Klassen werden getrennt geführt."
+        tone="cyan"
+      />
+      <MetricCard
+        label="Analyse-Guard"
+        value={blockedAnalysis}
+        note={blockedAnalysis ? "Zeilen mit unvollständiger Datenbasis werden blockiert/abgestuft." : "Keine blockierten Analysezeilen im aktuellen Report."}
+        tone={blockedAnalysis ? "amber" : "profit"}
+      />
+      <div className="rounded-2xl border border-stroke bg-panel/72 p-4 md:col-span-2 xl:col-span-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Score- und Qualitätslage</p>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              Durchschnittlicher Gesamt-Score {averageScore}/100. Qualität: {report.qualitySummary.realtime} realtime,
+              {" "}{report.qualitySummary.nearRealtime} near-realtime, {report.qualitySummary.delayed} verzögert/historisch,
+              {" "}{report.qualitySummary.mock} mock, {report.qualitySummary.unavailable} nicht verfügbar.
+            </p>
+          </div>
+          <Link href="/screener" className="rounded-2xl border border-cyan/30 bg-cyan/10 px-4 py-3 text-sm font-semibold text-cyan transition hover:bg-cyan/15">
+            Globales Universum öffnen
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CoverageMatrix({ rows }: { rows: ProfessionalScreenerRow[] }) {
+  const assetClasses = [...new Set(rows.map((row) => row.asset.type))].sort();
+
+  return (
+    <Section title="Datenabdeckung nach Assetklasse" icon={Layers3}>
+      <div className="overflow-hidden rounded-2xl border border-stroke">
+        <div className="hidden grid-cols-[1fr_repeat(6,0.85fr)] gap-3 border-b border-stroke bg-panel px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted lg:grid">
+          <span>Assetklasse</span>
+          {knownQualities.map((quality) => <span key={quality}>{quality === "near_realtime" ? "near" : quality}</span>)}
+        </div>
+        <div className="divide-y divide-stroke">
+          {assetClasses.map((assetClass) => {
+            const classRows = rows.filter((row) => row.asset.type === assetClass);
+
+            return (
+              <div key={assetClass} className="grid gap-3 bg-panel/55 px-4 py-4 lg:grid-cols-[1fr_repeat(6,0.85fr)] lg:items-center">
+                <div>
+                  <p className="font-semibold uppercase tracking-[0.12em] text-mist">{assetClass}</p>
+                  <p className="text-xs text-muted">{classRows.length} Instrumente</p>
+                </div>
+                {knownQualities.map((quality) => {
+                  const count = classRows.filter((row) => row.quote.quality === quality).length;
+
+                  return (
+                    <div key={quality} className="flex items-center justify-between gap-2 lg:block">
+                      <span className="text-xs text-muted lg:hidden">{quality}</span>
+                      <span className={`inline-flex min-w-12 justify-center rounded-xl border px-3 py-2 font-mono text-sm ${count ? qualityTone(quality) : "border-stroke bg-coal text-muted"}`}>
+                        {count}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <p className="mt-3 rounded-2xl border border-amber/25 bg-amber/10 p-3 text-sm leading-6 text-amber">
+        Wichtig: Eine hohe Abdeckung bedeutet nicht automatisch belastbare Analyse. Jede Zeile bleibt an Provider, Zeitstempel, Lizenz und Datenqualität gebunden.
+      </p>
+    </Section>
+  );
+}
+
+function MarketMoverRail({ title, rows, icon: Icon }: { title: string; rows: ProfessionalScreenerRow[]; icon: typeof TrendingUp }) {
+  return (
+    <section className="rounded-[2rem] border border-stroke bg-coal/50 p-4 shadow-panel sm:p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Icon className="h-5 w-5 text-cyan" />
+        <h2 className="text-lg font-semibold text-mist">{title}</h2>
+      </div>
+      <div className="space-y-2">
+        {takeSafe(rows, 6).map((row, index) => {
+          const symbol = safeSymbol(row.asset.symbol);
+          const positive = row.quote.changePercent >= 0;
+
+          return (
+            <Link key={`${title}-${symbol}-${index}`} href={`/assets/${encodeURIComponent(symbol)}`} className="grid grid-cols-[2rem_1fr_auto] items-center gap-3 rounded-2xl border border-stroke bg-panel/64 p-3 transition hover:border-cyan/35 hover:bg-panel2">
+              <span className="grid h-8 w-8 place-items-center rounded-xl bg-coal font-mono text-xs text-muted">{index + 1}</span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-mono font-semibold text-mist">{symbol}</p>
+                  <QualityPill quality={row.quote.quality} />
+                </div>
+                <p className="truncate text-xs text-muted">{safeText(row.asset.name, "Asset", 120)}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-mono text-sm font-semibold">{formatOptionalCurrency(row.quote.price, row.quote.currency)}</p>
+                <p className={positive ? "text-xs text-profit" : "text-xs text-loss"}>{formatPercent(row.quote.changePercent)}</p>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function FocusPicker({
+  rows,
+  selectedSymbol,
+  onSelect
+}: {
+  rows: ProfessionalScreenerRow[];
+  selectedSymbol: string;
+  onSelect: (symbol: string) => void;
+}) {
+  return (
+    <div className="mb-4 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Asset auswählen">
+      {takeSafe(rows, MAX_FOCUS_CHOICES).map((row) => {
+        const symbol = safeSymbol(row.asset.symbol);
+        const active = symbol === selectedSymbol;
+
+        return (
+          <button
+            key={symbol}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onSelect(symbol)}
+            className={`shrink-0 rounded-2xl border px-4 py-3 text-left transition ${
+              active ? "border-cyan/45 bg-cyan/12 text-cyan" : "border-stroke bg-panel text-muted hover:border-cyan/30 hover:text-mist"
+            }`}
+          >
+            <span className="block font-mono text-sm font-semibold">{symbol}</span>
+            <span className="mt-1 block max-w-32 truncate text-xs">{safeText(row.asset.name, "Asset", 80)}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function FundamentalsWorkbench({ rows }: { rows: ProfessionalScreenerRow[] }) {
+  const usableRows = rows.filter((row) => row.equityFundamentals);
+  const [selectedSymbol, setSelectedSymbol] = useState(safeSymbol(usableRows[0]?.asset.symbol));
+  const selected = usableRows.find((row) => safeSymbol(row.asset.symbol) === selectedSymbol) ?? usableRows[0];
+
+  if (!selected?.equityFundamentals) return null;
+
+  return (
+    <Section title="Fundamental-Workbench" icon={Building2}>
+      <FocusPicker rows={usableRows} selectedSymbol={safeSymbol(selected.asset.symbol)} onSelect={setSelectedSymbol} />
+      <EquityFundamentalsGrid profile={selected.equityFundamentals} />
+    </Section>
+  );
+}
+
+function ETFWorkbench({ rows }: { rows: ProfessionalScreenerRow[] }) {
+  const usableRows = rows.filter((row) => row.etfProfile);
+  const [selectedSymbol, setSelectedSymbol] = useState(safeSymbol(usableRows[0]?.asset.symbol));
+  const selected = usableRows.find((row) => safeSymbol(row.asset.symbol) === selectedSymbol) ?? usableRows[0];
+
+  if (!selected?.etfProfile) return null;
+
+  return (
+    <Section title="ETF-Struktur-Workbench" icon={Scale}>
+      <FocusPicker rows={usableRows} selectedSymbol={safeSymbol(selected.asset.symbol)} onSelect={setSelectedSymbol} />
+      <ETFProfileGrid profile={selected.etfProfile} />
+    </Section>
+  );
+}
+
+function CryptoWorkbench({ rows }: { rows: ProfessionalScreenerRow[] }) {
+  const usableRows = rows.filter((row) => row.cryptoProfile);
+  const [selectedSymbol, setSelectedSymbol] = useState(safeSymbol(usableRows[0]?.asset.symbol));
+  const selected = usableRows.find((row) => safeSymbol(row.asset.symbol) === selectedSymbol) ?? usableRows[0];
+
+  if (!selected?.cryptoProfile) return null;
+
+  return (
+    <Section title="Krypto-Workbench" icon={Coins}>
+      <FocusPicker rows={usableRows} selectedSymbol={safeSymbol(selected.asset.symbol)} onSelect={setSelectedSymbol} />
+      <CryptoProfileGrid profile={selected.cryptoProfile} />
+    </Section>
   );
 }
 
@@ -359,6 +618,19 @@ export function ProfessionalDataView({ report, mode }: { report: ProfessionalMar
   const [newsQuery, setNewsQuery] = useState("");
   const [newsQuality, setNewsQuality] = useState<MarketDataQuality | "all">("all");
   const [newsImpact, setNewsImpact] = useState<NewsImpactFilter>("all");
+  const allRows = useMemo(() => collectReportRows(report), [report]);
+  const rankedGainers = useMemo(
+    () => takeSafe(report.topGainers.length ? report.topGainers : allRows, 40).sort((a, b) => b.quote.changePercent - a.quote.changePercent),
+    [allRows, report.topGainers]
+  );
+  const rankedLosers = useMemo(
+    () => takeSafe(report.topLosers.length ? report.topLosers : allRows, 40).sort((a, b) => a.quote.changePercent - b.quote.changePercent),
+    [allRows, report.topLosers]
+  );
+  const rankedActive = useMemo(
+    () => takeSafe(report.mostActive.length ? report.mostActive : allRows, 40).sort((a, b) => (b.quote.volume ?? 0) - (a.quote.volume ?? 0)),
+    [allRows, report.mostActive]
+  );
   const filteredNews = useMemo(() => {
     const q = newsQuery.trim().toLowerCase();
 
@@ -387,6 +659,9 @@ export function ProfessionalDataView({ report, mode }: { report: ProfessionalMar
         <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan">{copy.eyebrow}</p>
         <h1 className="mt-3 max-w-4xl text-3xl font-semibold tracking-tight text-mist sm:text-5xl">{copy.title}</h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-muted sm:text-base">{copy.subtitle}</p>
+        <div className="mt-5">
+          <MarketPulsePanel report={report} rows={allRows} />
+        </div>
         <div className="mt-5 flex flex-wrap gap-2">
           {takeSafe(report.providerStack, MAX_PROVIDER_BADGES).map((provider, index) => <span key={`${safeText(provider, "Provider", 80)}-${index}`} className="rounded-xl border border-cyan/25 bg-cyan/10 px-3 py-2 text-xs font-semibold text-cyan">{safeText(provider, "Provider", 80)}</span>)}
           <span className="rounded-xl border border-stroke bg-panel px-3 py-2 text-xs text-muted">Updated {formatReportTimestamp(report.updatedAt)}</span>
@@ -404,6 +679,12 @@ export function ProfessionalDataView({ report, mode }: { report: ProfessionalMar
           <Section title="Global Market Overview" icon={Activity}>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{takeSafe(report.globalOverview, MAX_CARD_GRID_ITEMS).map((item) => <DataPointCard key={item.label} point={item} />)}</div>
           </Section>
+          <CoverageMatrix rows={allRows} />
+          <div className="grid gap-4 xl:grid-cols-3">
+            <MarketMoverRail title="Top Gewinner" rows={rankedGainers} icon={TrendingUp} />
+            <MarketMoverRail title="Top Verlierer" rows={rankedLosers} icon={TrendingDown} />
+            <MarketMoverRail title="Most Active" rows={rankedActive} icon={Gauge} />
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <ScreenerTable rows={report.watchlist} title="Watchlist" />
             <Section title="Qualitäts-Summary" icon={ShieldAlert}>
@@ -422,21 +703,21 @@ export function ProfessionalDataView({ report, mode }: { report: ProfessionalMar
       {mode === "stocks" ? (
         <>
           <ScreenerTable rows={report.equityScreener} title="Aktien-Screener" />
-          {takeSafe(report.equityScreener, MAX_CARD_GRID_ITEMS).map((row) => row.equityFundamentals ? <Section key={safeSymbol(row.asset.symbol)} title={`${safeSymbol(row.asset.symbol)} Fundamentaldaten`} icon={Building2}><EquityFundamentalsGrid profile={row.equityFundamentals} /></Section> : null)}
+          <FundamentalsWorkbench rows={report.equityScreener} />
         </>
       ) : null}
 
       {mode === "etfs" ? (
         <>
           <ScreenerTable rows={report.etfScreener} title="ETF-Screener" />
-          {takeSafe(report.etfScreener, MAX_CARD_GRID_ITEMS).map((row) => row.etfProfile ? <Section key={safeSymbol(row.asset.symbol)} title={`${safeSymbol(row.asset.symbol)} ETF-Struktur`} icon={Scale}><ETFProfileGrid profile={row.etfProfile} /></Section> : null)}
+          <ETFWorkbench rows={report.etfScreener} />
         </>
       ) : null}
 
       {mode === "crypto" ? (
         <>
           <ScreenerTable rows={report.cryptoScreener} title="Krypto-Screener" />
-          {takeSafe(report.cryptoScreener, MAX_CARD_GRID_ITEMS).map((row) => row.cryptoProfile ? <Section key={safeSymbol(row.asset.symbol)} title={`${safeSymbol(row.asset.symbol)} Krypto-Profil`} icon={Coins}><CryptoProfileGrid profile={row.cryptoProfile} /></Section> : null)}
+          <CryptoWorkbench rows={report.cryptoScreener} />
         </>
       ) : null}
 
