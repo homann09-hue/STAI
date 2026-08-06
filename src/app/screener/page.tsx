@@ -26,7 +26,12 @@ export default async function ScreenerPage() {
           { title: "Keine Fake-Abdeckung", text: "Lizenzpflichtige Börsen, Indizes, Optionen und Futures werden klar als vorbereitet oder lizenzpflichtig markiert.", badge: "Trust" }
         ]}
       />
-      <MarketUniverseExplorer instruments={universe.instruments} coverage={universe.coverage} />
+      <MarketUniverseExplorer
+        instruments={universe.instruments}
+        coverage={universe.coverage}
+        provider={universe.provider}
+        disclaimer={universe.disclaimer}
+      />
     </div>
   );
 }

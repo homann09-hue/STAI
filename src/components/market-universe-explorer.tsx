@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpDown, Database, LockKeyhole, Radio, Search, Star } from "lucide-react";
+import { ArrowUpDown, Database, LockKeyhole, Loader2, Radio, Search, Star } from "lucide-react";
 import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
 import type { MarketUniverseAssetClass, MarketUniverseCoverage, MarketUniverseInstrument } from "@/lib/types";
 
@@ -81,10 +81,14 @@ function qualityLabel(quality: MarketUniverseInstrument["quoteQuality"]) {
 
 export function MarketUniverseExplorer({
   instruments,
-  coverage
+  coverage,
+  provider,
+  disclaimer
 }: {
   instruments: MarketUniverseInstrument[];
   coverage: MarketUniverseCoverage[];
+  provider?: string;
+  disclaimer?: string;
 }) {
   const [query, setQuery] = useState("");
   const [assetClass, setAssetClass] = useState<MarketUniverseAssetClass | "all">("all");
@@ -92,6 +96,10 @@ export function MarketUniverseExplorer({
   const [preset, setPreset] = useState<PresetKey>("all");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [remoteInstruments, setRemoteInstruments] = useState<MarketUniverseInstrument[]>(instruments);
+  const [remoteProvider, setRemoteProvider] = useState(provider ?? "StockPilot Prepared Universe");
+  const [remoteDisclaimer, setRemoteDisclaimer] = useState(disclaimer ?? "");
+  const [searchStatus, setSearchStatus] = useState<"idle" | "loading" | "error">("idle");
 
   useEffect(() => {
     setFavorites(normalizeFavorites(readOfflineValue<unknown>(OFFLINE_KEYS.screenerFavorites)));
@@ -101,10 +109,64 @@ export function MarketUniverseExplorer({
     saveOfflineValue(OFFLINE_KEYS.screenerFavorites, favorites);
   }, [favorites]);
 
+  useEffect(() => {
+    const normalizedQuery = query.trim();
+    if (normalizedQuery.length < 2) {
+      setRemoteInstruments(instruments);
+      setRemoteProvider(provider ?? "StockPilot Prepared Universe");
+      setRemoteDisclaimer(disclaimer ?? "");
+      setSearchStatus("idle");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setSearchStatus("loading");
+
+      try {
+        const params = new URLSearchParams({
+          q: normalizedQuery,
+          assetClass,
+          limit: "200"
+        });
+        const response = await fetch(`/api/market/universe?${params.toString()}`, {
+          headers: { Accept: "application/json" },
+          signal: controller.signal
+        });
+
+        if (!response.ok) throw new Error("Universe search failed");
+        const payload = await response.json() as {
+          data?: {
+            instruments?: MarketUniverseInstrument[];
+            provider?: string;
+            disclaimer?: string;
+          };
+        };
+        const result = payload.data;
+
+        setRemoteInstruments(Array.isArray(result?.instruments) ? result.instruments : []);
+        setRemoteProvider(result?.provider ?? provider ?? "StockPilot Provider Universe");
+        setRemoteDisclaimer(result?.disclaimer ?? disclaimer ?? "");
+        setSearchStatus("idle");
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setRemoteInstruments(instruments);
+        setRemoteProvider(provider ?? "StockPilot Prepared Universe");
+        setRemoteDisclaimer("Provider-Suche konnte gerade nicht geladen werden. Lokale Startabdeckung wird weiter angezeigt.");
+        setSearchStatus("error");
+      }
+    }, 260);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [assetClass, disclaimer, instruments, provider, query]);
+
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return instruments.filter((item) => {
+    return remoteInstruments.filter((item) => {
       if (assetClass !== "all" && item.assetClass !== assetClass) return false;
       if (favoritesOnly && !favorites.includes(item.symbol)) return false;
       if (preset === "live" && !item.subscribable) return false;
@@ -119,15 +181,15 @@ export function MarketUniverseExplorer({
       if (sortKey === "coverage") return a.coverage.localeCompare(b.coverage) || a.symbol.localeCompare(b.symbol);
       return a.quoteQuality.localeCompare(b.quoteQuality) || a.symbol.localeCompare(b.symbol);
     });
-  }, [assetClass, favorites, favoritesOnly, instruments, preset, query, sortKey]);
+  }, [assetClass, favorites, favoritesOnly, preset, query, remoteInstruments, sortKey]);
   const visibleResults = filtered.slice(0, MAX_VISIBLE_MARKET_ROWS);
   const hiddenResultCount = Math.max(0, filtered.length - visibleResults.length);
 
   const stats = {
-    available: instruments.filter((item) => item.coverage === "available").length,
-    prepared: instruments.filter((item) => item.coverage === "prepared").length,
-    license: instruments.filter((item) => item.coverage === "license_required").length,
-    subscribable: instruments.filter((item) => item.subscribable).length
+    available: remoteInstruments.filter((item) => item.coverage === "available").length,
+    prepared: remoteInstruments.filter((item) => item.coverage === "prepared").length,
+    license: remoteInstruments.filter((item) => item.coverage === "license_required").length,
+    subscribable: remoteInstruments.filter((item) => item.subscribable).length
   };
 
   function toggleFavorite(symbol: string) {
@@ -146,6 +208,27 @@ export function MarketUniverseExplorer({
             Aktien, ETFs, Krypto, Indizes, Forex, Rohstoffe, Futures und Optionen werden als universelles Instrumentenmodell geführt.
             Was nicht lizenziert oder angebunden ist, wird nie als live dargestellt.
           </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-xl border border-cyan/25 bg-cyan/10 px-3 py-2 text-cyan">
+              Quelle: {remoteProvider}
+            </span>
+            {searchStatus === "loading" ? (
+              <span className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-panel px-3 py-2 text-muted">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Provider-Suche läuft
+              </span>
+            ) : null}
+            {searchStatus === "error" ? (
+              <span className="rounded-xl border border-loss/25 bg-loss/10 px-3 py-2 text-loss">
+                Provider-Suche gestört
+              </span>
+            ) : null}
+          </div>
+          {remoteDisclaimer ? (
+            <p className="mt-2 max-w-3xl rounded-2xl border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
+              {remoteDisclaimer}
+            </p>
+          ) : null}
         </div>
         <div className="grid gap-2 sm:grid-cols-3 xl:min-w-[28rem]">
           <div className="rounded-2xl border border-profit/25 bg-profit/10 p-3">
@@ -239,6 +322,11 @@ export function MarketUniverseExplorer({
           </button>
         ))}
       </div>
+      {filtered.length === 0 ? (
+        <div className="rounded-2xl border border-amber/25 bg-amber/10 p-4 text-sm leading-6 text-amber" role="status">
+          Keine Treffer für diese Kombination. Prüfe Schreibweise, Assetklasse oder Provider-Status. Es werden keine synthetischen Treffer erzeugt.
+        </div>
+      ) : null}
 
       <div className="overflow-hidden rounded-2xl border border-stroke">
         <div className="hidden grid-cols-[0.8fr_1.5fr_0.8fr_0.8fr_0.9fr_1fr] gap-3 border-b border-stroke bg-coal px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted xl:grid">

@@ -86,6 +86,23 @@ class ProviderAccessUnavailableError extends Error {}
 
 const DEFAULT_STREAM_INTERVAL_MS = 5000;
 const MAX_BATCH_SIZE = 40;
+const DEFAULT_DASHBOARD_SYMBOLS = [
+  "AAPL",
+  "MSFT",
+  "NVDA",
+  "TSLA",
+  "AMZN",
+  "GOOGL",
+  "META",
+  "JPM",
+  "XOM",
+  "LLY",
+  "SPY",
+  "QQQ",
+  "VOO",
+  "BTC-USD",
+  "ETH-USD"
+];
 const DEFAULT_QUOTE_CACHE_TTL_MS = Math.max(5000, Number(process.env.STOCKPILOT_QUOTE_CACHE_TTL_MS) || 30000);
 const DEFAULT_CRYPTO_QUOTE_CACHE_TTL_MS = Math.max(1000, Number(process.env.STOCKPILOT_CRYPTO_QUOTE_CACHE_TTL_MS) || 3000);
 const DEFAULT_STALE_QUOTE_CACHE_TTL_MS = Math.max(
@@ -486,6 +503,68 @@ function normalizedFromDetail(detail: AssetDetail | AssetSummary): NormalizedQuo
     latencyMs: detail.quote.latencyMs,
     marketStatus: detail.quote.marketStatus
   });
+}
+
+function clampScore(value: number) {
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function sectorForQuote(quote: NormalizedQuote) {
+  if (quote.assetType === "crypto") return "Digital Asset";
+  if (quote.assetType === "etf") return "ETF / Fonds";
+  if (quote.assetType === "index") return "Index / Benchmark";
+  if (quote.assetType === "forex") return "Devisen";
+  return "Aktie";
+}
+
+function summaryFromNormalizedQuote(quote: NormalizedQuote): AssetSummary {
+  const trend = clampScore(50 + quote.changePercent * 5);
+  const liquidity = quote.volume ? clampScore(Math.log10(Math.max(10, quote.volume)) * 9) : 45;
+  const risk = quote.assetType === "crypto" ? 38 : quote.assetType === "etf" ? 72 : clampScore(66 - Math.abs(quote.changePercent) * 4);
+  const scores = {
+    trend,
+    news: 50,
+    fundamental: quote.assetType === "crypto" ? 42 : quote.assetType === "etf" ? 70 : 56,
+    technical: clampScore(50 + quote.changePercent * 4),
+    risk,
+    total: clampScore(trend * 0.28 + liquidity * 0.16 + risk * 0.22 + 50 * 0.14 + (quote.assetType === "etf" ? 68 : 55) * 0.2)
+  };
+
+  return {
+    asset: {
+      symbol: quote.symbol,
+      name: quote.name ?? quote.symbol,
+      type: quote.assetType,
+      exchange: quote.exchange ?? (quote.assetType === "crypto" ? "Crypto" : "Provider"),
+      currency: quote.currency,
+      sector: sectorForQuote(quote),
+      description:
+        "Aus dem aktiven Marktdatenanbieter normalisiert. Detaildaten hängen von Provider, Tarif und Börsenlizenz ab."
+    },
+    quote: {
+      price: quote.price,
+      change: quote.change,
+      changePercent: quote.changePercent,
+      dayHigh: quote.high ?? quote.price,
+      dayLow: quote.low ?? quote.price,
+      volume: quote.volume ?? 0,
+      delayedByMinutes: quote.quality === "delayed" ? 15 : 0,
+      asOf: quote.timestamp,
+      bid: quote.bid,
+      ask: quote.ask,
+      spread: quote.spread,
+      open: quote.open,
+      previousClose: quote.previousClose,
+      fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh,
+      fiftyTwoWeekLow: quote.fiftyTwoWeekLow,
+      provider: quote.provider,
+      quality: quote.quality,
+      latencyMs: quote.latencyMs,
+      marketStatus: quote.marketStatus
+    },
+    scores,
+    aiRisk: quote.assetType === "crypto" ? "hoch" : scores.risk >= 72 ? "niedrig" : scores.risk >= 48 ? "mittel" : "hoch"
+  };
 }
 
 function quoteFromNormalized(base: Quote, normalized: NormalizedQuote): Quote {
@@ -1106,9 +1185,12 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
   async getDashboard() {
     const dashboard = await this.fallback.getDashboard();
     const symbols = uniqueSymbols([
+      ...DEFAULT_DASHBOARD_SYMBOLS,
       ...dashboard.watchlist.map((item) => item.asset.symbol),
       ...dashboard.gainers.map((item) => item.asset.symbol),
-      ...dashboard.losers.map((item) => item.asset.symbol)
+      ...dashboard.losers.map((item) => item.asset.symbol),
+      ...dashboard.mostActive.map((item) => item.asset.symbol),
+      ...dashboard.trendingAssets.map((item) => item.asset.symbol)
     ]);
     const quotes = await withDeadline(this.getQuotes(symbols), DEFAULT_DASHBOARD_QUOTE_TIMEOUT_MS, []);
     const quoteMap = new Map(quotes.map((quote) => [quote.symbol, quote]));
@@ -1117,18 +1199,46 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
         const quote = quoteMap.get(item.asset.symbol);
         return quote ? enrichSummaryWithQuote(item, quote) : item;
       });
+    const knownSymbols = new Set([
+      ...dashboard.watchlist.map((item) => item.asset.symbol),
+      ...dashboard.gainers.map((item) => item.asset.symbol),
+      ...dashboard.losers.map((item) => item.asset.symbol),
+      ...dashboard.mostActive.map((item) => item.asset.symbol),
+      ...dashboard.trendingAssets.map((item) => item.asset.symbol)
+    ]);
+    const providerSummaries = quotes
+      .filter((quote) => !knownSymbols.has(quote.symbol))
+      .map(summaryFromNormalizedQuote);
+    const combine = (items: AssetSummary[]) => {
+      const bySymbol = new Map<string, AssetSummary>();
+      [...items, ...providerSummaries].forEach((item) => bySymbol.set(item.asset.symbol, item));
+      return [...bySymbol.values()];
+    };
     const mockSources = quotes.filter((quote) => quote.quality === "mock").length;
+    const enrichedWatchlist = combine(enrichList(dashboard.watchlist)).slice(0, 12);
+    const enrichedMostActive = combine(enrichList(dashboard.mostActive))
+      .sort((a, b) => b.quote.volume - a.quote.volume)
+      .slice(0, 10);
+    const enrichedTrending = combine(enrichList(dashboard.trendingAssets))
+      .sort((a, b) => (b.professionalScores?.momentum ?? b.scores.trend) - (a.professionalScores?.momentum ?? a.scores.trend))
+      .slice(0, 10);
+    const enrichedGainers = combine(enrichList(dashboard.gainers))
+      .sort((a, b) => b.quote.changePercent - a.quote.changePercent)
+      .slice(0, 10);
+    const enrichedLosers = combine(enrichList(dashboard.losers))
+      .sort((a, b) => a.quote.changePercent - b.quote.changePercent)
+      .slice(0, 10);
 
     return {
       ...dashboard,
-      watchlist: enrichList(dashboard.watchlist),
-      gainers: enrichList(dashboard.gainers),
-      losers: enrichList(dashboard.losers),
-      mostActive: enrichList(dashboard.mostActive),
-      trendingAssets: enrichList(dashboard.trendingAssets),
+      watchlist: enrichedWatchlist,
+      gainers: enrichedGainers,
+      losers: enrichedLosers,
+      mostActive: enrichedMostActive,
+      trendingAssets: enrichedTrending,
       dataQualitySummary: {
         ...dashboard.dataQualitySummary,
-        label: mockSources === quotes.length ? "Mock-Fallback aktiv" : `${this.providerName} + Fallback`,
+        label: quotes.length > 0 && mockSources === quotes.length ? "Mock-Fallback aktiv" : `${this.providerName} + Fallback`,
         mockSources
       }
     };
@@ -1241,34 +1351,64 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
   }
 }
 
-function selectedProviderId(): MarketProviderId {
-  const provider = (
-    process.env.MARKET_DATA_PROVIDER ??
-    process.env.STOCKPILOT_MARKET_PROVIDER ??
-    process.env.STOCKPILOT_QUOTE_PROVIDER ??
-    "mock"
-  )
-    .trim()
-    .toLowerCase();
+function normalizeProviderId(provider: string): MarketProviderId {
+  const normalized = provider.trim().toLowerCase();
 
-  if (provider === "polygon") return "polygon";
-  if (provider === "twelvedata") return "twelve_data";
+  if (normalized === "polygon") return "polygon";
+  if (normalized === "twelvedata") return "twelve_data";
   if (
-    provider === "mock" ||
-    provider === "finnhub" ||
-    provider === "twelve_data" ||
-    provider === "eodhd" ||
-    provider === "massive" ||
-    provider === "alpha_vantage" ||
-    provider === "fmp" ||
-    provider === "databento" ||
-    provider === "binance" ||
-    provider === "coinbase"
+    normalized === "mock" ||
+    normalized === "finnhub" ||
+    normalized === "twelve_data" ||
+    normalized === "eodhd" ||
+    normalized === "massive" ||
+    normalized === "alpha_vantage" ||
+    normalized === "fmp" ||
+    normalized === "databento" ||
+    normalized === "binance" ||
+    normalized === "coinbase"
   ) {
-    return provider;
+    return normalized;
   }
 
   return "mock";
+}
+
+function autoProviderId(): MarketProviderId {
+  if (
+    process.env.NEXT_PHASE === "phase-production-build" &&
+    process.env.STOCKPILOT_ALLOW_PROVIDER_DURING_BUILD !== "true"
+  ) {
+    return "mock";
+  }
+
+  if (process.env.FMP_API_KEY) return "fmp";
+  if (process.env.FINNHUB_API_KEY) return "finnhub";
+  if (process.env.TWELVE_DATA_API_KEY) return "twelve_data";
+  if (process.env.EODHD_API_KEY) return "eodhd";
+  if (process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY) return "massive";
+  if (process.env.ALPHA_VANTAGE_API_KEY) return "alpha_vantage";
+  return "mock";
+}
+
+function selectedProviderId(): MarketProviderId {
+  if (
+    process.env.NEXT_PHASE === "phase-production-build" &&
+    process.env.STOCKPILOT_ALLOW_PROVIDER_DURING_BUILD !== "true"
+  ) {
+    return "mock";
+  }
+
+  const explicit = (
+    process.env.MARKET_DATA_PROVIDER ??
+    process.env.STOCKPILOT_MARKET_PROVIDER ??
+    process.env.STOCKPILOT_QUOTE_PROVIDER
+  )
+    ?.trim()
+    .toLowerCase();
+
+  if (!explicit || explicit === "auto") return autoProviderId();
+  return normalizeProviderId(explicit);
 }
 
 export function getMarketDataProvider(): MarketDataProvider {
