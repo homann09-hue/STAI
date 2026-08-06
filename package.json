@@ -12,7 +12,7 @@
     "build": "next build",
     "start": "next start",
     "format:check": "node scripts/qa/format-check.mjs",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"scripts/**/*.mjs\" next.config.ts tailwind.config.ts capacitor.config.ts --max-warnings=0",
     "pretypecheck": "node scripts/qa/clean-next-generated-types.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
