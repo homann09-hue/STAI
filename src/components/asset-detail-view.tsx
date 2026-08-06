@@ -15,6 +15,7 @@ import {
   CalendarDays,
   DatabaseZap,
   FileSearch,
+  Gauge,
   Layers3,
   Maximize2,
   Minimize2,
@@ -39,6 +40,7 @@ import {
 } from "@/lib/scoring";
 import { buildAssetReadiness, buildFundamentalMetrics } from "@/lib/asset-readiness";
 import { buildAssetProvenancePassport, type AssetProvenanceEntry } from "@/lib/asset-provenance";
+import { buildForecastPassport, type ForecastPassport } from "@/lib/forecast-passport";
 import { useMarketStream } from "@/lib/use-market-stream";
 import type { AssetDetail, Candle, Quote, TimeRange } from "@/lib/types";
 import { timeRanges } from "@/lib/types";
@@ -180,6 +182,105 @@ function AssetProvenancePanel({ passport }: { passport: ReturnType<typeof buildA
   );
 }
 
+function forecastStatusTone(status: ForecastPassport["status"]) {
+  if (status === "ready") return "border-profit/30 bg-profit/10 text-profit";
+  if (status === "limited") return "border-amber/30 bg-amber/10 text-amber";
+  return "border-loss/35 bg-loss/10 text-loss";
+}
+
+function formatMaybePercent(value: number | null | undefined) {
+  return isFiniteNumber(value) ? formatPercent(value) : "blockiert";
+}
+
+function ForecastPassportPanel({ passport }: { passport: ForecastPassport }) {
+  return (
+    <section className="rounded-[1.5rem] border border-stroke bg-[radial-gradient(circle_at_top_left,rgba(43,210,150,0.14),transparent_34%),linear-gradient(145deg,rgba(13,20,32,0.96),rgba(6,11,20,0.98))] p-5 shadow-panel">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Gauge className="h-5 w-5 text-profit" />
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-profit">Forecast Passport</p>
+          </div>
+          <h2 className="mt-2 text-xl font-semibold text-mist">Szenarien statt Scheinsicherheit</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{passport.userMessage}</p>
+        </div>
+        <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${forecastStatusTone(passport.status)}`}>
+          {passport.label}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <Metric label="Modell-Konfidenz" value={`${passport.confidence}/100`} tone={passport.status === "blocked" ? "text-loss" : "text-cyan"} />
+        <Metric label="Datenqualität" value={`${passport.qualityScore}/100`} tone="text-cyan" />
+        <Metric label="Chance steigend" value={passport.status === "blocked" ? "blockiert" : `${passport.probabilityUp}%`} tone="text-profit" />
+        <Metric label="Chance fallend" value={passport.status === "blocked" ? "blockiert" : `${passport.probabilityDown}%`} tone="text-loss" />
+        <Metric label="Seitwärts" value={passport.status === "blocked" ? "blockiert" : `${passport.probabilitySideways}%`} tone="text-amber" />
+      </div>
+
+      <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_0.9fr]">
+        <div className="overflow-hidden rounded-2xl border border-stroke">
+          <div className="grid grid-cols-[0.7fr_1fr_1fr_1fr] gap-2 border-b border-stroke bg-coal px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+            <span>Horizont</span>
+            <span>Band unten</span>
+            <span>Mitte</span>
+            <span>Band oben</span>
+          </div>
+          <div className="divide-y divide-stroke">
+            {passport.bands.map((band) => (
+              <div key={band.horizon} className="grid grid-cols-[0.7fr_1fr_1fr_1fr] gap-2 bg-panel/45 px-4 py-3 text-sm">
+                <span className="font-semibold text-mist">{band.label}</span>
+                <span className="font-mono text-loss">{formatMaybePercent(band.lowerReturnPercent)}</span>
+                <span className="font-mono text-cyan">{formatMaybePercent(band.medianReturnPercent)}</span>
+                <span className="font-mono text-profit">{formatMaybePercent(band.upperReturnPercent)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3">
+          {passport.scenarios.map((scenario) => (
+            <article key={scenario.id} className="rounded-2xl border border-stroke bg-panel/60 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-semibold text-mist">{scenario.label}</p>
+                <span className="rounded-full border border-stroke bg-coal px-3 py-1 font-mono text-xs text-muted">
+                  {scenario.probability}%
+                </span>
+              </div>
+              <p className="mt-2 font-mono text-lg text-cyan">
+                {scenario.projectedPrice === null ? "keine Zielspanne" : formatCurrency(scenario.projectedPrice, passport.currency)}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-muted">{scenario.rationale}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="rounded-2xl border border-profit/20 bg-profit/10 p-4">
+          <p className="text-sm font-semibold text-profit">Wichtigste Treiber</p>
+          <ul className="mt-2 space-y-2 text-xs leading-5 text-muted">
+            {passport.drivers.length ? passport.drivers.map((driver) => <li key={driver}>{driver}</li>) : <li>Keine belastbaren Treiber verfügbar.</li>}
+          </ul>
+        </div>
+        <div className="rounded-2xl border border-loss/20 bg-loss/10 p-4">
+          <p className="text-sm font-semibold text-loss">Risiken und Blocker</p>
+          <ul className="mt-2 space-y-2 text-xs leading-5 text-muted">
+            {[...passport.risks, ...passport.blockers].slice(0, 6).map((risk) => <li key={risk}>{risk}</li>)}
+            {!passport.risks.length && !passport.blockers.length ? <li>Keine zusätzlichen Blocker in der aktuellen Datenbasis.</li> : null}
+          </ul>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-stroke bg-coal/70 p-4 text-xs leading-5 text-muted">
+        <p>
+          Modell: <span className="font-mono text-cyan">{passport.modelVersion}</span> · Datenstand: {formatTimestamp(passport.dataCutoff)} · Provider: {passport.provider} · Qualität: {passport.quality.toUpperCase()}
+        </p>
+        <p className="mt-2">{legalDisclaimer}</p>
+      </div>
+    </section>
+  );
+}
+
 export function AssetDetailView({ detail }: { detail: AssetDetail }) {
   const [range, setRange] = useState<TimeRange>("1M");
   const [showSma, setShowSma] = useState(true);
@@ -235,6 +336,7 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
   const readiness = useMemo(() => buildAssetReadiness(displayedDetail), [displayedDetail]);
   const fundamentalMetrics = useMemo(() => buildFundamentalMetrics(displayedDetail), [displayedDetail]);
   const provenancePassport = useMemo(() => buildAssetProvenancePassport(displayedDetail), [displayedDetail]);
+  const forecastPassport = useMemo(() => buildForecastPassport(displayedDetail), [displayedDetail]);
   const positive = isFiniteNumber(displayedQuote.changePercent) ? displayedQuote.changePercent >= 0 : false;
   const chartStats = useMemo(() => {
     if (candles.length < 2) return null;
@@ -438,6 +540,8 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
       </section>
 
       <AssetProvenancePanel passport={provenancePassport} />
+
+      <ForecastPassportPanel passport={forecastPassport} />
 
       <AssetDecisionPanel detail={detail} />
 
