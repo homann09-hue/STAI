@@ -197,7 +197,7 @@ export function MarketUniverseExplorer({
         setRemoteProvider(result?.provider ?? provider ?? "StockPilot Provider Universe");
         setRemoteDisclaimer(result?.disclaimer ?? disclaimer ?? "");
         setSearchStatus("idle");
-      } catch (error) {
+      } catch {
         if (controller.signal.aborted) return;
         setRemoteInstruments(instruments);
         setRemoteProvider(provider ?? "StockPilot Prepared Universe");
