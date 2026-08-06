@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpDown, Database, Fingerprint, LockKeyhole, Loader2, Radio, Search, ShieldAlert, Star } from "lucide-react";
+import { ArrowUpDown, CheckCircle2, Database, Fingerprint, LockKeyhole, Loader2, Radio, Search, ShieldAlert, Star } from "lucide-react";
 import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
+import { buildMarketOperationsReport, type MarketActivationStatus, type MarketOperationsTone } from "@/lib/market-operations";
 import type { MarketUniverseAssetClass, MarketUniverseCoverage, MarketUniverseInstrument } from "@/lib/types";
 
 const assetClasses: Array<{ key: MarketUniverseAssetClass | "all"; label: string }> = [
@@ -103,6 +104,25 @@ function readinessLabel(status: MarketUniverseInstrument["analysisReadiness"]) {
   if (status === "ready") return "Analyse bereit";
   if (status === "limited") return "Eingeschränkt";
   return "Blockiert";
+}
+
+function operationsTone(tone: MarketOperationsTone) {
+  if (tone === "profit") return "border-profit/25 bg-profit/10 text-profit";
+  if (tone === "cyan") return "border-cyan/25 bg-cyan/10 text-cyan";
+  if (tone === "amber") return "border-amber/25 bg-amber/10 text-amber";
+  return "border-loss/25 bg-loss/10 text-loss";
+}
+
+function activationTone(status: MarketActivationStatus) {
+  if (status === "done") return "border-profit/25 bg-profit/10 text-profit";
+  if (status === "next") return "border-cyan/25 bg-cyan/10 text-cyan";
+  return "border-amber/25 bg-amber/10 text-amber";
+}
+
+function activationLabel(status: MarketActivationStatus) {
+  if (status === "done") return "aktiv";
+  if (status === "next") return "nächster Schritt";
+  return "blockiert";
 }
 
 export function MarketUniverseExplorer({
@@ -214,6 +234,10 @@ export function MarketUniverseExplorer({
   }, [assetClass, favorites, favoritesOnly, preset, query, remoteInstruments, sortKey]);
   const visibleResults = filtered.slice(0, MAX_VISIBLE_MARKET_ROWS);
   const hiddenResultCount = Math.max(0, filtered.length - visibleResults.length);
+  const operations = useMemo(
+    () => buildMarketOperationsReport(filtered, coverage, remoteProvider),
+    [coverage, filtered, remoteProvider]
+  );
 
   const stats = {
     available: remoteInstruments.filter((item) => item.coverage === "available").length,
@@ -278,6 +302,68 @@ export function MarketUniverseExplorer({
             <LockKeyhole className="h-4 w-4 text-amber" />
             <p className="mt-2 font-mono text-xl font-semibold text-amber">{stats.license}</p>
             <p className="text-xs text-muted">Lizenz nötig</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[1.5rem] border border-stroke bg-[linear-gradient(135deg,rgba(43,210,150,0.10),rgba(7,13,24,0.92)_42%,rgba(88,166,255,0.10))] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-profit">Market Operations Cockpit</p>
+            <h3 className="mt-2 text-xl font-semibold text-mist">Was ist jetzt wirklich nutzbar?</h3>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{operations.userMessage}</p>
+          </div>
+          <span className={`rounded-2xl border px-4 py-2 text-sm font-semibold ${operationsTone(operations.operationalRisk === "niedrig" ? "profit" : operations.operationalRisk === "mittel" ? "cyan" : operations.operationalRisk === "hoch" ? "amber" : "loss")}`}>
+            Operations-Risiko: {operations.operationalRisk}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {operations.metrics.map((metric) => (
+            <article key={metric.label} className={`rounded-2xl border p-4 ${operationsTone(metric.tone)}`}>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em]">{metric.label}</p>
+              <p className="mt-3 font-mono text-2xl font-semibold text-mist">{metric.value}</p>
+              <p className="mt-2 text-xs leading-5 text-muted">{metric.note}</p>
+            </article>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_0.9fr]">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {operations.activationSteps.map((step) => (
+              <article key={step.id} className={`rounded-2xl border p-3 ${activationTone(step.status)}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <p className="text-sm font-semibold">{step.label}</p>
+                  </div>
+                  <span className="rounded-full border border-current/20 px-2 py-1 text-[10px] uppercase">
+                    {activationLabel(step.status)}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-muted">{step.detail}</p>
+              </article>
+            ))}
+          </div>
+          <div className="rounded-2xl border border-stroke bg-coal/70 p-4">
+            <p className="text-sm font-semibold text-mist">Abdeckung nach Qualität</p>
+            <div className="mt-3 space-y-2">
+              {operations.qualityBreakdown.map((item) => (
+                <div key={item.label} className="flex items-center justify-between gap-3 text-xs">
+                  <span className={`rounded-full border px-2 py-1 ${qualityTone(item.label)}`}>{qualityLabel(item.label)}</span>
+                  <span className="font-mono text-muted">{item.count}</span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-sm font-semibold text-mist">Top-Assetklassen</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {operations.assetClassBreakdown.map((item) => (
+                <span key={item.label} className="rounded-full border border-stroke bg-panel px-3 py-1 text-xs text-muted">
+                  {item.label}: {item.count}
+                </span>
+              ))}
+              {!operations.assetClassBreakdown.length ? (
+                <span className="rounded-full border border-amber/25 bg-amber/10 px-3 py-1 text-xs text-amber">Keine Instrumente geladen</span>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
