@@ -10,8 +10,9 @@ STAI wird schrittweise von einer Demo-Watchlist zu einem ehrlichen, providerbasi
 
 - Probabilistischer Forecast Passport auf Asset-Detailseiten.
 - Market Operations Cockpit im globalen Screener.
+- Forecast-Ledger-API-Slice unter `/api/forecasts/[symbol]` mit Promotion-Gate, Daten-Cutoff, Modellversion, Input-Digest und Outcome-Plan.
 - Sichtbare Trennung von nutzbarer Kursabdeckung, Analysefreigabe, Lizenzbedarf, vorbereiteten Datenbereichen und Provider-Lücken.
-- Tests gegen Mock-as-Live-Verwechslung, leere Provider-Ergebnisse und blockierte Analysezustände.
+- Tests gegen Mock-as-Live-Verwechslung, leere Provider-Ergebnisse, blockierte Analysezustände und blockierte Forecasts.
 
 ## Verifiziert
 
