@@ -25,6 +25,7 @@ const commandItems: CommandItem[] = [
   { href: "/alerts", label: "Alerts", group: "Automation", hint: "Preis, RSI, News, Earnings", keywords: "alerts alarme rsi preis news earnings" },
   { href: "/news-terminal", label: "News-Terminal", group: "Research", hint: "Quelle, Impact, Sentiment", keywords: "news nachrichten sentiment impact marketaux newsapi" },
   { href: "/risk", label: "Risiko-Dashboard", group: "Risk", hint: "Klumpenrisiko, Drawdown, Datenrisiko", keywords: "risiko risk drawdown volatilität klumpen" },
+  { href: "/track-record", label: "Trefferbilanz", group: "Research", hint: "Wie gut waren unsere Prognosen wirklich", keywords: "trefferbilanz track record prognose treffer kalibrierung baseline modellgüte historie" },
   { href: "/compare", label: "Vergleich", group: "Research", hint: "Asset vs Benchmark", keywords: "vergleich compare benchmark asset etf" },
   { href: "/learn", label: "Investieren lernen", group: "Lernen", hint: "Glossar und Beispiel-Portfolios", keywords: "lernen anfänger glossar aktie etf risiko" },
   { href: "/pricing", label: "Pläne", group: "Business", hint: "Free, Starter, Pro, Elite", keywords: "pricing preis pläne pro elite billing" },

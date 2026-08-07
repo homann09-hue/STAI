@@ -66,7 +66,7 @@ Legende: ✅ vorhanden und verifiziert · 🟡 teilweise · ❌ fehlt ·
 | Outcome-Auswertung nach Horizont | ✅ | `forecast-outcome.ts` + Worker + Cron `/api/forecasts/evaluate` |
 | Baseline-Vergleich | ✅ | Naive Baseline (unveränderter Kurs), Modellvorsprung ausgewiesen |
 | Walk-Forward-Validierung | ❌ | Braucht Point-in-Time-Daten |
-| Modellgüte historisch sichtbar | 🟡 | Bilanz wird geschrieben; noch keine UI |
+| Modellgüte historisch sichtbar | ✅ | `/track-record`, öffentlich, mit Ehrlichkeitsregeln |
 | Kein LLM als Prognosemotor | ✅ | Deterministisch, `forecast-passport.ts` |
 
 **Stand nach dem Outcome-Worker:** Der Kreis ist geschlossen. Prognosen werden
@@ -81,7 +81,11 @@ Bewusste Eigenschaften gegen Schönfärberei:
 - Ein zu breites Band gilt genauso als Kalibrierungsfehler wie ein zu enges.
 - Unter 20 bewerteten Prognosen wird keine Baseline-Aussage getroffen.
 
-**Verbleibende Lücke:** die Bilanz ist noch nirgends in der UI sichtbar.
+**Verbleibende Lücke:** die Bilanz ist erst aussagekräftig, wenn genug Prognosen
+ihren Horizont durchlaufen haben. Der Mechanismus steht, die Aussagekraft
+braucht Zeit — mindestens 20 gereifte Prognosen, bei 1M-Horizont also frühestens
+in einem Monat. Bis dahin zeigt `/track-record` ausdrücklich „noch keine
+ausgewertete Prognose" statt Platzhalterwerten.
 
 ## 5. Sicherheit und Recht
 
