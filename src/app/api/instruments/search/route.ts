@@ -31,8 +31,20 @@ interface InstrumentSearchResult {
   resolutionWarnings: string[];
   /** Woher der Treffer stammt. Teil der sichtbaren Provenance. */
   origin: "instrument_master" | "provider_search";
+  /**
+   * Gemessene Kursverfuegbarkeit im aktiven Tarif. `unknown` bedeutet noch nicht
+   * geprueft und wird niemals als "verfuegbar" dargestellt.
+   */
+  quoteStatus: "unknown" | "available" | "restricted" | "error";
+  quoteCheckedAt: string | null;
   lastSeenAt: string;
   confirmationCount: number;
+}
+
+const QUOTE_STATUSES = new Set(["unknown", "available", "restricted", "error"]);
+
+function safeQuoteStatus(value: unknown): InstrumentSearchResult["quoteStatus"] {
+  return QUOTE_STATUSES.has(String(value)) ? (value as InstrumentSearchResult["quoteStatus"]) : "unknown";
 }
 
 /**
@@ -81,6 +93,8 @@ export async function GET(request: Request) {
     resolutionStatus: row.resolution_status as InstrumentResolutionStatus,
     resolutionWarnings: Array.isArray(row.resolution_warnings) ? row.resolution_warnings.map(String) : [],
     origin: "instrument_master",
+    quoteStatus: safeQuoteStatus(row.quote_status),
+    quoteCheckedAt: row.quote_checked_at === null ? null : String(row.quote_checked_at),
     lastSeenAt: String(row.last_seen_at),
     confirmationCount: Number(row.confirmation_count ?? 0)
   }));
@@ -130,6 +144,9 @@ export async function GET(request: Request) {
             resolutionStatus: record.resolutionStatus,
             resolutionWarnings: record.resolutionWarnings,
             origin: "provider_search",
+            // Frisch entdeckt: Kursverfuegbarkeit ist noch ungeprueft.
+            quoteStatus: "unknown",
+            quoteCheckedAt: null,
             lastSeenAt: hit.fetchedAt,
             confirmationCount: 1
           };

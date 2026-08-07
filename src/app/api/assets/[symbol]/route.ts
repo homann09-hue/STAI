@@ -1,6 +1,7 @@
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
 import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
 import { withCacheFallback } from "@/lib/provider-cache";
+import { markInstrumentQuoteStatusBySymbol } from "@/lib/instrument-master-store";
 import { validateSymbol } from "@/lib/validation";
 
 type RouteContext = {
@@ -27,6 +28,17 @@ export async function GET(request: Request, { params }: RouteContext) {
     { ttlMs, staleTtlMs }
   );
   const detail = result.value;
+
+  // Kursverfuegbarkeit ist im aktiven Tarif nicht vorhersagbar (SPY liefert,
+  // QQQ nicht). Jeder echte Abruf ist deshalb eine Messung, die im Instrument
+  // Master festgehalten wird, damit die Suche spaeter nicht mehr raten muss.
+  // Bewusst nicht abgewartet: das Ergebnis der Route haengt nicht davon ab.
+  if (!result.fromCache) {
+    void markInstrumentQuoteStatusBySymbol(
+      parsed.data,
+      detail && detail.quote.quality !== "unavailable" ? "available" : "restricted"
+    );
+  }
 
   if (!detail) {
     return jsonError("Asset nicht gefunden.", 404);

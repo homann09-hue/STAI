@@ -73,6 +73,51 @@ Ergebnis mit Begründung.
 
 ---
 
+## BLOCKER-005 — FMP gated Kursabruf auf Symbolebene
+
+**Schweregrad:** hoch — die Suche findet mehr Instrumente, als analysierbar sind.
+
+**Nachweis.** `stable/quote` mit dem konfigurierten Schlüssel, 2026-08-07:
+
+| Symbol | Handelsplatz | HTTP |
+|---|---|---|
+| AAPL | NASDAQ | 200 |
+| MSFT | NASDAQ | 200 |
+| SPY | AMEX | 200 |
+| EURUSD | FOREX | 200 |
+| GCUSD | COMMODITY | 200 |
+| BTCUSD | CRYPTO | 200 |
+| ^GSPC | INDEX | 200 |
+| **QQQ** | NASDAQ | **402** |
+| **BTCS** | NASDAQ | **402** |
+| SPYM, SPYX | AMEX | 402 |
+| AAPL.DE, APC.F | XETRA, FSX | 402 |
+
+**Warum das wichtig ist.** SPY liefert, QQQ nicht. AAPL liefert, BTCS nicht.
+Beide Paare teilen Assetklasse und Handelsplatz. Es gibt **keine ableitbare
+Regel** — FMP schaltet einzelne Symbole frei. Jede Heuristik wäre falsche
+Sicherheit.
+
+**Konsequenz für das Produkt.** Die Suche kann Instrumente finden, deren
+Detailseite keinen Kurs zeigen kann. Ohne Kennzeichnung wäre das genau die
+Schein-Fertigstellung, die Regel 10 verbietet.
+
+**Was implementiert ist.**
+
+- `instruments.quote_status` (`unknown` / `available` / `restricted` / `error`)
+  plus `quote_checked_at`, Migration `add_instrument_quote_status`.
+- `src/lib/quote-entitlement.ts` trennt Tarifsperre (402/403, dauerhaft) von
+  Betriebsfehler (Timeout, 5xx, vorübergehend). Ein Timeout darf ein Instrument
+  nicht dauerhaft als gesperrt markieren.
+- Die Asset-Route schreibt bei jedem echten Abruf den gemessenen Status zurück.
+- Die Suche zeigt „Kurs verfügbar“ / „Kurs im Tarif gesperrt“ /
+  „Kurs ungeprüft“. `unknown` wird nie als verfügbar dargestellt.
+
+**Aktivierungsschritt.** Mit einem Tarif ohne Symbolsperre laufen alle Instrumente
+nach dem ersten Abruf automatisch auf `available`. Kein Codeumbau nötig.
+
+---
+
 ## BLOCKER-002 — Keine Realtime-Marktdatenlizenz
 
 **Schweregrad:** mittel

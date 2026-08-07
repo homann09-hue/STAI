@@ -168,6 +168,80 @@ export async function persistInstrumentHits(
   };
 }
 
+export type QuoteStatus = "unknown" | "available" | "restricted" | "error";
+
+/**
+ * Haelt fest, ob fuer ein Instrument im aktiven Tarif ueberhaupt ein Kurs
+ * abrufbar ist.
+ *
+ * Das ist bewusst ein gemessener Wert und keine Heuristik. Gemessen am
+ * 2026-08-07 liefert FMP fuer SPY einen Kurs, fuer QQQ nicht; fuer AAPL ja,
+ * fuer BTCS nein. Weder Assetklasse noch Handelsplatz erlauben eine Vorhersage,
+ * der Tarif gated offenbar auf Symbolebene. Ein geratener Status waere daher
+ * falsche Sicherheit.
+ */
+export async function recordInstrumentQuoteStatus(canonicalId: string, status: QuoteStatus) {
+  const supabase = createSupabaseServiceClient();
+  if (!supabase) return false;
+
+  const { data, error } = await supabase.rpc("record_instrument_quote_status", {
+    p_canonical_id: canonicalId,
+    p_quote_status: status
+  });
+
+  if (error) {
+    logEvent("warn", "instrument_master.quote_status_failed", {
+      canonicalId,
+      code: error.code,
+      message: error.message
+    });
+    return false;
+  }
+
+  return data === true;
+}
+
+/**
+ * Uebersetzt einen Provider-Fehler in einen Kursstatus. `402` ist bei FMP die
+ * Tarifsperre und damit dauerhaft, ein Timeout dagegen nur ein Betriebsfehler.
+ */
+export function quoteStatusFromError(error: unknown): QuoteStatus {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (/\b402\b/.test(message)) return "restricted";
+  return "error";
+}
+
+/**
+ * Setzt den Kursstatus fuer alle Listings eines Symbols.
+ *
+ * Ueber das Symbol statt ueber die kanonische ID, weil der Aufrufer (Asset-Route)
+ * nur das Symbol kennt. Schlaegt still fehl: eine fehlende Statusmessung darf
+ * keinen Nutzerrequest beeintraechtigen.
+ */
+export async function markInstrumentQuoteStatusBySymbol(symbol: string, status: QuoteStatus) {
+  const supabase = createSupabaseServiceClient();
+  if (!supabase) return false;
+
+  const normalized = symbol.trim().toUpperCase();
+  if (!/^[A-Z0-9./:^-]{1,32}$/.test(normalized)) return false;
+
+  const { error } = await supabase
+    .from("instruments")
+    .update({ quote_status: status, quote_checked_at: new Date().toISOString() })
+    .eq("symbol", normalized);
+
+  if (error) {
+    logEvent("warn", "instrument_master.quote_status_by_symbol_failed", {
+      symbol: normalized,
+      code: error.code,
+      message: error.message
+    });
+    return false;
+  }
+
+  return true;
+}
+
 /**
  * Liest aus dem persistierten Universum. Das ist der erste Suchpfad: bereits
  * entdeckte Instrumente sollen ohne erneuten Provider-Aufruf auffindbar sein.
@@ -185,7 +259,7 @@ export async function searchStoredInstruments(query: string, limit = 20) {
   const { data, error } = await supabase
     .from("instruments")
     .select(
-      "canonical_id,symbol,name,asset_class,exchange,exchange_full_name,currency,provider,identity_confidence,resolution_status,resolution_warnings,last_seen_at,confirmation_count"
+      "canonical_id,symbol,name,asset_class,exchange,exchange_full_name,currency,provider,identity_confidence,resolution_status,resolution_warnings,last_seen_at,confirmation_count,quote_status,quote_checked_at"
     )
     .or(`symbol.ilike.${escaped}%,name.ilike.%${escaped}%`)
     .order("confirmation_count", { ascending: false })
