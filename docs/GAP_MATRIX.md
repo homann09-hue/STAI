@@ -63,14 +63,25 @@ Legende: ✅ vorhanden und verifiziert · 🟡 teilweise · ❌ fehlt ·
 | Daten-Cutoff, Modellversion, Konfidenz | ✅ | Im Ledger-Eintrag |
 | Forecast Ledger unveränderlich | ✅ | Tabellen + Immutability-Trigger auf Prod |
 | Model Registry, Promotion Gate | ✅ | `model_registry`, Gate-Constraints |
-| Outcome-Auswertung nach Horizont | ❌ | Tabelle da, kein Job der sie füllt |
-| Walk-Forward-Validierung, Baselines | ❌ | Nicht implementiert |
-| Modellgüte historisch sichtbar | ❌ | `model_evaluations` leer |
+| Outcome-Auswertung nach Horizont | ✅ | `forecast-outcome.ts` + Worker + Cron `/api/forecasts/evaluate` |
+| Baseline-Vergleich | ✅ | Naive Baseline (unveränderter Kurs), Modellvorsprung ausgewiesen |
+| Walk-Forward-Validierung | ❌ | Braucht Point-in-Time-Daten |
+| Modellgüte historisch sichtbar | 🟡 | Bilanz wird geschrieben; noch keine UI |
 | Kein LLM als Prognosemotor | ✅ | Deterministisch, `forecast-passport.ts` |
 
-**Wichtigste Lücke im Bereich:** der Ledger schreibt, aber niemand wertet aus.
-Ohne Outcome-Vergleich ist die überprüfbare Trefferbilanz — das eigentlich
-Differenzierende — nicht vorhanden.
+**Stand nach dem Outcome-Worker:** Der Kreis ist geschlossen. Prognosen werden
+unveränderlich geschrieben, nach Horizontablauf gegen den echten Kurs und eine
+naive Baseline ausgewertet und zu einer Modellbilanz aggregiert.
+
+Bewusste Eigenschaften gegen Schönfärberei:
+- Mock- und nicht verfügbare Kurse fliessen nie in eine Bilanz ein.
+- Unbewertbare Fälle zählen in `forecastCount`, aber nicht in die Quoten. Die
+  Bewertungsquote bleibt sichtbar — 90 % Treffer aus 3 von 100 Prognosen ist
+  kein gutes Modell.
+- Ein zu breites Band gilt genauso als Kalibrierungsfehler wie ein zu enges.
+- Unter 20 bewerteten Prognosen wird keine Baseline-Aussage getroffen.
+
+**Verbleibende Lücke:** die Bilanz ist noch nirgends in der UI sichtbar.
 
 ## 5. Sicherheit und Recht
 
