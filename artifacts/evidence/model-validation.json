@@ -4,7 +4,7 @@
   "modelName": "deterministic-intelligence-rules",
   "modelVersion": "1.0.0",
   "promptVersion": "intelligence-analysis/v1",
-  "generatedAt": "2026-08-07T18:07:10.435Z",
+  "generatedAt": "2026-08-07T18:12:34.911Z",
   "cases": 18,
   "directionAccuracy": 0.9444444444444444,
   "reviewControlAccuracy": 1,
