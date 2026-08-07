@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { AssetDetailView } from "@/components/asset-detail-view";
+import { AssetUnavailableView } from "@/components/asset-unavailable-view";
+import { resolveAssetUnavailability } from "@/lib/asset-availability";
+import { findInstrumentIdentityBySymbol } from "@/lib/instrument-master-store";
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
 import { absoluteUrl, siteConfig } from "@/lib/seo";
 import { validateSymbol } from "@/lib/validation";
@@ -94,7 +97,17 @@ export default async function AssetPage({ params }: PageProps) {
 
   const detail = await getAssetDetail(parsedSymbol.data);
 
-  if (!detail) notFound();
+  if (!detail) {
+    // Nur ein wirklich unbekanntes Instrument rechtfertigt notFound(). Existiert
+    // es im Instrument Master und ist lediglich der Tarif die Ursache, bekommt
+    // der Nutzer die bekannten Stammdaten und den echten Grund zu sehen.
+    const known = await findInstrumentIdentityBySymbol(parsedSymbol.data);
+    const unavailability = resolveAssetUnavailability({ symbol: parsedSymbol.data, known });
+
+    if (unavailability.reason === "unknown_instrument") notFound();
+
+    return <AssetUnavailableView symbol={parsedSymbol.data} unavailability={unavailability} />;
+  }
 
   return <AssetDetailView detail={detail} />;
 }

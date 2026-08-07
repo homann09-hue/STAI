@@ -17,6 +17,19 @@ STAI wird schrittweise von einer Demo-Watchlist zu einem ehrlichen, providerbasi
 - Sichtbare Trennung von nutzbarer Kursabdeckung, Analysefreigabe, Lizenzbedarf, vorbereiteten Datenbereichen und Provider-Lücken.
 - Tests gegen Mock-as-Live-Verwechslung, leere Provider-Ergebnisse, blockierte Analysezustände, blockierte Forecasts, Forecast-Ledger-RLS, Forecast-Persistenz-Fallback und Coverage-Intelligence.
 
+## Instrument Master 2026-08-07
+
+- Suchgetriebener Instrument Master statt rund 25 hartcodierter Seed-Symbole.
+  Provider-Adapter, Persistenz mit RLS, universelle Suche mit sichtbarer
+  Herkunft, Identitätskonfidenz und Auflösungsstatus.
+- Kursverfügbarkeit wird pro Instrument gemessen statt geraten. Der aktive
+  FMP-Tarif schaltet einzelne Symbole frei: SPY liefert, QQQ nicht; AAPL
+  liefert, BTCS nicht. Weder Assetklasse noch Handelsplatz erlauben eine
+  Vorhersage.
+- Ein bekanntes, aber nicht freigeschaltetes Instrument liefert nicht mehr
+  "Asset nicht gefunden". Nutzer sehen Stammdaten, den echten Grund und einen
+  nächsten Schritt.
+
 ## Sicherheits- und Qualitätsfixes 2026-08-07
 
 - Nutzerdaten laufen über einen RLS-gebundenen Supabase-Client statt über den
@@ -42,6 +55,12 @@ STAI wird schrittweise von einer Demo-Watchlist zu einem ehrlichen, providerbasi
   - Insert auf fremde `user_id` blockiert.
 - Supabase Security Advisor meldet null Findings; RLS ist auf allen Tabellen
   aktiv.
+- `npm test` erfolgreich am 2026-08-07: 42 Testdateien, 193 Tests.
+- Instrument-Discovery live gegen FMP verifiziert: AAPL 14 Treffer inklusive
+  NASDAQ/XETRA/LSE-Mehrfachlisting, BTCUSD als crypto mit Konfidenz 85,
+  SPY als etf.
+- Persistenz und Kursstatus gegen Produktion in Transaktionen mit Rollback
+  geprüft; keine Rückstände.
 - `npm run lint` zuletzt erfolgreich.
 - `npm run typecheck` zuletzt erfolgreich.
 - `npm run lint` erfolgreich am 2026-08-06.

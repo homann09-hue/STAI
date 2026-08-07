@@ -1,7 +1,11 @@
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
 import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
 import { withCacheFallback } from "@/lib/provider-cache";
-import { markInstrumentQuoteStatusBySymbol } from "@/lib/instrument-master-store";
+import {
+  findInstrumentIdentityBySymbol,
+  markInstrumentQuoteStatusBySymbol
+} from "@/lib/instrument-master-store";
+import { resolveAssetUnavailability } from "@/lib/asset-availability";
 import { validateSymbol } from "@/lib/validation";
 
 type RouteContext = {
@@ -41,7 +45,29 @@ export async function GET(request: Request, { params }: RouteContext) {
   }
 
   if (!detail) {
-    return jsonError("Asset nicht gefunden.", 404);
+    // Vorher pauschal 404 "Asset nicht gefunden". Das war bei einem real
+    // existierenden Instrument schlicht falsch: QQQ gibt es, der Tarif deckt es
+    // nur nicht ab. Die Auskunft wird deshalb aus dem Instrument Master
+    // differenziert.
+    const known = await findInstrumentIdentityBySymbol(parsed.data);
+    const unavailability = resolveAssetUnavailability({ symbol: parsed.data, known });
+
+    return Response.json(
+      {
+        error: unavailability.message,
+        reason: unavailability.reason,
+        identity: unavailability.identity,
+        remediation: unavailability.remediation
+      },
+      {
+        status: unavailability.httpStatus,
+        headers: {
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff",
+          "X-StockPilot-Unavailable-Reason": unavailability.reason
+        }
+      }
+    );
   }
 
   return jsonOk({

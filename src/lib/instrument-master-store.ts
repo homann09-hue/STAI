@@ -3,6 +3,8 @@ import "server-only";
 import { logEvent } from "@/lib/observability";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { assessInstrumentIdentity, buildCanonicalInstrumentId } from "@/lib/instrument-identity";
+import type { KnownInstrumentIdentity } from "@/lib/asset-availability";
+import type { QuoteStatus } from "@/lib/quote-entitlement";
 import type { ProviderInstrumentHit } from "@/lib/providers/instrument-directory-provider";
 import type { InstrumentResolutionStatus, MarketUniverseAssetClass } from "@/lib/types";
 
@@ -168,8 +170,6 @@ export async function persistInstrumentHits(
   };
 }
 
-export type QuoteStatus = "unknown" | "available" | "restricted" | "error";
-
 /**
  * Haelt fest, ob fuer ein Instrument im aktiven Tarif ueberhaupt ein Kurs
  * abrufbar ist.
@@ -202,16 +202,6 @@ export async function recordInstrumentQuoteStatus(canonicalId: string, status: Q
 }
 
 /**
- * Uebersetzt einen Provider-Fehler in einen Kursstatus. `402` ist bei FMP die
- * Tarifsperre und damit dauerhaft, ein Timeout dagegen nur ein Betriebsfehler.
- */
-export function quoteStatusFromError(error: unknown): QuoteStatus {
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  if (/\b402\b/.test(message)) return "restricted";
-  return "error";
-}
-
-/**
  * Setzt den Kursstatus fuer alle Listings eines Symbols.
  *
  * Ueber das Symbol statt ueber die kanonische ID, weil der Aufrufer (Asset-Route)
@@ -240,6 +230,56 @@ export async function markInstrumentQuoteStatusBySymbol(symbol: string, status: 
   }
 
   return true;
+}
+
+/**
+ * Sucht die gespeicherte Identität zu einem Symbol.
+ *
+ * Wird gebraucht, um „Instrument unbekannt" von „Instrument bekannt, aber im
+ * Tarif gesperrt" zu unterscheiden. Bei Mehrfachlistings gewinnt das zuletzt
+ * bestätigte Listing.
+ */
+export async function findInstrumentIdentityBySymbol(
+  symbol: string
+): Promise<KnownInstrumentIdentity | null> {
+  const supabase = createSupabaseServiceClient();
+  if (!supabase) return null;
+
+  const normalized = symbol.trim().toUpperCase();
+  if (!/^[A-Z0-9./:^-]{1,32}$/.test(normalized)) return null;
+
+  const { data, error } = await supabase
+    .from("instruments")
+    .select("symbol,name,asset_class,exchange,currency,provider,quote_status")
+    .eq("symbol", normalized)
+    .order("confirmation_count", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    if (error) {
+      logEvent("warn", "instrument_master.identity_lookup_failed", {
+        symbol: normalized,
+        code: error.code,
+        message: error.message
+      });
+    }
+    return null;
+  }
+
+  return {
+    symbol: String(data.symbol),
+    name: String(data.name),
+    assetClass: String(data.asset_class),
+    exchange: String(data.exchange),
+    currency: String(data.currency),
+    provider: String(data.provider),
+    quoteStatus: (["unknown", "available", "restricted", "error"] as const).includes(
+      data.quote_status as QuoteStatus
+    )
+      ? (data.quote_status as QuoteStatus)
+      : "unknown"
+  };
 }
 
 /**
