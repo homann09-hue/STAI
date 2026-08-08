@@ -34,10 +34,17 @@ export function buildRiskReport(
 ): RiskEngineReport {
   const findings: RiskFinding[] = [];
   const candles = detail.candles["1M"];
-  const volatility = calculateVolatility(candles);
+
+  // Mindestlaenge fuer eine Aussage ueber Verlauf und Volumen. Vorher gab es
+  // keine: die Kerzen kamen aus `candlesFromQuote` und waren immer 32 Stueck,
+  // also nie zu wenige -- weil sie erzeugt statt gemessen waren.
+  const MIN_CANDLES_FOR_TREND = 16;
+  const hasHistory = candles.length >= MIN_CANDLES_FOR_TREND;
+
+  const volatility = hasHistory ? calculateVolatility(candles) : 0;
   const latest = candles[candles.length - 1];
   const first = candles[0];
-  const monthlyMove = first ? ((latest.close - first.close) / Math.max(first.close, 0.01)) * 100 : 0;
+  const monthlyMove = hasHistory && first && latest ? ((latest.close - first.close) / Math.max(first.close, 0.01)) * 100 : 0;
   const positiveNews = detail.news.some((item) => item.sentiment === "positive" && item.relevance >= 70);
   const negativeNews = detail.news.filter((item) => item.sentiment === "negative" && item.relevance >= 70);
   const recentVolumes = candles.slice(-8).map((item) => item.volume);
@@ -45,7 +52,24 @@ export function buildRiskReport(
   const recentVolumeAvg = recentVolumes.reduce((sum, value) => sum + value, 0) / Math.max(recentVolumes.length, 1);
   const olderVolumeAvg = olderVolumes.reduce((sum, value) => sum + value, 0) / Math.max(olderVolumes.length, 1);
 
-  if (volatility > 4.5 || detail.professionalScores.volatilityRisk > 70) {
+  // Die fehlende Historie ist selbst ein Befund. Sonst saehe ein Instrument
+  // ohne Daten aus wie eines ohne Risiken -- der gefaehrlichste Trugschluss,
+  // den diese Engine erzeugen kann.
+  if (!hasHistory) {
+    findings.push(
+      finding({
+        id: "history-missing",
+        category: "technical",
+        title: "Keine belastbare Kurshistorie",
+        severity: "mittel",
+        detail: "Ohne ausreichende Historie sind Trend-, Volumen- und Indikatoraussagen nicht möglich.",
+        evidence: `${candles.length} Kerzen im 1M-Fenster, benötigt werden mindestens ${MIN_CANDLES_FOR_TREND}.`,
+        action: "Das Fehlen von Befunden nicht als Abwesenheit von Risiko lesen."
+      })
+    );
+  }
+
+  if (hasHistory && (volatility > 4.5 || detail.professionalScores.volatilityRisk > 70)) {
     findings.push(
       finding({
         id: "volatility-high",
@@ -121,7 +145,7 @@ export function buildRiskReport(
     );
   }
 
-  if (monthlyMove > 12 && recentVolumeAvg < olderVolumeAvg * 0.82) {
+  if (hasHistory && monthlyMove > 12 && recentVolumeAvg < olderVolumeAvg * 0.82) {
     findings.push(
       finding({
         id: "volume-falling",

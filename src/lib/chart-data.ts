@@ -1,5 +1,5 @@
 import { buildTechnicalIndicators } from "@/lib/analysis/technical";
-import type { Asset, Candle, ChartRange, NormalizedQuote, Quote, TechnicalIndicators } from "@/lib/types";
+import type { Candle, ChartRange, TechnicalIndicators } from "@/lib/types";
 
 type UiRange = "1T" | "1W" | "1M" | "3M" | "1J" | "5J" | "Alle";
 const MAX_CLEAN_CANDLES = 2000;
@@ -51,87 +51,31 @@ export function rangeToDataKeys(range: UiRange): ChartRange[] {
   return ["1M"];
 }
 
-function fallbackRange(range: UiRange): ChartRange {
-  return rangeToDataKeys(range)[0] ?? "1M";
-}
-
-function fallbackStepMs(range: UiRange) {
-  if (range === "1T") return 1000 * 60 * 10;
-  if (range === "1W") return 1000 * 60 * 60 * 3;
-  if (range === "1M") return 1000 * 60 * 60 * 10;
-  if (range === "3M") return 1000 * 60 * 60 * 24;
-  if (range === "1J") return 1000 * 60 * 60 * 24 * 5;
-  if (range === "5J") return 1000 * 60 * 60 * 24 * 20;
-  return 1000 * 60 * 60 * 24 * 45;
-}
-
-export function fallbackCandles(asset: Asset, quote: Quote | NormalizedQuote, range: UiRange): Candle[] {
-  const count = range === "1T" ? 36 : range === "1W" ? 48 : range === "Alle" ? 110 : 72;
-  const anchorTimestamp = new Date(safeTimestamp("timestamp" in quote ? quote.timestamp : quote.asOf)).getTime();
-  const stepMs = fallbackStepMs(range);
-  const chartRange = fallbackRange(range);
-  const price = positiveNumber(quote.price, 1);
-  const change = finiteNumber(quote.change, 0);
-  const base = Math.max(0.01, price - change);
-  const drift = change / Math.max(1, count - 1);
-  const volatility = Math.max(Math.abs(change), price * 0.006, 0.01);
-  const volume = Math.max(0, finiteNumber(quote.volume, 1000000));
-
-  return Array.from({ length: count }, (_, index) => {
-    const close = Math.max(0.01, base + drift * index + Math.sin(index * 0.71) * volatility * 0.24);
-    const open = Math.max(0.01, index === 0 ? close - drift : base + drift * Math.max(0, index - 1));
-    const high = Math.max(open, close) + volatility * 0.18;
-    const low = Math.max(0.01, Math.min(open, close) - volatility * 0.18);
-
-    return {
-      symbol: asset.symbol,
-      range: chartRange,
-      timestamp: new Date(anchorTimestamp - (count - 1 - index) * stepMs).toISOString(),
-      time: index % 8 === 0 ? String(index) : "",
-      open: Number(open.toFixed(2)),
-      high: Number(high.toFixed(2)),
-      low: Number(low.toFixed(2)),
-      close: Number(close.toFixed(2)),
-      volume: Math.round(volume / count)
-    };
-  });
-}
-
-export type CandleSelection = {
-  candles: Candle[];
-  /**
-   * Ob die Kerzen aus dem Kurs erzeugt wurden statt gemessen zu sein.
-   *
-   * Entscheidend für die Indikatoren: `fallbackCandles` zeichnet eine Sinuskurve
-   * um den aktuellen Kurs, damit das Diagramm nicht leer bleibt. Ein RSI daraus
-   * wäre eine echte Rechnung auf erfundenen Zahlen — also wieder eine Erfindung,
-   * nur mit besserer Tarnung.
-   */
-  synthetic: boolean;
-};
-
-export function selectCandleSeries(
+/**
+ * Wählt die Kerzen für ein Zeitfenster — oder liefert nichts.
+ *
+ * Hier stand `fallbackCandles`: fehlten Kerzen, wurde eine Sinuskurve um den
+ * aktuellen Kurs gezeichnet, damit das Diagramm nicht leer bleibt.
+ *
+ * ```
+ * close = base + drift × index + sin(index × 0,71) × volatility × 0,24
+ * ```
+ *
+ * Ein Kursdiagramm, das einen Verlauf zeigt, den es nie gab, ist die
+ * sichtbarste Form von §61 — und nichts an der Darstellung verriet es. Ein
+ * leeres Fenster mit Begründung ist schlechter anzusehen und ehrlicher.
+ */
+export function selectCandles(
   candlesByRange: Partial<Record<ChartRange, Candle[]>> | undefined,
-  asset: Asset,
-  quote: Quote | NormalizedQuote,
   range: UiRange
-): CandleSelection {
+): Candle[] {
   for (const key of rangeToDataKeys(range)) {
     const candles = candlesByRange?.[key];
     const clean = candles?.length ? cleanCandles(candles) : [];
-    if (clean.length) return { candles: clean, synthetic: false };
+    if (clean.length) return clean;
   }
 
-  return { candles: fallbackCandles(asset, quote, range), synthetic: true };
-}
-
-export function selectCandles(
-  candlesByRange: Partial<Record<ChartRange, Candle[]>> | undefined,
-  asset: Asset,
-  quote: Quote | NormalizedQuote,
-  range: UiRange
-) {
-  return selectCandleSeries(candlesByRange, asset, quote, range).candles;
+  return [];
 }
 
 /**

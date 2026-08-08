@@ -186,11 +186,47 @@ sind jetzt an echte Werte gebunden und prüfen auf Lücken.
 **Gegengeprüft**, indem jede der vier Formeln absichtlich wieder eingesetzt
 wurde — jede wurde von einem eigenen Test rot gemeldet.
 
-**Noch offen und ehrlich benannt:** `candlesFromQuote` in `market-provider.ts`
-erzeugt aus einem einzelnen Kurs 32 Kerzen mit einer Sinusfunktion. Aus diesen
-Kerzen werden **keine** Indikatoren mehr gerechnet, sie fließen aber weiterhin
-in die Momentum- und Volumenbefunde der Risiko-Engine. Das ist ein eigener
-§61-Verstoß und ein eigenes Arbeitspaket.
+### §61: die erzeugten Kerzen sind ersetzt, nicht nur entschärft
+
+Zwei Stellen erzeugten Kursverläufe, die es nie gab:
+
+| Ort | Formel | Wirkung |
+|---|---|---|
+| `market-provider.ts` `candlesFromQuote` | `close = Kurs − Bewegung × (1 − Fortschritt) + sin(index × 0,7) × Vola × 0,08` | 32 Kerzen je Zeitfenster aus **einem** Kurs. Die Risiko-Engine las daraus Momentum und Volumentrend und erzeugte Befunde mit Belegen |
+| `chart-data.ts` `fallbackCandles` | `close = base + drift × index + sin(index × 0,71) × Vola × 0,24` | Ein **gezeichnetes Kursdiagramm** eines Verlaufs, den es nicht gab — die sichtbarste Form von §61, und nichts an der Darstellung verriet es |
+
+Beide sind gelöscht. An ihre Stelle tritt `providers/price-history.ts` mit
+echter Tageshistorie.
+
+**Gemessen am 2026-08-08** gegen die Produktions-API: FMP liefert im vorhandenen
+Tarif 1255 Tageskerzen für AAPL (2021-08-09 bis 2026-08-07) und 1826 für
+BTCUSD. Für ETFs antwortet dieselbe Route mit HTTP 402 — Tarifgrenze, kein
+Fehler, und sie wird als solche benannt. Finnhub-Kerzen sind mit HTTP 403
+gesperrt, es gibt für die Historie also **kein Failover**.
+
+Die Probe an echten AAPL-Daten ergab ein in sich stimmiges Bild:
+
+```
+RSI 14: 47,58   SMA 20/50/200: 323,43 / 309,79 / 279,41
+MACD 0,878 | Signal 4,059 | Histogramm −3,181
+Bollinger 301,42 .. 345,45   Unterstützung/Widerstand 300,00 / 344,57
+Fenster: 1D=0  5D=5  1M=23  3M=63  6M=126  YTD=150  1Y=252  5Y=1255
+```
+
+Der Kurs von 313,33 liegt unter dem SMA 20 bei aufsteigender
+Durchschnittsstruktur — dazu passen der neutrale RSI und das negative
+Histogramm. `1Y=252` ist genau die Zahl der Handelstage eines Jahres.
+
+**`1D` bleibt leer.** Tagesschlusskurse enthalten keinen Intraday-Verlauf. Die
+Oberfläche zeigt dort eine Begründung statt einer Kurve.
+
+**Das Fehlen ist selbst ein Befund.** `risk-engine.ts` meldet unter 16 Kerzen
+„Keine belastbare Kurshistorie" und unterdrückt Trend- und Volumenaussagen —
+sonst sähe ein Instrument ohne Daten aus wie eines ohne Risiken.
+
+Gegengeprüft mit vier absichtlich wieder eingesetzten Fehlern (Reihenfolge
+nicht umgedreht, Tagesfenster erfunden, unbrauchbare Zeilen aufgefüllt,
+Historie-Schranke entfernt) — jeder wurde rot gemeldet.
 
 ## Produkt und Oberfläche
 

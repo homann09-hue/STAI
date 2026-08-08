@@ -1,9 +1,10 @@
-import { NO_INDICATORS } from "@/lib/analysis/technical";
+import { NO_INDICATORS, buildTechnicalIndicators } from "@/lib/analysis/technical";
 import { assessDataQuality } from "@/lib/data-quality";
 import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
 import { logEvent } from "@/lib/observability";
 import { resolveQuoteChain } from "@/lib/providers/quote-chain";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import { NO_HISTORY, fetchDailyHistory, sliceHistoryRanges, type HistoryResult } from "@/lib/providers/price-history";
 import { getServerCacheAdapter } from "@/lib/server-cache";
 import { safeDecodeURIComponent } from "@/lib/validation";
 import type {
@@ -571,36 +572,22 @@ function summaryFromNormalizedQuote(quote: NormalizedQuote): AssetSummary {
   };
 }
 
-function candlesFromQuote(quote: NormalizedQuote): Record<TimeRange, Candle[]> {
-  const movement = Number.isFinite(quote.change) ? quote.change : 0;
-  const volatility = Math.max(Math.abs(movement), quote.price * 0.004);
-  const timestamp = Date.parse(quote.timestamp);
-  const baseTime = Number.isFinite(timestamp) ? timestamp : Date.now();
-
-  return Object.fromEntries(
-    DETAIL_RANGES.map((range, rangeIndex) => [
-      range,
-      Array.from({ length: 32 }, (_, index) => {
-        const progress = index / 31;
-        const close = Math.max(0.000001, quote.price - movement * (1 - progress) + Math.sin(index * 0.7) * volatility * 0.08);
-        const open = Math.max(0.000001, close - movement / 32);
-        const high = Math.max(open, close) + volatility * 0.16;
-        const low = Math.max(0.000001, Math.min(open, close) - volatility * 0.16);
-
-        return {
-          symbol: quote.symbol,
-          range,
-          timestamp: new Date(baseTime - (31 - index) * (rangeIndex + 1) * 3600000).toISOString(),
-          time: index % 8 === 0 ? `${index}` : "",
-          open: Number(open.toFixed(6)),
-          high: Number(high.toFixed(6)),
-          low: Number(low.toFixed(6)),
-          close: Number(close.toFixed(6)),
-          volume: Math.max(0, Math.round((quote.volume ?? 0) / 32))
-        };
-      })
-    ])
-  ) as Record<TimeRange, Candle[]>;
+/**
+ * Leere Zeitfenster.
+ *
+ * Hier stand `candlesFromQuote`: aus einem einzelnen Kurs wurden 32 Kerzen je
+ * Zeitfenster mit einer Sinusfunktion erzeugt. Die Risiko-Engine las daraus
+ * Momentum und Volumentrend und erzeugte Befunde mit Belegen — erfundene Daten,
+ * die als Analyseergebnis auftraten.
+ *
+ * Echte Historie kommt jetzt aus `price-history.ts`. Wenn keine verfügbar ist,
+ * bleibt es leer.
+ */
+function emptyCandleRanges(): Record<TimeRange, Candle[]> {
+  return Object.fromEntries(DETAIL_RANGES.map((range) => [range, [] as Candle[]])) as Record<
+    TimeRange,
+    Candle[]
+  >;
 }
 
 /**
@@ -706,10 +693,22 @@ function providerOnlyProfessionalScores(summary: AssetSummary): ProfessionalScor
   };
 }
 
-function detailFromProviderQuote(quote: NormalizedQuote): AssetDetail {
+/**
+ * Detailansicht aus einem Provider-Kurs — jetzt mit echter Historie, wenn es
+ * sie gibt.
+ *
+ * `history` ist bewusst ein Parameter und wird nicht hier geholt: so bleibt die
+ * Funktion ohne Netzzugriff prüfbar, und der Aufrufer entscheidet über das
+ * Zeitlimit.
+ */
+function detailFromProviderQuote(quote: NormalizedQuote, history: HistoryResult = NO_HISTORY): AssetDetail {
   const summary = summaryFromNormalizedQuote(quote);
-  const candles = candlesFromQuote(quote);
-  const indicators = indicatorsFromQuote(quote);
+  const candles = history.candles.length ? sliceHistoryRanges(history.candles) : emptyCandleRanges();
+  // Indikatoren nur aus echter Historie. Ohne sie bleibt es bei Luecken statt
+  // bei Zahlen, die aus dem Tageskurs abgeleitet waeren.
+  const indicators = history.candles.length
+    ? buildTechnicalIndicators(history.candles)
+    : indicatorsFromQuote(quote);
   const fundamentals: Fundamentals = {
     peRatio: null,
     revenueGrowth: 0,
@@ -1496,7 +1495,15 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
     const detail = await this.fallback.getAsset(symbol);
 
     const quote = await withDeadline(this.getQuote(symbol), DEFAULT_ASSET_QUOTE_TIMEOUT_MS, null);
-    if (!detail) return quote ? detailFromProviderQuote(quote) : null;
+    if (!detail) {
+      if (!quote) return null;
+
+      // Die Historie ist der teuerste Abruf im Pfad (ueber 1000 Kerzen). Sie
+      // bekommt ein eigenes, groesseres Zeitlimit -- und bei Ueberschreitung
+      // eine leere Reihe statt einer erzeugten.
+      const history = await withDeadline(fetchDailyHistory(symbol), 9500, NO_HISTORY);
+      return detailFromProviderQuote(quote, history);
+    }
 
     return quote ? enrichAssetWithQuote(detail, quote) : detail;
   }

@@ -103,6 +103,31 @@ Demodaten führt.
 Produktion muss `FINNHUB_API_KEY` in den Vercel-Umgebungsvariablen gesetzt
 werden — sonst läuft dort weiterhin nur FMP ohne Ersatz.
 
+## Kurshistorie
+
+Stand 2026-08-08, live gegen die Produktions-API gemessen:
+
+| Instrument | Route | Ergebnis |
+|---|---|---|
+| AAPL (Aktie) | FMP `/stable/historical-price-eod/full` | **1255** Tageskerzen, 2021-08-09 bis 2026-08-07 |
+| BTCUSD (Krypto) | dieselbe | **1826** Tageskerzen |
+| VOO (ETF) | dieselbe | **HTTP 402** — im Tarif nicht enthalten |
+| AAPL | Finnhub `/stock/candle` | **HTTP 403** — kostenpflichtige Ressource |
+
+Daraus folgen drei Dinge, die in `price-history.ts` festgeschrieben sind:
+
+1. **Für die Historie gibt es kein Failover.** Finnhub ist als zweite
+   Kursquelle konfiguriert, kann aber keine Kerzen liefern. Fällt FMP aus, gibt
+   es keine Historie — und dann eben keine, statt einer erzeugten.
+2. **ETFs haben keine Historie.** HTTP 402 ist eine Tarifgrenze und wird als
+   solche an die Oberfläche durchgereicht, nicht als Störung.
+3. **Kein Intraday.** Tagesschlusskurse ergeben kein `1D`-Fenster. Das bleibt
+   leer, mit Begründung.
+
+Zwischenspeicher: eine Stunde je Symbol. Die Antwort mit über 1000 Kerzen ist
+der teuerste Abruf im gesamten Provider-Pfad, und Tagesschlusskurse ändern sich
+einmal täglich.
+
 ## §22 Datenqualität — was geprüft wird
 
 `src/lib/data-quality.ts` und `asset-provenance.ts`:

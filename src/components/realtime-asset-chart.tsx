@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { CandlestickChart, PriceLineChart } from "@/components/charts";
 import { ConnectionBadge, DataQualityBadge, PriceChangeLabel, RealtimePrice } from "@/components/live-market-widgets";
 import { NO_INDICATORS } from "@/lib/analysis/technical";
-import { deriveIndicators, selectCandleSeries } from "@/lib/chart-data";
+import { deriveIndicators, selectCandles } from "@/lib/chart-data";
 import { formatCompact, formatCurrency } from "@/lib/scoring";
 import type { Asset, Candle, ChartRange, MarketConnectionStatus, NormalizedQuote, Quote, RefreshInterval, RefreshMode, TechnicalIndicators } from "@/lib/types";
 
@@ -143,6 +143,28 @@ export function TechnicalIndicatorsPanel({ indicators, currency }: { indicators:
   );
 }
 
+/**
+ * Leeres Zeitfenster.
+ *
+ * Der Nutzer erfährt den Grund statt eine erfundene Kurve zu sehen. Beim
+ * Tagesfenster ist der Grund ein anderer als sonst und wird deshalb auch
+ * anders benannt: Tagesschlusskurse enthalten keinen Intraday-Verlauf.
+ */
+export function EmptyChartNotice({ range }: { range: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-stroke bg-coal/40 p-6 text-center">
+      <p className="text-sm font-semibold text-mist">Keine Kurshistorie für dieses Zeitfenster</p>
+      <p className="mt-2 text-xs leading-5 text-muted">
+        {range === "1T"
+          ? "Der Anbieter liefert Tagesschlusskurse. Ein Intraday-Verlauf liegt damit nicht vor."
+          : "Für dieses Instrument sind im aktuellen Anbietertarif keine historischen Kurse enthalten."}
+        <br />
+        Es wird bewusst kein Ersatzverlauf gezeichnet.
+      </p>
+    </div>
+  );
+}
+
 export function VolumeBars({ candles }: { candles: Candle[] }) {
   const visible = candles
     .slice(-36)
@@ -243,18 +265,10 @@ export function RealtimeAssetChart({
         : quote,
     [liveQuote, quote]
   );
-  const series = useMemo(
-    () => selectCandleSeries(candlesByRange, asset, mergedQuote, range),
-    [asset, candlesByRange, mergedQuote, range]
-  );
-  const candles = series.candles;
-  // Aus erzeugten Kerzen werden keine Indikatoren gerechnet. `fallbackCandles`
-  // zeichnet eine Sinuskurve um den aktuellen Kurs, damit das Diagramm nicht
-  // leer bleibt -- ein RSI daraus waere eine korrekte Rechnung auf erfundenen
-  // Zahlen und damit wieder eine Erfindung, nur besser getarnt.
+  const candles = useMemo(() => selectCandles(candlesByRange, range), [candlesByRange, range]);
   const activeIndicators = useMemo(
-    () => indicators ?? (series.synthetic ? NO_INDICATORS : deriveIndicators(candles)),
-    [candles, indicators, series.synthetic]
+    () => indicators ?? (candles.length ? deriveIndicators(candles) : NO_INDICATORS),
+    [candles, indicators]
   );
 
   return (
@@ -281,8 +295,14 @@ export function RealtimeAssetChart({
 
       <ChartToolbar range={range} chartType={chartType} onRangeChange={setRange} onChartTypeChange={setChartType} />
 
-      {chartType === "candlestick" ? <CandlestickChart candles={candles} /> : <PriceLineChart candles={candles} />}
-      <VolumeBars candles={candles} />
+      {candles.length ? (
+        <>
+          {chartType === "candlestick" ? <CandlestickChart candles={candles} /> : <PriceLineChart candles={candles} />}
+          <VolumeBars candles={candles} />
+        </>
+      ) : (
+        <EmptyChartNotice range={range} />
+      )}
       <TechnicalIndicatorsPanel indicators={activeIndicators} currency={asset.currency} />
       <ChartStatusBar quote={mergedQuote} connectionStatus={connectionStatus} refreshMode={refreshMode} intervalMs={intervalMs} />
     </section>
