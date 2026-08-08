@@ -32,6 +32,14 @@ Pull Requests dagegen. Ein Feature-Branch ohne offenen PR war damit voellig
 ungeprueft — genau so lagen hier 27 Commits vier Wochen lang, ohne dass CI sie
 je gesehen hat.
 
+Die Umstellung hatte einen Nebeneffekt, der im ersten Lauf sichtbar wurde: bei
+offenem Pull Request feuern `push` und `pull_request: synchronize` beide, und
+jeder Push lief doppelt. Der Gruppenschluessel der Nebenlaeufigkeit nutzt
+deshalb `github.event.pull_request.head.ref || github.ref_name` statt
+`github.ref`. Beide Ereignisse ergeben damit denselben Schluessel, der zweite
+Lauf bricht den ersten ab, und pro Branch bleibt ein Lauf uebrig — ohne die
+Abdeckung fuer Branches ohne Pull Request wieder aufzugeben.
+
 ## Wie das Deployment abgesichert ist
 
 §17 verlangt: „Deployment darf nicht erfolgen, wenn kritische Checks
