@@ -147,7 +147,7 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 |---|---|---|---|
 | §24 | Fundamentalanalyse | `IN PROGRESS` | Das Scoring-Modell kennt 18 Kennzahlen aus §24. Im Datenmodell liegen davon nur 5 (`peRatio`, `revenueGrowth`, `debtToEquity`, `ebitda`, `grossMargin`) — die übrigen 13 muss der Provider erst liefern |
 | §25 | Erklärbare Teilnoten | `DONE` | `analysis/quality-scores.ts`: 7 Dimensionen, 18 Einzelkennzahlen, **keine Gesamtnote**. Fehlende Werte werden benannt statt geschätzt. 15 Tests. Ohne Branchenkalibrierung |
-| §26 | Technische Analyse | `IN PROGRESS` | **Korrektur:** es gab keine Indikatoren. `chart-data.ts` setzte RSI hart auf 50, der Mock würfelte ihn. `analysis/indicators.ts` rechnet jetzt 16 Indikatoren, 25 Tests. Noch nicht an die Kursdaten angeschlossen; Mehrzeitrahmen und Trendkanäle fehlen |
+| §26 | Technische Analyse | `IN PROGRESS` | **Angeschlossen.** `analysis/technical.ts` verbindet die 16 gerechneten Indikatoren mit `TechnicalIndicators`; alle **drei** Erfindungsquellen sind ersetzt (siehe unten). 36 Tests, vier Regressionen gegengeprüft. Offen: Mehrzeitrahmen, Trendkanäle, Ausbrüche, ADX |
 | §27 | News und Events | `IN PROGRESS` | `news`-Route, Klassifikation unvollständig |
 | §28 | Makro | `DONE` | EZB Data Portal ohne Schlüssel und ohne Tarif. Fünf Reihen live gemessen, Zinsstrukturbewertung, Datenalter je Reihe. `GET /api/macro` und Seite `/macro`, in der Navigation. 32 Tests |
 | §28 | Economic Calendar | `NOT STARTED` | Terminreihen noch nicht angebunden |
@@ -163,6 +163,34 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §60 | Finanzmathematik geprüft | `IN PROGRESS` | Kernfunktionen getestet, keine vollständige Revision |
 | §70–§74 | Change Detection, Anomalien, Regime, Benchmarking | `NOT STARTED` | — |
 | §101 | Kein LLM als Prognosemotor | `VERIFIED` | Deterministisch |
+
+### §26: die drei Erfindungsquellen und was aus ihnen wurde
+
+Beim Anschließen zeigte sich, dass es nicht eine Stelle war, sondern drei — und
+dass keine davon den Indikator berechnete, dessen Namen sie trug.
+
+| Ort | Was dort stand | Warum das falsch war | Jetzt |
+|---|---|---|---|
+| `chart-data.ts` | `rsi = 30 + Anteil grüner Kerzen × 45` | Konstruktionsbedingt zwischen 30 und 75 — konnte **nie** überkauft oder überverkauft melden | `computeIndicators` |
+| `chart-data.ts` | `ma200` mit `Math.max(1, slice.length)` als Teiler | Bei 60 Kerzen der Schnitt aus 60 Werten, ausgegeben als „MA 200". Die gefährlichste Zeile, weil das Ergebnis plausibel aussah | `null`, wenn die Reihe kürzer als 200 ist |
+| `chart-data.ts` | Bollinger als feste ±3,5 % | Ohne Standardabweichung ist es kein Bollinger-Band | Aus der gemessenen Streuung |
+| `market-provider.ts` | `rsi` aus der Tagesveränderung, `macd = Kurs × 0,004` | Ein zum Kursniveau proportionaler MACD sagt über Momentum nichts | `NO_INDICATORS` — aus einem einzelnen Kurs gibt es keine Indikatoren |
+| `mock/market.ts` | `rsi = 50 + bias × 38` aus einem Score-Seed | Der RSI folgte dem Score statt umgekehrt | Gerechnet über die Mock-Kerzen |
+
+**Die Folgewirkung war der eigentliche Schaden.** `risk-engine.ts` erzeugte aus
+dem erfundenen RSI einen Befund mit `evidence: "RSI 74"` — eine erfundene Zahl,
+die als Beleg auftrat. Und `support` war `Kurs × 0,96`, weshalb der Befund
+„Support gebrochen" nie auslösen konnte: eine Fassade nach §90. Beide Stellen
+sind jetzt an echte Werte gebunden und prüfen auf Lücken.
+
+**Gegengeprüft**, indem jede der vier Formeln absichtlich wieder eingesetzt
+wurde — jede wurde von einem eigenen Test rot gemeldet.
+
+**Noch offen und ehrlich benannt:** `candlesFromQuote` in `market-provider.ts`
+erzeugt aus einem einzelnen Kurs 32 Kerzen mit einer Sinusfunktion. Aus diesen
+Kerzen werden **keine** Indikatoren mehr gerechnet, sie fließen aber weiterhin
+in die Momentum- und Volumenbefunde der Risiko-Engine. Das ist ein eigener
+§61-Verstoß und ein eigenes Arbeitspaket.
 
 ## Produkt und Oberfläche
 

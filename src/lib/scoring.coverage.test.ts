@@ -15,6 +15,7 @@ import {
   scoreTone,
   sentimentTone
 } from "./scoring";
+import type { TechnicalIndicators } from "@/lib/types";
 
 describe("scoring helpers coverage", () => {
   it("formats labels, tones and disclaimers across all threshold bands", () => {
@@ -172,14 +173,19 @@ function quote(overrides: { changePercent: number; volume: number }) {
   } as const;
 }
 
-function indicators(overrides: { rsi: number; histogram: number }) {
+function indicators(overrides: { rsi: number | null; histogram: number | null }): TechnicalIndicators {
   return {
     rsi: overrides.rsi,
-    macd: { value: overrides.histogram, signal: 0, histogram: overrides.histogram },
+    macd:
+      overrides.histogram === null
+        ? null
+        : { value: overrides.histogram, signal: 0, histogram: overrides.histogram },
     movingAverages: { ma20: 99, ma50: 97, ma200: 92 },
     bollingerBands: { upper: 110, middle: 100, lower: 90 },
-    support: [95, 90],
-    resistance: [105, 110]
+    support: [95],
+    resistance: [105],
+    sampleSize: 200,
+    unavailable: []
   };
 }
 

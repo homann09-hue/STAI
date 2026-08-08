@@ -1,3 +1,4 @@
+import { NO_INDICATORS } from "@/lib/analysis/technical";
 import { assessDataQuality } from "@/lib/data-quality";
 import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
 import { logEvent } from "@/lib/observability";
@@ -22,6 +23,7 @@ import type {
   NormalizedQuote,
   ProfessionalScores,
   Quote,
+  TechnicalIndicators,
   TimeRange
 } from "@/lib/types";
 
@@ -601,30 +603,29 @@ function candlesFromQuote(quote: NormalizedQuote): Record<TimeRange, Candle[]> {
   ) as Record<TimeRange, Candle[]>;
 }
 
-function indicatorsFromQuote(quote: NormalizedQuote) {
-  const direction = quote.changePercent >= 0 ? 1 : -1;
-  const rsi = clampScore(50 + direction * Math.min(24, Math.abs(quote.changePercent) * 4));
-
-  return {
-    rsi,
-    macd: {
-      value: Number((direction * quote.price * 0.004).toFixed(4)),
-      signal: Number((direction * quote.price * 0.003).toFixed(4)),
-      histogram: Number((direction * quote.price * 0.001).toFixed(4))
-    },
-    movingAverages: {
-      ma20: Number((quote.price * (1 - direction * 0.004)).toFixed(6)),
-      ma50: Number((quote.price * (1 - direction * 0.009)).toFixed(6)),
-      ma200: Number((quote.price * (1 - direction * 0.018)).toFixed(6))
-    },
-    bollingerBands: {
-      upper: Number((quote.price * 1.035).toFixed(6)),
-      middle: quote.price,
-      lower: Number((quote.price * 0.965).toFixed(6))
-    },
-    support: [Number((quote.price * 0.97).toFixed(6)), Number((quote.price * 0.93).toFixed(6))],
-    resistance: [Number((quote.price * 1.03).toFixed(6)), Number((quote.price * 1.07).toFixed(6))]
-  };
+/**
+ * Aus einem einzelnen Kurs lassen sich keine Indikatoren berechnen.
+ *
+ * Hier stand vorher der Versuch, es trotzdem zu tun:
+ *
+ * ```
+ * rsi = 50 + Vorzeichen × min(24, |Tagesveränderung| × 4)
+ * macd.value = Vorzeichen × Kurs × 0,004
+ * ma200 = Kurs × (1 − Vorzeichen × 0,018)
+ * ```
+ *
+ * Das ist kein RSI, sondern die Tagesveränderung in anderer Skala. Ein MACD,
+ * der proportional zum Kursniveau ist, sagt über Momentum nichts aus — und ein
+ * „MA 200" aus einem einzigen Kurswert ist eine Behauptung über 200 Perioden,
+ * von denen genau null vorlagen.
+ *
+ * §90 verbietet Funktionsfassaden. Der ehrliche Rückgabewert ist deshalb: nichts.
+ * Sobald dieser Pfad echte Historie bekommt, ersetzt `buildTechnicalIndicators`
+ * die Zeile — die Kerzen aus `candlesFromQuote` reichen dafür nicht, weil sie
+ * selbst aus dem Kurs erzeugt sind.
+ */
+function indicatorsFromQuote(_quote: NormalizedQuote): TechnicalIndicators {
+  return NO_INDICATORS;
 }
 
 function providerOnlyDataQuality(quote: NormalizedQuote): DataQualityReport {

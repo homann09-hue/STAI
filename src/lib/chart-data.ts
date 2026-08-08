@@ -1,3 +1,4 @@
+import { buildTechnicalIndicators } from "@/lib/analysis/technical";
 import type { Asset, Candle, ChartRange, NormalizedQuote, Quote, TechnicalIndicators } from "@/lib/types";
 
 type UiRange = "1T" | "1W" | "1M" | "3M" | "1J" | "5J" | "Alle";
@@ -96,74 +97,62 @@ export function fallbackCandles(asset: Asset, quote: Quote | NormalizedQuote, ra
   });
 }
 
+export type CandleSelection = {
+  candles: Candle[];
+  /**
+   * Ob die Kerzen aus dem Kurs erzeugt wurden statt gemessen zu sein.
+   *
+   * Entscheidend für die Indikatoren: `fallbackCandles` zeichnet eine Sinuskurve
+   * um den aktuellen Kurs, damit das Diagramm nicht leer bleibt. Ein RSI daraus
+   * wäre eine echte Rechnung auf erfundenen Zahlen — also wieder eine Erfindung,
+   * nur mit besserer Tarnung.
+   */
+  synthetic: boolean;
+};
+
+export function selectCandleSeries(
+  candlesByRange: Partial<Record<ChartRange, Candle[]>> | undefined,
+  asset: Asset,
+  quote: Quote | NormalizedQuote,
+  range: UiRange
+): CandleSelection {
+  for (const key of rangeToDataKeys(range)) {
+    const candles = candlesByRange?.[key];
+    const clean = candles?.length ? cleanCandles(candles) : [];
+    if (clean.length) return { candles: clean, synthetic: false };
+  }
+
+  return { candles: fallbackCandles(asset, quote, range), synthetic: true };
+}
+
 export function selectCandles(
   candlesByRange: Partial<Record<ChartRange, Candle[]>> | undefined,
   asset: Asset,
   quote: Quote | NormalizedQuote,
   range: UiRange
 ) {
-  for (const key of rangeToDataKeys(range)) {
-    const candles = candlesByRange?.[key];
-    const clean = candles?.length ? cleanCandles(candles) : [];
-    if (clean.length) return clean;
-  }
-
-  return fallbackCandles(asset, quote, range);
+  return selectCandleSeries(candlesByRange, asset, quote, range).candles;
 }
 
+/**
+ * Technische Indikatoren aus Kerzen.
+ *
+ * Was hier vorher stand, sah aus wie eine Berechnung und war keine. Der Reihe
+ * nach, weil jede Zeile ein eigener Fehler war:
+ *
+ * - `rsi = 30 + Anteil grüner Kerzen × 45` — der Anteil steigender Kerzen ist
+ *   nicht die relative Stärke. Der Wert konnte konstruktionsbedingt nie unter
+ *   30 oder über 75 liegen, also **nie** überkauft oder überverkauft melden.
+ * - `macd` aus zwei SMAs statt EMAs, `signal` mit einem willkürlichen Faktor
+ *   0,05, `histogram` mit 0,35 — statt `macd − signal`.
+ * - `bollingerBands` als feste ±3,5 % um den Schnitt, ganz ohne
+ *   Standardabweichung. Ein Bollinger-Band ohne Streuung ist kein Bollinger-Band.
+ * - `ma200` teilte durch `Math.max(1, slice.length)`. Bei 60 Kerzen war das der
+ *   Schnitt aus 60 Werten — ausgegeben als „MA 200". Das war die gefährlichste
+ *   Zeile, weil das Ergebnis plausibel aussah.
+ * - `support`/`resistance` als Kurs × 0,96 bzw. × 1,04 — Zahlen, die vom
+ *   Kursverlauf nichts wussten.
+ */
 export function deriveIndicators(candles: Candle[]): TechnicalIndicators {
-  const clean = cleanCandles(candles);
-  const last = clean[clean.length - 1]?.close ?? 0;
-
-  if (!clean.length || last <= 0) {
-    return {
-      rsi: 50,
-      macd: {
-        value: 0,
-        signal: 0,
-        histogram: 0
-      },
-      movingAverages: {
-        ma20: 0,
-        ma50: 0,
-        ma200: 0
-      },
-      bollingerBands: {
-        upper: 0,
-        middle: 0,
-        lower: 0
-      },
-      support: [],
-      resistance: []
-    };
-  }
-
-  const average = (windowSize: number) => {
-    const slice = clean.slice(-windowSize);
-    return Number((slice.reduce((sum, candle) => sum + candle.close, 0) / Math.max(1, slice.length)).toFixed(2));
-  };
-  const rsiWindow = clean.slice(-14);
-  const gains = rsiWindow.filter((candle) => candle.close >= candle.open).length;
-  const rsi = rsiWindow.length ? Math.round(30 + (gains / rsiWindow.length) * 45) : 50;
-
-  return {
-    rsi,
-    macd: {
-      value: Number(((average(12) - average(26)) || 0).toFixed(2)),
-      signal: Number(((average(9) - last) * 0.05).toFixed(2)),
-      histogram: Number(((average(12) - average(26)) * 0.35).toFixed(2))
-    },
-    movingAverages: {
-      ma20: average(20),
-      ma50: average(50),
-      ma200: average(200)
-    },
-    bollingerBands: {
-      upper: Number((average(20) * 1.035).toFixed(2)),
-      middle: average(20),
-      lower: Number((average(20) * 0.965).toFixed(2))
-    },
-    support: [Number((last * 0.96).toFixed(2)), Number((last * 0.92).toFixed(2))],
-    resistance: [Number((last * 1.04).toFixed(2)), Number((last * 1.08).toFixed(2))]
-  };
+  return buildTechnicalIndicators(cleanCandles(candles));
 }

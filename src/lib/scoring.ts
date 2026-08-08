@@ -167,11 +167,17 @@ export function calculateProfessionalScores(input: {
   const first = input.candles[0];
   const momentumChange = first ? ((latest.close - first.close) / Math.max(first.close, 0.01)) * 100 : 0;
   const momentum = clamp(50 + momentumChange * 2.1 + input.quote.changePercent * 2);
+  // Fehlt ein Indikator, bleibt der Basiswert unveraendert. Vorher konnte hier
+  // ein `undefined > 70` nie zutreffen und `macd.histogram > 0` war bei
+  // fehlenden Daten immer falsch -- was still -5 Punkte kostete. Datenmangel
+  // sah damit aus wie ein schwaches technisches Bild.
+  const rsiValue = input.indicators.rsi;
+  const histogram = input.indicators.macd?.histogram ?? null;
   const technical = clamp(
     input.baseScores.technical +
-      (input.indicators.rsi > 70 ? -12 : 0) +
-      (input.indicators.rsi < 30 ? -8 : 0) +
-      (input.indicators.macd.histogram > 0 ? 7 : -5)
+      (rsiValue !== null && rsiValue > 70 ? -12 : 0) +
+      (rsiValue !== null && rsiValue < 30 ? -8 : 0) +
+      (histogram === null ? 0 : histogram > 0 ? 7 : -5)
   );
   const fundamental = clamp(
     input.baseScores.fundamental +

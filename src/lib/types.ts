@@ -179,25 +179,38 @@ export interface Candle {
   volume: number;
 }
 
+/**
+ * Technische Indikatoren.
+ *
+ * `null` heißt hier durchgehend: **die Zeitreihe war zu kurz**, nicht „null".
+ * Vorher waren alle Felder pflichtig, weshalb jede Quelle etwas erfinden
+ * musste, um den Typ zu erfüllen — genau das ist passiert. Die Nullbarkeit ist
+ * deshalb kein Detail, sondern die Stelle, an der der Typ die Ehrlichkeit
+ * erzwingt.
+ */
 export interface TechnicalIndicators {
-  rsi: number;
+  rsi: number | null;
   macd: {
     value: number;
     signal: number;
     histogram: number;
-  };
+  } | null;
   movingAverages: {
-    ma20: number;
-    ma50: number;
-    ma200: number;
+    ma20: number | null;
+    ma50: number | null;
+    ma200: number | null;
   };
   bollingerBands: {
     upper: number;
     middle: number;
     lower: number;
-  };
+  } | null;
   support: number[];
   resistance: number[];
+  /** Wie viele Kerzen zugrunde lagen. Bestimmt, was überhaupt möglich war. */
+  sampleSize: number;
+  /** Was nicht berechnet werden konnte — mit lesbarem Namen. */
+  unavailable: string[];
 }
 
 export interface Fundamentals {

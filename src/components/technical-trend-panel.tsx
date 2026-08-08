@@ -45,19 +45,32 @@ export function TechnicalTrendPanel({ detail }: { detail: AssetDetail }) {
     isFiniteNumber(detail.quote.dayHigh) && isFiniteNumber(detail.quote.dayLow) && detail.quote.dayHigh >= detail.quote.dayLow
       ? detail.quote.dayHigh - detail.quote.dayLow
       : 0;
+  // Ein Signal braucht alle drei Durchschnitte. Vorher verglich diese Stelle
+  // Zahlen, die alle aus dem aktuellen Kurs multipliziert waren -- das Ergebnis
+  // stand damit schon vor dem Vergleich fest.
+  const { ma20, ma50, ma200 } = detail.indicators.movingAverages;
   const smaSignal =
-    detail.indicators.movingAverages.ma20 > detail.indicators.movingAverages.ma50 &&
-    detail.indicators.movingAverages.ma50 > detail.indicators.movingAverages.ma200
-      ? "SMA-Struktur bullisch"
-      : detail.indicators.movingAverages.ma20 < detail.indicators.movingAverages.ma50
-        ? "SMA-Struktur bearisch"
-        : "SMA-Struktur neutral";
-  const rsiSignal = detail.indicators.rsi > 70 ? "RSI überhitzt" : detail.indicators.rsi < 30 ? "RSI schwach" : "RSI neutral";
-  const macdSignal = !isFiniteNumber(detail.indicators.macd.histogram)
-    ? "MACD nicht belastbar"
+    ma20 === null || ma50 === null || ma200 === null
+      ? "SMA-Struktur: zu wenig Daten"
+      : ma20 > ma50 && ma50 > ma200
+        ? "SMA-Struktur bullisch"
+        : ma20 < ma50
+          ? "SMA-Struktur bearisch"
+          : "SMA-Struktur neutral";
+
+  const rsi = detail.indicators.rsi;
+  const rsiSignal =
+    rsi === null ? "RSI: zu wenig Daten" : rsi > 70 ? "RSI überhitzt" : rsi < 30 ? "RSI schwach" : "RSI neutral";
+
+  const macdSignal = !detail.indicators.macd
+    ? "MACD: zu wenig Daten"
     : detail.indicators.macd.histogram >= 0
-      ? "MACD positiv modelliert"
-      : "MACD negativ modelliert";
+      ? "MACD positiv"
+      : "MACD negativ";
+
+  const levelSignal = detail.indicators.support.length
+    ? `Unterstützung ${formatCurrency(detail.indicators.support[0], detail.asset.currency)}`
+    : "Unterstützung: zu wenig Daten";
 
   const cards = [
     { label: "Kurzfristiger Trend", value: trendFromMomentum(shortMomentum), detail: formatPercent(shortMomentum), icon: Activity },
@@ -68,7 +81,10 @@ export function TechnicalTrendPanel({ detail }: { detail: AssetDetail }) {
     { label: "Volumen-Trend", value: formatPercent(volumeChange), detail: formatCompact(detail.quote.volume), icon: BarChart3 }
   ];
 
-  const signals = [smaSignal, rsiSignal, macdSignal, "Trendlinien vorbereitet", "Support/Resistance modelliert"];
+  // "Trendlinien vorbereitet" und "Support/Resistance modelliert" standen hier
+  // als Signale, obwohl weder das eine noch das andere existierte. Ein Hinweis
+  // auf eine Fassade ist kein Signal.
+  const signals = [smaSignal, rsiSignal, macdSignal, levelSignal];
 
   return (
     <section className="rounded-[2rem] border border-stroke bg-panel/82 p-4 shadow-panel sm:p-5">
@@ -78,7 +94,9 @@ export function TechnicalTrendPanel({ detail }: { detail: AssetDetail }) {
           <h2 className="mt-2 text-2xl font-semibold text-mist">Momentum, Volatilität und Signale</h2>
         </div>
         <div className="rounded-2xl border border-amber/25 bg-amber/10 px-3 py-2 text-xs text-amber">
-          MACD und Trendlinien sind vorbereitet und werden je Provider-Datenqualität erweitert.
+          {detail.indicators.sampleSize === 0
+            ? "Keine Kurshistorie verfügbar — technische Signale werden nicht berechnet."
+            : `Signale aus ${detail.indicators.sampleSize} Kerzen. Trendkanäle und Ausbrüche sind noch nicht implementiert.`}
         </div>
       </div>
 

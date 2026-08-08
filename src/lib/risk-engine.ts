@@ -135,29 +135,38 @@ export function buildRiskReport(
     );
   }
 
-  if (detail.indicators.rsi > 70 || detail.indicators.rsi < 30) {
+  // Ohne RSI kein RSI-Befund. Vorher konnte diese Stelle gar nicht ausloesen:
+  // der damalige "RSI" war auf 30 bis 75 begrenzt, meldete also nie ein Extrem.
+  // Ein Befund mit `evidence: "RSI 74"` waere ausserdem der schlimmste Fall von
+  // Erfindung gewesen -- eine erfundene Zahl, die als Beleg auftritt.
+  const rsiValue = detail.indicators.rsi;
+  if (rsiValue !== null && (rsiValue > 70 || rsiValue < 30)) {
     findings.push(
       finding({
-        id: detail.indicators.rsi > 70 ? "rsi-overbought" : "rsi-oversold",
+        id: rsiValue > 70 ? "rsi-overbought" : "rsi-oversold",
         category: "technical",
-        title: detail.indicators.rsi > 70 ? "Überkaufter RSI" : "Überverkaufter RSI",
-        severity: detail.indicators.rsi > 82 || detail.indicators.rsi < 18 ? "hoch" : "mittel",
+        title: rsiValue > 70 ? "Überkaufter RSI" : "Überverkaufter RSI",
+        severity: rsiValue > 82 || rsiValue < 18 ? "hoch" : "mittel",
         detail: "RSI-Extreme können Trendstärke oder Rückschlagrisiko anzeigen.",
-        evidence: `RSI ${detail.indicators.rsi}.`,
+        evidence: `RSI ${rsiValue.toFixed(1)} über ${detail.indicators.sampleSize} Kerzen.`,
         action: "RSI immer mit Trend, Volumen und Support/Resistance abgleichen."
       })
     );
   }
 
-  if (detail.quote.price < detail.indicators.support[0]) {
+  // Die Unterstuetzung ist jetzt das Tief des Fensters. Vorher war sie
+  // `Kurs × 0,96` -- der Kurs konnte damit nie darunter liegen, der Befund war
+  // eine Fassade nach §90.
+  const support = detail.indicators.support[0];
+  if (support !== undefined && detail.quote.price < support) {
     findings.push(
       finding({
         id: "support-broken",
         category: "technical",
         title: "Support gebrochen",
         severity: "hoch",
-        detail: "Der aktuelle Kurs liegt unter dem nächsten Modell-Support.",
-        evidence: `Kurs ${detail.quote.price}, Support ${detail.indicators.support[0]}.`,
+        detail: "Der aktuelle Kurs liegt unter dem Tief der letzten Perioden.",
+        evidence: `Kurs ${detail.quote.price}, bisheriges Tief ${support.toFixed(2)}.`,
         action: "Breakdown-Szenario und Fehlsignal prüfen."
       })
     );

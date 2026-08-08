@@ -649,18 +649,50 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
             <h2 className="text-lg font-semibold">Technische Indikatoren</h2>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Metric label="RSI" value={`${detail.indicators.rsi}`} tone={detail.indicators.rsi > 70 ? "text-loss" : detail.indicators.rsi < 30 ? "text-amber" : "text-profit"} />
-            <Metric label="MACD" value={`${formatMaybeNumber(detail.indicators.macd.value)} / Signal ${formatMaybeNumber(detail.indicators.macd.signal)}`} />
-            <Metric label="MA 20" value={formatCurrency(detail.indicators.movingAverages.ma20, detail.asset.currency)} />
-            <Metric label="MA 50" value={formatCurrency(detail.indicators.movingAverages.ma50, detail.asset.currency)} />
-            <Metric label="MA 200" value={formatCurrency(detail.indicators.movingAverages.ma200, detail.asset.currency)} />
             <Metric
-              label="Bollinger Bands"
-              value={`${formatMaybeCurrency(detail.indicators.bollingerBands.lower, detail.asset.currency)} - ${formatMaybeCurrency(detail.indicators.bollingerBands.upper, detail.asset.currency)}`}
+              label="RSI 14"
+              value={detail.indicators.rsi === null ? "Zu wenig Daten" : detail.indicators.rsi.toFixed(1)}
+              tone={
+                detail.indicators.rsi === null
+                  ? "text-muted"
+                  : detail.indicators.rsi > 70
+                    ? "text-loss"
+                    : detail.indicators.rsi < 30
+                      ? "text-amber"
+                      : "text-profit"
+              }
             />
-            <Metric label="Support" value={detail.indicators.support.length ? detail.indicators.support.map((value) => formatMaybeCurrency(value, detail.asset.currency)).join(" / ") : "n/a"} />
-            <Metric label="Resistance" value={detail.indicators.resistance.length ? detail.indicators.resistance.map((value) => formatMaybeCurrency(value, detail.asset.currency)).join(" / ") : "n/a"} />
+            <Metric
+              label="MACD"
+              value={
+                detail.indicators.macd
+                  ? `${formatMaybeNumber(detail.indicators.macd.value)} / Signal ${formatMaybeNumber(detail.indicators.macd.signal)}`
+                  : "Zu wenig Daten"
+              }
+            />
+            <Metric label="SMA 20" value={formatMaybeCurrency(detail.indicators.movingAverages.ma20, detail.asset.currency)} />
+            <Metric label="SMA 50" value={formatMaybeCurrency(detail.indicators.movingAverages.ma50, detail.asset.currency)} />
+            <Metric label="SMA 200" value={formatMaybeCurrency(detail.indicators.movingAverages.ma200, detail.asset.currency)} />
+            <Metric
+              label="Bollinger Bänder"
+              value={
+                detail.indicators.bollingerBands
+                  ? `${formatCurrency(detail.indicators.bollingerBands.lower, detail.asset.currency)} - ${formatCurrency(detail.indicators.bollingerBands.upper, detail.asset.currency)}`
+                  : "Zu wenig Daten"
+              }
+            />
+            <Metric label="Unterstützung" value={detail.indicators.support.length ? detail.indicators.support.map((value) => formatCurrency(value, detail.asset.currency)).join(" / ") : "Zu wenig Daten"} />
+            <Metric label="Widerstand" value={detail.indicators.resistance.length ? detail.indicators.resistance.map((value) => formatCurrency(value, detail.asset.currency)).join(" / ") : "Zu wenig Daten"} />
           </div>
+          <p className="mt-3 text-xs text-muted">
+            {detail.indicators.sampleSize === 0
+              ? "Keine Kurshistorie verfügbar — es werden keine Indikatoren berechnet."
+              : `Berechnet aus ${detail.indicators.sampleSize} Kerzen.${
+                  detail.indicators.unavailable.length
+                    ? ` Nicht berechenbar: ${detail.indicators.unavailable.join(", ")}.`
+                    : ""
+                }`}
+          </p>
         </div>
 
         <div>

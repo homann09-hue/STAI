@@ -1,3 +1,4 @@
+import { buildTechnicalIndicators } from "@/lib/analysis/technical";
 import { assessDataQuality } from "@/lib/data-quality";
 import { analyzePortfolio } from "@/lib/portfolio-analytics";
 import { buildRiskReport } from "@/lib/risk-engine";
@@ -531,32 +532,20 @@ function candleRanges(symbol: string, price: number): Record<TimeRange, Candle[]
   };
 }
 
-function indicators(symbol: string): TechnicalIndicators {
-  const quote = quoteMap[symbol];
-  const price = quote.price;
-  const technical = scoreSeeds[symbol].technical;
-  const bias = (technical - 50) / 100;
-
-  return {
-    rsi: Math.round(50 + bias * 38),
-    macd: {
-      value: Number((bias * price * 0.012).toFixed(2)),
-      signal: Number((bias * price * 0.009).toFixed(2)),
-      histogram: Number((bias * price * 0.003).toFixed(2))
-    },
-    movingAverages: {
-      ma20: Number((price * (1 - bias * 0.012)).toFixed(2)),
-      ma50: Number((price * (1 - bias * 0.021)).toFixed(2)),
-      ma200: Number((price * (1 - bias * 0.044)).toFixed(2))
-    },
-    bollingerBands: {
-      upper: Number((price * 1.045).toFixed(2)),
-      middle: Number(price.toFixed(2)),
-      lower: Number((price * 0.955).toFixed(2))
-    },
-    support: [Number((price * 0.96).toFixed(2)), Number((price * 0.91).toFixed(2))],
-    resistance: [Number((price * 1.04).toFixed(2)), Number((price * 1.09).toFixed(2))]
-  };
+/**
+ * Indikatoren über die Mock-Kerzen — gerechnet, nicht gewürfelt.
+ *
+ * Vorher: `rsi: Math.round(50 + bias * 38)`, wobei `bias` aus einem
+ * Score-Seed stammte. Der RSI folgte also dem Score statt umgekehrt. Dass es
+ * Demodaten sind, rechtfertigt eine erfundene Kennzahl nicht — der Mock soll
+ * zeigen, wie die Anwendung sich verhält, und dazu gehört, dass ein Indikator
+ * aus dem Kursverlauf entsteht.
+ *
+ * Die längste Reihe (`MAX`, 128 Kerzen) ist die Grundlage. Der SMA 200 bleibt
+ * damit `null` — richtig so: 128 Kerzen sind keine 200.
+ */
+function indicators(candles: Record<TimeRange, Candle[]>): TechnicalIndicators {
+  return buildTechnicalIndicators(candles.MAX);
 }
 
 function riskLevel(symbol: string) {
@@ -682,10 +671,12 @@ export function getMockAsset(symbol: string): AssetDetail | null {
     .filter((item) => item.symbol === asset.symbol)
     .sort((a, b) => b.relevance - a.relevance);
 
+  const candles = candleRanges(asset.symbol, quoteMap[asset.symbol].price);
+
   const core: AssetDetailCore = {
     ...makeSummary(asset),
-    candles: candleRanges(asset.symbol, quoteMap[asset.symbol].price),
-    indicators: indicators(asset.symbol),
+    candles,
+    indicators: indicators(candles),
     fundamentals: fundamentalsMap[asset.symbol],
     news: relatedNews.length ? relatedNews : newsItems.slice(0, 2),
     aiAnalysis: analysisMap[asset.symbol],
