@@ -317,8 +317,52 @@ function checkSupabase() {
   if (sql.includes("auth.role()")) fail("supabase auth role usage", "auth.role() is deprecated and unsafe for anonymous auth edge cases");
   else pass("supabase auth role usage", "auth.role() not used");
 
-  if (sql.includes("security definer")) fail("supabase privileged functions", "SECURITY DEFINER detected; review RLS bypass risk", "high");
-  else pass("supabase privileged functions", "no SECURITY DEFINER detected");
+  // SECURITY DEFINER ist kein Fehler an sich. Manche Operationen brauchen es
+  // zwingend: eine RPC, die eine Eigentuemerpruefung selbst durchfuehrt, oder
+  // ein Trigger, der Planlimits ueber alle Zeilen eines Nutzers zaehlt.
+  //
+  // Gefaehrlich wird es durch zwei konkrete Fehler:
+  //   1. Kein `set search_path` — dann laesst sich die Funktionsaufloesung
+  //      kapern und der Definer-Kontext missbrauchen.
+  //   2. Ein zu weites Ausfuehrungsrecht — `authenticated` darf eine Funktion,
+  //      die RLS umgeht, nicht aufrufen duerfen.
+  //
+  // Die fruehere Stichwortsuche schlug bei jedem Vorkommen fehl. Das erzeugte
+  // ein Dauer-Rot, das nichts aussagt und deshalb ignoriert wird. Geprueft
+  // werden jetzt die beiden Eigenschaften, auf die es ankommt.
+  const definerFunctions = [
+    ...`${schema}\n${migrations}`.matchAll(
+      /create\s+(?:or\s+replace\s+)?function\s+([\w.]+)\s*\([\s\S]*?\)([\s\S]*?)(?:\$\$|;)/gi
+    )
+  ]
+    .filter(([, , head]) => /security\s+definer/i.test(head))
+    .map(([, name, head]) => ({ name, head }));
+
+  if (definerFunctions.length === 0) {
+    pass("supabase privileged functions", "no SECURITY DEFINER detected");
+  } else {
+    const unsafe = definerFunctions.filter(({ name, head }) => {
+      const hasSearchPath = /set\s+search_path/i.test(head);
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const revoked = new RegExp(`revoke\\s+execute\\s+on\\s+function\\s+${escaped}\\s*\\(`, "i").test(
+        `${schema}\n${migrations}`
+      );
+      return !hasSearchPath || !revoked;
+    });
+
+    if (unsafe.length === 0) {
+      pass(
+        "supabase privileged functions",
+        `${definerFunctions.length} SECURITY DEFINER function(s), each with set search_path and revoked execute grant`
+      );
+    } else {
+      fail(
+        "supabase privileged functions",
+        `SECURITY DEFINER without search_path pinning or execute revoke: ${unsafe.map((item) => item.name).join(", ")}`,
+        "high"
+      );
+    }
+  }
 
   if (sql.includes("revoke execute on function public.set_updated_at() from public")) {
     pass("supabase function execute grant", "trigger helper execute grant is revoked from public");

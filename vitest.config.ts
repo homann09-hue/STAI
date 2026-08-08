@@ -25,15 +25,22 @@ export default defineConfig({
         "src/app/**/manifest.ts",
         "src/lib/mock/**"
       ],
-      // Bewusst niedrige Untergrenze fuer die GESAMTE Codebasis, nicht fuer die
-      // getestete Teilmenge. Der Wert ist noch nicht kalibriert: nach dem
-      // ersten `npm run test:coverage` den echten Messwert ablesen und die
-      // Schwellen dicht darunter setzen, danach schrittweise anheben.
+      // Kalibriert am 2026-08-08 gegen einen vollstaendigen Lauf ueber alle 181
+      // Quelldateien. Gemessen wurde:
+      //   lines 26.33 | statements 25.51 | functions 25.63 | branches 26.33
+      //
+      // Die Schwellen liegen knapp darunter: sie fangen eine Verschlechterung
+      // ab, ohne bei jeder kleinen Aenderung rot zu werden. Beim Anheben der
+      // Abdeckung mitziehen.
+      //
+      // Zur Einordnung: vor `all: true` meldete derselbe Report 88 % — gemessen
+      // an 26 von 181 Dateien. Der Sprung nach unten ist keine Verschlechterung,
+      // sondern das Ende einer Fehlmessung.
       thresholds: {
-        statements: 10,
-        branches: 35,
-        functions: 15,
-        lines: 10
+        statements: 24,
+        branches: 25,
+        functions: 24,
+        lines: 25
       }
     }
   }
