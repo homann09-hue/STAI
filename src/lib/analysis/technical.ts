@@ -39,7 +39,10 @@ const readableNames: Record<string, string> = {
   vwap: "VWAP",
   volatility: "Volatilität",
   supportResistance: "Unterstützung/Widerstand",
-  cross: "MA-Kreuzung"
+  cross: "MA-Kreuzung",
+  adx14: "ADX 14",
+  trendChannel: "Trendkanal",
+  breakout: "Ausbruch"
 };
 
 /**
@@ -56,6 +59,9 @@ export const NO_INDICATORS: TechnicalIndicators = {
   bollingerBands: null,
   support: [],
   resistance: [],
+  adx: null,
+  trendChannel: null,
+  breakout: null,
   sampleSize: 0,
   unavailable: Object.values(readableNames)
 };
@@ -82,6 +88,9 @@ export function buildTechnicalIndicators(candles: readonly Candle[]): TechnicalI
       : null,
     support: set.supportResistance ? [set.supportResistance.support] : [],
     resistance: set.supportResistance ? [set.supportResistance.resistance] : [],
+    adx: set.adx14,
+    trendChannel: set.trendChannel,
+    breakout: set.breakout,
     sampleSize: set.sampleSize,
     unavailable: set.unavailable.map((key) => readableNames[key] ?? key)
   };

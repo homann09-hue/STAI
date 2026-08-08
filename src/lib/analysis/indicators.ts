@@ -303,6 +303,237 @@ export function movingAverageCross(
   return "none";
 }
 
+export type DirectionalMovement = {
+  /** Trendstärke, 0–100. Sagt nichts über die Richtung. */
+  adx: number;
+  plusDi: number;
+  minusDi: number;
+};
+
+/**
+ * Average Directional Index nach Wilder.
+ *
+ * Der ADX misst **nur die Stärke** eines Trends, nicht seine Richtung — ein
+ * ADX von 40 kann einen kräftigen Aufwärts- oder Abwärtstrend bedeuten. Deshalb
+ * werden +DI und −DI mitgegeben; ohne sie ist die Zahl regelmäßig fehlgedeutet.
+ *
+ * Braucht `2 × period + 1` Kerzen: einmal für die Glättung der gerichteten
+ * Bewegung, einmal für die Glättung des daraus gebildeten DX.
+ */
+export function adx(candles: readonly Candle[], period = 14): DirectionalMovement | null {
+  if (period < 2 || candles.length < period * 2 + 1) return null;
+
+  const trueRanges: number[] = [];
+  const plusMoves: number[] = [];
+  const minusMoves: number[] = [];
+
+  for (let index = 1; index < candles.length; index += 1) {
+    const current = candles[index];
+    const previous = candles[index - 1];
+
+    const upMove = current.high - previous.high;
+    const downMove = previous.low - current.low;
+
+    // Nur die groessere der beiden Bewegungen zaehlt. Beide gleichzeitig zu
+    // werten wuerde eine Innenkerze als gerichtet ausgeben.
+    plusMoves.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusMoves.push(downMove > upMove && downMove > 0 ? downMove : 0);
+
+    trueRanges.push(
+      Math.max(
+        current.high - current.low,
+        Math.abs(current.high - previous.close),
+        Math.abs(current.low - previous.close)
+      )
+    );
+  }
+
+  if (trueRanges.length < period * 2) return null;
+
+  const total = (values: number[]) => values.reduce((sum, value) => sum + value, 0);
+
+  let smoothedTr = total(trueRanges.slice(0, period));
+  let smoothedPlus = total(plusMoves.slice(0, period));
+  let smoothedMinus = total(minusMoves.slice(0, period));
+
+  const directionalIndex = () => {
+    // Eine wahre Spanne von null heisst: der Kurs hat sich nicht bewegt. Kein
+    // gerichteter Anteil ist dann die Messung, keine Verlegenheitsloesung.
+    if (smoothedTr === 0) return 0;
+    const plus = (100 * smoothedPlus) / smoothedTr;
+    const minus = (100 * smoothedMinus) / smoothedTr;
+    const spread = plus + minus;
+    return spread === 0 ? 0 : (100 * Math.abs(plus - minus)) / spread;
+  };
+
+  const dxValues: number[] = [directionalIndex()];
+
+  for (let index = period; index < trueRanges.length; index += 1) {
+    smoothedTr = smoothedTr - smoothedTr / period + trueRanges[index];
+    smoothedPlus = smoothedPlus - smoothedPlus / period + plusMoves[index];
+    smoothedMinus = smoothedMinus - smoothedMinus / period + minusMoves[index];
+    dxValues.push(directionalIndex());
+  }
+
+  if (dxValues.length < period) return null;
+
+  let value = total(dxValues.slice(0, period)) / period;
+  for (const dx of dxValues.slice(period)) {
+    value = (value * (period - 1) + dx) / period;
+  }
+
+  return {
+    adx: value,
+    plusDi: smoothedTr === 0 ? 0 : (100 * smoothedPlus) / smoothedTr,
+    minusDi: smoothedTr === 0 ? 0 : (100 * smoothedMinus) / smoothedTr
+  };
+}
+
+export type TrendChannel = {
+  direction: "up" | "down" | "sideways";
+  /** Obere und untere Kanalgrenze am aktuellen Rand. */
+  upper: number;
+  lower: number;
+  /** Die Regressionsgerade am aktuellen Rand. */
+  middle: number;
+  /** Gesamtbewegung über das Fenster in Prozent. */
+  changePercent: number;
+  /**
+   * Bestimmtheitsmaß 0–1.
+   *
+   * Der wichtigste Wert der ganzen Struktur: eine Regressionsgerade durch
+   * reines Rauschen hat ebenfalls eine Steigung. Ohne diese Zahl sähe ein
+   * Zufallsverlauf aus wie ein Trendkanal.
+   */
+  fit: number;
+  /** Ob die Gerade den Verlauf gut genug beschreibt, um Kanal genannt zu werden. */
+  reliable: boolean;
+};
+
+/** Ab welcher Güte von einem Kanal statt von einer Gerade gesprochen wird. */
+const MIN_CHANNEL_FIT = 0.5;
+
+/**
+ * Trendkanal aus einer Regressionsgeraden.
+ *
+ * Die Kanalbreite ist die Streuung der Abweichungen von der Geraden — der
+ * Kanal ist damit eng, wenn der Verlauf der Geraden folgt, und weit, wenn
+ * nicht. `fit` und `reliable` gehören zwingend mit angezeigt.
+ */
+export function trendChannel(
+  values: readonly number[],
+  period = 60,
+  deviations = 2
+): TrendChannel | null {
+  if (period < 3 || values.length < period) return null;
+
+  const window = values.slice(-period);
+  const count = window.length;
+  const meanIndex = (count - 1) / 2;
+  const meanValue = window.reduce((sum, value) => sum + value, 0) / count;
+
+  let covariance = 0;
+  let indexVariance = 0;
+  let valueVariance = 0;
+
+  for (let index = 0; index < count; index += 1) {
+    const deltaIndex = index - meanIndex;
+    const deltaValue = window[index] - meanValue;
+    covariance += deltaIndex * deltaValue;
+    indexVariance += deltaIndex * deltaIndex;
+    valueVariance += deltaValue * deltaValue;
+  }
+
+  if (indexVariance === 0) return null;
+
+  const slope = covariance / indexVariance;
+  const intercept = meanValue - slope * meanIndex;
+
+  let residualSquares = 0;
+  for (let index = 0; index < count; index += 1) {
+    const residual = window[index] - (intercept + slope * index);
+    residualSquares += residual * residual;
+  }
+
+  const spread = Math.sqrt(residualSquares / count);
+  // Ein waagerechter Verlauf hat keine erklaerbare Varianz. Die Guete ist dann
+  // 0 und nicht 1 -- eine perfekte Gerade durch eine Gerade sagt nichts.
+  const fit = valueVariance === 0 ? 0 : Math.max(0, 1 - residualSquares / valueVariance);
+  const middle = intercept + slope * (count - 1);
+  const changePercent = meanValue === 0 ? 0 : ((slope * (count - 1)) / meanValue) * 100;
+
+  return {
+    // Unter 3 % Gesamtbewegung ueber das Fenster ist die Richtung nicht
+    // aussagekraeftig, egal wie gut die Gerade passt.
+    direction: changePercent > 3 ? "up" : changePercent < -3 ? "down" : "sideways",
+    upper: middle + deviations * spread,
+    lower: middle - deviations * spread,
+    middle,
+    changePercent,
+    fit,
+    reliable: fit >= MIN_CHANNEL_FIT
+  };
+}
+
+export type BreakoutResult =
+  | { status: "none" }
+  | {
+      status: "breakout";
+      direction: "up" | "down";
+      /** Das durchbrochene Niveau. */
+      level: number;
+      /** Wie weit darüber hinaus, gemessen in ATR — vergleichbar zwischen Werten. */
+      strengthInAtr: number;
+      /** Ob das Volumen den Ausbruch stützt. */
+      volumeConfirmed: boolean;
+    };
+
+/**
+ * Ausbruch aus der Spanne der Vorperioden.
+ *
+ * `null` und `{ status: "none" }` sind bewusst verschieden: das eine heißt
+ * „lässt sich nicht sagen", das andere „kein Ausbruch". Beides in `null`
+ * zusammenzufassen wäre die Sorte Unschärfe, die später als Aussage gelesen
+ * wird.
+ *
+ * Die Stärke wird in ATR gemessen und nicht in Prozent, damit ein Ausbruch bei
+ * einem ruhigen und einem volatilen Wert vergleichbar bleibt. Ein Zehntel-ATR
+ * über dem Hoch ist Rauschen, kein Ausbruch.
+ */
+export function breakout(
+  candles: readonly Candle[],
+  lookback = 20,
+  minStrengthInAtr = 0.25
+): BreakoutResult | null {
+  if (lookback < 2 || candles.length < lookback + 15) return null;
+
+  const range = atr(candles);
+  if (range === null || range <= 0) return null;
+
+  const prior = candles.slice(-lookback - 1, -1);
+  const current = candles[candles.length - 1];
+  const highest = Math.max(...prior.map((candle) => candle.high));
+  const lowest = Math.min(...prior.map((candle) => candle.low));
+
+  const averageVolume = prior.reduce((sum, candle) => sum + candle.volume, 0) / prior.length;
+  // Ohne Volumendaten wird nichts bestaetigt -- und auch nichts widerlegt.
+  const volumeConfirmed = averageVolume > 0 && current.volume > averageVolume * 1.5;
+
+  if (current.close > highest) {
+    const strengthInAtr = (current.close - highest) / range;
+    if (strengthInAtr < minStrengthInAtr) return { status: "none" };
+    return { status: "breakout", direction: "up", level: highest, strengthInAtr, volumeConfirmed };
+  }
+
+  if (current.close < lowest) {
+    const strengthInAtr = (lowest - current.close) / range;
+    if (strengthInAtr < minStrengthInAtr) return { status: "none" };
+    return { status: "breakout", direction: "down", level: lowest, strengthInAtr, volumeConfirmed };
+  }
+
+  return { status: "none" };
+}
+
 export type IndicatorSet = {
   sma20: number | null;
   sma50: number | null;
@@ -320,6 +551,9 @@ export type IndicatorSet = {
   volatility: number | null;
   supportResistance: SupportResistance | null;
   cross: MovingAverageCross | null;
+  adx14: DirectionalMovement | null;
+  trendChannel: TrendChannel | null;
+  breakout: BreakoutResult | null;
   /** Wie viele Kerzen zur Verfügung standen. Bestimmt, was überhaupt ging. */
   sampleSize: number;
   /** Indikatoren, für die die Reihe zu kurz war — namentlich. */
@@ -347,6 +581,9 @@ export function computeIndicators(candles: readonly Candle[]): IndicatorSet {
     volatility: volatility(values),
     supportResistance: supportResistance(candles),
     cross: movingAverageCross(values),
+    adx14: adx(candles),
+    trendChannel: trendChannel(values),
+    breakout: breakout(candles),
     sampleSize: candles.length
   };
 

@@ -207,6 +207,39 @@ export interface TechnicalIndicators {
   } | null;
   support: number[];
   resistance: number[];
+  /** Trendstärke nach Wilder. `adx` sagt nichts über die Richtung — dafür sind +DI/−DI da. */
+  adx: { adx: number; plusDi: number; minusDi: number } | null;
+  /**
+   * Trendkanal aus einer Regressionsgeraden.
+   *
+   * `fit` gehört zwingend mit angezeigt: eine Gerade durch reines Rauschen hat
+   * ebenfalls eine Steigung.
+   */
+  trendChannel: {
+    direction: "up" | "down" | "sideways";
+    upper: number;
+    lower: number;
+    middle: number;
+    changePercent: number;
+    fit: number;
+    reliable: boolean;
+  } | null;
+  /**
+   * Ausbruch aus der Spanne der Vorperioden.
+   *
+   * `null` heißt „lässt sich nicht sagen", `{ status: "none" }` heißt „kein
+   * Ausbruch". Der Unterschied ist Absicht.
+   */
+  breakout:
+    | { status: "none" }
+    | {
+        status: "breakout";
+        direction: "up" | "down";
+        level: number;
+        strengthInAtr: number;
+        volumeConfirmed: boolean;
+      }
+    | null;
   /** Wie viele Kerzen zugrunde lagen. Bestimmt, was überhaupt möglich war. */
   sampleSize: number;
   /** Was nicht berechnet werden konnte — mit lesbarem Namen. */

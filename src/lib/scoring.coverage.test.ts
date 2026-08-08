@@ -184,6 +184,9 @@ function indicators(overrides: { rsi: number | null; histogram: number | null })
     bollingerBands: { upper: 110, middle: 100, lower: 90 },
     support: [95],
     resistance: [105],
+    adx: null,
+    trendChannel: null,
+    breakout: null,
     sampleSize: 200,
     unavailable: []
   };

@@ -147,7 +147,7 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 |---|---|---|---|
 | §24 | Fundamentalanalyse | `IN PROGRESS` | Das Scoring-Modell kennt 18 Kennzahlen aus §24. Im Datenmodell liegen davon nur 5 (`peRatio`, `revenueGrowth`, `debtToEquity`, `ebitda`, `grossMargin`) — die übrigen 13 muss der Provider erst liefern |
 | §25 | Erklärbare Teilnoten | `DONE` | `analysis/quality-scores.ts`: 7 Dimensionen, 18 Einzelkennzahlen, **keine Gesamtnote**. Fehlende Werte werden benannt statt geschätzt. 15 Tests. Ohne Branchenkalibrierung |
-| §26 | Technische Analyse | `IN PROGRESS` | **Angeschlossen.** `analysis/technical.ts` verbindet die 16 gerechneten Indikatoren mit `TechnicalIndicators`; alle **drei** Erfindungsquellen sind ersetzt (siehe unten). 36 Tests, vier Regressionen gegengeprüft. Offen: Mehrzeitrahmen, Trendkanäle, Ausbrüche, ADX |
+| §26 | Technische Analyse | `DONE` | **Vollständig.** 19 Indikatoren inklusive ADX, Trendkanal und Ausbruch, dazu Analyse über drei Zeitrahmen. Alle drei Erfindungsquellen ersetzt (siehe unten). 56 Tests, neun Regressionen gegengeprüft. Einschränkung: alles auf Tagesbasis — Intraday-Zeitrahmen gibt es nicht, weil der Anbietertarif keine Intraday-Historie enthält |
 | §27 | News und Events | `IN PROGRESS` | `news`-Route, Klassifikation unvollständig |
 | §28 | Makro | `DONE` | EZB Data Portal ohne Schlüssel und ohne Tarif. Fünf Reihen live gemessen, Zinsstrukturbewertung, Datenalter je Reihe. `GET /api/macro` und Seite `/macro`, in der Navigation. 32 Tests |
 | §28 | Economic Calendar | `NOT STARTED` | Terminreihen noch nicht angebunden |
@@ -227,6 +227,49 @@ sonst sähe ein Instrument ohne Daten aus wie eines ohne Risiken.
 Gegengeprüft mit vier absichtlich wieder eingesetzten Fehlern (Reihenfolge
 nicht umgedreht, Tagesfenster erfunden, unbrauchbare Zeilen aufgefüllt,
 Historie-Schranke entfernt) — jeder wurde rot gemeldet.
+
+### §26: ADX, Trendkanal, Ausbruch, Mehrzeitrahmen
+
+Die vier Punkte, die über die Standardindikatoren hinausgehen. Bei jedem war
+die Frage nicht die Formel, sondern die Stelle, an der ein Modell sich selbst
+überschätzt:
+
+| Punkt | Die Falle | Was dagegen gebaut ist |
+|---|---|---|
+| **ADX** | Ein hoher ADX wird als „steigend" gelesen. Er misst nur **Stärke**, nicht Richtung | +DI und −DI stehen immer daneben; ein Test verlangt, dass Auf- und Abwärtstrend **ähnlich hohe** Werte liefern |
+| **Trendkanal** | Eine Regressionsgerade durch reines Rauschen hat ebenfalls eine Steigung | `fit` (Bestimmtheitsmaß) ist Pflichtfeld und wird angezeigt; unter 0,5 heißt der Kanal ausdrücklich nicht belastbar |
+| **Ausbruch** | Jedes neue Tageshoch als „Ausbruch" zu melden | Mindeststärke von 0,25 ATR; Stärke in ATR statt Prozent, damit ruhige und volatile Werte vergleichbar sind. Volumenbestätigung getrennt ausgewiesen |
+| **Mehrzeitrahmen** | Drei Fenster zu einer Mehrheitsmeinung verrechnen | `mixed` ist ein eigener Zustand. Zwei gegen einen ergibt **keine** Aussage — das wäre erfundene Eindeutigkeit |
+
+Zwei Unterscheidungen sind bewusst und werden von Tests gehalten:
+
+- **`null` ≠ `{ status: "none" }`** beim Ausbruch: „lässt sich nicht sagen"
+  gegen „kein Ausbruch". Beides in `null` zusammenzufassen wäre die Sorte
+  Unschärfe, die später als Aussage gelesen wird.
+- **Ein Fenster ohne Daten zählt nicht als neutral**, sondern gar nicht. Sonst
+  würde fehlende Historie zu einer Stimme.
+
+**Probe an echten AAPL-Daten** (2026-08-08) — und das Ergebnis begründet den
+Aufwand:
+
+```
+ADX 14: 23,6   +DI 24,5   −DI 28,7        → knapp unter 25: richtungslos
+Trendkanal: aufwärts, +8,4 %, Güte 27 %   → NICHT belastbar
+Ausbruch: keiner
+Kurzfristig (1M):   23 Kerzen, seitwärts, −1,7 %, Güte  2 %
+Mittelfristig (3M): 63 Kerzen, aufwärts,  +8,9 %, Güte 30 %
+Langfristig (1J):  252 Kerzen, aufwärts, +26,5 %, Güte 65 %
+→ mixed
+```
+
+Eine Einzelansicht hätte „Aufwärtstrend" gemeldet. Tatsächlich ist der
+kurzfristige Verlauf mit 2 % Güte reines Rauschen, und nur die Jahressicht
+beschreibt überhaupt eine Gerade. Genau dieser Fall ist der Grund, warum §26
+mehrere Zeitrahmen verlangt.
+
+**Einschränkung, ehrlich benannt:** alles läuft auf Tagesbasis. Intraday-
+Zeitrahmen gibt es nicht, weil der Anbietertarif keine Intraday-Historie
+enthält — nicht, weil die Rechnung sie nicht könnte.
 
 ## Produkt und Oberfläche
 
