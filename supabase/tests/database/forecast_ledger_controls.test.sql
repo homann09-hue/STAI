@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(26);
 
 select ok(to_regclass('public.model_registry') is not null, 'model registry exists');
 select ok(to_regclass('public.forecasts') is not null, 'forecast ledger exists');
@@ -25,10 +25,10 @@ select ok(
   'forecast ledger tables have no anon/authenticated grants'
 );
 
-select has_table_privilege('service_role', 'public.model_registry', 'INSERT', 'service role can insert model registry rows');
-select has_table_privilege('service_role', 'public.forecasts', 'INSERT', 'service role can insert forecasts');
-select has_table_privilege('service_role', 'public.forecast_outcomes', 'UPDATE', 'service role can update forecast outcomes');
-select has_table_privilege('service_role', 'public.model_evaluations', 'INSERT', 'service role can insert model evaluations');
+select ok(has_table_privilege('service_role', 'public.model_registry', 'INSERT'), 'service role can insert model registry rows');
+select ok(has_table_privilege('service_role', 'public.forecasts', 'INSERT'), 'service role can insert forecasts');
+select ok(has_table_privilege('service_role', 'public.forecast_outcomes', 'UPDATE'), 'service role can update forecast outcomes');
+select ok(has_table_privilege('service_role', 'public.model_evaluations', 'INSERT'), 'service role can insert model evaluations');
 
 select is(
   (

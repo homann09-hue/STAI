@@ -231,21 +231,38 @@ Qualitätskennzeichnung (`realtime` / `near_realtime` / `delayed` / `historical`
 
 ---
 
-## BLOCKER-003 — pgTAP-Suiten nicht ausgeführt
+## BLOCKER-003 — pgTAP-Suiten nicht lokal ausführbar
 
-**Schweregrad:** mittel
+**Status:** in CI gelöst. `npx supabase test db` läuft im Workflow
+`database-tests.yml` gegen einen isolierten Supabase-Stack.
 
-`npx supabase test db` benötigt eine lokale Postgres-/Supabase-Instanz. Zuletzt
-gescheitert am 2026-08-06 mit `LegacyDbConnectError`.
+**Was der erste echte Lauf gezeigt hat** (PR #16, Database Tests #17/#18): drei
+von vier Suiten grün — `billing_controls`, `institutional_controls`,
+`rls_and_integrity`. `forecast_ledger_controls` brach ab:
 
-**Ersatznachweis.** Die RLS-Isolation wurde am 2026-08-07 stattdessen direkt
-gegen die Produktionsdatenbank verifiziert — in einer Transaktion mit Rollback,
-mit zwei Testnutzern, ohne Rückstände. Ergebnis: Fremdzeilen unsichtbar,
-`billing_events` und `forecasts` für `authenticated` gesperrt, Schreibversuch auf
-fremde `user_id` blockiert.
+```
+ERROR: function has_table_privilege(unknown, unknown, unknown, unknown) does not exist
+Parse errors: Bad plan. You planned 24 tests but ran 6.
+```
 
-**Aktivierungsschritt.** Docker starten, `npx supabase start`, dann
-`npm run test:db`.
+Zwei Fehler in der Datei, beide seit ihrer Entstehung vorhanden und nie
+aufgefallen, weil pgTAP lokal nie lief:
+
+1. Vier Aufrufe von `has_table_privilege` mit **vier** Argumenten. Postgres
+   kennt nur die Drei-Argument-Form; pgTAP wrappt sie nicht mit einer
+   Beschreibung. Korrekt ist `ok(has_table_privilege(rolle, tabelle, recht),
+   'beschreibung')` — so macht es auch das grüne `billing_controls`.
+2. `plan(24)` bei tatsächlich **26** Assertions.
+
+**Verifikation der Korrektur.** Ein Zähler für pgTAP-Assertions liefert bei allen
+drei grünen Dateien exakt die deklarierte Plan-Zahl (15/15, 25/25, 13/13) und
+belegt damit die Abweichung 24 gegen 26. Die Drei-Argument-Signatur und alle
+sechs Strukturaussagen der Datei wurden zusätzlich direkt gegen die
+Produktionsdatenbank geprüft: RLS auf 4 Tabellen, 0 Client-Grants, 4
+Deny-Policies, Immutability-Trigger, 4 Indizes, registriertes Default-Modell.
+
+**Weiterhin offen:** lokal ausführbar ist pgTAP nur mit Docker. Für die
+Sandbox-Umgebung gilt das unverändert nicht.
 
 ---
 
