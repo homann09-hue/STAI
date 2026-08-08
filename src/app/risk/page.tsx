@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { ProfessionalDataView } from "@/components/professional-data-view";
-import { getProfessionalDataProvider } from "@/lib/providers/professional-data-provider";
+import { EntitledProfessionalView } from "@/components/entitled-professional-view";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +8,10 @@ export const metadata: Metadata = {
   description: "Portfolio-Risiko, Volatilität, Drawdown, Korrelationen, Klumpenrisiko und Szenarien."
 };
 
-export default async function RiskPage() {
-  const report = await getProfessionalDataProvider().getMarketReport();
-  return <ProfessionalDataView report={report} mode="risk" />;
+/**
+ * Wie `/markets`: der Bericht kommt über die tarifgeprüfte Route, nicht aus der
+ * Server-Komponente.
+ */
+export default function RiskPage() {
+  return <EntitledProfessionalView mode="risk" />;
 }

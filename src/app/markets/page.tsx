@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import { ProfessionalDataView } from "@/components/professional-data-view";
+import { EntitledProfessionalView } from "@/components/entitled-professional-view";
 import { getPublicProviderCapabilityReport } from "@/lib/provider-health";
-import { getProfessionalDataProvider } from "@/lib/providers/professional-data-provider";
 
 export const dynamic = "force-dynamic";
 
@@ -11,11 +10,16 @@ export const metadata: Metadata = {
     "Marktübersicht mit Kursqualität, Screenern, Portfolio-Risiko, transparenten Datenquellen und sichtbarer Trennung von Live-, Cache- und Demo-Daten."
 };
 
+/**
+ * Der Marktbericht ist eine Bezahlleistung und wird deshalb nicht mehr hier
+ * geladen. Serverseitiges Rendern hätte ihn ins ausgelieferte HTML geschrieben —
+ * für jeden Besucher, auch ohne Konto.
+ *
+ * Der Providerstatus bleibt öffentlich: er sagt etwas über den Betrieb der
+ * Plattform, nicht über einen Markt.
+ */
 export default async function MarketsPage() {
-  const [report, providerCapabilities] = await Promise.all([
-    getProfessionalDataProvider().getMarketReport(),
-    getPublicProviderCapabilityReport()
-  ]);
+  const providerCapabilities = await getPublicProviderCapabilityReport();
 
-  return <ProfessionalDataView report={report} mode="overview" providerCapabilities={providerCapabilities} />;
+  return <EntitledProfessionalView mode="overview" providerCapabilities={providerCapabilities} />;
 }

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { ProfessionalDataView } from "@/components/professional-data-view";
-import { getProfessionalDataProvider } from "@/lib/providers/professional-data-provider";
+import { EntitledProfessionalView } from "@/components/entitled-professional-view";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +9,12 @@ export const metadata: Metadata = {
     "News-Terminal mit Quellenstatus, Zeitstempel, Datenqualität und modellbasierter Relevanzbewertung für Markt-, Makro- und Unternehmensereignisse."
 };
 
-export default async function NewsTerminalPage() {
-  const report = await getProfessionalDataProvider().getMarketReport();
-  return <ProfessionalDataView report={report} mode="news" />;
+/**
+ * Der Marktbericht ist eine Bezahlleistung. Er wird deshalb nicht mehr in der
+ * Server-Komponente geladen, weil er damit im ausgelieferten HTML gestanden
+ * haette — auch fuer Besucher ohne Konto. Die Tarifpruefung sitzt jetzt in
+ * `/api/professional/overview`.
+ */
+export default function NewsTerminalPage() {
+  return <EntitledProfessionalView mode="news" />;
 }
