@@ -1,8 +1,15 @@
 name: Database Tests
 
+# Auch bei Push: ein direkter Commit auf main wuerde sonst an den
+# Datenbankkontrollen vorbeilaufen.
 on:
+  push:
   pull_request:
   workflow_dispatch:
+
+concurrency:
+  group: stockpilot-db-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

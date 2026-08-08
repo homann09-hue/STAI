@@ -1,12 +1,12 @@
 name: StockPilot CI
 
+# Auf jedem Branch, nicht nur auf main. Der bisherige Zuschnitt liess einen
+# Feature-Branch ohne offenen Pull Request voellig ungeprueft -- genau so lagen
+# hier 27 Commits vier Wochen lang, ohne dass CI sie je gesehen hat.
 on:
   push:
-    branches:
-      - main
   pull_request:
-    branches:
-      - main
+  workflow_dispatch:
 
 concurrency:
   group: stockpilot-ci-${{ github.workflow }}-${{ github.ref }}

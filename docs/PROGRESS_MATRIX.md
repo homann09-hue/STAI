@@ -195,7 +195,7 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §86 | Dependencies | `VERIFIED` | 0 Schwachstellen, Dependabot entsperrt |
 | §87 | Edge Cases | `IN PROGRESS` | Datenseitig gut abgedeckt, Billing-Edge-Cases ungetestet |
 | §88 | Red Team | `IN PROGRESS` | Erster Durchgang hat Blocker 1 gefunden |
-| §17 | CI/CD | `VERIFIED` | PR #16 vollständig grün, Run #20 |
+| §17 | CI/CD | `VERIFIED` | Beide Workflows jetzt auf jedem Push und PR, nicht nur `main`. Produktions-Autodeploy aus Git abgeschaltet — Produktion läuft nur noch über den gegateten Workflow. Branch Protection bleibt eine GitHub-Einstellung, siehe `docs/CI_PIPELINE.md` |
 | §99/§100 | Dokumentation, `.env.example` | `IN PROGRESS` | `.env.example` gepflegt; Billing-Doku fehlt |
 
 ---
