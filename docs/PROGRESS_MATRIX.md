@@ -149,7 +149,7 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §25 | Erklärbare Teilnoten | `DONE` | `analysis/quality-scores.ts`: 7 Dimensionen, 18 Einzelkennzahlen, **keine Gesamtnote**. Fehlende Werte werden benannt statt geschätzt. 15 Tests. Ohne Branchenkalibrierung |
 | §26 | Technische Analyse | `DONE` | **Vollständig.** 19 Indikatoren inklusive ADX, Trendkanal und Ausbruch, dazu Analyse über drei Zeitrahmen. Alle drei Erfindungsquellen ersetzt (siehe unten). 56 Tests, neun Regressionen gegengeprüft. Einschränkung: alles auf Tagesbasis — Intraday-Zeitrahmen gibt es nicht, weil der Anbietertarif keine Intraday-Historie enthält |
 | §27 | News und Events | `IN PROGRESS` | **Klassifikation und Entdopplung gebaut** (siehe unten): 18 Ereignisarten mit Beleg, Bezug nach Unternehmen/Branche/Land/Index/Rohstoff/Währung/Krypto, Duplikate zusammengeführt. 32 Tests, fünf Regressionen gegengeprüft. Offen: nur eine Quelle liefert Entitäten, NewsAPI keine |
-| §28 | Makro | `IN PROGRESS` | **Elf** EZB-Reihen live gemessen (Leitzins, Inflation, Kerninflation, 3M/10J-Rendite, EUR/USD, Arbeitslosenquote, BIP, Industrieproduktion, Einzelhandel, Geldmenge M3) plus fünf Marktindikatoren (Gold, Brent, Silber, VIX, S&P 500). Zinsstrukturbewertung, Datenalter je Reihe. Fehlen: US-Reihen (CPI, PPI, NFP, PMI, Konsumentenvertrauen) und Dollar-Index — siehe unten |
+| §28 | Makro | `IN PROGRESS` | **22 Reihen** live gemessen: 11 EZB (Euroraum), 11 FRED (USA, **ohne Schlüssel**), dazu 5 Marktindikatoren. Alles aus §28 abgedeckt außer **PMI**. Offen ist keine Datenlücke, sondern eine Lizenzfrage — siehe unten |
 | §28 | Economic Calendar | `BLOCKED` | Keine Quelle im Tarif. FMP `/stable/economic-calendar` antwortet mit **HTTP 402**. Eine freie Alternative bräuchte einen FRED-Schlüssel — Nutzerentscheidung nach §95 |
 | §29 | Zentralbanken: Zinsentscheidungen | `DONE` | Aus dem Leitzinspfad abgeleitet, 2-Jahres-Fenster. Live: 9 Entscheidungen seit 2024-09. `policy-rate-history.ts`, 13 Tests |
 | §29 | Zentralbanken: Sitzungstermine, Statements, Protokolle | `NOT STARTED` | Aus einem Zinspfad nicht ableitbar, braucht eine Terminquelle |
@@ -351,16 +351,68 @@ Kursanbieter: Gold (4399,70), Brent (83,55), Silber, VIX (14,90), S&P 500.
 Ein falscher Schlüsselversuch für die Arbeitslosenquote antwortete mit 404 und
 steht **nicht** im Katalog — aufgenommen wird nur, was nachweislich liefert.
 
-**Was §28 verlangt und nicht geht:**
+### §28: FRED schließt die US-Lücke — ohne Schlüssel
+
+Die Annahme, FRED brauche einen Schlüssel, war falsch. Am 2026-08-08 gemessen:
+der CSV-Export unter `fred.stlouisfed.org/graph/fredgraph.csv` antwortet **ohne
+Authentifizierung**; nur die JSON-API unter `api.stlouisfed.org` verlangt einen
+(HTTP 400 ohne). Damit entfällt die Nutzeraufgabe komplett.
+
+Elf Reihen aufgenommen, jede einzeln geprüft — darunter genau die drei, die der
+Kursanbieter mit HTTP 402 gesperrt hatte:
+
+| Reihe | Stand |
+|---|---|
+| **WTI-Öl** `DCOILWTICO` | 81,96 (2026-08-03) |
+| **Dollar-Index (breit)** `DTWEXBGS` | 119,70 (2026-07-31) |
+| **10J-US-Rendite** `DGS10` | 4,69 (2026-08-06) |
+| CPI / Kern-CPI / PPI | 332,57 / 336,07 / 286,83 |
+| Arbeitslosenquote | 4,1 % (2026-07) |
+| **NFP** `PAYEMS` | **−23** Tsd. (2026-07) |
+| BIP-Wachstum | 1,5 % (Q2 2026) |
+| Einzelhandel, Konsumentenvertrauen | 768.553 Mio. $ / 49,5 |
+
+**Zwei Entwurfsentscheidungen, die die Live-Probe bestätigt hat:**
+
+*Lücken werden verworfen, nicht gefüllt.* FRED lässt Zeilen ohne Beobachtung
+leer oder setzt einen Punkt. Bei der 10J-Rendite sind das **719 von 16.853
+Zeilen** (Wochenenden und Feiertage), beim Konsumentenvertrauen 210 von 884.
+Wer interpoliert, erfindet 719 Anleiherenditen.
+
+*NFP ist eine Veränderung, kein Bestand.* `PAYEMS` liefert 158.858 Tsd.
+Beschäftigte. Die berichtete NFP-Zahl ist die Monatsdifferenz — im Juli 2026
+**−23 Tsd.**, also ein Rückgang. Der Rohwert als „NFP" wäre um Faktor 6900 zu
+groß und hätte das Vorzeichen verloren.
+
+### Die Lizenzfrage — offen und juristisch
+
+FRED unterscheidet drei Rechtsstände. Sie stehen **je Reihe gemessen** im
+Katalog, nicht pauschal angenommen. Zehn Reihen sind *Public Domain: Citation
+requested*, eine (Konsumentenvertrauen, Universität Michigan) ist *Copyrighted:
+Citation required*. Reihen mit *Pre-approval required* sind **nicht**
+aufgenommen — sie wären ohne schriftliche Erlaubnis nur nicht-kommerziell
+nutzbar.
+
+Abschnitt IV der FRED-Bedingungen erlaubt für beide aufgenommenen Stände
+„internal commercial uses" und die Darstellung in „reports to clients" mit
+Quellenangabe. Ob ein **kostenpflichtiges SaaS-Produkt** darunter fällt — oder
+unter das Verbot, „datasets for commercial use" weiterzuverbreiten — ist eine
+juristische Frage und keine technische.
+
+**Sie gehört auf dieselbe Liste wie AGB und Widerrufsbelehrung: braucht einen
+Anwalt, nicht mich.** Technisch ist alles vorbereitet: die Quellenangabe ist
+Pflichtfeld an jeder Reihe, der Rechtsstand steht daneben, und ein Test hält
+fest, dass keine genehmigungspflichtige Reihe im Katalog landet.
+
+**Weiterhin nicht möglich:**
 
 | Fehlend | Grund |
 |---|---|
-| WTI-Öl, Dollar-Index, 10J-US-Rendite | HTTP 402 beim Kursanbieter |
-| US-CPI, PPI, NFP, PMI, Konsumentenvertrauen | Brauchen einen FRED-Schlüssel (kostenlos, aber Nutzerentscheidung nach §95) |
+| PMI | `NAPM` gibt bei FRED HTTP 404 — das ISM hat die Weiterverbreitung eingestellt. `INDPRO` ist etwas anderes und steht nicht als Ersatz da |
 | Economic Calendar | FMP-Route antwortet mit HTTP 402 |
 
-Brent steht **nicht** als Ersatz für WTI und EUR/USD **nicht** als Ersatz für
-den Dollar-Index. Beides wären andere Größen unter falschem Namen.
+Brent steht **nicht** als Ersatz für WTI — beide sind jetzt getrennt vorhanden
+und laufen zeitweise deutlich auseinander (83,55 gegen 81,96).
 
 Quartalsreihen haben eigene Altersschwellen bekommen: ein BIP-Wert liegt erst
 rund zwei Monate nach Quartalsende vor, 150 Tage sind dort normal und kein
