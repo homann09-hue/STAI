@@ -130,7 +130,7 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 |---|---|---|---|
 | §20 | Instrumentuniversum über Aktien hinaus | `IN PROGRESS` | Aktien, ETF, Krypto, Forex, Index, Rohstoff erkannt. Anleihen, Optionen, Futures fehlen |
 | §20 | Vollständiger Symbolabzug | `BLOCKED` | BLOCKER-001, FMP-Tarif |
-| §21 | Provider-Abstraktion mit Fallback | `DONE` | `quote-chain.ts` + `ChainedQuoteProvider`: echte Rangfolge, Mock erst wenn keine Quelle antwortet. 12 Tests. Wirksam wird sie mit dem zweiten Schlüssel |
+| §21 | Provider-Abstraktion mit Fallback | `DONE` | `quote-chain.ts` + `ChainedQuoteProvider`. Finnhub als zweite Quelle konfiguriert und live geprüft — Kette meldet `fmp → finnhub`, `hasFailover: true`. In Produktion fehlt der Schlüssel noch |
 | §21 | Provider-Dokumentation je Quelle | `IN PROGRESS` | `docs/PROVIDERS.md`: 14 Quellen erfasst. Für 9 davon sind Rate Limits, Kosten, Historie und Lizenz **nie gemessen** — als solche markiert, nicht geraten |
 | §22 | Quelle, Timestamp, Qualität je Datensatz | `VERIFIED` | `asset-provenance.ts`, `data-quality.ts`, in UI durchgezogen |
 | §22 | Point-in-Time-Historie | `NOT STARTED` | Ohne sie ist Backtesting nicht belastbar |

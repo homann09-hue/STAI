@@ -91,10 +91,17 @@ der Kurs deren Namen und deren Qualitätsstufe. Ein near-realtime-Kurs von
 Finnhub darf nicht als verzögerter FMP-Kurs erscheinen — und umgekehrt erst
 recht nicht.
 
-**Was weiterhin fehlt:** ein zweiter konfigurierter Schlüssel. Mit nur FMP
-meldet die Kette ausdrücklich `hasFailover: false` und den Satz „Bei einem
-Ausfall gibt es keinen echten Ersatz, sondern nur Demodaten." Der Code ist
-bereit, die Konfiguration nicht. Finnhub hat einen kostenlosen Tarif.
+**Seit 2026-08-08 wirksam.** Finnhub ist als zweite Kursquelle konfiguriert.
+Der Schlüssel wurde live gegen `finnhub.io/api/v1/quote` geprüft — AAPL
+antwortete mit 313,33 USD. Die Kette meldet damit `fmp → finnhub` und
+`hasFailover: true`.
+
+Das ist der erste Zustand, in dem der Ausfall einer Kursquelle nicht zu
+Demodaten führt.
+
+**Noch offen:** der Schlüssel liegt in `.env.local` und damit nur lokal. Für
+Produktion muss `FINNHUB_API_KEY` in den Vercel-Umgebungsvariablen gesetzt
+werden — sonst läuft dort weiterhin nur FMP ohne Ersatz.
 
 ## §22 Datenqualität — was geprüft wird
 
