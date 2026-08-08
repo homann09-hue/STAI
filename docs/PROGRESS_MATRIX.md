@@ -133,7 +133,8 @@ verlangen ein günstigeres Jahresabo.
 | §27 | News und Events | `IN PROGRESS` | `news`-Route, Klassifikation unvollständig |
 | §28 | Makro | `DONE` | EZB Data Portal ohne Schlüssel und ohne Tarif. Fünf Reihen live gemessen, Zinsstrukturbewertung, Datenalter je Reihe. `GET /api/macro` und Seite `/macro`, in der Navigation. 32 Tests |
 | §28 | Economic Calendar | `NOT STARTED` | Terminreihen noch nicht angebunden |
-| §29 | Zentralbanken (Sitzungen, Statements) | `NOT STARTED` | Nur der Leitzins, keine Termine oder Protokolle |
+| §29 | Zentralbanken: Zinsentscheidungen | `DONE` | Aus dem Leitzinspfad abgeleitet, 2-Jahres-Fenster. Live: 9 Entscheidungen seit 2024-09. `policy-rate-history.ts`, 13 Tests |
+| §29 | Zentralbanken: Sitzungstermine, Statements, Protokolle | `NOT STARTED` | Aus einem Zinspfad nicht ableitbar, braucht eine Terminquelle |
 | §30 | Sentiment | `IN PROGRESS` | Teilweise über News |
 | §31–§35 | Filings, Insider, Analysten, Short Interest, Optionen | `NOT STARTED` | Keine Datenquelle im Tarif |
 | §36 | Peer-Analyse | `NOT STARTED` | — |

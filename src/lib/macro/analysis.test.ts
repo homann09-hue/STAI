@@ -253,7 +253,10 @@ describe("macroSeriesCatalog", () => {
   });
 
   it("begrenzt die Zahl abgefragter Beobachtungen", () => {
-    expect(macroSeriesUrl(macroSeriesCatalog[0], 10_000).searchParams.get("lastNObservations")).toBe("240");
+    // Die Obergrenze schuetzt davor, dass eine Fehlkonfiguration versehentlich
+    // die gesamte Historie zieht. Der Leitzinspfad braucht rund 800 Werte, mehr
+    // als 1200 hat kein Aufrufer je zu Recht.
+    expect(macroSeriesUrl(macroSeriesCatalog[0], 10_000).searchParams.get("lastNObservations")).toBe("1200");
     expect(macroSeriesUrl(macroSeriesCatalog[0], 0).searchParams.get("lastNObservations")).toBe("1");
   });
 });

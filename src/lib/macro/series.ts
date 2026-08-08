@@ -128,6 +128,9 @@ export function macroSeriesUrl(series: MacroSeriesDefinition, observations: numb
   const url = new URL(`https://${ECB_DATA_HOST}/service/data/${series.resource}/${series.key}`);
   url.searchParams.set("format", "csvdata");
   url.searchParams.set("detail", "dataonly");
-  url.searchParams.set("lastNObservations", `${Math.max(1, Math.min(240, Math.floor(observations)))}`);
+  // Obergrenze, damit eine Fehlkonfiguration nicht versehentlich die gesamte
+  // Historie zieht. 1200 Tagesbeobachtungen decken gut drei Jahre ab und
+  // bleiben in der Groessenbegrenzung des Providers.
+  url.searchParams.set("lastNObservations", `${Math.max(1, Math.min(1200, Math.floor(observations)))}`);
   return url;
 }

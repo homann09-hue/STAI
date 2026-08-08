@@ -1,4 +1,5 @@
 import { periodToDate, type MacroObservation } from "@/lib/macro/sdmx";
+import { describePolicyStance, type PolicyRatePath } from "@/lib/macro/policy-rate-history";
 import type { MacroFrequency, MacroSeriesDefinition } from "@/lib/macro/series";
 
 /**
@@ -211,6 +212,8 @@ export function assessYieldCurve(
 export type MacroOverview = {
   readings: MacroReading[];
   yieldCurve: YieldCurveAssessment;
+  /** Zinsentscheidungen, abgeleitet aus dem Leitzinspfad. Null, wenn er fehlt. */
+  policyRate: (PolicyRatePath & { summary: string }) | null;
   /** Reihen, die angefragt, aber nicht geliefert wurden. */
   unavailableSeries: string[];
   /** Ob überhaupt eine belastbare Aussage möglich ist. */
@@ -220,13 +223,15 @@ export type MacroOverview = {
 
 export function buildMacroOverview(
   readings: MacroReading[],
-  unavailableSeries: string[]
+  unavailableSeries: string[],
+  policyRatePath: PolicyRatePath | null = null
 ): MacroOverview {
   const byId = new Map(readings.map((reading) => [reading.id, reading]));
 
   return {
     readings,
     yieldCurve: assessYieldCurve(byId.get("ea_yield_3m") ?? null, byId.get("ea_yield_10y") ?? null),
+    policyRate: policyRatePath ? { ...policyRatePath, summary: describePolicyStance(policyRatePath) } : null,
     unavailableSeries,
     // Eine einzelne Reihe ist keine Makrolage. Ohne mindestens zwei Werte wird
     // nichts als Gesamtbild ausgegeben.

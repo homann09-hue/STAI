@@ -1,6 +1,7 @@
 import "server-only";
 import { buildMacroOverview, buildMacroReading, type MacroOverview, type MacroReading } from "@/lib/macro/analysis";
-import { parseSdmxCsv } from "@/lib/macro/sdmx";
+import { derivePolicyRatePath, type PolicyRatePath } from "@/lib/macro/policy-rate-history";
+import { parseSdmxCsv, type MacroObservation } from "@/lib/macro/sdmx";
 import { macroSeriesCatalog, macroSeriesUrl, type MacroSeriesDefinition } from "@/lib/macro/series";
 import { fetchBoundedProviderText } from "@/lib/providers/http-json";
 import { logEvent } from "@/lib/observability";
@@ -19,12 +20,21 @@ import { logEvent } from "@/lib/observability";
  */
 
 const OBSERVATIONS_PER_SERIES = 24;
+/**
+ * Der Leitzins braucht ein laengeres Fenster als die uebrigen Reihen: aus 24
+ * Tagen laesst sich keine Entscheidungshistorie ableiten. 800 Tagesbeobachtungen
+ * decken gut zwei Jahre ab.
+ */
+const POLICY_RATE_OBSERVATIONS = 800;
+const POLICY_RATE_SERIES_ID = "ea_policy_rate";
 const SERIES_TIMEOUT_MS = 5_000;
 
-async function loadSeries(definition: MacroSeriesDefinition, now: Date): Promise<MacroReading | null> {
+type SeriesLoad = { reading: MacroReading; observations: MacroObservation[] } | null;
+
+async function loadSeries(definition: MacroSeriesDefinition, now: Date, observationCount: number): Promise<SeriesLoad> {
   try {
     const { text, latencyMs } = await fetchBoundedProviderText(
-      macroSeriesUrl(definition, OBSERVATIONS_PER_SERIES),
+      macroSeriesUrl(definition, observationCount),
       "ECB",
       { timeoutMs: SERIES_TIMEOUT_MS, maxBytes: 512_000 }
     );
@@ -54,7 +64,7 @@ async function loadSeries(definition: MacroSeriesDefinition, now: Date): Promise
       latencyMs
     });
 
-    return reading;
+    return { reading, observations: parsed.observations };
   } catch (error) {
     logEvent("warn", "macro.series_failed", {
       seriesId: definition.id,
@@ -75,17 +85,29 @@ export async function getMacroOverview(now: Date = new Date()): Promise<MacroOve
   const results = await Promise.all(
     macroSeriesCatalog.map(async (definition) => ({
       definition,
-      reading: await loadSeries(definition, now)
+      load: await loadSeries(
+        definition,
+        now,
+        definition.id === POLICY_RATE_SERIES_ID ? POLICY_RATE_OBSERVATIONS : OBSERVATIONS_PER_SERIES
+      )
     }))
   );
 
   const readings = results
-    .map((result) => result.reading)
-    .filter((reading): reading is MacroReading => reading !== null);
+    .map((result) => result.load?.reading)
+    .filter((reading): reading is MacroReading => reading !== undefined);
 
   const unavailableSeries = results
-    .filter((result) => result.reading === null)
+    .filter((result) => result.load === null)
     .map((result) => result.definition.id);
+
+  // Die Zinsentscheidungen entstehen aus dem Leitzinspfad selbst, nicht aus
+  // einer zweiten Quelle. Fehlt die Reihe, fehlt auch die Historie -- sie wird
+  // nicht aus dem aktuellen Satz rekonstruiert.
+  const policyRateLoad = results.find((result) => result.definition.id === POLICY_RATE_SERIES_ID)?.load;
+  const policyRatePath: PolicyRatePath | null = policyRateLoad
+    ? derivePolicyRatePath(policyRateLoad.observations, now)
+    : null;
 
   if (unavailableSeries.length > 0) {
     logEvent("warn", "macro.partial_overview", {
@@ -94,5 +116,5 @@ export async function getMacroOverview(now: Date = new Date()): Promise<MacroOve
     });
   }
 
-  return buildMacroOverview(readings, unavailableSeries);
+  return buildMacroOverview(readings, unavailableSeries, policyRatePath);
 }

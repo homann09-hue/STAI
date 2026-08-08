@@ -207,6 +207,49 @@ export function MacroOverviewView() {
         ) : null}
       </section>
 
+      {overview.policyRate ? (
+        <section className="rounded-3xl border border-stroke bg-panel p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Zinsentscheidungen der EZB</h2>
+          <p className="mt-2 text-sm leading-relaxed text-mist">{overview.policyRate.summary}</p>
+
+          {overview.policyRate.changes.length > 0 ? (
+            <ul className="mt-4 space-y-2">
+              {overview.policyRate.changes.map((change) => (
+                <li
+                  key={change.effectiveFrom}
+                  className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-2xl border border-stroke bg-coal px-3 py-2"
+                >
+                  <span className="font-mono text-xs text-muted">{change.effectiveFrom}</span>
+                  <span
+                    className={`text-sm font-semibold ${change.direction === "hike" ? "text-loss" : "text-profit"}`}
+                  >
+                    {change.direction === "hike" ? "Anhebung" : "Senkung"} um{" "}
+                    {Math.abs(change.deltaPercentagePoints).toLocaleString("de-DE", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}{" "}
+                    Prozentpunkte
+                  </span>
+                  <span className="text-xs text-muted">
+                    {change.previousRate.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {" % → "}
+                    {change.newRate.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <ul className="mt-4 space-y-1">
+            {overview.policyRate.notes.map((note) => (
+              <li key={note} className="text-xs leading-relaxed text-muted">
+                {note}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {overview.readings.map((reading) => (
           <ReadingCard key={reading.id} reading={reading} />
