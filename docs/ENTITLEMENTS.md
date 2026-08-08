@@ -127,3 +127,28 @@ nichts verbraucht -- sonst waere eine Stoerung ein unbegrenztes Kontingent.
 und den naechsthoeheren Tarif nennt. Eine Grenze von null wird ausdruecklich als
 "nicht im Tarif enthalten" formuliert und nicht als "morgen wieder verfuegbar" --
 das waere schlicht falsch.
+
+## Kostenzaehlung (§7, seit 2026-08-08)
+
+`public.provider_usage` zaehlt je **Tag, Konto, Tarif und Anbieter**, getrennt
+nach echten Abrufen und Cache-Treffern.
+
+**Die Zaehlung verzoegert nie eine Antwort.** Sie laeuft nebenher und wird nicht
+abgewartet. Ein Nutzer soll nicht laenger auf seine Kurse warten, weil eine
+Statistik geschrieben wird. Ein Fehler beim Zaehlen bricht nichts ab --
+Buchhaltung darf nie die Funktion beschaedigen, ueber die sie Buch fuehrt.
+
+**Abrufe ohne Konto verschwinden nicht.** Sie werden mit `user_id = null`
+gefuehrt und getrennt ausgewiesen: Teil der Gesamtkosten, aber keinem Tarif
+zurechenbar. Technisch braucht das zwei partielle eindeutige Indizes, weil ein
+normaler Schluessel NULL nicht dedupliziert.
+
+**Die Zahlen gehoeren dem Betreiber.** `authenticated` darf `provider_usage`
+weder lesen noch schreiben -- kein Konto soll sehen, was andere kosten.
+`GET /api/admin/cost-metrics` liegt hinter `STOCKPILOT_ADMIN_SECRET`, nicht
+hinter einem Tarif: das sind Betriebszahlen, keine Produktfunktion.
+
+Die Antwort nennt Gesamtkosten, Cache-Ersparnis, Trefferquote, Kosten je Tarif
+mit Margenurteil und die teuersten Konten. Kosten sind aus dokumentierten
+Anbietertarifen **abgeleitet, nicht abgerechnet** -- das steht auch im
+`disclaimer` der Antwort.

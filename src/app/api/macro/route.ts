@@ -2,6 +2,7 @@ import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
 import { withCacheFallback } from "@/lib/provider-cache";
 import { cacheControlHeaders, getCostControls } from "@/lib/cost-controls";
 import { getMacroOverview } from "@/lib/providers/macro-provider";
+import { trackProviderUsage } from "@/lib/cost/usage-recorder";
 import { logEvent } from "@/lib/observability";
 
 export const runtime = "nodejs";
@@ -29,6 +30,10 @@ export async function GET(request: Request) {
       ttlMs: costControls.fundamentalsTtlMs,
       staleTtlMs: costControls.fundamentalsStaleTtlMs
     });
+
+    // Ohne Konto zaehlbar, aber keinem Tarif zurechenbar. Die EZB kostet
+    // nichts -- gezaehlt wird trotzdem, damit die Trefferquote stimmt.
+    trackProviderUsage({ userId: null, plan: "free" }, "ecb", result.fromCache);
 
     const overview = result.value;
 

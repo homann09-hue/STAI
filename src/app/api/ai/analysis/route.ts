@@ -2,6 +2,7 @@ import { getAiAnalysisWithMetadata } from "@/lib/providers/ai-provider";
 import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
 import { consumeQuota, entitledCacheHeaders, requireFeature } from "@/lib/billing/feature-guard";
 import { quotaHeaders } from "@/lib/billing/usage-quota";
+import { trackProviderUsage } from "@/lib/cost/usage-recorder";
 import { withCacheFallback } from "@/lib/provider-cache";
 import { getCostControls } from "@/lib/cost-controls";
 import { validateSymbol } from "@/lib/validation";
@@ -43,6 +44,15 @@ export async function GET(request: Request) {
       ttlMs: costControls.aiTtlMs
     }
   );
+  // Die Zaehlung laeuft nebenher und verzoegert die Antwort nicht. Ein
+  // Cache-Treffer kostet nichts und wird trotzdem gezaehlt -- sonst waere die
+  // Trefferquote nicht messbar.
+  trackProviderUsage(
+    { userId: access.auth.userId, plan: access.entitlements.plan },
+    "ai_model",
+    result.fromCache
+  );
+
   const { analysis, metadata } = result.value;
 
   if (!analysis) {

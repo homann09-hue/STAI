@@ -118,9 +118,9 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §5 | Upgrade/Downgrade im Produkt | `DONE` | Einstieg in `/account/billing`, Ausführung im Kundenportal — dort sind anteilige Verrechnung und Widerruf gelöst |
 | §6 | Bereich Account → Billing | `DONE` | `/account/billing`: Tarif, Preis, nächste Abrechnung, Status, Zahlungsmethode, Rechnungen, Wechsel, Kündigung |
 | §6 | Verständliche Paywall statt kryptischem Fehler | `DONE` | `paywall-notice.tsx` nennt Funktion, Tarif, Preis, Mehrwert und Weg; kein Upgrade-Knopf ohne konfigurierten Checkout. Komponententest fehlt noch |
-| §7 | Kosten- und Cache-Steuerung | `IN PROGRESS` | `cost-controls.ts`, `provider-cache.ts`, Tagesquoten je Konto |
+| §7 | Kosten- und Cache-Steuerung | `DONE` | `cost-controls.ts`, `provider-cache.ts`, Tagesquoten je Konto, gemessene Cache-Trefferquote |
 | §7 | Kostenmodell und Margenbewertung | `DONE` | `cost/provider-costs.ts`: Kosten je Abruf mit Herleitung, Cache-Ersparnis, Marge gegen Tarifertrag. 15 Tests |
-| §7 | Kosten je Nutzer und je Tarif **gemessen** | `NOT STARTED` | Das Modell rechnet, aber nichts zählt die Abrufe je Konto. Ohne Zählung bleibt es Theorie |
+| §7 | Kosten je Nutzer und je Tarif gemessen | `DONE` | `provider_usage` zählt je Tag, Konto, Tarif und Anbieter. `GET /api/admin/cost-metrics` liefert Cache-Quote, Kosten je Tarif und die teuersten Konten mit Margenurteil. 14 pgTAP-Zusicherungen |
 | §64 | Adminbereich | `NOT STARTED` | `admin-access.ts` schützt Endpunkte, keine Oberfläche |
 | §65 | Feature Flags | `NOT STARTED` | Null Treffer im Code |
 
