@@ -77,6 +77,12 @@ describe("PaywallNotice", () => {
     );
 
     expect(text(container)).toMatch(/braucht ein Konto/i);
+    // Ein „bitte anmelden" ohne Weg dorthin waere eine Sackgasse. StockPilot
+    // hat keine Loginseite, die Anmeldung sitzt in den Einstellungen.
+    const signIn = screen.getByRole("link", { name: /Zur Anmeldung/i });
+    expect(signIn.getAttribute("href")).toBe("/settings");
+    // Und kein Kaufangebot, solange gar kein Konto existiert.
+    expect(screen.queryByRole("link", { name: /Tarife ansehen/i })).toBeNull();
   });
 
   it("unterstellt bei unlesbarem Billingstatus keinen zu kleinen Tarif", () => {

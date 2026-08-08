@@ -1,6 +1,11 @@
 # Fortschrittsmatrix — Soll-Ist gegen `docs/MASTERPROMPT.md`
 
-Stand: 2026-08-08 · Branch `codex/enterprise-saas-billing-20260711` · Commit `5e7d3d7`
+Stand: 2026-08-08 · Branch `codex/enterprise-saas-billing-20260711` · Commit `da2d027`
+· PR #16 mit vier bestandenen Checks
+
+Letzter Abgleich mit `docs/MASTERPROMPT.md`: 2026-08-08 nach dem
+Entitlement-Fix. Dabei neu gemessen: der Launch-Check nach §110 (unten) und die
+Auth-Verfahren.
 
 **Zustände**
 
@@ -171,6 +176,54 @@ verlangen ein günstigeres Jahresabo.
 | §88 | Red Team | `IN PROGRESS` | Erster Durchgang hat Blocker 1 gefunden |
 | §17 | CI/CD | `VERIFIED` | PR #16 vollständig grün, Run #20 |
 | §99/§100 | Dokumentation, `.env.example` | `IN PROGRESS` | `.env.example` gepflegt; Billing-Doku fehlt |
+
+---
+
+## §110 Launch-Check
+
+Der Masterprompt nennt 22 Punkte, die vor dem Verkauf als Abo geprüft sein
+müssen. Diese Liste war nirgends abgearbeitet. Stand 2026-08-08, jeweils am Code
+gemessen:
+
+| Punkt | Status | Beleg |
+|---|---|---|
+| Registrierung funktioniert | `IN PROGRESS` | Es gibt keine Registrierung als eigenen Schritt. Der erste Magic Link legt das Konto implizit an — funktioniert, ist aber als Registrierung nicht erkennbar |
+| Login funktioniert | `DONE` | Magic Link über `supabase-auth-panel.tsx` |
+| E-Mail-/Passwort-Flows | `NOT STARTED` | `signInWithPassword` und `signUp` kommen im gesamten Code nicht vor |
+| Passwort-Reset | `NOT STARTED` | `resetPasswordForEmail` kommt nicht vor. Ohne Passwort auch nicht nötig — das ist eine Produktentscheidung, siehe unten |
+| Stripe Checkout | `DONE` | Route und Redirect-Allowlist vorhanden. Ob die Preis-IDs in Produktion gesetzt sind, weiß nur der Projektinhaber |
+| Subscription Sync | `VERIFIED` | Signaturgeprüfter, idempotenter Webhook; pgTAP auf `billing_events` |
+| Tarifberechtigungen | `DONE` | Serverseitig durchgesetzt, gegen den Produktionsbuild geprüft |
+| Upgrade | `IN PROGRESS` | Nur über das Stripe-Portal |
+| Downgrade | `IN PROGRESS` | Nur über das Stripe-Portal |
+| Kündigung | `IN PROGRESS` | Nur über das Stripe-Portal; `cancelAtPeriodEnd` wird auf `/pricing` angezeigt |
+| Zahlungsfehler werden behandelt | `IN PROGRESS` | `past_due`/`unpaid` werden abgebildet, aber dem Nutzer nirgends erklärt |
+| Rechnungen erreichbar | `NOT STARTED` | Keine Rechnungsansicht im Produkt |
+| Account-Löschung | `DONE` | `DELETE /api/account`, DSGVO-Pfad |
+| Kernanalysen funktionieren | `DONE` | Getestet |
+| Daten aktuell und nachvollziehbar | `VERIFIED` | Provenance und Datenqualität durchgezogen |
+| Keine Demo-Daten in Produktion | `DONE` | Mock ist als Qualitätsstufe sichtbar getrennt |
+| Mobile Nutzung brauchbar | `NOT STARTED` | Nie auf einem Gerät geprüft |
+| Error Handling | `DONE` | Error Boundaries, Failover, Backoff |
+| Security Audit | `IN PROGRESS` | Erster Red-Team-Durchgang hat den Entitlement-Blocker gefunden |
+| DSGVO-Flows | `DONE` | Export und Löschung |
+| CI grün | `VERIFIED` | PR #16 auf `da2d027`, vier Checks bestanden |
+| Production Build | `VERIFIED` | `npm run build` erfolgreich, Route-Manifest geprüft |
+
+### Neue Erkenntnis: die Anmeldung ist Magic-Link-only
+
+Das ist kein Fehler, aber es verändert drei Punkte des Launch-Checks. StockPilot
+kennt kein Passwort — es gibt weder Registrierung noch Passwort-Reset, weil es
+nichts zurückzusetzen gibt. Das ist ein verbreitetes und verteidigbares Modell.
+
+Was daran offen ist, gehört dem Projektinhaber:
+
+1. Soll es zusätzlich E-Mail/Passwort geben? Dann kommen Registrierung,
+   Reset und Verifikation als eigene Flows dazu.
+2. Es gibt **keine eigene Login-Seite**. Die Anmeldung sitzt im
+   Einstellungsbereich. Für einen zahlenden Erstbesucher ist das ein Umweg —
+   die Paywall verlinkt deshalb jetzt ausdrücklich dorthin, aber eine eigene
+   Seite `/login` wäre der sauberere Weg.
 
 ---
 

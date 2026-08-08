@@ -54,6 +54,13 @@ export type FeaturePaywall = {
   /** Wohin der Nutzer gehen kann. Null, wenn ein Upgrade nicht weiterhilft. */
   upgradePath: string | null;
   /**
+   * Wohin sich der Nutzer anmelden kann. Getrennt vom Upgrade-Weg, weil beides
+   * an verschiedenen Stellen liegt: die Anmeldung sitzt in den Einstellungen,
+   * die Tarife auf der Preisseite. Ein „bitte anmelden" ohne Weg dorthin ist
+   * eine Sackgasse.
+   */
+  signInPath: string | null;
+  /**
    * Ob der Weg zum höheren Tarif technisch offen ist. Ein Upgrade-Knopf, hinter
    * dem kein konfigurierter Checkout liegt, wäre eine Funktionsattrappe.
    */
@@ -141,7 +148,12 @@ function buildPaywall(
   // Ein Upgrade hilft nur, wenn es einen Tarif gibt, der die Funktion enthält,
   // und der Grund tatsächlich der Tarif ist. Bei einem Lesefehler im Billing
   // oder bei einer abgeschalteten Funktion führt ein Upgrade-Knopf in die Irre.
-  const upgradeHelps = requiredPlan !== null && (reason === "plan_upgrade_required" || reason === "authentication_required");
+  const upgradeHelps = requiredPlan !== null && reason === "plan_upgrade_required";
+
+  // Ohne Konto ist der nächste Schritt die Anmeldung, nicht die Preisseite.
+  // StockPilot hat keine eigene Loginseite; die Anmeldung sitzt in den
+  // Einstellungen.
+  const signInHelps = reason === "authentication_required";
 
   return {
     feature: featureId,
@@ -155,6 +167,7 @@ function buildPaywall(
     requiredPlanName,
     requiredPlanPrice: planPrice(requiredPlan),
     upgradePath: upgradeHelps ? "/pricing" : null,
+    signInPath: signInHelps ? "/settings" : null,
     checkoutAvailable: upgradeHelps && checkoutAvailable
   };
 }

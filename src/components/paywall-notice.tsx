@@ -66,6 +66,21 @@ export function PaywallNotice({ paywall }: { paywall: FeaturePaywall }) {
             </dl>
           ) : null}
 
+          {paywall.signInPath ? (
+            <div className="space-y-2">
+              <Link
+                href={paywall.signInPath}
+                className="inline-flex items-center gap-2 rounded-2xl border border-stroke bg-coal px-4 py-2 text-sm font-semibold text-mist transition hover:border-cyan/30 hover:text-cyan"
+              >
+                <LogIn className="h-4 w-4" aria-hidden="true" />
+                Zur Anmeldung
+              </Link>
+              <p className="text-xs text-muted">
+                Die Anmeldung läuft über einen Magic Link per E-Mail und liegt in den Einstellungen.
+              </p>
+            </div>
+          ) : null}
+
           {paywall.upgradePath ? (
             paywall.checkoutAvailable ? (
               <Link
