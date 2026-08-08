@@ -140,3 +140,32 @@ gegengeprueft, indem der Fehler absichtlich wieder eingebaut wurde:
   wurde rot, die vier uebrigen blieben gruen.
 - Entsprechend zuvor beim Entitlement-Guard: Guard entfernt → drei
   Zusicherungen rot.
+
+## Nutzerfluss-Tests nach §19
+
+`src/lib/billing/subscription-lifecycle.test.ts` prueft nicht "funktioniert der
+Code", sondern "kann ein zahlender Nutzer das Produkt sinnvoll verwenden". Die
+vier Fluesse aus §19 als Zustandsfolgen:
+
+| Fluss | Zusicherung |
+|---|---|
+| Kuendigung | Zugang bleibt bis zum bezahlten Periodenende, danach nicht |
+| Fehlgeschlagene Zahlung | keine Freischaltung, aber Status bleibt lesbar und Portal erreichbar |
+| Upgrade | Funktion sofort verfuegbar; Premium-Funktionen erst im Premium-Tarif |
+| Manipulierte Daten | ohne Gueltigkeitsdatum, ohne konfiguriertes Billing oder mit erfundenem Anbieter wird nichts freigegeben |
+
+**Ausdruecklich nicht geprueft:** Registrierung, Login, Checkout-Weiterleitung
+und die Zustellung des Stripe-Webhooks. Sie brauchen ein Stripe-Konto mit
+Preis-IDs und einen laufenden Server. Geprueft ist die Kette **vom
+Webhook-Datensatz bis zur Freigabe** -- ungeprueft bleibt die Kette davor, von
+der Zahlung bis zum Datensatz.
+
+### Eine offene Produktentscheidung, die dabei sichtbar wurde
+
+Bei `past_due` wird der Zugang **sofort** entzogen. Das ist sicher, aber hart:
+Stripe versucht die Abbuchung noch mehrere Tage, und viele Anbieter gewaehren
+in dieser Zeit eine Schonfrist. Wer am Ersten eine abgelaufene Karte hat,
+verliert hier am selben Tag den Zugang zu einem bezahlten Jahresabo.
+
+Das ist keine Fehlfunktion, sondern eine Einstellung -- und sie gehoert dem
+Projektinhaber, nicht dem Code.
