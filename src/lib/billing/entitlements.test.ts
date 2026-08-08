@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   evaluateResourceLimit,
+  normalizePlanId,
   resolveEntitlements,
   toPublicEntitlements
 } from "@/lib/billing/entitlements";
@@ -102,5 +103,33 @@ describe("billing entitlements", () => {
     expect(publicValue.providerCustomerId).toBeUndefined();
     expect(publicValue.providerSubscriptionId).toBeUndefined();
     expect(publicValue.providerPriceId).toBeUndefined();
+  });
+});
+
+/**
+ * Regressionstest zur Tarifumstellung vom 2026-08-08.
+ *
+ * Vor der Umstellung hiessen die Tarife free/starter/pro/elite. `entitlements`
+ * enthielt zu dem Zeitpunkt null Zeilen, die Abbildung ist also Vorsorge — aber
+ * eine, die zaehlt: ohne sie wuerde `normalizePlanId` einen Altbestand still auf
+ * `free` zurueckstufen und einem zahlenden Konto seinen Tarif nehmen.
+ */
+describe("legacy plan names after the FREE/PRO/PREMIUM change", () => {
+  it("ordnet alte Tarifnamen nach oben zu, nie nach unten", () => {
+    expect(normalizePlanId("starter")).toBe("pro");
+    expect(normalizePlanId("elite")).toBe("premium");
+  });
+
+  it("laesst die aktuellen Namen unveraendert", () => {
+    expect(normalizePlanId("free")).toBe("free");
+    expect(normalizePlanId("pro")).toBe("pro");
+    expect(normalizePlanId("premium")).toBe("premium");
+  });
+
+  it("stuft einen erfundenen Tarifnamen auf free zurueck", () => {
+    // Ein unbekannter Name darf niemals Zugriff eroeffnen.
+    expect(normalizePlanId("enterprise_gold")).toBe("free");
+    expect(normalizePlanId(null)).toBe("free");
+    expect(normalizePlanId(42)).toBe("free");
   });
 });

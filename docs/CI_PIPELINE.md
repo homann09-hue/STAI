@@ -93,3 +93,37 @@ ist. Wenn die Suite waechst, gehoert diese Entscheidung neu geprueft.
 **Last- und Chaostests** (`test:load`, `test:stress`, `test:chaos`) laufen
 manuell ueber `redteam.yml` und `capacity.yml`. Sie sind zu langsam und zu
 laut fuer jeden Commit.
+
+## Regressionstests nach §18
+
+Jeder groessere Fix dieser Arbeitsphase hat einen Wächter. Am 2026-08-08 habe
+ich das nicht behauptet, sondern geprueft — indem ich jeden Fix gegen die
+Testdateien gesucht habe. Drei standen ohne Test da, zwei davon in Billing.
+
+| Fix | Wächter |
+|---|---|
+| Bezahlinhalte anonym erreichbar | `api/professional/overview/route.test.ts` |
+| Paywall ohne Anmeldeweg | `components/paywall-notice.test.tsx` |
+| Rechnungslinks ohne Zielpruefung | `billing/invoices.test.ts` |
+| **IDOR: Kundennummer aus der Anfrage** | `api/billing/invoices/route.test.ts` (neu) |
+| **Altbestand starter/elite verliert Tarif** | `billing/entitlements.test.ts` (neu) |
+| Cron-Ausdruck auf Vercel Hobby | `forecast-schedule.test.ts` |
+| Quotenumgehung durch Gleichzeitigkeit | pgTAP `feature_usage_quota_controls` |
+| Grammatikfehler „1 Anhebungen" | `macro/policy-rate-history.test.ts` |
+| Einheitenfehler in der Kostenrechnung | `cost/provider-costs.test.ts` |
+
+**Offen und benannt:** der DSGVO-Export faellt bei fehlender Tabelle nicht mehr
+auf 500 zurueck, sondern meldet `unavailableTables`. Die pruefende Funktion
+`isMissingRelationError` ist nicht exportiert und damit nicht direkt testbar.
+Sie gehoert bei naechster Gelegenheit herausgezogen — bis dahin ist dieser Fix
+ungeschuetzt.
+
+### Wie ein Regressionstest hier geprueft wird
+
+Ein Test, der nie rot war, beweist nichts. Beide neuen Wächter wurden
+gegengeprueft, indem der Fehler absichtlich wieder eingebaut wurde:
+
+- Kundennummer aus `?customer=` statt aus den Entitlements gelesen → der Test
+  wurde rot, die vier uebrigen blieben gruen.
+- Entsprechend zuvor beim Entitlement-Guard: Guard entfernt → drei
+  Zusicherungen rot.
