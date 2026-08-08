@@ -1,18 +1,49 @@
-export type PlanId = "free" | "starter" | "pro" | "elite";
+export type PlanId = "free" | "pro" | "premium";
+export type BillingInterval = "month" | "year";
 export type FeatureGateStatus = "included" | "demo" | "locked" | "not_available";
 
+/**
+ * Tarife, Funktionen und Grenzen — die einzige Quelle.
+ *
+ * §3 verlangt: „Die Tarifstruktur muss zentral konfigurierbar sein. Keine
+ * Tariflogik über hunderte Dateien verteilen." Deshalb steht hier alles, was
+ * einen Tarif ausmacht, und nirgends sonst.
+ *
+ * **Die wichtigste Regel dieser Datei:** `included` bedeutet, dass die Funktion
+ * heute existiert und benutzbar ist. Was der Tarifplan vorsieht, aber noch
+ * nicht gebaut ist, steht als `demo` — angekündigt, nicht verkauft. Die
+ * Paywall leitet den freischaltenden Tarif ausschließlich aus `included` ab
+ * (`planThatUnlocks`). Damit ist ausgeschlossen, dass ein Upgrade für etwas
+ * verkauft wird, das es nach dem Upgrade auch nicht gibt.
+ */
+
 export type FeatureId =
-  | "watchlist_basic"
-  | "watchlist_extended"
-  | "learning"
+  // Grundlage, in jedem Tarif
+  | "market_dashboard"
   | "asset_analysis"
-  | "portfolio"
+  | "watchlist"
   | "alerts"
+  | "portfolio"
+  | "learning"
   | "ai_news"
+  // Pro
   | "pro_terminal"
+  | "screener"
+  | "risk_analysis"
+  | "scenario_analysis"
+  | "peer_comparison"
+  | "change_detection"
+  // Premium
+  | "advanced_screener"
+  | "portfolio_risk"
+  | "options_data"
+  | "filings_monitoring"
+  | "insider_monitoring"
+  | "short_interest"
+  | "advanced_alerts"
   | "exports"
-  | "api"
-  | "team";
+  | "paper_trading"
+  | "backtesting";
 
 export type FeatureDefinition = {
   id: FeatureId;
@@ -20,18 +51,35 @@ export type FeatureDefinition = {
   description: string;
 };
 
+/**
+ * Grenzen je Tarif. Die Namen folgen §4 der Zieldefinition.
+ */
 export type PlanLimits = {
-  watchlistItems: number;
-  alerts: number;
+  maxWatchlists: number;
+  maxWatchlistItems: number;
+  maxAlerts: number;
+  maxSavedScreeners: number;
+  /** Wie viele Jahre Historie ein Tarif zeigen darf. */
+  historicalDataYears: number;
   portfolios: number;
   aiAnalysesPerDay: number;
   apiRequestsPerDay: number;
+};
+
+export type PlanPricing = {
+  /** Anzeigepreis pro Monat. */
+  monthly: string;
+  /** Anzeigepreis pro Jahr, oder null wenn es kein Jahresabo gibt. */
+  yearly: string | null;
+  /** Wie viel das Jahresabo gegenüber zwölf Monatszahlungen spart. */
+  yearlySavingsNote: string | null;
 };
 
 export type PricingTier = {
   id: PlanId;
   name: string;
   price: string;
+  pricing: PlanPricing;
   audience: string;
   technicalStatus: string;
   billingRequired: boolean;
@@ -48,39 +96,39 @@ export const billingGateStatus = {
 
 export const featureDefinitions: FeatureDefinition[] = [
   {
-    id: "watchlist_basic",
-    label: "Basis-Watchlist",
-    description: "Private Watchlist mit sichtbarer Datenqualität und Cloud-Sync nach Anmeldung."
-  },
-  {
-    id: "watchlist_extended",
-    label: "Erweiterte Watchlist",
-    description: "Größere Listen, Batching und höhere serverseitige Nutzungslimits."
-  },
-  {
-    id: "learning",
-    label: "Investieren lernen",
-    description: "Einsteigerbereich, Glossar und Beispiel-Portfolios."
+    id: "market_dashboard",
+    label: "Marktdashboard",
+    description: "Indizes, Gewinner, Verlierer, Sektoren und Marktlage auf einen Blick."
   },
   {
     id: "asset_analysis",
-    label: "Asset-Analyse",
-    description: "Kurs, Chart, Datenqualität, Risiko und modellbasierte Auswertung."
+    label: "Assetanalyse",
+    description: "Kurs, Chart, Datenqualität, Kennzahlen und modellbasierte Auswertung je Instrument."
   },
   {
-    id: "portfolio",
-    label: "Portfolio",
-    description: "Positionen, Risiko, Allokation, Szenarien und Supabase-Sync."
+    id: "watchlist",
+    label: "Watchlist",
+    description: "Eigene Listen mit Kurs, Tagesänderung und sichtbarer Datenqualität."
   },
   {
     id: "alerts",
     label: "Alerts",
-    description: "Regeln für Kurs, RSI, News, Volumen, Earnings und KI-Risiko."
+    description: "Regeln für Kurs, Volumen, Earnings und Risiko mit serverseitiger Auswertung."
+  },
+  {
+    id: "portfolio",
+    label: "Portfolio",
+    description: "Positionen, Performance, Allokation und Entwicklung über die Zeit."
+  },
+  {
+    id: "learning",
+    label: "Investieren lernen",
+    description: "Einsteigerbereich, Glossar und erklärte Kennzahlen."
   },
   {
     id: "ai_news",
-    label: "News-KI",
-    description: "Relevanz, Sentiment, Impact und transparenter Quellenstatus."
+    label: "News-Auswertung",
+    description: "Relevanz, Stimmung und Einordnung von Nachrichten mit sichtbarer Quelle."
   },
   {
     id: "pro_terminal",
@@ -88,136 +136,223 @@ export const featureDefinitions: FeatureDefinition[] = [
     description: "Tiefe Fundamentaldaten, ETF-Struktur, Risiko-Dashboard und Vergleiche."
   },
   {
+    id: "screener",
+    label: "Screener",
+    description: "Instrumente nach Kennzahlen, Region und Assetklasse filtern."
+  },
+  {
+    id: "risk_analysis",
+    label: "Risikoanalyse",
+    description: "Volatilität, Drawdown, Beta, Klumpenrisiko und Szenarien."
+  },
+  {
+    id: "scenario_analysis",
+    label: "Szenarien und Prognosen",
+    description: "Bear, Base und Bull Case mit Bandbreiten, Annahmen und Konfidenz."
+  },
+  {
+    id: "peer_comparison",
+    label: "Peer-Vergleich",
+    description: "Wettbewerber automatisch bestimmen und in Wachstum, Bewertung und Marge vergleichen."
+  },
+  {
+    id: "change_detection",
+    label: "Veränderungserkennung",
+    description: "Erkennt, was sich seit dem letzten Blick verändert hat — Schätzungen, Margen, Analystenziele."
+  },
+  {
+    id: "advanced_screener",
+    label: "Erweiterter Screener",
+    description: "Mehr Filter, speicherbare Suchen und Auswertung über das Gesamtuniversum."
+  },
+  {
+    id: "portfolio_risk",
+    label: "Portfolio-Risikoanalyse",
+    description: "Korrelationen, Konzentration, Währungs- und Sektorrisiko des Gesamtbestands."
+  },
+  {
+    id: "options_data",
+    label: "Optionsdaten",
+    description: "Optionsketten, Open Interest, implizite Volatilität und Put/Call-Verhältnis."
+  },
+  {
+    id: "filings_monitoring",
+    label: "SEC-Filings-Überwachung",
+    description: "10-K, 10-Q, 8-K und Form 4 mit Verweis auf das Originaldokument."
+  },
+  {
+    id: "insider_monitoring",
+    label: "Insider-Überwachung",
+    description: "Käufe und Verkäufe von Insidern, getrennt nach echten Käufen und Programmen."
+  },
+  {
+    id: "short_interest",
+    label: "Short Interest",
+    description: "Leerverkaufsquote, Days to Cover und Veränderung über die Zeit."
+  },
+  {
+    id: "advanced_alerts",
+    label: "Erweiterte Alerts",
+    description: "Mehr Regeltypen, höhere Frequenz und Benachrichtigung über mehrere Kanäle."
+  },
+  {
     id: "exports",
-    label: "Analyse-Export",
-    description: "Geplante PDF-/CSV-Exporte für professionelle Analyse-Workflows."
+    label: "Export",
+    description: "Watchlists, Portfolio, Screener und Analysen als CSV, PDF oder Excel."
   },
   {
-    id: "api",
-    label: "API-Zugriff",
-    description: "Geplanter programmierbarer Zugriff mit eigenen Quoten und Auditierung."
+    id: "paper_trading",
+    label: "Paper Trading",
+    description: "Virtuelles Kapital, echte Marktpreise, Orders mit Gebühren und Slippage."
   },
   {
-    id: "team",
-    label: "Teamfunktionen",
-    description: "Geplante Rollen, Governance, mehrere Nutzer und Audit-Trail."
+    id: "backtesting",
+    label: "Backtesting",
+    description: "Regelbasierte Strategien auf Historie prüfen, mit Kosten und Bias-Kontrolle."
   }
 ];
+
+/**
+ * Wird im Tarif geführt, ist aber noch nicht gebaut.
+ *
+ * Diese Liste ist der Grund, warum die Preisseite ehrlich bleibt: alles hier
+ * erscheint als „geplant", nicht als Leistung. Sobald eine Funktion existiert,
+ * wandert sie in der jeweiligen Tarifzeile von `demo` auf `included` — und
+ * damit wird sie auch von der Paywall verkaufbar.
+ */
+const plannedFeatures: FeatureId[] = [
+  "peer_comparison",
+  "change_detection",
+  "advanced_screener",
+  "options_data",
+  "filings_monitoring",
+  "insider_monitoring",
+  "short_interest",
+  "advanced_alerts",
+  "exports",
+  "paper_trading",
+  "backtesting"
+];
+
+function statusMap(included: FeatureId[], locked: FeatureId[]): Record<FeatureId, FeatureGateStatus> {
+  return Object.fromEntries(
+    featureDefinitions.map((feature) => {
+      if (plannedFeatures.includes(feature.id)) {
+        // Geplante Funktionen sind im vorgesehenen Tarif sichtbar angekuendigt
+        // und in den kleineren gesperrt -- aber nirgends `included`.
+        return [feature.id, locked.includes(feature.id) ? "locked" : "demo"];
+      }
+      if (included.includes(feature.id)) return [feature.id, "included"];
+      return [feature.id, "locked"];
+    })
+  ) as Record<FeatureId, FeatureGateStatus>;
+}
+
+const freeFeatures: FeatureId[] = [
+  "market_dashboard",
+  "asset_analysis",
+  "watchlist",
+  "alerts",
+  "portfolio",
+  "learning",
+  "ai_news"
+];
+
+const proFeatures: FeatureId[] = [
+  ...freeFeatures,
+  "pro_terminal",
+  "screener",
+  "risk_analysis",
+  "scenario_analysis"
+];
+
+const premiumFeatures: FeatureId[] = [...proFeatures, "portfolio_risk"];
 
 export const pricingTiers: PricingTier[] = [
   {
     id: "free",
     name: "Free",
     price: "0 €",
-    audience: "Beobachten, lernen und erste Analysen",
-    technicalStatus: "Ohne Zahlung aktiv, mit serverseitigen Free-Limits",
+    pricing: { monthly: "0 €", yearly: null, yearlySavingsNote: null },
+    audience: "StockPilot ausprobieren",
+    technicalStatus: "Ohne Zahlung aktiv, mit serverseitigen Free-Grenzen",
     billingRequired: false,
-    featureStatus: {
-      watchlist_basic: "included",
-      watchlist_extended: "locked",
-      learning: "included",
-      asset_analysis: "included",
-      portfolio: "included",
-      alerts: "included",
-      ai_news: "included",
-      pro_terminal: "locked",
-      exports: "locked",
-      api: "locked",
-      team: "locked"
-    },
+    featureStatus: statusMap(freeFeatures, plannedFeatures),
     limits: {
-      watchlistItems: 10,
-      alerts: 3,
+      maxWatchlists: 1,
+      maxWatchlistItems: 15,
+      maxAlerts: 3,
+      maxSavedScreeners: 1,
+      historicalDataYears: 1,
       portfolios: 1,
       aiAnalysesPerDay: 3,
       apiRequestsPerDay: 0
     }
   },
   {
-    id: "starter",
-    name: "Starter",
-    price: "9 € / Monat",
-    audience: "Kleine Anleger und strukturierte Sparpläne",
-    technicalStatus: "Freigabe ausschließlich über Checkout und signierten Webhook",
-    billingRequired: true,
-    featureStatus: {
-      watchlist_basic: "included",
-      watchlist_extended: "included",
-      learning: "included",
-      asset_analysis: "included",
-      portfolio: "included",
-      alerts: "included",
-      ai_news: "included",
-      pro_terminal: "locked",
-      exports: "locked",
-      api: "locked",
-      team: "locked"
-    },
-    limits: {
-      watchlistItems: 50,
-      alerts: 25,
-      portfolios: 2,
-      aiAnalysesPerDay: 20,
-      apiRequestsPerDay: 0
-    }
-  },
-  {
     id: "pro",
     name: "Pro",
-    price: "29 € / Monat",
-    audience: "Aktive Investoren und professionelle Einzelanwender",
+    price: "29,99 € / Monat",
+    pricing: {
+      monthly: "29,99 € / Monat",
+      yearly: "299,90 € / Jahr",
+      yearlySavingsNote: "Zwei Monate günstiger als die monatliche Zahlung"
+    },
+    audience: "Aktive Anleger, die vollständig analysieren wollen",
     technicalStatus: "Freigabe ausschließlich über Checkout und signierten Webhook",
     billingRequired: true,
-    featureStatus: {
-      watchlist_basic: "included",
-      watchlist_extended: "included",
-      learning: "included",
-      asset_analysis: "included",
-      portfolio: "included",
-      alerts: "included",
-      ai_news: "included",
-      pro_terminal: "included",
-      exports: "demo",
-      api: "locked",
-      team: "locked"
-    },
+    featureStatus: statusMap(proFeatures, [
+      "advanced_screener",
+      "options_data",
+      "filings_monitoring",
+      "insider_monitoring",
+      "short_interest",
+      "advanced_alerts",
+      "exports",
+      "paper_trading",
+      "backtesting"
+    ]),
     limits: {
-      watchlistItems: 250,
-      alerts: 100,
+      maxWatchlists: 10,
+      maxWatchlistItems: 250,
+      maxAlerts: 100,
+      maxSavedScreeners: 20,
+      historicalDataYears: 10,
       portfolios: 10,
       aiAnalysesPerDay: 100,
       apiRequestsPerDay: 1_000
     }
   },
   {
-    id: "elite",
-    name: "Elite / Business",
-    price: "auf Anfrage",
-    audience: "Teams, Unternehmer und große Vermögen",
-    technicalStatus: "Manuelle Vertrags- und Rollenfreigabe erforderlich",
-    billingRequired: true,
-    featureStatus: {
-      watchlist_basic: "included",
-      watchlist_extended: "included",
-      learning: "included",
-      asset_analysis: "included",
-      portfolio: "included",
-      alerts: "included",
-      ai_news: "included",
-      pro_terminal: "included",
-      exports: "demo",
-      api: "demo",
-      team: "demo"
+    id: "premium",
+    name: "Premium",
+    price: "69,99 € / Monat",
+    pricing: {
+      monthly: "69,99 € / Monat",
+      yearly: "699,90 € / Jahr",
+      yearlySavingsNote: "Zwei Monate günstiger als die monatliche Zahlung"
     },
+    audience: "Intensivnutzer mit höheren Grenzen und Zusatzdaten",
+    technicalStatus: "Freigabe ausschließlich über Checkout und signierten Webhook",
+    billingRequired: true,
+    featureStatus: statusMap(premiumFeatures, []),
     limits: {
-      watchlistItems: 1_000,
-      alerts: 500,
+      maxWatchlists: 50,
+      maxWatchlistItems: 1_000,
+      maxAlerts: 500,
+      maxSavedScreeners: 100,
+      historicalDataYears: 20,
       portfolios: 25,
-      aiAnalysesPerDay: 1_000,
+      aiAnalysesPerDay: 500,
       apiRequestsPerDay: 10_000
     }
   }
 ];
+
+/** Tarife, die über Stripe gebucht werden. */
+export type PaidPlanId = Exclude<PlanId, "free">;
+
+export const paidPlanIds: PaidPlanId[] = ["pro", "premium"];
 
 export function getPricingTier(planId: PlanId) {
   return pricingTiers.find((item) => item.id === planId) ?? pricingTiers[0];
@@ -229,6 +364,11 @@ export function getFeatureGateStatus(planId: PlanId, featureId: FeatureId) {
 
 export function getPlanLimits(planId: PlanId) {
   return getPricingTier(planId).limits;
+}
+
+export function getPlanPrice(planId: PlanId, interval: BillingInterval) {
+  const pricing = getPricingTier(planId).pricing;
+  return interval === "year" ? pricing.yearly : pricing.monthly;
 }
 
 export function isFeatureTechnicallyActive(

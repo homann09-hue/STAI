@@ -1,8 +1,21 @@
 import "server-only";
 import Stripe from "stripe";
-import type { PlanId } from "@/lib/feature-gates";
+import type { BillingInterval, PaidPlanId } from "@/lib/feature-gates";
 
-export type StripeCheckoutPlan = "starter" | "pro";
+export type StripeCheckoutPlan = PaidPlanId;
+
+/**
+ * Preis-IDs je Tarif und Abrechnungszeitraum.
+ *
+ * §5 verlangt monatliche und jaehrliche Abonnements. Beide brauchen in Stripe
+ * eine eigene Preis-ID; ein Jahresabo laesst sich nicht aus einem Monatspreis
+ * ableiten. Fehlt eine ID, ist der jeweilige Zeitraum schlicht nicht buchbar --
+ * ein Knopf ohne hinterlegten Preis waere eine Funktionsattrappe.
+ */
+const priceEnvNames: Record<PaidPlanId, Record<BillingInterval, string>> = {
+  pro: { month: "STRIPE_PRO_PRICE_ID", year: "STRIPE_PRO_YEARLY_PRICE_ID" },
+  premium: { month: "STRIPE_PREMIUM_PRICE_ID", year: "STRIPE_PREMIUM_YEARLY_PRICE_ID" }
+};
 
 function validSecretKey(value: string | undefined): value is string {
   return Boolean(value && /^sk_(test|live)_[A-Za-z0-9_]{16,}$/.test(value));
@@ -25,37 +38,41 @@ export function getStripeBillingConfiguration() {
   const webhookSecret = validWebhookSecret(process.env.STRIPE_WEBHOOK_SECRET)
     ? process.env.STRIPE_WEBHOOK_SECRET
     : null;
-  const starterPriceId = validPriceId(process.env.STRIPE_STARTER_PRICE_ID)
-    ? process.env.STRIPE_STARTER_PRICE_ID
-    : null;
-  const proPriceId = validPriceId(process.env.STRIPE_PRO_PRICE_ID) ? process.env.STRIPE_PRO_PRICE_ID : null;
   const portalConfigurationId = validPortalConfigurationId(process.env.STRIPE_PORTAL_CONFIGURATION_ID)
     ? process.env.STRIPE_PORTAL_CONFIGURATION_ID
     : null;
   const entitlementsConfigured = Boolean(secretKey && webhookSecret);
 
-  return {
-    secretKey,
-    webhookSecret,
-    portalConfigurationId,
-    entitlementsConfigured,
-    priceIds: {
-      starter: starterPriceId,
-      pro: proPriceId
-    },
-    plans: {
-      starter: Boolean(entitlementsConfigured && starterPriceId),
-      pro: Boolean(entitlementsConfigured && proPriceId),
-      elite: false
-    }
-  };
+  const priceIds = Object.fromEntries(
+    (Object.keys(priceEnvNames) as PaidPlanId[]).map((plan) => [
+      plan,
+      {
+        month: validPriceId(process.env[priceEnvNames[plan].month]) ? process.env[priceEnvNames[plan].month]! : null,
+        year: validPriceId(process.env[priceEnvNames[plan].year]) ? process.env[priceEnvNames[plan].year]! : null
+      }
+    ])
+  ) as Record<PaidPlanId, Record<BillingInterval, string | null>>;
+
+  const plans = Object.fromEntries(
+    (Object.keys(priceEnvNames) as PaidPlanId[]).map((plan) => [
+      plan,
+      {
+        month: Boolean(entitlementsConfigured && priceIds[plan].month),
+        year: Boolean(entitlementsConfigured && priceIds[plan].year)
+      }
+    ])
+  ) as Record<PaidPlanId, Record<BillingInterval, boolean>>;
+
+  return { secretKey, webhookSecret, portalConfigurationId, entitlementsConfigured, priceIds, plans };
 }
 
 export function getStripePublicConfiguration() {
   const configuration = getStripeBillingConfiguration();
+  const anyBookable = Object.values(configuration.plans).some((intervals) => intervals.month || intervals.year);
+
   return {
     provider: "stripe" as const,
-    configured: configuration.plans.starter || configuration.plans.pro,
+    configured: anyBookable,
     webhookConfigured: Boolean(configuration.webhookSecret),
     portalConfigured: Boolean(configuration.secretKey),
     plans: configuration.plans
@@ -80,14 +97,21 @@ export function getStripeClient() {
   return cachedClient;
 }
 
-export function getStripePriceId(plan: StripeCheckoutPlan) {
-  return getStripeBillingConfiguration().priceIds[plan];
+export function getStripePriceId(plan: StripeCheckoutPlan, interval: BillingInterval) {
+  return getStripeBillingConfiguration().priceIds[plan][interval];
 }
 
-export function getPlanForStripePriceId(priceId: string): Exclude<PlanId, "free" | "elite"> | null {
+/**
+ * Von der Preis-ID zurueck zum Tarif.
+ *
+ * Der Weg ueber die Preis-ID ist verbindlich: die Metadaten einer Subscription
+ * lassen sich in Stripe von Hand aendern, der bezahlte Preis nicht.
+ */
+export function getPlanForStripePriceId(priceId: string): PaidPlanId | null {
   const prices = getStripeBillingConfiguration().priceIds;
-  if (prices.starter === priceId) return "starter";
-  if (prices.pro === priceId) return "pro";
+  for (const plan of Object.keys(prices) as PaidPlanId[]) {
+    if (prices[plan].month === priceId || prices[plan].year === priceId) return plan;
+  }
   return null;
 }
 

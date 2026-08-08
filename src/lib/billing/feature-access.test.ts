@@ -16,7 +16,7 @@ import { pricingTiers } from "@/lib/feature-gates";
 
 const inOneMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1_000).toISOString();
 
-function paidEntitlements(plan: "starter" | "pro" | "elite", overrides: Record<string, unknown> = {}) {
+function paidEntitlements(plan: "pro" | "premium", overrides: Record<string, unknown> = {}) {
   return resolveEntitlements(
     {
       plan,
@@ -38,8 +38,9 @@ function freeEntitlements() {
 describe("planThatUnlocks", () => {
   it("nennt den günstigsten Tarif, der die Funktion wirklich enthält", () => {
     expect(planThatUnlocks("pro_terminal")).toBe("pro");
-    expect(planThatUnlocks("watchlist_extended")).toBe("starter");
+    expect(planThatUnlocks("screener")).toBe("pro");
     expect(planThatUnlocks("asset_analysis")).toBe("free");
+    expect(planThatUnlocks("portfolio_risk")).toBe("premium");
   });
 
   it("wertet eine angekündigte Funktion nicht als verkaufte Funktion", () => {
@@ -52,7 +53,7 @@ describe("planThatUnlocks", () => {
   it("bleibt an die Preisseite gebunden statt an eine zweite Liste", () => {
     // Wenn die Preisseite den freischaltenden Tarif ändert, muss die Paywall
     // mitziehen. Genau das prüft dieser Test: die Ableitung, nicht ein Wert.
-    for (const feature of ["pro_terminal", "watchlist_extended", "alerts"] as const) {
+    for (const feature of ["pro_terminal", "screener", "alerts", "portfolio_risk"] as const) {
       const plan = planThatUnlocks(feature);
       if (plan === null) continue;
       const tier = pricingTiers.find((candidate) => candidate.id === plan);
@@ -106,7 +107,7 @@ describe("evaluateFeatureAccess", () => {
     // welcher Mehrwert, wohin.
     expect(decision.paywall.featureLabel).toBe("Profi-Terminal");
     expect(decision.paywall.requiredPlan).toBe("pro");
-    expect(decision.paywall.requiredPlanPrice).toBe("29 € / Monat");
+    expect(decision.paywall.requiredPlanPrice).toBe("29,99 € / Monat");
     expect(decision.paywall.benefit.length).toBeGreaterThan(0);
     expect(decision.paywall.upgradePath).toBe("/pricing");
     expect(decision.paywall.checkoutAvailable).toBe(true);
@@ -170,7 +171,7 @@ describe("evaluateFeatureAccess", () => {
   });
 
   it("verkauft keine Funktion, die es noch nicht gibt", () => {
-    const decision = evaluateFeatureAccess("exports", { entitlements: paidEntitlements("elite"), authenticated: true });
+    const decision = evaluateFeatureAccess("exports", { entitlements: paidEntitlements("premium"), authenticated: true });
 
     expect(decision.allowed).toBe(false);
     if (decision.allowed) return;

@@ -70,7 +70,7 @@ export async function POST(request: Request) {
 
   const [entitlements, items] = await Promise.all([getUserEntitlements(auth), listUserWatchlist(auth)]);
   const existingItem = items.some((item) => item.symbol === parsed.data.symbol);
-  const decision = evaluateResourceLimit(entitlements, "watchlistItems", items.length, existingItem);
+  const decision = evaluateResourceLimit(entitlements, "maxWatchlistItems", items.length, existingItem);
   if (!decision.allowed) {
     return jsonError(`Watchlist-Limit des Tarifs erreicht (${decision.limit}).`, 403, resourceLimitHeaders(entitlements, decision.limit));
   }

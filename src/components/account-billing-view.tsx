@@ -10,7 +10,7 @@ import {
   type BillingApiResponse
 } from "@/lib/billing/client";
 import { formatInvoiceAmount, type BillingInvoice, type PaymentMethodSummary } from "@/lib/billing/invoices";
-import { getPricingTier } from "@/lib/feature-gates";
+import { getPlanPrice, getPricingTier, paidPlanIds, type BillingInterval, type PaidPlanId } from "@/lib/feature-gates";
 import { getSupabaseAccessToken, fetchWithSupabaseAuth } from "@/lib/supabase/client-fetch";
 
 /**
@@ -130,13 +130,13 @@ export function AccountBillingView() {
     }
   }
 
-  async function startCheckout(plan: "starter" | "pro") {
+  async function startCheckout(plan: PaidPlanId, interval: BillingInterval) {
     setActionError(null);
     setBusy(true);
     try {
       const token = await getSupabaseAccessToken();
       if (!token) throw new Error("Keine Sitzung.");
-      window.location.href = await createCheckoutSession(token, plan);
+      window.location.href = await createCheckoutSession(token, plan, interval);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "Der Checkout ist nicht erreichbar.");
       setBusy(false);
@@ -257,20 +257,22 @@ export function AccountBillingView() {
             </button>
           ) : (
             <>
-              {(["starter", "pro"] as const).map((plan) =>
-                billing.billing.plans[plan] ? (
-                  <button
-                    key={plan}
-                    type="button"
-                    onClick={() => startCheckout(plan)}
-                    disabled={busy}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-semibold text-cyan transition hover:bg-cyan/20 disabled:opacity-50"
-                  >
-                    {getPricingTier(plan).name} buchen · {getPricingTier(plan).price}
-                  </button>
-                ) : null
+              {paidPlanIds.flatMap((plan) =>
+                (["month", "year"] as const)
+                  .filter((interval) => billing.billing.plans[plan]?.[interval])
+                  .map((interval) => (
+                    <button
+                      key={`${plan}-${interval}`}
+                      type="button"
+                      onClick={() => startCheckout(plan, interval)}
+                      disabled={busy}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-cyan/30 bg-cyan/10 px-4 py-2 text-sm font-semibold text-cyan transition hover:bg-cyan/20 disabled:opacity-50"
+                    >
+                      {getPricingTier(plan).name} buchen · {getPlanPrice(plan, interval)}
+                    </button>
+                  ))
               )}
-              {!billing.billing.plans.starter && !billing.billing.plans.pro ? (
+              {!paidPlanIds.some((plan) => billing.billing.plans[plan]?.month || billing.billing.plans[plan]?.year) ? (
                 <p className="text-sm text-muted">
                   Es ist derzeit kein Tarif buchbar, weil die Zahlungsanbindung noch nicht eingerichtet ist.
                 </p>

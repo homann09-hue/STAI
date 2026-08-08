@@ -13,9 +13,9 @@ describe("billing entitlements", () => {
 
     expect(entitlement.plan).toBe("free");
     expect(entitlement.billingActive).toBe(false);
-    expect(entitlement.features.watchlist_basic).toBe(true);
+    expect(entitlement.features.asset_analysis).toBe(true);
     expect(entitlement.features.pro_terminal).toBe(false);
-    expect(entitlement.limits.watchlistItems).toBe(10);
+    expect(entitlement.limits.maxWatchlistItems).toBe(15);
   });
 
   it("activates a paid Stripe plan only with provider configuration and a future period end", () => {
@@ -69,14 +69,14 @@ describe("billing entitlements", () => {
     );
 
     expect(entitlement.features.pro_terminal).toBe(false);
-    expect(entitlement.features.team).toBe(false);
+    expect(entitlement.features.exports).toBe(false);
   });
 
   it("applies limits while preserving idempotent updates of existing resources", () => {
     const entitlement = resolveEntitlements(null, { billingConfigured: false });
-    expect(evaluateResourceLimit(entitlement, "watchlistItems", 10).allowed).toBe(false);
-    expect(evaluateResourceLimit(entitlement, "watchlistItems", 10, true).allowed).toBe(true);
-    expect(evaluateResourceLimit(entitlement, "alerts", Number.NaN)).toEqual({
+    expect(evaluateResourceLimit(entitlement, "maxWatchlistItems", 15).allowed).toBe(false);
+    expect(evaluateResourceLimit(entitlement, "maxWatchlistItems", 10, true).allowed).toBe(true);
+    expect(evaluateResourceLimit(entitlement, "maxAlerts", Number.NaN)).toEqual({
       allowed: true,
       current: 0,
       limit: 3,

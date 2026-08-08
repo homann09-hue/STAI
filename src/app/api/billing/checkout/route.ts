@@ -14,7 +14,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const checkoutSchema = z.object({
-  plan: z.enum(["starter", "pro"])
+  plan: z.enum(["pro", "premium"]),
+  // Monats- und Jahresabo brauchen je eine eigene Preis-ID in Stripe. Ohne
+  // Angabe gilt der Monat, damit bestehende Aufrufe unveraendert weiterlaufen.
+  interval: z.enum(["month", "year"]).default("month")
 });
 
 export async function POST(request: Request) {
@@ -34,7 +37,7 @@ export async function POST(request: Request) {
 
   const stripe = getStripeClient();
   const configuration = getStripeBillingConfiguration();
-  const priceId = getStripePriceId(parsed.data.plan);
+  const priceId = getStripePriceId(parsed.data.plan, parsed.data.interval);
   const appOrigin = getTrustedBillingOrigin(request);
   if (!stripe || !configuration.webhookSecret || !priceId || !appOrigin) {
     return jsonError("Billing ist noch nicht vollständig konfiguriert. Es wurde keine Zahlung gestartet.", 503);
@@ -48,7 +51,8 @@ export async function POST(request: Request) {
 
   const metadata = {
     stockpilot_user_id: auth.userId,
-    stockpilot_plan: parsed.data.plan
+    stockpilot_plan: parsed.data.plan,
+    stockpilot_interval: parsed.data.interval
   };
 
   try {
@@ -68,12 +72,12 @@ export async function POST(request: Request) {
             : {})
       },
       {
-        idempotencyKey: `stockpilot-checkout:${auth.userId}:${parsed.data.plan}:${Math.floor(Date.now() / 60_000)}`
+        idempotencyKey: `stockpilot-checkout:${auth.userId}:${parsed.data.plan}:${parsed.data.interval}:${Math.floor(Date.now() / 60_000)}`
       }
     );
 
     if (!session.url) return jsonError("Checkout konnte nicht sicher erstellt werden.", 502);
-    logEvent("info", "billing.checkout_created", { userId: auth.userId, plan: parsed.data.plan });
+    logEvent("info", "billing.checkout_created", { userId: auth.userId, plan: parsed.data.plan, interval: parsed.data.interval });
     return jsonOk({ url: session.url });
   } catch (error) {
     logEvent("error", "billing.checkout_failed", {

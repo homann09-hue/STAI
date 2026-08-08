@@ -16,16 +16,19 @@ describe("pricing feature gates", () => {
   });
 
   it("keeps free essentials active and unfinished enterprise features unavailable", () => {
-    expect(isFeatureTechnicallyActive("free", "watchlist_basic")).toBe(true);
+    expect(isFeatureTechnicallyActive("free", "asset_analysis")).toBe(true);
     expect(isFeatureTechnicallyActive("free", "portfolio")).toBe(true);
-    expect(getFeatureGateStatus("elite", "team")).toBe("demo");
-    expect(pricingTiers.map((tier) => tier.id)).toEqual(["free", "starter", "pro", "elite"]);
+    expect(getFeatureGateStatus("premium", "exports")).toBe("demo");
+    expect(pricingTiers.map((tier) => tier.id)).toEqual(["free", "pro", "premium"]);
   });
 
   it("defines increasing backend limits without unlimited sentinels", () => {
-    expect(getPlanLimits("free").watchlistItems).toBe(10);
-    expect(getPlanLimits("starter").watchlistItems).toBeGreaterThan(getPlanLimits("free").watchlistItems);
-    expect(getPlanLimits("pro").portfolios).toBeGreaterThan(getPlanLimits("starter").portfolios);
-    expect(Object.values(getPlanLimits("elite")).every((value) => Number.isSafeInteger(value) && value >= 0)).toBe(true);
+    expect(getPlanLimits("free").maxWatchlistItems).toBe(15);
+    expect(getPlanLimits("pro").maxWatchlistItems).toBeGreaterThan(getPlanLimits("free").maxWatchlistItems);
+    expect(getPlanLimits("pro").portfolios).toBeGreaterThan(getPlanLimits("free").portfolios);
+    expect(getPlanLimits("premium").maxWatchlistItems).toBeGreaterThan(getPlanLimits("pro").maxWatchlistItems);
+    // §4 verlangt eine Grenze fuer die Historie. Sie muss mit dem Tarif wachsen.
+    expect(getPlanLimits("premium").historicalDataYears).toBeGreaterThan(getPlanLimits("free").historicalDataYears);
+    expect(Object.values(getPlanLimits("premium")).every((value) => Number.isSafeInteger(value) && value >= 0)).toBe(true);
   });
 });

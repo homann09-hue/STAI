@@ -57,9 +57,21 @@ export type PublicEntitlements = Omit<
   "providerCustomerId" | "providerSubscriptionId" | "providerPriceId"
 >;
 
-export type ResourceLimitKey = "watchlistItems" | "alerts" | "portfolios";
+export type ResourceLimitKey = "maxWatchlistItems" | "maxAlerts" | "portfolios";
 
-const knownPlans = new Set<PlanId>(["free", "starter", "pro", "elite"]);
+const knownPlans = new Set<PlanId>(["free", "pro", "premium"]);
+
+/**
+ * Tarifnamen aus der Zeit vor der Umstellung auf FREE/PRO/PREMIUM.
+ *
+ * Zum Zeitpunkt der Umstellung gab es keine einzige Zeile in `entitlements`,
+ * die Abbildung ist also reine Vorsorge. Sie ordnet nach oben zu, damit ein
+ * Konto durch eine Umbenennung niemals weniger bekommt, als es bezahlt hat.
+ */
+const legacyPlanAliases: Record<string, PlanId> = {
+  starter: "pro",
+  elite: "premium"
+};
 const knownStatuses = new Set<BillingStatus>([
   "demo",
   "active",
@@ -73,7 +85,9 @@ const knownStatuses = new Set<BillingStatus>([
 ]);
 
 export function normalizePlanId(value: unknown): PlanId {
-  return typeof value === "string" && knownPlans.has(value as PlanId) ? (value as PlanId) : "free";
+  if (typeof value !== "string") return "free";
+  if (knownPlans.has(value as PlanId)) return value as PlanId;
+  return legacyPlanAliases[value] ?? "free";
 }
 
 export function normalizeBillingStatus(value: unknown): BillingStatus {

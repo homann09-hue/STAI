@@ -51,7 +51,10 @@ function checkoutAvailableFor(featureId: FeatureId) {
   const requiredPlan = planThatUnlocks(featureId);
   if (!requiredPlan || requiredPlan === "free") return false;
   const plans = getStripeBillingConfiguration().plans;
-  return plans[requiredPlan] === true;
+  const intervals = plans[requiredPlan];
+  // Buchbar heisst: mindestens ein Abrechnungszeitraum hat einen hinterlegten
+  // Preis. Welcher, entscheidet der Nutzer spaeter im Checkout.
+  return Boolean(intervals && (intervals.month || intervals.year));
 }
 
 /**

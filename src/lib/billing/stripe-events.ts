@@ -4,7 +4,7 @@ import {
   normalizePlanId,
   type BillingStatus
 } from "@/lib/billing/entitlements";
-import type { PlanId } from "@/lib/feature-gates";
+import type { PaidPlanId } from "@/lib/feature-gates";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -26,7 +26,7 @@ function timestamp(value: number | null | undefined) {
 
 export type StripeEntitlementMutation = {
   userId: string;
-  plan: Exclude<PlanId, "free">;
+  plan: PaidPlanId;
   status: BillingStatus;
   providerCustomerId: string;
   providerSubscriptionId: string;
@@ -46,7 +46,7 @@ export function stripeSubscriptionIds(subscription: Stripe.Subscription) {
 
 export function entitlementFromStripeSubscription(
   subscription: Stripe.Subscription,
-  resolvePricePlan: (priceId: string) => "starter" | "pro" | null,
+  resolvePricePlan: (priceId: string) => PaidPlanId | null,
   fallbackUserId?: string | null
 ): StripeEntitlementMutation | null {
   const userId = subscription.metadata.stockpilot_user_id || fallbackUserId || "";
@@ -56,7 +56,10 @@ export function entitlementFromStripeSubscription(
   const priceId = objectId(item?.price, "price_");
   const metadataPlan = normalizePlanId(subscription.metadata.stockpilot_plan);
   const pricePlan = priceId ? resolvePricePlan(priceId) : null;
-  const plan = pricePlan ?? (metadataPlan === "starter" || metadataPlan === "pro" || metadataPlan === "elite" ? metadataPlan : null);
+  // Die Preis-ID hat Vorrang vor den Metadaten: Metadaten lassen sich in
+  // Stripe von Hand aendern, der bezahlte Preis nicht.
+  const plan: PaidPlanId | null =
+    pricePlan ?? (metadataPlan === "pro" || metadataPlan === "premium" ? metadataPlan : null);
   const { customerId, subscriptionId } = stripeSubscriptionIds(subscription);
 
   if (!plan || !customerId || !subscriptionId) return null;

@@ -1,5 +1,5 @@
 import type { PublicEntitlements } from "@/lib/billing/entitlements";
-import type { PricingTier } from "@/lib/feature-gates";
+import type { BillingInterval, PaidPlanId, PricingTier } from "@/lib/feature-gates";
 
 export type BillingApiResponse = PublicEntitlements & {
   mode: "local" | "supabase";
@@ -9,7 +9,7 @@ export type BillingApiResponse = PublicEntitlements & {
     configured: boolean;
     webhookConfigured: boolean;
     portalConfigured: boolean;
-    plans: { starter: boolean; pro: boolean; elite: boolean };
+    plans: Record<PaidPlanId, Record<BillingInterval, boolean>>;
   };
 };
 
@@ -63,8 +63,8 @@ async function billingAction(path: string, accessToken: string, body?: Record<st
   return payload.url;
 }
 
-export function createCheckoutSession(accessToken: string, plan: "starter" | "pro") {
-  return billingAction("/api/billing/checkout", accessToken, { plan });
+export function createCheckoutSession(accessToken: string, plan: PaidPlanId, interval: BillingInterval = "month") {
+  return billingAction("/api/billing/checkout", accessToken, { plan, interval });
 }
 
 export function createPortalSession(accessToken: string) {

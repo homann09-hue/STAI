@@ -21,20 +21,20 @@ const now = new Date("2026-08-08T14:30:00.000Z");
 describe("quotaLimitFor", () => {
   it("liest die Grenzen aus der Tariftabelle", () => {
     expect(quotaLimitFor("free", "aiAnalysesPerDay")).toBe(3);
-    expect(quotaLimitFor("starter", "aiAnalysesPerDay")).toBe(20);
     expect(quotaLimitFor("pro", "aiAnalysesPerDay")).toBe(100);
+    expect(quotaLimitFor("premium", "aiAnalysesPerDay")).toBe(500);
     expect(quotaLimitFor("free", "apiRequestsPerDay")).toBe(0);
   });
 });
 
 describe("planWithHigherQuota", () => {
   it("nennt den günstigsten Tarif mit echt höherer Grenze", () => {
-    expect(planWithHigherQuota("free", "aiAnalysesPerDay")).toBe("starter");
-    expect(planWithHigherQuota("starter", "aiAnalysesPerDay")).toBe("pro");
+    expect(planWithHigherQuota("free", "aiAnalysesPerDay")).toBe("pro");
+    expect(planWithHigherQuota("pro", "aiAnalysesPerDay")).toBe("premium");
   });
 
   it("empfiehlt im höchsten Tarif kein Upgrade", () => {
-    expect(planWithHigherQuota("elite", "aiAnalysesPerDay")).toBeNull();
+    expect(planWithHigherQuota("premium", "aiAnalysesPerDay")).toBeNull();
   });
 
   it("bleibt an die Tariftabelle gebunden statt an eine zweite Liste", () => {
@@ -78,10 +78,10 @@ describe("buildQuotaStatus", () => {
   it("weist auf den Tarif hin, der mehr erlaubt", () => {
     const status = buildQuotaStatus("aiAnalysesPerDay", "free", 3, 3, now);
 
-    expect(status.upgradePlan).toBe("starter");
-    expect(status.upgradeLimit).toBe(20);
+    expect(status.upgradePlan).toBe("pro");
+    expect(status.upgradeLimit).toBe(100);
     expect(status.message).toMatch(/Tageslimit von 3 KI-Analysen/);
-    expect(status.message).toMatch(/Starter erlaubt 20 pro Tag/);
+    expect(status.message).toMatch(/Pro erlaubt 100 pro Tag/);
     expect(status.message).toMatch(/Morgen steht das Kontingent wieder zur Verfügung/);
   });
 
@@ -110,7 +110,7 @@ describe("buildQuotaStatus", () => {
 
 describe("quotaHeaders", () => {
   it("macht den Stand ohne Auswertung des Bodys sichtbar", () => {
-    const headers = quotaHeaders(buildQuotaStatus("aiAnalysesPerDay", "starter", 5, 20, now));
+    const headers = quotaHeaders(buildQuotaStatus("aiAnalysesPerDay", "pro", 5, 20, now));
 
     expect(headers["X-StockPilot-Quota-Limit"]).toBe("20");
     expect(headers["X-StockPilot-Quota-Remaining"]).toBe("15");

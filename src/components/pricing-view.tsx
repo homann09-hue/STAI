@@ -1,7 +1,7 @@
 "use client";
 
 import type { Session } from "@supabase/supabase-js";
-import { BriefcaseBusiness, Check, Crown, Lock, RefreshCw, Rocket, Shield } from "lucide-react";
+import { BriefcaseBusiness, Check, Crown, Lock, RefreshCw, Shield } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   createCheckoutSession,
@@ -12,17 +12,18 @@ import {
 import {
   billingGateStatus,
   featureDefinitions,
+  getPricingTier,
   pricingTiers,
   type FeatureGateStatus,
+  type PaidPlanId,
   type PlanId
 } from "@/lib/feature-gates";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 const tierIcons: Record<PlanId, typeof Shield> = {
   free: Shield,
-  starter: Rocket,
   pro: BriefcaseBusiness,
-  elite: Crown
+  premium: Crown
 };
 
 const statusCopy: Record<FeatureGateStatus, { label: string; tone: string; icon: typeof Check }> = {
@@ -52,18 +53,24 @@ function tierStats(tier: (typeof pricingTiers)[number]) {
   );
 }
 
-function checkoutPlan(plan: PlanId): plan is "starter" | "pro" {
-  return plan === "starter" || plan === "pro";
+function checkoutPlan(plan: PlanId): plan is PaidPlanId {
+  return plan === "pro" || plan === "premium";
+}
+
+/** Buchbar heisst: mindestens ein Abrechnungszeitraum hat einen Preis in Stripe. */
+function isBookable(plan: PlanId, billing: BillingApiResponse | null) {
+  if (!billing || !checkoutPlan(plan)) return false;
+  const intervals = billing.billing.plans[plan];
+  return Boolean(intervals && (intervals.month || intervals.year));
 }
 
 function actionLabel(tierId: PlanId, billing: BillingApiResponse | null, hasSession: boolean) {
   if (!billing) return "Status wird geprüft";
   if (tierId === "free") return billing.plan === "free" ? "Aktueller Tarif" : "Free verfügbar";
-  if (tierId === "elite") return "Vertrag erforderlich";
   if (billing.billingActive) return "Abo sicher verwalten";
-  if (!billing.billing.plans[tierId]) return "Checkout nicht konfiguriert";
+  if (!isBookable(tierId, billing)) return "Checkout nicht konfiguriert";
   if (!hasSession) return "Anmelden zum Upgrade";
-  return `${tierId === "starter" ? "Starter" : "Pro"} auswählen`;
+  return `${getPricingTier(tierId).name} auswählen`;
 }
 
 export function PricingView() {
@@ -111,7 +118,7 @@ export function PricingView() {
   }, [supabase]);
 
   async function handlePlanAction(plan: PlanId) {
-    if (!billing || plan === "free" || plan === "elite") return;
+    if (!billing || !checkoutPlan(plan)) return;
     if (!session) {
       window.location.assign("/settings?next=pricing");
       return;
@@ -183,16 +190,15 @@ export function PricingView() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-4">
+      <section className="grid gap-4 lg:grid-cols-3">
         {pricingTiers.map((tier) => {
           const Icon = tierIcons[tier.id];
           const stats = tierStats(tier);
-          const configured = checkoutPlan(tier.id) ? billing?.billing.plans[tier.id] === true : false;
+          const configured = isBookable(tier.id, billing ?? null);
           const disabled =
             loading ||
             busyPlan !== null ||
             tier.id === "free" ||
-            tier.id === "elite" ||
             (!billing?.billingActive && !configured);
 
           return (
@@ -205,7 +211,13 @@ export function PricingView() {
                 </div>
                 {billing?.plan === tier.id ? <span className="rounded-full border border-cyan/30 bg-cyan/10 px-2 py-1 text-[10px] font-semibold uppercase text-cyan">aktuell</span> : null}
               </div>
-              <p className="mt-4 font-mono text-3xl font-semibold text-mist">{tier.price}</p>
+              <p className="mt-4 font-mono text-3xl font-semibold text-mist">{tier.pricing.monthly}</p>
+              {tier.pricing.yearly ? (
+                <p className="mt-1 text-xs text-muted">
+                  oder {tier.pricing.yearly}
+                  {tier.pricing.yearlySavingsNote ? ` — ${tier.pricing.yearlySavingsNote}` : ""}
+                </p>
+              ) : null}
               <p className="mt-3 rounded-xl border border-stroke bg-coal px-3 py-2 text-xs leading-5 text-muted">{tier.technicalStatus}</p>
               <div className="mt-4 grid grid-cols-3 gap-2">
                 <div className="rounded-xl border border-profit/20 bg-profit/10 p-2 text-center"><p className="font-mono text-lg font-semibold text-profit">{stats.included}</p><p className="text-[10px] uppercase tracking-[0.12em] text-muted">enthalten</p></div>
@@ -213,7 +225,7 @@ export function PricingView() {
                 <div className="rounded-xl border border-stroke bg-coal p-2 text-center"><p className="font-mono text-lg font-semibold text-muted">{stats.locked}</p><p className="text-[10px] uppercase tracking-[0.12em] text-muted">nicht enthalten</p></div>
               </div>
               <div className="mt-4 rounded-xl border border-stroke bg-coal/65 p-3 text-xs leading-5 text-muted">
-                {tier.limits.watchlistItems} Watchlist · {tier.limits.alerts} Alerts · {tier.limits.portfolios} Portfolio{tier.limits.portfolios === 1 ? "" : "s"}
+                {tier.limits.maxWatchlistItems} Watchlist-Werte · {tier.limits.maxAlerts} Alerts · {tier.limits.portfolios} Portfolio{tier.limits.portfolios === 1 ? "" : "s"} · {tier.limits.historicalDataYears} Jahre Historie
               </div>
               <div className="mt-5 space-y-2">
                 {featureDefinitions.map((feature) => {

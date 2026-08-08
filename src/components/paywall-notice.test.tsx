@@ -51,7 +51,7 @@ describe("PaywallNotice", () => {
     expect(visible).toMatch(/Profi-Terminal/);
     expect(visible).toMatch(/Was die Funktion leistet/);
     expect(visible).toMatch(/Pro/);
-    expect(visible).toMatch(/29 € \/ Monat/);
+    expect(visible).toMatch(/29,99 € \/ Monat/);
     expect(screen.getByRole("link", { name: /Tarife ansehen/i })).toBeTruthy();
   });
 
@@ -98,7 +98,7 @@ describe("PaywallNotice", () => {
     const visible = text(container);
     expect(visible).toMatch(/nicht sicher prüfen|nicht prüfen/i);
     // Weder Preis noch Upgrade-Aufforderung: wir wissen nicht, ob Zahlen hilft.
-    expect(visible).not.toMatch(/29 €/);
+    expect(visible).not.toMatch(/29,99 €/);
     expect(screen.queryByRole("link", { name: /Tarife ansehen/i })).toBeNull();
   });
 

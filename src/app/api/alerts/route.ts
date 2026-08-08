@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 
   if (auth.ok) {
     const [entitlements, alerts] = await Promise.all([getUserEntitlements(auth), listUserAlerts(auth)]);
-    const decision = evaluateResourceLimit(entitlements, "alerts", alerts.length);
+    const decision = evaluateResourceLimit(entitlements, "maxAlerts", alerts.length);
     if (!decision.allowed) {
       return jsonError(`Alert-Limit des Tarifs erreicht (${decision.limit}).`, 403, resourceLimitHeaders(entitlements, decision.limit));
     }

@@ -82,11 +82,19 @@ Browser landen.
 **Offen bleibt:** Gutscheine und Testphasen sind in Stripe möglich, aber im
 Produkt nicht angebunden.
 
-### 3. Kein Jahresabo
+### 3. Kein Jahresabo — Code steht, Preise fehlen
 
-`grep -i "yearly\|annual" src/lib/billing` liefert null Treffer. Es gibt nur
-`STRIPE_STARTER_PRICE_ID` und `STRIPE_PRO_PRICE_ID`, beide monatlich. §3 und §5
-verlangen ein günstigeres Jahresabo.
+**Befund:** `grep -i "yearly|annual" src/lib/billing` lieferte null Treffer.
+
+**Behebung:** Tarife, Checkout, Anzeige und Preisableitung kennen jetzt Monat
+und Jahr. Vier Umgebungsvariablen sind vorgesehen:
+`STRIPE_PRO_PRICE_ID`, `STRIPE_PRO_YEARLY_PRICE_ID`,
+`STRIPE_PREMIUM_PRICE_ID`, `STRIPE_PREMIUM_YEARLY_PRICE_ID`.
+
+**Offen:** die Preis-IDs müssen in Stripe angelegt und gesetzt werden. Das ist
+eine Preisentscheidung und gehört dem Projektinhaber. Bis dahin ist der
+jeweilige Zeitraum schlicht nicht buchbar — und erscheint auch nicht als Knopf,
+weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 
 ---
 
@@ -96,11 +104,11 @@ verlangen ein günstigeres Jahresabo.
 |---|---|---|---|
 | §2 | SaaS-Ablauf ohne manuellen Eingriff | `IN PROGRESS` | Checkout, Portal, Webhook vorhanden. Freischaltung wirkt nicht auf Inhalte (Blocker 1) |
 | §3 | Tarifstruktur zentral konfigurierbar | `DONE` | `src/lib/feature-gates.ts`, eine Datei, vier Tarife |
-| §3 | Tarifnamen/Preise laut Masterprompt | `IN PROGRESS` | Ist: free / starter 9 € / pro 29 € / elite auf Anfrage. Soll: FREE / PRO 29,99 / PREMIUM 59,99–79,99. Preisentscheidung liegt beim Inhaber |
-| §3 | Jahresabo | `NOT STARTED` | Blocker 3 |
+| §3 | Tarifnamen/Preise laut Masterprompt | `DONE` | FREE / PRO 29,99 € / PREMIUM 69,99 € (Monat) plus Jahrespreise. Vom Inhaber am 2026-08-08 entschieden |
+| §3 | Jahresabo | `IN PROGRESS` | Code, Checkout und Anzeige stehen. Es fehlen nur die Preis-IDs aus Stripe — ohne sie ist der Zeitraum nicht buchbar und erscheint auch nicht |
 | §4 | Zentrale Entitlement-Definition | `DONE` | `feature-gates.ts` + `billing/entitlements.ts`, 11 Features, 5 Limits |
 | §4 | Backend erzwingt dieselben Rechte wie das Frontend | `DONE` | `feature-guard.ts`; `pro_terminal` durchgesetzt und gegen den Produktionsbuild geprüft. Noch nicht `VERIFIED`, weil erst eine von elf Funktionen eine gegatete Route hat |
-| §4 | Limits `maxWatchlists`, `maxSavedScreeners`, `historicalDataYears` | `NOT STARTED` | Nicht im Limitmodell |
+| §4 | Limits `maxWatchlists`, `maxSavedScreeners`, `historicalDataYears` | `IN PROGRESS` | Im Limitmodell nach §4 benannt und je Tarif gesetzt; noch keine Route setzt sie durch |
 | §4 | Limits `aiAnalysesPerDay`, `apiRequestsPerDay` | `DONE` | `usage-quota.ts` + `consume_feature_quota`, atomar in einer Anweisung. Gegen Produktion gemessen, 18 pgTAP-Zusicherungen. `apiRequestsPerDay` hat noch keine Route |
 | §5 | Webhook signaturgeprüft und idempotent | `VERIFIED` | `api/billing/webhook`, Body-Cap, `billing_events`-Dedupe, Immutability-Trigger, pgTAP |
 | §5 | Statusabbildung active/trialing/past_due/canceled/unpaid/incomplete | `DONE` | `stripe-events.ts`, `normalizeBillingStatus` |
