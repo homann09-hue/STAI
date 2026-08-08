@@ -1,5 +1,5 @@
 import "server-only";
-import { jsonError } from "@/lib/api-guard";
+import { jsonError, secureJsonHeaders } from "@/lib/api-guard";
 import { getUserEntitlements } from "@/lib/billing/server";
 import {
   evaluateFeatureAccess,
@@ -11,6 +11,15 @@ import {
 import { getStripeBillingConfiguration } from "@/lib/billing/stripe";
 import type { ResolvedEntitlements } from "@/lib/billing/entitlements";
 import type { FeatureId } from "@/lib/feature-gates";
+import {
+  buildQuotaStatus,
+  quotaFeatureNames,
+  quotaHeaders,
+  quotaLimitFor,
+  secondsUntilReset,
+  type QuotaKey,
+  type QuotaStatus
+} from "@/lib/billing/usage-quota";
 import { logEvent } from "@/lib/observability";
 import { getSupabaseAuth } from "@/lib/supabase/user-data";
 
@@ -130,4 +139,78 @@ export async function requireFeature(request: Request, featureId: FeatureId): Pr
   }
 
   return { ok: true, auth, entitlements };
+}
+
+/**
+ * Zaehlt eine Nutzung gegen die Tagesquote des Tarifs.
+ *
+ * Gezaehlt wird in der Datenbank, in einer einzigen atomaren Anweisung. Waeren
+ * Lesen und Erhoehen zwei Schritte, koennten zwei gleichzeitige Anfragen beide
+ * die letzte freie Einheit sehen und beide zugreifen.
+ *
+ * Der Service-Client ist hier noetig und begruendet: der Zaehler darf einem
+ * Konto nicht gehoeren. Ein Nutzer, der seinen eigenen Verbrauch schreiben
+ * koennte, haette keine Quote. Lesen darf er ihn (RLS), schreiben nicht.
+ */
+export async function consumeQuota(
+  auth: AuthenticatedContext,
+  entitlements: ResolvedEntitlements,
+  quota: QuotaKey
+): Promise<{ ok: true; status: QuotaStatus } | { ok: false; response: Response }> {
+  const limit = quotaLimitFor(entitlements.plan, quota);
+  const now = new Date();
+
+  const { data, error } = await auth.serviceSupabase.rpc("consume_feature_quota", {
+    p_user_id: auth.userId,
+    p_feature: quotaFeatureNames[quota],
+    p_limit: limit
+  });
+
+  if (error) {
+    // Fail closed: ohne belastbaren Zaehler wird nicht freigegeben. Sonst waere
+    // eine Stoerung der Quotentabelle ein unbegrenztes Kontingent.
+    logEvent("error", "billing.quota_check_failed", {
+      userId: auth.userId,
+      quota,
+      code: error.code,
+      message: error.message
+    });
+    return {
+      ok: false,
+      response: jsonError("Dein Kontingent lässt sich gerade nicht prüfen. Es wurde nichts verbraucht.", 503, {
+        ...entitledCacheHeaders
+      })
+    };
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  const used = Number(row?.used ?? 0);
+  const reportedLimit = Number(row?.quota_limit ?? limit);
+  const status = buildQuotaStatus(quota, entitlements.plan, used, reportedLimit, now);
+
+  if (row?.allowed !== true) {
+    logEvent("info", "billing.quota_exceeded", {
+      userId: auth.userId,
+      quota,
+      plan: entitlements.plan,
+      used,
+      limit: reportedLimit
+    });
+
+    return {
+      ok: false,
+      response: new Response(JSON.stringify({ error: status.message, quota: status }), {
+        status: 429,
+        headers: new Headers({
+          ...secureJsonHeaders,
+          ...entitledCacheHeaders,
+          ...quotaHeaders(status),
+          "Retry-After": `${secondsUntilReset(now)}`,
+          "Content-Type": "application/json"
+        })
+      })
+    };
+  }
+
+  return { ok: true, status };
 }

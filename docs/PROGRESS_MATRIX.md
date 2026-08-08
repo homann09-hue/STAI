@@ -93,7 +93,7 @@ verlangen ein günstigeres Jahresabo.
 | §4 | Zentrale Entitlement-Definition | `DONE` | `feature-gates.ts` + `billing/entitlements.ts`, 11 Features, 5 Limits |
 | §4 | Backend erzwingt dieselben Rechte wie das Frontend | `DONE` | `feature-guard.ts`; `pro_terminal` durchgesetzt und gegen den Produktionsbuild geprüft. Noch nicht `VERIFIED`, weil erst eine von elf Funktionen eine gegatete Route hat |
 | §4 | Limits `maxWatchlists`, `maxSavedScreeners`, `historicalDataYears` | `NOT STARTED` | Nicht im Limitmodell |
-| §4 | Limits `aiAnalysesPerDay`, `apiRequestsPerDay` | `IN PROGRESS` | Definiert, aber nirgends geprüft — null Treffer im Code |
+| §4 | Limits `aiAnalysesPerDay`, `apiRequestsPerDay` | `DONE` | `usage-quota.ts` + `consume_feature_quota`, atomar in einer Anweisung. Gegen Produktion gemessen, 18 pgTAP-Zusicherungen. `apiRequestsPerDay` hat noch keine Route |
 | §5 | Webhook signaturgeprüft und idempotent | `VERIFIED` | `api/billing/webhook`, Body-Cap, `billing_events`-Dedupe, Immutability-Trigger, pgTAP |
 | §5 | Statusabbildung active/trialing/past_due/canceled/unpaid/incomplete | `DONE` | `stripe-events.ts`, `normalizeBillingStatus` |
 | §5 | Checkout, Kundenportal | `DONE` | Redirect-Allowlist auf `checkout.stripe.com`/`billing.stripe.com` |
@@ -101,7 +101,7 @@ verlangen ein günstigeres Jahresabo.
 | §5 | Upgrade/Downgrade im Produkt | `IN PROGRESS` | Nur über Stripe-Portal; Checkout blockt bei aktivem Abo mit 409 |
 | §6 | Bereich Account → Billing | `NOT STARTED` | Blocker 2 |
 | §6 | Verständliche Paywall statt kryptischem Fehler | `DONE` | `paywall-notice.tsx` nennt Funktion, Tarif, Preis, Mehrwert und Weg; kein Upgrade-Knopf ohne konfigurierten Checkout. Komponententest fehlt noch |
-| §7 | Kosten- und Cache-Steuerung | `IN PROGRESS` | `cost-controls.ts`, `provider-cache.ts` vorhanden |
+| §7 | Kosten- und Cache-Steuerung | `IN PROGRESS` | `cost-controls.ts`, `provider-cache.ts`, Tagesquoten je Konto |
 | §7 | Kosten je Nutzer und je Tarif messbar | `NOT STARTED` | Keine Zuordnung von Providerkosten zu Nutzern |
 | §64 | Adminbereich | `NOT STARTED` | `admin-access.ts` schützt Endpunkte, keine Oberfläche |
 | §65 | Feature Flags | `NOT STARTED` | Null Treffer im Code |
@@ -239,7 +239,7 @@ Billing → Performance → UX → neue Features.
    `pro_terminal`. Offen: die übrigen zehn Features haben noch keine gegatete
    Route, weil es für sie noch keine gibt.
 2. ~~Ehrliche Paywall statt 403 ohne Erklärung (§6).~~ Erledigt.
-3. **Tagesquoten durchsetzen** (`aiAnalysesPerDay`) — definiert, aber wirkungslos (§7).
+3. ~~Tagesquoten durchsetzen (`aiAnalysesPerDay`).~~ Erledigt.
 4. **Account → Billing mit Rechnungen** (Blocker 2, §6).
 5. **Jahresabo** (Blocker 3, §3/§5).
 6. **Billing-Edge-Cases testen**: doppelter Webhook, fehlgeschlagene Zahlung,

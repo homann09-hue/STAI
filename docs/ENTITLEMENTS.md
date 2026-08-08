@@ -92,6 +92,38 @@ Getrennt von den Features und bereits vorher durchgesetzt:
 | `alerts` | `/api/alerts` |
 | `portfolios` | `/api/portfolio/books` |
 
-**Noch nicht durchgesetzt:** `aiAnalysesPerDay` und `apiRequestsPerDay` sind in
-`feature-gates.ts` definiert, werden aber an keiner Stelle geprüft. Solange das
-so ist, sind sie ein Versprechen ohne Wirkung — siehe `docs/PROGRESS_MATRIX.md`.
+Die Tagesquoten `aiAnalysesPerDay` und `apiRequestsPerDay` sind seit dem
+2026-08-08 wirksam und im nächsten Abschnitt beschrieben.
+
+## Tagesquoten (seit 2026-08-08 wirksam)
+
+| Quote | Free | Starter | Pro | Elite | Durchgesetzt in |
+|---|---|---|---|---|---|
+| `aiAnalysesPerDay` | 3 | 20 | 100 | 1.000 | `GET /api/ai/analysis` |
+| `apiRequestsPerDay` | 0 | 0 | 1.000 | 10.000 | noch keine Route |
+
+Gezaehlt wird in `public.feature_usage`, je Konto, Funktion und **UTC-Tag**.
+Eine Quote, die sich mit der Zeitzone des Aufrufers verschiebt, laesst sich
+durch eine geaenderte Systemzeit umgehen.
+
+**Atomar.** Erhoehen und Grenzpruefung stehen in einer einzigen Anweisung
+(`on conflict ... do update ... where used < limit`). Waeren es zwei Schritte,
+koennten zwei gleichzeitige Anfragen beide die letzte freie Einheit sehen.
+
+**Nicht im Arbeitsspeicher.** Vercel startet Funktionen kalt und parallel; ein
+Zaehler im Prozess wuerde bei jedem Kaltstart auf null springen und waere damit
+eine Scheinkontrolle.
+
+**Kein Selbstbedienungszaehler.** `authenticated` darf den eigenen Verbrauch
+lesen, aber nicht schreiben. Wer seinen Zaehler zuruecksetzen kann, hat keine
+Quote. Die zaehlende Funktion ist `SECURITY DEFINER` mit gepinntem
+`search_path`, das Ausfuehrungsrecht liegt allein bei `service_role`.
+
+**Fail closed.** Antwortet die Quotentabelle nicht, wird mit 503 abgelehnt und
+nichts verbraucht -- sonst waere eine Stoerung ein unbegrenztes Kontingent.
+
+**Antwort bei Ueberschreitung:** HTTP 429 mit `Retry-After`, den Kopfzeilen
+`X-StockPilot-Quota-*` und einem Body, der Verbrauch, Grenze, Ruecksetzzeitpunkt
+und den naechsthoeheren Tarif nennt. Eine Grenze von null wird ausdruecklich als
+"nicht im Tarif enthalten" formuliert und nicht als "morgen wieder verfuegbar" --
+das waere schlicht falsch.

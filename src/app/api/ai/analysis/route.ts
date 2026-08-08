@@ -1,12 +1,25 @@
 import { getAiAnalysisWithMetadata } from "@/lib/providers/ai-provider";
 import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
+import { consumeQuota, entitledCacheHeaders, requireFeature } from "@/lib/billing/feature-guard";
+import { quotaHeaders } from "@/lib/billing/usage-quota";
 import { withCacheFallback } from "@/lib/provider-cache";
-import { cacheControlHeaders, getCostControls } from "@/lib/cost-controls";
+import { getCostControls } from "@/lib/cost-controls";
 import { validateSymbol } from "@/lib/validation";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const limited = await rateLimit(request);
   if (limited) return limited;
+
+  // KI-Analysen kosten je Aufruf Geld. Eine Tagesquote laesst sich nur je Konto
+  // fuehren, deshalb steht hier eine Anmeldung vor dem ersten Aufruf.
+  const access = await requireFeature(request, "ai_news");
+  if (!access.ok) return access.response;
+
+  const quota = await consumeQuota(access.auth, access.entitlements, "aiAnalysesPerDay");
+  if (!quota.ok) return quota.response;
 
   const { searchParams } = new URL(request.url);
   const symbol = searchParams.get("symbol");
@@ -51,7 +64,8 @@ export async function GET(request: Request) {
     }
   }, {
     headers: {
-      ...cacheControlHeaders(costControls.aiTtlMs, costControls.aiStaleTtlMs),
+      ...entitledCacheHeaders,
+      ...quotaHeaders(quota.status),
       "X-StockPilot-Cost-Ttl-Ms": `${costControls.aiTtlMs}`,
       "X-StockPilot-Cache": result.fromCache ? "fallback" : "fresh",
       "X-StockPilot-AI-Provider": metadata.providerName,
