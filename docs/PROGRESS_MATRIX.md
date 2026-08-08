@@ -160,7 +160,7 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §34 | Short Interest | `BLOCKED` | `short-interest` gibt HTTP 404 — nicht im Tarif |
 | §35 | Optionen | `BLOCKED` | `options-chain` gibt HTTP 404 — nicht im Tarif |
 | §36 | Peer-Analyse | `NOT STARTED` | **Quelle vorhanden**: `stock-peers` antwortet mit 200 |
-| §37 | Bewertungsmodelle DCF/Multiples | `NOT STARTED` | **Eingangsdaten vorhanden**: `key-metrics`, `ratios`, `income-statement`, `cash-flow-statement` antworten alle mit 200. Die Rechnung selbst ist reine Mathematik |
+| §37 | Bewertungsmodelle DCF/Multiples | `IN PROGRESS` | `analysis/valuation.ts`: DCF, Reverse DCF, Sensitivität, Gewinn- und FCF-Rendite, Peer-Median. 31 Tests, fünf Regressionen gegengeprüft. Offen: Anbindung an die Oberfläche und historische Bewertung |
 | §38 | Szenarien mit Bandbreiten | `VERIFIED` | `forecast-passport.ts`, keine Punktziele |
 | §39 | Forecast-Transparenz | `VERIFIED` | Ledger mit Cutoff, Modellversion, Input-Digest |
 | §40 | Risikoanalyse | `DONE` | `risk-engine.ts`, getestet |
@@ -490,6 +490,55 @@ nachstellt.
 Nebenbei fiel auf: `officerTitle` ist nur bei Vorständen gefüllt. Genau dieser
 Verkäufer hatte deshalb gar keine Position — obwohl seine Rolle gemeldet war.
 `insiderRole()` nennt sie jetzt.
+
+### §37: der DCF und seine gefährlichste Eigenschaft
+
+Ein DCF erzeugt aus grob geschätzten Annahmen eine Zahl mit zwei
+Nachkommastellen. **Das Ergebnis sieht genauer aus als jede einzelne Eingabe.**
+§38 zieht daraus die Regel: Spanne statt Punktwert.
+
+An echten Apple-Zahlen gerechnet (FCF 98,8 Mrd. $, 8 % Wachstum, 9 %
+Diskontsatz, 2,5 % ewiges Wachstum):
+
+```
+Punktwert:                     182,10 $
+Spanne aus 25 Kombinationen:  140–290 $
+```
+
+Ein Faktor von mehr als zwei — bei Veränderungen von ±2 Prozentpunkten beim
+Diskontsatz und ±1 beim ewigen Wachstum. Wer den Punktwert zeigt, behauptet
+eine Genauigkeit, die keine der Eingaben hat.
+
+Drei Verweigerungen sind eingebaut, weil ein DDCF für fast jede Eingabe eine
+Zahl liefert und die meisten davon Unsinn sind:
+
+| Fall | Warum |
+|---|---|
+| Ewiges Wachstum ≥ Diskontsatz | Gordon teilt durch `(r − g)`. Ein Unternehmen, das dauerhaft schneller wächst als Kapital kostet, wäre irgendwann die gesamte Wirtschaft |
+| Negativer freier Cashflow | Der DCF würde den Verlust fortschreiben |
+| Weniger als drei Peers | Ein „Median" aus zwei Zahlen ist deren Mittelwert |
+
+**Der Reverse DCF ist die ehrlichere Frage.** Statt eigene Annahmen zu setzen,
+macht er sichtbar, was im Kurs schon steckt: Apple bei 313,33 $ setzt rund
+**25,3 % jährliches FCF-Wachstum über fünf Jahre** voraus. Ob das plausibel
+ist, ist eine Frage über das Unternehmen — nicht über das Modell.
+
+Die Renditebetrachtung sagt dasselbe unabhängig: Gewinnrendite 2,9 % liegt
+1,76 Prozentpunkte **unter** der risikofreien Verzinsung.
+
+**Eine Schwelle wurde durch Messung korrigiert.** Der Hinweis „zu viel Wert aus
+dem Endwert" stand zunächst bei 75 %. Gemessen liegen übliche Konfigurationen
+zwischen 50 % und 81 % — der Hinweis hätte bei jeder zweiten Rechnung
+angeschlagen und wäre überlesen worden. Jetzt bei 85 %; der Anteil selbst steht
+unabhängig davon immer im Ergebnis.
+
+**Ein eigener Fehler in der Probe, der ins Modul gehört.** Ich hatte die
+Nettoverschuldung als `enterpriseValue − marketCap` abgeleitet und erhielt
+707 Mrd. $ Nettoliquidität — um über eine Größenordnung zu hoch. Ursache: der
+Unternehmenswert stammt aus dem Geschäftsjahr 2025, die Marktkapitalisierung
+von heute. Genau das Vermischen von Stichtagen, das §22 verbietet und das die
+Zinsstrukturbewertung bereits verweigert. Die Falle steht jetzt am Feld selbst
+dokumentiert.
 
 ## Produkt und Oberfläche
 
