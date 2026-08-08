@@ -131,7 +131,7 @@ verlangen ein günstigeres Jahresabo.
 | §25 | Erklärbare Scores | `DONE` | `scoring.ts`, getestet |
 | §26 | Technische Analyse | `IN PROGRESS` | Indikatoren vorhanden, Mehrzeitrahmen unvollständig |
 | §27 | News und Events | `IN PROGRESS` | `news`-Route, Klassifikation unvollständig |
-| §28 | Makro | `DONE` | EZB Data Portal ohne Schlüssel und ohne Tarif. Fünf Reihen live gemessen, Zinsstrukturbewertung, Datenalter je Reihe. `GET /api/macro`. Oberfläche fehlt noch |
+| §28 | Makro | `DONE` | EZB Data Portal ohne Schlüssel und ohne Tarif. Fünf Reihen live gemessen, Zinsstrukturbewertung, Datenalter je Reihe. `GET /api/macro` und Seite `/macro`, in der Navigation. 32 Tests |
 | §28 | Economic Calendar | `NOT STARTED` | Terminreihen noch nicht angebunden |
 | §29 | Zentralbanken (Sitzungen, Statements) | `NOT STARTED` | Nur der Leitzins, keine Termine oder Protokolle |
 | §30 | Sentiment | `IN PROGRESS` | Teilweise über News |
