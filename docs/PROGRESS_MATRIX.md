@@ -147,7 +147,7 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 |---|---|---|---|
 | §24 | Fundamentalanalyse | `IN PROGRESS` | Das Scoring-Modell kennt 18 Kennzahlen aus §24. Im Datenmodell liegen davon nur 5 (`peRatio`, `revenueGrowth`, `debtToEquity`, `ebitda`, `grossMargin`) — die übrigen 13 muss der Provider erst liefern |
 | §25 | Erklärbare Teilnoten | `DONE` | `analysis/quality-scores.ts`: 7 Dimensionen, 18 Einzelkennzahlen, **keine Gesamtnote**. Fehlende Werte werden benannt statt geschätzt. 15 Tests. Ohne Branchenkalibrierung |
-| §26 | Technische Analyse | `IN PROGRESS` | Indikatoren vorhanden, Mehrzeitrahmen unvollständig |
+| §26 | Technische Analyse | `IN PROGRESS` | **Korrektur:** es gab keine Indikatoren. `chart-data.ts` setzte RSI hart auf 50, der Mock würfelte ihn. `analysis/indicators.ts` rechnet jetzt 16 Indikatoren, 25 Tests. Noch nicht an die Kursdaten angeschlossen; Mehrzeitrahmen und Trendkanäle fehlen |
 | §27 | News und Events | `IN PROGRESS` | `news`-Route, Klassifikation unvollständig |
 | §28 | Makro | `DONE` | EZB Data Portal ohne Schlüssel und ohne Tarif. Fünf Reihen live gemessen, Zinsstrukturbewertung, Datenalter je Reihe. `GET /api/macro` und Seite `/macro`, in der Navigation. 32 Tests |
 | §28 | Economic Calendar | `NOT STARTED` | Terminreihen noch nicht angebunden |
