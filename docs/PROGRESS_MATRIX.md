@@ -154,9 +154,13 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §29 | Zentralbanken: Zinsentscheidungen | `DONE` | Aus dem Leitzinspfad abgeleitet, 2-Jahres-Fenster. Live: 9 Entscheidungen seit 2024-09. `policy-rate-history.ts`, 13 Tests |
 | §29 | Zentralbanken: Sitzungstermine, Statements, Protokolle | `NOT STARTED` | Aus einem Zinspfad nicht ableitbar, braucht eine Terminquelle |
 | §30 | Sentiment | `IN PROGRESS` | Teilweise über News |
-| §31–§35 | Filings, Insider, Analysten, Short Interest, Optionen | `NOT STARTED` | Keine Datenquelle im Tarif |
-| §36 | Peer-Analyse | `NOT STARTED` | — |
-| §37 | Bewertungsmodelle DCF/Multiples | `NOT STARTED` | — |
+| §31 | SEC-Filings mit Originallink | `DONE` | `sec/edgar.ts` + `GET /api/sec/filings`. EDGAR ist **kostenlos und die Primärquelle**. Gemessen an Apple: 1000 Filings, davon 587 Form 4, 105 8-K, 34 10-Q. 13 Tests |
+| §32 | Insidertransaktionen | `IN PROGRESS` | `sec/form4.ts`: Person, Position, Stückzahl, Preis, Wert — und die von §32 verlangte Unterscheidung echter Käufe von Vergütung, Optionsausübung und 10b5-1-Plänen. 22 Tests. Offen: Anbindung an die Oberfläche |
+| §33 | Analystenurteile | `NOT STARTED` | **Quelle vorhanden**: `price-target-summary`, `grades`, `grades-consensus` antworten alle mit 200 |
+| §34 | Short Interest | `BLOCKED` | `short-interest` gibt HTTP 404 — nicht im Tarif |
+| §35 | Optionen | `BLOCKED` | `options-chain` gibt HTTP 404 — nicht im Tarif |
+| §36 | Peer-Analyse | `NOT STARTED` | **Quelle vorhanden**: `stock-peers` antwortet mit 200 |
+| §37 | Bewertungsmodelle DCF/Multiples | `NOT STARTED` | **Eingangsdaten vorhanden**: `key-metrics`, `ratios`, `income-statement`, `cash-flow-statement` antworten alle mit 200. Die Rechnung selbst ist reine Mathematik |
 | §38 | Szenarien mit Bandbreiten | `VERIFIED` | `forecast-passport.ts`, keine Punktziele |
 | §39 | Forecast-Transparenz | `VERIFIED` | Ledger mit Cutoff, Modellversion, Input-Digest |
 | §40 | Risikoanalyse | `DONE` | `risk-engine.ts`, getestet |
@@ -417,6 +421,75 @@ und laufen zeitweise deutlich auseinander (83,55 gegen 81,96).
 Quartalsreihen haben eigene Altersschwellen bekommen: ein BIP-Wert liegt erst
 rund zwei Monate nach Quartalsende vor, 150 Tage sind dort normal und kein
 Ausfall.
+
+### §29–§38: was erreichbar ist, gemessen am 2026-08-08
+
+Zehn Abschnitte auf einmal. Statt zehn flacher Umsetzungen zuerst die Messung,
+welche Quelle überhaupt antwortet:
+
+| § | Quelle | Ergebnis |
+|---|---|---|
+| §29 Zentralbanken | Fed-RSS `press_monetary.xml` | **200**, 15 Einträge |
+| §29 | EZB-RSS | 200, aber nur 1 Eintrag |
+| §30 Fear & Greed (Aktien) | CNN | **418** — Bot-Erkennung |
+| §30 Fear & Greed (Krypto) | alternative.me | **200**, frei |
+| §30 VIX | FRED / FMP | **200** (beide) |
+| §30 Put/Call, Reddit | — | keine freie Quelle |
+| §31 Filings | **SEC EDGAR** | **200**, kostenlos, Primärquelle |
+| §32 Insider | **SEC Form 4** | **200**, mit Transaktionscodes |
+| §33 Analysten | FMP `grades-consensus` | **200** |
+| §34 Short Interest | FMP | **404** |
+| §35 Optionen | FMP | **404** |
+| §36 Peers | FMP `stock-peers` | **200** |
+| §37 Bewertung | FMP Abschlussdaten | **200** |
+| §38 Szenarien | eigene Rechnung | bereits `VERIFIED` |
+
+Umgesetzt ist zuerst §31 und §32, weil dort der Gewinn am größten ist: EDGAR
+ist nicht die Auswertung eines Dritten, sondern das bei der Behörde
+eingereichte Dokument. Besser als §91 (Herkunft sichtbar) es verlangt.
+
+### §32: der Satz, der die Arbeit bestimmt hat
+
+> „Unterscheide echte Open-Market-Käufe von Compensation, Optionsausübung,
+> automatischen Verkaufsprogrammen."
+
+Der bisherige Typ war `{ date, person, action: "Buy" | "Sell", value }` — er
+**konnte** diese Unterscheidung nicht abbilden. Ein gemessenes Beispiel zeigt,
+warum das mehr als ein Schönheitsfehler ist. Apple, 2026-06-15:
+
+```
+Newstead Jennifer, SVP, GC and Secretary
+  Code M   +30.104 Aktien
+  Code F   −16.238 Aktien zu 296,42 $
+```
+
+Ein naives Modell liest „30.104 Aktien erworben" und meldet einen Insiderkauf.
+Tatsächlich hat niemand etwas gekauft: `M` ist die Ausübung zugeteilter
+Optionen, `F` die sofortige Rückgabe von Anteilen zur Steuerzahlung.
+**Ein echter Kauf ist Code `P`** — nur er bedeutet eigenes Geld zum Marktpreis.
+
+Ein Test hält fest, dass ausschließlich `P` und `S` als Marktgeschäft gelten.
+Wäre ein weiterer Code darunter, entstünde genau das Signal, das §32
+ausschließen will.
+
+### Ein eigener Fehler, den erst die Live-Daten aufgedeckt haben
+
+Die Zusammenfassung meldete an echten Apple-Daten:
+
+> „Alle Markttransaktionen stammen aus vorab festgelegten Plänen (Rule 10b5-1)."
+
+Das war falsch. Ich hatte alle geplanten Vorgänge (6) mit der Zahl der
+Markttransaktionen (6) verglichen — **ein Zahlenzufall.** Tatsächlich waren nur
+3 der 6 Marktverkäufe geplant; die übrigen drei stammten von einem
+Verwaltungsratsmitglied und summierten sich auf **86,7 Mio. $**.
+
+Ein Zufall in zwei Zählern hätte damit die größte Position des Zeitraums
+weginterpretiert. Behoben, mit einem Test, der genau diese Zahlengleichheit
+nachstellt.
+
+Nebenbei fiel auf: `officerTitle` ist nur bei Vorständen gefüllt. Genau dieser
+Verkäufer hatte deshalb gar keine Position — obwohl seine Rolle gemeldet war.
+`insiderRole()` nennt sie jetzt.
 
 ## Produkt und Oberfläche
 

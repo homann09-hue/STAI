@@ -19,7 +19,11 @@ const DEFAULT_ALLOWED_PROVIDER_HOSTS = [
   "massive.com",
   "newsapi.org",
   "polygon.io",
-  "twelvedata.com"
+  "twelvedata.com",
+  // Zwei einzelne Hosts der SEC statt "sec.gov": `data.sec.gov` liefert die
+  // Einreichungsliste, `www.sec.gov` die Originaldokumente.
+  "data.sec.gov",
+  "www.sec.gov"
 ];
 
 function providerJsonMaxBytes() {
