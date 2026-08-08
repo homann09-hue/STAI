@@ -11,6 +11,21 @@ updates:
     labels:
       - dependencies
       - stockpilot
+    ignore:
+      # TypeScript 7 ist veroeffentlicht, aber typescript-eslint unterstuetzt es
+      # noch nicht: auch die neueste Version 8.66.0 hat als Peer
+      # `typescript ">=4.8.4 <6.1.0"`. Ein Bump auf 7.x erzeugt deshalb einen
+      # unaufloesbaren Peer-Konflikt und `npm ci` bricht ab.
+      #
+      # Genau das ist seit dem 10.07.2026 passiert: jede qa-tooling-PR scheiterte
+      # nach rund 6 Sekunden mit "Command npm ci exited with 1". Vier PRs in
+      # Folge, ein Monat ohne Dependency-Updates.
+      #
+      # Diese Regel entfernen, sobald typescript-eslint TypeScript 7 als Peer
+      # akzeptiert. Pruefen mit:
+      #   npm view typescript-eslint@latest peerDependencies
+      - dependency-name: typescript
+        versions: [">=6.1.0"]
     groups:
       next-react:
         patterns:
@@ -24,6 +39,12 @@ updates:
           - vitest
           - "@vitest/*"
           - eslint
+          # typescript-eslint und @eslint/js gehoeren in dieselbe Gruppe wie
+          # eslint und typescript. Sie sind die Pakete, die auf beide peeren —
+          # werden sie getrennt aktualisiert, entstehen zwangslaeufig
+          # Kombinationen, die npm nicht aufloesen kann.
+          - typescript-eslint
+          - "@eslint/*"
           - typescript
 
   - package-ecosystem: github-actions

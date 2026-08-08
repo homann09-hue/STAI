@@ -138,6 +138,53 @@ Stelle.
 
 ---
 
+## BLOCKER-007 — TypeScript 7 wird von typescript-eslint noch nicht unterstützt
+
+**Schweregrad:** mittel — hat die Dependency-Pipeline einen Monat lahmgelegt.
+
+**Nachweis.** `typescript-eslint` deklariert auch in der aktuellsten Version
+8.66.0 als Peer:
+
+```
+"typescript": ">=4.8.4 <6.1.0"
+```
+
+TypeScript stable ist inzwischen **7.0.2**. Dependabot hat es in der
+`qa-tooling`-Gruppe hochgezogen, wodurch `npm ci` mit `ERESOLVE` abbrach.
+Betroffene Deployments: 27.07., 13.07., 11.07., 10.07. — jeweils nach rund
+sechs Sekunden „Command npm ci exited with 1".
+
+**Reproduziert und gegengeprüft** am 2026-08-08 per `npm install --dry-run`:
+
+| Kombination | Ergebnis |
+|---|---|
+| typescript 7.0.2 + typescript-eslint 8.62.0 | **ERESOLVE**, Abbruch |
+| typescript 6.0.3 + eslint 10.8.1 + @eslint/js 10.0.1 + playwright 1.62.0 + vitest 4.1.10 | **602 Pakete, erfolgreich** |
+
+ESLint 10 ist also unproblematisch — `typescript-eslint` akzeptiert
+`^8.57.0 || ^9.0.0 || ^10.0.0`. Der einzige Blocker ist TypeScript.
+
+**Was implementiert ist.** In `.github/dependabot.yml`:
+
+- `ignore`-Regel für `typescript >=6.1.0` mit Begründung und Prüfkommando.
+- `typescript-eslint` und `@eslint/*` in die `qa-tooling`-Gruppe aufgenommen.
+  Sie peeren auf eslint **und** typescript; werden sie getrennt aktualisiert,
+  entstehen zwangsläufig unauflösbare Kombinationen. Genau das war die Ursache.
+
+**Aktivierungsschritt.** Sobald typescript-eslint TypeScript 7 unterstützt, die
+`ignore`-Regel entfernen. Prüfen mit:
+
+```
+npm view typescript-eslint@latest peerDependencies
+```
+
+**Nicht getan.** Ich habe TypeScript und ESLint im Projekt **nicht** selbst auf
+6.0.3 / 10.8.1 angehoben. Ein TS-Major-Bump kann neue Typfehler erzeugen, und
+ich kann `npm run build` in dieser Umgebung nicht ausführen. Das gehört in einen
+eigenen, verifizierten Schritt — Dependabot wird es jetzt ohnehin vorschlagen.
+
+---
+
 ## BLOCKER-002 — Keine Realtime-Marktdatenlizenz
 
 **Schweregrad:** mittel
