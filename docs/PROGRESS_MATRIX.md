@@ -130,8 +130,8 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 |---|---|---|---|
 | §20 | Instrumentuniversum über Aktien hinaus | `IN PROGRESS` | Aktien, ETF, Krypto, Forex, Index, Rohstoff erkannt. Anleihen, Optionen, Futures fehlen |
 | §20 | Vollständiger Symbolabzug | `BLOCKED` | BLOCKER-001, FMP-Tarif |
-| §21 | Provider-Abstraktion mit Fallback | `DONE` | `market-provider.ts`, `provider-health.ts`, Circuit Breaker |
-| §21 | Provider-Dokumentation je Quelle | `IN PROGRESS` | `docs/provider-licensing.md` unvollständig |
+| §21 | Provider-Abstraktion mit Fallback | `IN PROGRESS` | Circuit Breaker, Backoff, Zeitlimit und Health-Report stehen. Echtes Failover fehlt: der Rückfall landet beim Mock, nicht bei einer zweiten echten Quelle — es ist nur eine Kursquelle konfiguriert |
+| §21 | Provider-Dokumentation je Quelle | `IN PROGRESS` | `docs/PROVIDERS.md`: 14 Quellen erfasst. Für 9 davon sind Rate Limits, Kosten, Historie und Lizenz **nie gemessen** — als solche markiert, nicht geraten |
 | §22 | Quelle, Timestamp, Qualität je Datensatz | `VERIFIED` | `asset-provenance.ts`, `data-quality.ts`, in UI durchgezogen |
 | §22 | Point-in-Time-Historie | `NOT STARTED` | Ohne sie ist Backtesting nicht belastbar |
 | §23 | Realtime/Streaming | `BLOCKED` | BLOCKER-002, Lizenz |
