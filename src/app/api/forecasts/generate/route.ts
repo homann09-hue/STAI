@@ -2,6 +2,7 @@ import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
 import { buildForecastLedgerResponse } from "@/lib/forecast-ledger";
 import { persistForecastLedgerResponse } from "@/lib/forecast-ledger-store";
 import { selectForecastCoverage, type CoverageCandidate } from "@/lib/forecast-coverage";
+import { shouldGenerateForecasts } from "@/lib/forecast-schedule";
 import { logEvent } from "@/lib/observability";
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
@@ -88,6 +89,17 @@ export async function GET(request: Request) {
         ? "Cron Secret fehlt. Prognoseerzeugung ist deaktiviert."
         : "Cron nicht autorisiert.",
       auth.mode === "missing_secret" ? 503 : 401
+    );
+  }
+
+  // Wochentagsentscheidung bewusst hier statt im Cron-Ausdruck: Vercel laesst
+  // auf dem Hobby-Tarif nur einen Lauf pro Tag zu und bricht das Deployment bei
+  // haeufigeren Ausdruecken ab. Ein Filter wie "0 8 * * 1-5" waere dort riskant.
+  const schedule = shouldGenerateForecasts(new Date());
+  if (!schedule.shouldRun) {
+    return jsonOk(
+      { skippedRun: true, reason: schedule.reason, generated: 0, stored: 0, skipped: 0, failed: 0 },
+      { headers: { "Cache-Control": "no-store" } }
     );
   }
 

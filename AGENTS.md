@@ -155,12 +155,22 @@ Drei Cron-Jobs in `vercel.json`, in dieser Reihenfolge sinnvoll:
 
 | Zeit | Route | Zweck |
 |---|---|---|
-| 08:00 Mo–Fr | `/api/forecasts/generate` | Prognosen erzeugen und in den Ledger schreiben |
+| 08:00 täglich | `/api/forecasts/generate` | Prognosen erzeugen und in den Ledger schreiben |
 | 07:30 täglich | `/api/forecasts/evaluate` | Fällige Prognosen gegen den echten Kurs auswerten |
 | — | `/track-record` | Öffentliche Trefferbilanz |
 
-Alle drei brauchen `CRON_SECRET` beziehungsweise `STOCKPILOT_CRON_SECRET`.
+Alle brauchen `CRON_SECRET` beziehungsweise `STOCKPILOT_CRON_SECRET`.
 Ohne Secret antworten die Jobs mit 503 und tun nichts — bewusst fail-closed.
+
+**Vercel-Tarifgrenze beachten.** Auf dem Hobby-Tarif darf ein Cron nur **einmal
+pro Tag** laufen; ein häufigerer Ausdruck lässt das Deployment fehlschlagen.
+Deshalb steht in `vercel.json` überall ein simples tägliches Muster. Die
+Wochentagsentscheidung liegt in `forecast-schedule.ts` — im Code, wo sie
+testbar ist, statt im Cron-Ausdruck, wo sie ein Deployment-Risiko wäre.
+
+Ebenfalls Hobby: Vercel ruft den Job irgendwann innerhalb der angegebenen
+Stunde auf. Eine im Ausdruck kodierte Reihenfolge zwischen den Jobs ist dort
+nicht garantiert — alle Jobs sind deshalb idempotent gebaut.
 
 **Warum planmäßig erzeugt wird:** Ohne Job entstehen Prognosen nur, wenn jemand
 zufällig eine Detailseite aufruft. Das Modell würde sich dann nur an den
@@ -182,7 +192,7 @@ ist, greift die Liste nicht mehr.
 ```bash
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint . --max-warnings=0
-npm test              # vitest, aktuell 46 Dateien / 252 Tests
+npm test              # vitest, aktuell 47 Dateien / 257 Tests
 npm run test:coverage # Schwellen in vitest.config.ts sind NICHT kalibriert
 npm run build
 npm run test:db       # braucht lokale Supabase-Instanz

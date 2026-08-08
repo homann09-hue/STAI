@@ -118,6 +118,26 @@ nach dem ersten Abruf automatisch auf `available`. Kein Codeumbau nötig.
 
 ---
 
+## BLOCKER-006 — Vercel Hobby erlaubt nur einen Cron-Lauf pro Tag
+
+**Schweregrad:** niedrig, aber ein Deployment-Risiko wenn ignoriert.
+
+Auf dem Hobby-Tarif gilt: Cron-Jobs dürfen nur einmal täglich laufen, häufigere
+Ausdrücke lassen das Deployment fehlschlagen. Ausserdem ruft Vercel den Job
+irgendwann innerhalb der angegebenen Stunde auf, nicht zur exakten Minute.
+
+**Konsequenz.** Alle Ausdrücke in `vercel.json` sind bewusst simpel täglich.
+Der Wochentagsfilter für die Prognoseerzeugung liegt in
+`src/lib/forecast-schedule.ts` statt im Cron-Ausdruck. Alle Jobs sind idempotent,
+weil ihre Reihenfolge nicht garantiert ist.
+
+**Aktivierungsschritt bei Pro.** Mit einem Pro-Tarif sind beliebige Ausdrücke
+und minutengenaue Auslösung möglich. Der Wochentagsfilter kann dann optional
+zurück in den Cron-Ausdruck, muss aber nicht — der Code ist die testbarere
+Stelle.
+
+---
+
 ## BLOCKER-002 — Keine Realtime-Marktdatenlizenz
 
 **Schweregrad:** mittel
