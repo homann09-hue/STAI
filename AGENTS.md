@@ -211,6 +211,33 @@ kein Hänger.
 
 ---
 
+### Komponententests
+
+React-Komponenten werden mit `@testing-library/react` und `happy-dom` getestet.
+Beides ist bewusst pro Datei aktiviert, nicht global — die Bibliotheks-Tests
+laufen weiter im schnellen Node-Environment.
+
+Jede Komponenten-Testdatei braucht deshalb zwei Zeilen:
+
+```tsx
+// @vitest-environment happy-dom      <- muss die ERSTE Zeile sein
+...
+afterEach(cleanup);                    <- ohne `globals` raeumt TL nicht auf
+```
+
+**Zwei Fallen:**
+
+1. Ohne `afterEach(cleanup)` sammeln sich die Renders im selben Dokument.
+   `screen`-Abfragen finden dann Treffer aus vorherigen Tests und melden
+   „Found multiple elements".
+2. `getByText` mit einer Regex trifft bei Prosa sowohl das Blattelement als
+   auch dessen Vorfahren. Fuer ganze Saetze ist `container.textContent` die
+   richtige Ebene; `getByText` nur fuer kurze, eindeutige Beschriftungen.
+
+Getestet wird bewusst **nicht** Layout, sondern was die Ansicht aussagen darf:
+dass eine leere Bilanz keine Zahlen zeigt, dass ein zu breites Band als Mangel
+erscheint, dass ein gesperrtes Instrument nicht als „nicht gefunden" gilt.
+
 ### pgTAP-Suiten
 
 Fuenf Dateien unter `supabase/tests/database/`. Sie laufen **nur in CI**

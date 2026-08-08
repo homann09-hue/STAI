@@ -108,11 +108,11 @@ ausgewertete Prognose" statt Platzhalterwerten.
 | Anforderung | Status | Beleg / Grund |
 |---|---|---|
 | Typecheck, Lint grün | ✅ | Verifiziert 2026-08-07 |
-| Unit-Tests | 🟡 | 42 Dateien, 193 Tests — alle in `src/lib` |
-| Komponententests | ❌ | 40 Komponenten, 0 Tests |
+| Unit-Tests | 🟡 | 49 Dateien, 275 Tests |
+| Komponententests | 🟡 | Setup steht (happy-dom + Testing Library); 2 von 40 Komponenten abgedeckt, beide zu 100 % |
 | E2E | 🟡 | 5 Playwright-Specs, in dieser Session nicht ausgeführt |
-| Coverage ehrlich gemessen | 🟡 | `all: true` gesetzt, Schwellen **nicht kalibriert** |
-| RLS-/pgTAP-Tests ausgeführt | 🔒 | BLOCKER-003, Ersatznachweis gegen Prod |
+| Coverage ehrlich gemessen | ✅ | `all: true`, 26,56 % über 181 Dateien, Schwellen kalibriert |
+| RLS-/pgTAP-Tests ausgeführt | ✅ | Laufen in CI; 5 Suiten, Instrument Master neu abgedeckt |
 | Observability, Logs, Metriken | 🟡 | `observability.ts`; keine Dashboards, keine Alerts |
 | CI/CD | 🟡 | 8 Workflows. `ci.yml` fährt format/typecheck/lint/test:coverage/build/performance — **aber nur auf `main`** |
 | iOS-Build | 🔒 | BLOCKER-004 |
