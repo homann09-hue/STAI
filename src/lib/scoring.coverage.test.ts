@@ -83,7 +83,10 @@ describe("scoring helpers coverage", () => {
           sentiment: "positive",
           impactScore: 64,
           summary: "test",
-          url: "#"
+          url: "#",
+          events: [],
+          subjects: [],
+          duplicateSources: []
         }
       ],
       earningsDate: "2026-07-20",
@@ -110,7 +113,10 @@ describe("scoring helpers coverage", () => {
           sentiment: "negative",
           impactScore: -54,
           summary: "test",
-          url: "#"
+          url: "#",
+          events: [],
+          subjects: [],
+          duplicateSources: []
         }
       ],
       earningsDate: "2026-07-06",

@@ -22,7 +22,7 @@ export type MacroReading = {
   id: string;
   label: string;
   explanation: string;
-  unit: "percent" | "ratio";
+  unit: "percent" | "ratio" | "index";
   value: number;
   period: string;
   /** Zeitpunkt der Beobachtung als ISO-Datum, nicht der Abrufzeitpunkt. */
@@ -50,14 +50,24 @@ export type MacroReading = {
 const freshnessThresholds: Record<MacroFrequency, { current: number; delayed: number }> = {
   daily: { current: 7, delayed: 30 },
   business_daily: { current: 7, delayed: 30 },
-  monthly: { current: 60, delayed: 120 }
+  monthly: { current: 60, delayed: 120 },
+  // Quartalsreihen erscheinen mit deutlichem Abstand: das BIP eines Quartals
+  // liegt erst rund zwei Monate spaeter vor. 150 Tage sind dort normal und
+  // kein Ausfall.
+  quarterly: { current: 150, delayed: 260 }
 };
 
 /**
  * Wie stark sich ein Wert bewegt haben muss, damit von einem Trend die Rede
  * ist. Ohne diese Schwelle wuerde jede Rundungsdifferenz zu „steigend".
  */
-const trendThreshold = { percent: 0.05, ratio: 0.002 } as const;
+const trendThreshold = {
+  percent: 0.05,
+  ratio: 0.002,
+  // Indexreihen stehen bei rund 100. Ein halber Punkt Bewegung ist dort das,
+  // was 0,05 Prozentpunkte bei einer Zinsreihe sind.
+  index: 0.5
+} as const;
 
 function daysBetween(from: Date, to: Date) {
   return Math.floor((to.getTime() - from.getTime()) / 86_400_000);
@@ -70,7 +80,7 @@ function classifyFreshness(ageDays: number, frequency: MacroFrequency): MacroFre
   return "outdated";
 }
 
-function classifyTrend(change: number | null, unit: "percent" | "ratio"): MacroTrend {
+function classifyTrend(change: number | null, unit: keyof typeof trendThreshold): MacroTrend {
   if (change === null) return "unknown";
   const threshold = trendThreshold[unit];
   if (Math.abs(change) < threshold) return "flat";

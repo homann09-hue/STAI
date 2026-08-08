@@ -52,14 +52,62 @@ export function NewsList({ news }: { news: NewsItem[] }) {
                 </div>
                 <h3 className="text-sm font-semibold text-mist">{item.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-muted">{item.summary}</p>
+
+                {/* Ereignisarten mit ihrem Beleg. Der ausloesende Wortlaut steht
+                    im Titelattribut -- ohne ihn waere die Einordnung eine
+                    Behauptung ohne Nachweis. */}
+                {item.events.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                    {item.events.map((event) => (
+                      <span
+                        key={event.type}
+                        title={`Erkannt an: „${event.matchedText}"`}
+                        className="rounded-md border border-cyan/25 bg-cyan/10 px-2 py-1 text-cyan"
+                      >
+                        {event.label}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                {item.subjects.length ? (
+                  <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                    {item.subjects.slice(0, 6).map((subject) => (
+                      <span
+                        key={`${subject.type}:${subject.id}`}
+                        // Abgeleitete Bezuege werden gedaempft dargestellt: sie
+                        // stammen nicht vom Anbieter, sondern aus dem Symbol.
+                        className={`rounded-md px-2 py-1 ${
+                          subject.origin === "provider" ? "bg-panel2 text-muted" : "bg-panel2/50 text-muted/70"
+                        }`}
+                      >
+                        {subject.label}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
                 <div className="mt-3 flex flex-wrap gap-2 text-xs">
                   <span className="rounded-md bg-panel2 px-2 py-1 text-muted">
-                    Relevanz {item.relevance}/100
+                    {item.relevance === null
+                      ? "Relevanz: keine Angabe der Quelle"
+                      : `Übereinstimmung ${item.relevance} (Anbieterwert)`}
                   </span>
-                  <span className="rounded-md bg-panel2 px-2 py-1 text-muted">
-                    Kursauswirkung {item.impactScore > 0 ? "+" : ""}
-                    {item.impactScore}
-                  </span>
+                  {item.impactScore === null ? null : (
+                    <span className="rounded-md bg-panel2 px-2 py-1 text-muted">
+                      Kursauswirkung {item.impactScore > 0 ? "+" : ""}
+                      {item.impactScore}
+                    </span>
+                  )}
+                  {item.duplicateSources.length ? (
+                    <span
+                      title={item.duplicateSources.join(", ")}
+                      className="rounded-md bg-panel2 px-2 py-1 text-muted"
+                    >
+                      +{item.duplicateSources.length} weitere Quelle
+                      {item.duplicateSources.length === 1 ? "" : "n"}
+                    </span>
+                  ) : null}
                   {sourceUrl ? (
                     <Link className="rounded-md bg-panel2 px-2 py-1 text-cyan" href={sourceUrl} target="_blank" rel="noopener noreferrer">
                       Quelle öffnen

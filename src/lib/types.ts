@@ -262,11 +262,41 @@ export interface NewsItem {
   title: string;
   source: string;
   publishedAt: string;
-  relevance: number;
+  /**
+   * Der Übereinstimmungswert des Anbieters — **nicht** auf 0–100 kalibriert.
+   *
+   * Vorher war das eine Zahl aus der Listenposition: `74 + |sentiment| × 22 −
+   * index × 2`. Der zweite Treffer war damit immer relevanter als der dritte,
+   * unabhängig vom Inhalt. `null` heißt: der Anbieter liefert keine Relevanz.
+   */
+  relevance: number | null;
   sentiment: Sentiment;
-  impactScore: number;
+  /** Aus Sentiment und Relevanz abgeleitet. Ohne Relevanz nicht bildbar. */
+  impactScore: number | null;
   summary: string;
   url: string;
+  /** Erkannte Ereignisarten, jeweils mit dem auslösenden Wortlaut. */
+  events: NewsEvent[];
+  /** Bezüge der Meldung: Unternehmen, Branche, Land, Index, Rohstoff, Währung, Krypto. */
+  subjects: NewsSubjectRef[];
+  /** Weitere Quellen, die dieselbe Meldung gebracht haben. */
+  duplicateSources: string[];
+}
+
+export interface NewsEvent {
+  type: string;
+  label: string;
+  /** Der Wortlaut, der die Einordnung ausgelöst hat. Ohne ihn wäre es eine Black Box. */
+  matchedText: string;
+}
+
+export interface NewsSubjectRef {
+  type: "company" | "industry" | "country" | "index" | "commodity" | "currency" | "crypto";
+  id: string;
+  label: string;
+  /** `provider` ist belastbar, `symbol` ist abgeleitet. */
+  origin: "provider" | "symbol";
+  matchScore: number | null;
 }
 
 export interface DataSource {
@@ -707,7 +737,8 @@ export interface ProfessionalNewsEvent {
   symbol?: string;
   source: string;
   publishedAt: string;
-  relevance: number;
+  /** `null`, wenn der Nachrichtenanbieter keine Relevanz liefert. */
+  relevance: number | null;
   impact: "positive" | "neutral" | "negative" | "unclear";
   quality: MarketDataQuality;
   checked: boolean;

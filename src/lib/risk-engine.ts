@@ -45,8 +45,24 @@ export function buildRiskReport(
   const latest = candles[candles.length - 1];
   const first = candles[0];
   const monthlyMove = hasHistory && first && latest ? ((latest.close - first.close) / Math.max(first.close, 0.01)) * 100 : 0;
-  const positiveNews = detail.news.some((item) => item.sentiment === "positive" && item.relevance >= 70);
-  const negativeNews = detail.news.filter((item) => item.sentiment === "negative" && item.relevance >= 70);
+  // Rang statt absoluter Schwelle.
+  //
+  // Vorher stand hier `relevance >= 70` -- was funktionierte, solange die
+  // Relevanz erfunden war und konstruktionsbedingt zwischen 42 und 98 lag. Der
+  // echte Uebereinstimmungswert von Marketaux liegt bei 13 bis 27, und die
+  // Schwelle haette nie wieder ausgeloest. Eine anbieterspezifische Skala darf
+  // nicht als absolute Grenze auftreten; die vier relevantesten Meldungen sind
+  // dagegen bei jedem Anbieter dieselbe Aussage.
+  const MOST_RELEVANT = 4;
+  const ranked = [...detail.news].sort((left, right) => (right.relevance ?? -1) - (left.relevance ?? -1));
+  const leading = ranked.slice(0, MOST_RELEVANT);
+
+  const positiveNews = leading.some((item) => item.sentiment === "positive");
+  const negativeNews = leading.filter((item) => item.sentiment === "negative");
+  // Ereignisarten aus §27, die eine Meldung unabhaengig von ihrem Rang schwer
+  // machen. Sie sind belegt -- jede traegt den ausloesenden Wortlaut mit.
+  const severeEventTypes = new Set(["profit_warning", "litigation", "regulatory_decision", "capital_measure"]);
+  const severeNews = negativeNews.filter((item) => item.events.some((event) => severeEventTypes.has(event.type)));
   const recentVolumes = candles.slice(-8).map((item) => item.volume);
   const olderVolumes = candles.slice(-16, -8).map((item) => item.volume);
   const recentVolumeAvg = recentVolumes.reduce((sum, value) => sum + value, 0) / Math.max(recentVolumes.length, 1);
@@ -103,9 +119,17 @@ export function buildRiskReport(
         id: "negative-news",
         category: "news",
         title: "Negative relevante News",
-        severity: negativeNews.some((item) => item.relevance > 85) ? "hoch" : "mittel",
+        // Die Schwere haengt jetzt an der erkannten Ereignisart statt an einer
+        // Relevanzzahl: eine Gewinnwarnung wiegt schwerer als eine schlecht
+        // besprochene Produktvorstellung, unabhaengig vom Anbieterscore.
+        severity: severeNews.length ? "hoch" : "mittel",
         detail: "Mehrere News werden modellbasiert als belastend eingestuft.",
-        evidence: negativeNews.map((item) => item.title).join(" | "),
+        evidence: negativeNews
+          .map((item) => {
+            const events = item.events.map((event) => event.label).join(", ");
+            return events ? `${item.title} [${events}]` : item.title;
+          })
+          .join(" | "),
         action: "Quellen lesen und These gegenprüfen."
       })
     );

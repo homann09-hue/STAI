@@ -15,13 +15,21 @@
  * Datenpunkt und ist nicht optional.
  */
 
-export type MacroCategory = "policy_rate" | "inflation" | "yield" | "exchange_rate";
+export type MacroCategory =
+  | "policy_rate"
+  | "inflation"
+  | "yield"
+  | "exchange_rate"
+  | "labour"
+  | "growth"
+  | "consumption"
+  | "money";
 
 /**
  * Erhebungsfrequenz. Sie bestimmt, ab wann ein Wert als veraltet gilt — eine
  * Monatsreihe ist nach zwei Wochen nicht alt, eine Tagesreihe schon.
  */
-export type MacroFrequency = "daily" | "business_daily" | "monthly";
+export type MacroFrequency = "daily" | "business_daily" | "monthly" | "quarterly";
 
 export type MacroSeriesDefinition = {
   id: string;
@@ -31,7 +39,7 @@ export type MacroSeriesDefinition = {
   category: MacroCategory;
   frequency: MacroFrequency;
   /** Einheit des Werts, wie er geliefert wird. */
-  unit: "percent" | "ratio";
+  unit: "percent" | "ratio" | "index";
   region: "euro_area";
   source: "ECB Data Portal";
   sourceUrl: string;
@@ -112,6 +120,156 @@ export const macroSeriesCatalog: MacroSeriesDefinition[] = [
     sourceUrl: "https://data.ecb.europa.eu/data/datasets/EXR",
     resource: "EXR",
     key: "D.USD.EUR.SP00.A"
+  },
+
+  // Ab hier die Erweiterung fuer §28, am 2026-08-08 einzeln gegen die Live-API
+  // gemessen. Der falsche Schluesselversuch fuer die Arbeitslosenquote
+  // (LFSI/M.I9.S.UNEH.RTT000.4.000) antwortete mit 404 und steht deshalb nicht
+  // im Katalog -- aufgenommen wird nur, was nachweislich liefert.
+  {
+    id: "ea_core_inflation",
+    label: "Kerninflation Euroraum",
+    explanation:
+      "Inflation ohne Energie und Lebensmittel. Sie schwankt weniger und zeigt deshalb den zugrunde liegenden Preisdruck deutlicher als die Gesamtrate.",
+    category: "inflation",
+    frequency: "monthly",
+    unit: "percent",
+    region: "euro_area",
+    source: "ECB Data Portal",
+    sourceUrl: "https://data.ecb.europa.eu/data/datasets/ICP",
+    resource: "ICP",
+    key: "M.U2.N.XEF000.4.ANR"
+  },
+  {
+    id: "ea_unemployment",
+    label: "Arbeitslosenquote Euroraum",
+    explanation:
+      "Anteil der Erwerbslosen an allen Erwerbspersonen zwischen 15 und 74 Jahren. Ein wichtiger Gegenspieler der Inflation im Auftrag der Notenbank.",
+    category: "labour",
+    frequency: "monthly",
+    unit: "percent",
+    region: "euro_area",
+    source: "ECB Data Portal",
+    sourceUrl: "https://data.ecb.europa.eu/data/datasets/LFSI",
+    resource: "LFSI",
+    key: "M.I9.S.UNEHRT.TOTAL0.15_74.T"
+  },
+  {
+    id: "ea_gdp_growth",
+    label: "BIP-Wachstum Euroraum",
+    explanation:
+      "Veränderung der Wirtschaftsleistung gegenüber dem Vorjahresquartal. Die Grundgröße dafür, ob die Wirtschaft wächst oder schrumpft.",
+    category: "growth",
+    frequency: "quarterly",
+    unit: "percent",
+    region: "euro_area",
+    source: "ECB Data Portal",
+    sourceUrl: "https://data.ecb.europa.eu/data/datasets/MNA",
+    resource: "MNA",
+    key: "Q.Y.I9.W2.S1.S1.B.B1GQ._Z._Z._Z.EUR.LR.GY"
+  },
+  {
+    id: "ea_industrial_production",
+    label: "Industrieproduktion Euroraum",
+    explanation:
+      "Indexstand der industriellen Erzeugung. Er reagiert früher auf Konjunkturwenden als das BIP und dient deshalb als Frühindikator.",
+    category: "growth",
+    frequency: "monthly",
+    unit: "index",
+    region: "euro_area",
+    source: "ECB Data Portal",
+    sourceUrl: "https://data.ecb.europa.eu/data/datasets/STS",
+    resource: "STS",
+    key: "M.I9.Y.PROD.NS0020.4.000"
+  },
+  {
+    id: "ea_retail_turnover",
+    label: "Einzelhandelsumsätze Euroraum",
+    explanation:
+      "Indexstand der Umsätze im Einzelhandel. Er zeigt, wie viel private Haushalte tatsächlich ausgeben.",
+    category: "consumption",
+    frequency: "monthly",
+    unit: "index",
+    region: "euro_area",
+    source: "ECB Data Portal",
+    sourceUrl: "https://data.ecb.europa.eu/data/datasets/STS",
+    resource: "STS",
+    key: "M.I9.Y.TOVT.NS0020.4.000"
+  },
+  {
+    id: "ea_money_supply_m3",
+    label: "Geldmenge M3 Euroraum",
+    explanation:
+      "Wachstum der breiten Geldmenge gegenüber dem Vorjahr. Sie beschreibt, wie viel Geld im Umlauf ist, und wirkt mit Verzögerung auf die Preise.",
+    category: "money",
+    frequency: "monthly",
+    unit: "percent",
+    region: "euro_area",
+    source: "ECB Data Portal",
+    sourceUrl: "https://data.ecb.europa.eu/data/datasets/BSI",
+    resource: "BSI",
+    key: "M.U2.Y.V.M30.X.I.U2.2300.Z01.A"
+  }
+];
+
+/**
+ * Marktbasierte Makro-Indikatoren.
+ *
+ * §28 nennt Öl, Gold, VIX und den Dollar-Index. Sie sind keine Statistikreihen,
+ * sondern Kurse — und kommen deshalb nicht von der EZB, sondern über den
+ * Kursanbieter.
+ *
+ * Am 2026-08-08 einzeln geprüft. **Nicht enthalten:** WTI (`CLUSD`), der
+ * Dollar-Index (`DX-Y.NYB`, `^DXY`, `USDX`) und die 10-Jahres-Rendite
+ * (`^TNX`) — alle antworteten mit HTTP 402, also Tarifgrenze. Sie fehlen hier,
+ * statt durch einen ähnlichen Wert ersetzt zu werden: Brent ist nicht WTI, und
+ * EUR/USD ist nicht der Dollar-Index gegen einen Währungskorb.
+ */
+export type MarketMacroIndicator = {
+  id: string;
+  label: string;
+  explanation: string;
+  /** Symbol beim Kursanbieter, wie gemessen. */
+  symbol: string;
+  category: "commodity" | "volatility" | "equity_index";
+};
+
+export const marketMacroIndicators: MarketMacroIndicator[] = [
+  {
+    id: "gold",
+    label: "Gold",
+    explanation: "Preis je Feinunze. Gold gilt als Zufluchtswert und reagiert auf Realzinsen und Währungsrisiken.",
+    symbol: "GCUSD",
+    category: "commodity"
+  },
+  {
+    id: "brent",
+    label: "Brent-Öl",
+    explanation: "Nordseesorte Brent, der internationale Referenzpreis für Rohöl. Er wirkt direkt auf die Energiepreise.",
+    symbol: "BZUSD",
+    category: "commodity"
+  },
+  {
+    id: "silver",
+    label: "Silber",
+    explanation: "Preis je Feinunze. Silber ist zugleich Edelmetall und Industriemetall und schwankt deshalb stärker als Gold.",
+    symbol: "SIUSD",
+    category: "commodity"
+  },
+  {
+    id: "vix",
+    label: "VIX",
+    explanation:
+      "Erwartete Schwankung des S&P 500 über die kommenden 30 Tage, abgeleitet aus Optionspreisen. Hohe Werte zeigen Nervosität, keine Richtung.",
+    symbol: "^VIX",
+    category: "volatility"
+  },
+  {
+    id: "sp500",
+    label: "S&P 500",
+    explanation: "Index der 500 größten US-Unternehmen. Die gebräuchlichste Messgröße für den US-Aktienmarkt.",
+    symbol: "^GSPC",
+    category: "equity_index"
   }
 ];
 

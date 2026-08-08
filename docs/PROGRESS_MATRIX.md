@@ -148,9 +148,9 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §24 | Fundamentalanalyse | `IN PROGRESS` | Das Scoring-Modell kennt 18 Kennzahlen aus §24. Im Datenmodell liegen davon nur 5 (`peRatio`, `revenueGrowth`, `debtToEquity`, `ebitda`, `grossMargin`) — die übrigen 13 muss der Provider erst liefern |
 | §25 | Erklärbare Teilnoten | `DONE` | `analysis/quality-scores.ts`: 7 Dimensionen, 18 Einzelkennzahlen, **keine Gesamtnote**. Fehlende Werte werden benannt statt geschätzt. 15 Tests. Ohne Branchenkalibrierung |
 | §26 | Technische Analyse | `DONE` | **Vollständig.** 19 Indikatoren inklusive ADX, Trendkanal und Ausbruch, dazu Analyse über drei Zeitrahmen. Alle drei Erfindungsquellen ersetzt (siehe unten). 56 Tests, neun Regressionen gegengeprüft. Einschränkung: alles auf Tagesbasis — Intraday-Zeitrahmen gibt es nicht, weil der Anbietertarif keine Intraday-Historie enthält |
-| §27 | News und Events | `IN PROGRESS` | `news`-Route, Klassifikation unvollständig |
-| §28 | Makro | `DONE` | EZB Data Portal ohne Schlüssel und ohne Tarif. Fünf Reihen live gemessen, Zinsstrukturbewertung, Datenalter je Reihe. `GET /api/macro` und Seite `/macro`, in der Navigation. 32 Tests |
-| §28 | Economic Calendar | `NOT STARTED` | Terminreihen noch nicht angebunden |
+| §27 | News und Events | `IN PROGRESS` | **Klassifikation und Entdopplung gebaut** (siehe unten): 18 Ereignisarten mit Beleg, Bezug nach Unternehmen/Branche/Land/Index/Rohstoff/Währung/Krypto, Duplikate zusammengeführt. 32 Tests, fünf Regressionen gegengeprüft. Offen: nur eine Quelle liefert Entitäten, NewsAPI keine |
+| §28 | Makro | `IN PROGRESS` | **Elf** EZB-Reihen live gemessen (Leitzins, Inflation, Kerninflation, 3M/10J-Rendite, EUR/USD, Arbeitslosenquote, BIP, Industrieproduktion, Einzelhandel, Geldmenge M3) plus fünf Marktindikatoren (Gold, Brent, Silber, VIX, S&P 500). Zinsstrukturbewertung, Datenalter je Reihe. Fehlen: US-Reihen (CPI, PPI, NFP, PMI, Konsumentenvertrauen) und Dollar-Index — siehe unten |
+| §28 | Economic Calendar | `BLOCKED` | Keine Quelle im Tarif. FMP `/stable/economic-calendar` antwortet mit **HTTP 402**. Eine freie Alternative bräuchte einen FRED-Schlüssel — Nutzerentscheidung nach §95 |
 | §29 | Zentralbanken: Zinsentscheidungen | `DONE` | Aus dem Leitzinspfad abgeleitet, 2-Jahres-Fenster. Live: 9 Entscheidungen seit 2024-09. `policy-rate-history.ts`, 13 Tests |
 | §29 | Zentralbanken: Sitzungstermine, Statements, Protokolle | `NOT STARTED` | Aus einem Zinspfad nicht ableitbar, braucht eine Terminquelle |
 | §30 | Sentiment | `IN PROGRESS` | Teilweise über News |
@@ -270,6 +270,101 @@ mehrere Zeitrahmen verlangt.
 **Einschränkung, ehrlich benannt:** alles läuft auf Tagesbasis. Intraday-
 Zeitrahmen gibt es nicht, weil der Anbietertarif keine Intraday-Historie
 enthält — nicht, weil die Rechnung sie nicht könnte.
+
+### §27: Einordnung, Ereignisse, Duplikate
+
+Vor dieser Arbeit war die `relevance` erfunden — und zwar auf eine Weise, die
+schwerer zu bemerken war als der RSI:
+
+```
+Marketaux:  relevance = 74 + |sentiment| × 22 − index × 2
+NewsAPI:    relevance = 82 − index × 3
+```
+
+**Die Position in der Antwort war der Messwert.** Der zweite Treffer war immer
+relevanter als der dritte, unabhängig vom Inhalt. Zugleich lieferte Marketaux
+mit `match_score`, `industry` und `country` genau die Angaben, die §27 verlangt
+— und der Code warf sie weg und behielt nur `entities[0].symbol`.
+
+Jetzt: `match_score` als Relevanz (am 2026-08-08 gemessen: 6 bis 51, das Feld
+`relevance_score` ist im Tarif durchgehend `null`). Bei NewsAPI bleibt die
+Relevanz `null` — die Antwortreihenfolge ist keine Messung.
+
+**Jede Einordnung trägt ihren Beleg.** §104 verbietet die Black Box, deshalb ist
+`matchedText` Pflichtfeld: „Übernahme" erscheint mit dem Wortlaut „acquires",
+der sie ausgelöst hat. Wer den Fehlschluss sieht, kann ihn erkennen.
+
+Der Klassifikator ist nach der Gegenrichtung gebaut — nicht was er findet,
+sondern was er **nicht** finden darf:
+
+| Text | Darf nicht heißen |
+|---|---|
+| „dividend yield of 3.4 %" | Dividendenänderung |
+| „software upgrade" | Analystenänderung |
+| „customer acquisition costs" | Übernahme |
+| „merger arbitrage fund" | Fusion |
+| „ahead of its earnings" | Quartalszahlen |
+| „expected to launch" | Produkteinführung |
+
+Ohne Treffer bleibt die Liste leer. Eine Auffangkategorie „Sonstiges" sähe aus
+wie eine Einordnung und wäre keine.
+
+**Bei der Entdopplung ist der zweite Fehler der schlimmere.** Ein doppelter
+Eintrag ist lästig; eine verschluckte Gewinnwarnung ist gefährlich. Der
+kalibrierende Fall: „Apple **beats** Q3 estimates" gegen „Apple **misses** Q3
+estimates" — ein Wort Unterschied, gegenteilige Bedeutung, dürfen nie
+zusammenfallen. Sie liegen bei 0,56 und damit unter der Schwelle von 0,6.
+
+**Vier eigene Fehler, von den eigenen Tests gefunden:**
+
+1. Das Prognosemuster ließ nur einen Qualifizierer zu und übersah damit
+   „raises **its full-year** guidance" — die häufigste Formulierung überhaupt.
+2. Die deutsche Variante verlangte „Prognose angehoben" und scheiterte an
+   „hebt Prognose an".
+3. Ohne Stammformreduktion galten „acquires" und „acquire" als verschiedene
+   Wörter. Ein eindeutiges Dublettenpaar kam deshalb nur auf 0,44.
+4. Die Stoppwortliste war **zu** aggressiv: sie strich „report", „stock" und
+   „market", worauf zwei völlig verschiedene Schlagzeilen auf denselben einen
+   Rest schrumpften und zu 100 % ähnlich waren. Behoben durch Kürzen der Liste,
+   Stammform **vor** dem Filter und eine Mindestzahl unterscheidender Wörter.
+
+Bei der Gegenprobe blieb die Mindestwortzahl zunächst grün — sie war
+ungeprüfter Code. Der fehlende Test ist nachgetragen.
+
+**Live gemessen** an 9 echten Meldungen: Bezüge vollständig (11 Unternehmen,
+11 Branchen, 9 Länder), eine Ereignisart erkannt („Q2 Earnings"). Dass nur eine
+von neun eine Ereignisart hat, ist kein Fehler — die übrigen sind Analysen
+(„Is It Time to Buy?"), keine Ereignismeldungen.
+
+Aufschlussreich war ein Fehlgriff des **Anbieters**: eine Meldung über „Miami
+International" wurde von Marketaux Microsoft zugeordnet. Sie trug den
+niedrigsten `match_score` der Stichprobe (6 gegen 51 beim besten). Genau
+deshalb werden Herkunft und Score mitgeführt statt weggeworfen.
+
+### §28: elf Reihen statt fünf — und was nicht geht
+
+Sechs EZB-Reihen ergänzt, jede einzeln gegen die Live-API geprüft:
+Kerninflation, Arbeitslosenquote, BIP, Industrieproduktion,
+Einzelhandelsumsätze, Geldmenge M3. Dazu fünf Marktindikatoren über den
+Kursanbieter: Gold (4399,70), Brent (83,55), Silber, VIX (14,90), S&P 500.
+
+Ein falscher Schlüsselversuch für die Arbeitslosenquote antwortete mit 404 und
+steht **nicht** im Katalog — aufgenommen wird nur, was nachweislich liefert.
+
+**Was §28 verlangt und nicht geht:**
+
+| Fehlend | Grund |
+|---|---|
+| WTI-Öl, Dollar-Index, 10J-US-Rendite | HTTP 402 beim Kursanbieter |
+| US-CPI, PPI, NFP, PMI, Konsumentenvertrauen | Brauchen einen FRED-Schlüssel (kostenlos, aber Nutzerentscheidung nach §95) |
+| Economic Calendar | FMP-Route antwortet mit HTTP 402 |
+
+Brent steht **nicht** als Ersatz für WTI und EUR/USD **nicht** als Ersatz für
+den Dollar-Index. Beides wären andere Größen unter falschem Namen.
+
+Quartalsreihen haben eigene Altersschwellen bekommen: ein BIP-Wert liegt erst
+rund zwei Monate nach Quartalsende vor, 150 Tage sind dort normal und kein
+Ausfall.
 
 ## Produkt und Oberfläche
 

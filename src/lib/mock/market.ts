@@ -1,4 +1,5 @@
 import { buildTechnicalIndicators } from "@/lib/analysis/technical";
+import { classifySubjects, detectEvents } from "@/lib/news/classification";
 import { assessDataQuality } from "@/lib/data-quality";
 import { analyzePortfolio } from "@/lib/portfolio-analytics";
 import { buildRiskReport } from "@/lib/risk-engine";
@@ -263,8 +264,24 @@ const fundamentalsMap: Record<string, Fundamentals> = {
   }
 };
 
+/**
+ * Ergänzt die Demo-Meldungen um Ereignisarten und Bezüge.
+ *
+ * Bewusst über denselben Klassifikator wie die echten Meldungen statt über
+ * eingetragene Werte: so zeigt der Mock, wie die Anwendung sich verhält, und
+ * eine Lücke im Klassifikator fällt auch im Demo-Betrieb auf.
+ */
+function mockNewsItem(base: Omit<NewsItem, "events" | "subjects" | "duplicateSources">): NewsItem {
+  return {
+    ...base,
+    events: detectEvents(base.title, base.summary),
+    subjects: classifySubjects([], base.symbol),
+    duplicateSources: []
+  };
+}
+
 const newsItems: NewsItem[] = [
-  {
+  mockNewsItem({
     id: "n1",
     symbol: "NVDA",
     title: "Cloud-Nachfrage stutzt KI-Chip-Ausblick",
@@ -276,8 +293,9 @@ const newsItems: NewsItem[] = [
     summary:
       "Mehrere Hyperscaler melden weiterhin hohe Investitionen in KI-Infrastruktur. Das Modell bewertet die Nachricht als positiv, aber bereits teilweise eingepreist.",
     url: "#"
-  },
-  {
+ 
+  }),
+  mockNewsItem({
     id: "n2",
     symbol: "AAPL",
     title: "Regulatorische Prüfung belastet Service-Margen",
@@ -289,8 +307,9 @@ const newsItems: NewsItem[] = [
     summary:
       "Neue Vorgaben könnten App-Store-Gebühren in mehreren Regionen reduzieren. Kurzfristig steigt die Unsicherheit für Margenannahmen.",
     url: "#"
-  },
-  {
+ 
+  }),
+  mockNewsItem({
     id: "n3",
     symbol: "MSFT",
     title: "Azure-Wachstum bleibt über Branchenschnitt",
@@ -302,8 +321,9 @@ const newsItems: NewsItem[] = [
     summary:
       "Cloud-Checks deuten auf robuste Nachfrage nach Datenbank-, Security- und KI-Diensten hin.",
     url: "#"
-  },
-  {
+ 
+  }),
+  mockNewsItem({
     id: "n4",
     symbol: "BTC-USD",
     title: "ETF-Zuflüsse nehmen zu, Volatilität bleibt erhöht",
@@ -315,8 +335,9 @@ const newsItems: NewsItem[] = [
     summary:
       "Institutionelle Zuflüsse sprechen für Nachfrage, während Hebelpositionen das Rückschlagrisiko erhöhen.",
     url: "#"
-  },
-  {
+ 
+  }),
+  mockNewsItem({
     id: "n5",
     symbol: "ETH-USD",
     title: "On-chain Aktivität schwächt sich gegenüber Vorwoche ab",
@@ -328,7 +349,7 @@ const newsItems: NewsItem[] = [
     summary:
       "Geringere Gebühreneinnahmen und schwächere DeFi-Aktivität belasten das kurzfristige Momentum.",
     url: "#"
-  }
+  })
 ];
 
 const analysisMap: Record<string, AiAnalysisBase> = {
@@ -669,7 +690,7 @@ export function getMockAsset(symbol: string): AssetDetail | null {
 
   const relatedNews = newsItems
     .filter((item) => item.symbol === asset.symbol)
-    .sort((a, b) => b.relevance - a.relevance);
+    .sort((a, b) => (b.relevance ?? -1) - (a.relevance ?? -1));
 
   const candles = candleRanges(asset.symbol, quoteMap[asset.symbol].price);
 
@@ -791,7 +812,7 @@ export function getMockDashboard(): DashboardData {
         detail: "RSI und MACD liegen unter neutralen Schwellen, Nachrichtenlage ist leicht negativ."
       }
     ],
-    latestNews: [...newsItems].sort((a, b) => b.relevance - a.relevance).slice(0, 4)
+    latestNews: [...newsItems].sort((a, b) => (b.relevance ?? -1) - (a.relevance ?? -1)).slice(0, 4)
   };
 }
 
@@ -800,7 +821,7 @@ export function getMockNews(symbol?: string): NewsItem[] {
     ? newsItems.filter((item) => item.symbol.toUpperCase() === symbol.toUpperCase())
     : newsItems;
 
-  return [...filtered].sort((a, b) => b.relevance - a.relevance);
+  return [...filtered].sort((a, b) => (b.relevance ?? -1) - (a.relevance ?? -1));
 }
 
 export function getMockPortfolio(): PortfolioSummary {

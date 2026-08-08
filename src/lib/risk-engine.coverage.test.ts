@@ -70,7 +70,10 @@ describe("risk engine branch coverage", () => {
         sentiment: "negative",
         impactScore: -80,
         summary: "test",
-        url: "#"
+        url: "#",
+        events: [],
+        subjects: [],
+        duplicateSources: []
       }
     ];
     detail.professionalScores.volatilityRisk = 90;
@@ -139,7 +142,10 @@ describe("risk engine branch coverage", () => {
         sentiment: "negative",
         impactScore: -30,
         summary: "test",
-        url: "#"
+        url: "#",
+        events: [],
+        subjects: [],
+        duplicateSources: []
       }
     ];
     detail.professionalScores.volatilityRisk = 20;
