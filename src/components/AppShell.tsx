@@ -9,6 +9,7 @@ import {
   BookOpen,
   Briefcase,
   CalendarDays,
+  CreditCard,
   Gem,
   Landmark,
   Globe2,
@@ -50,6 +51,7 @@ const navItems = [
   { href: "/backtesting", label: "Backtesting", icon: Activity },
   { href: "/learn", label: "Lernen", icon: BookOpen },
   { href: "/pricing", label: "Pläne", icon: Gem },
+  { href: "/account/billing", label: "Abrechnung", icon: CreditCard },
   { href: "/settings", label: "Einstellungen", icon: Settings2 }
 ];
 

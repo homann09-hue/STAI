@@ -67,12 +67,20 @@ gegengeprüft, indem der Guard entfernt wurde: drei Zusicherungen wurden rot.
 
 Details: `docs/ENTITLEMENTS.md`.
 
-### 2. Kein Rechnungs- und Verwaltungsbereich
+### 2. Kein Rechnungs- und Verwaltungsbereich — behoben
 
-`grep -i invoice src` liefert null Treffer. Es gibt keinen Bereich
-Account → Billing. Abo-Verwaltung existiert nur als Weiterleitung ins
-Stripe-Portal auf `/pricing`. §6 verlangt Tarif, Preis, nächste Abrechnung,
-Zahlungsstatus, Zahlungsmethode, Rechnungen, Upgrade, Downgrade, Kündigung.
+**Befund:** `grep -i invoice src` lieferte null Treffer. Abo-Verwaltung
+existierte nur als Weiterleitung ins Stripe-Portal auf `/pricing`.
+
+**Behebung:** `/account/billing` zeigt alle neun Angaben aus §6. Rechnungen
+kommen über `GET /api/billing/invoices`; die Kundennummer stammt
+ausschließlich aus den serverseitig gelesenen Entitlements, nie aus der
+Anfrage — sonst wäre es ein IDOR im empfindlichsten Bereich der Anwendung.
+Rechnungslinks werden gegen `*.stripe.com` geprüft, bevor sie als Link im
+Browser landen.
+
+**Offen bleibt:** Gutscheine und Testphasen sind in Stripe möglich, aber im
+Produkt nicht angebunden.
 
 ### 3. Kein Jahresabo
 
@@ -97,9 +105,10 @@ verlangen ein günstigeres Jahresabo.
 | §5 | Webhook signaturgeprüft und idempotent | `VERIFIED` | `api/billing/webhook`, Body-Cap, `billing_events`-Dedupe, Immutability-Trigger, pgTAP |
 | §5 | Statusabbildung active/trialing/past_due/canceled/unpaid/incomplete | `DONE` | `stripe-events.ts`, `normalizeBillingStatus` |
 | §5 | Checkout, Kundenportal | `DONE` | Redirect-Allowlist auf `checkout.stripe.com`/`billing.stripe.com` |
-| §5 | Rechnungen, Gutscheine, Testphasen | `NOT STARTED` | Blocker 2 |
-| §5 | Upgrade/Downgrade im Produkt | `IN PROGRESS` | Nur über Stripe-Portal; Checkout blockt bei aktivem Abo mit 409 |
-| §6 | Bereich Account → Billing | `NOT STARTED` | Blocker 2 |
+| §5 | Rechnungen | `DONE` | `GET /api/billing/invoices`, Kundennummer nur serverseitig. 15 Tests |
+| §5 | Gutscheine, Testphasen | `NOT STARTED` | Stripe kann beides; im Produkt nicht angebunden |
+| §5 | Upgrade/Downgrade im Produkt | `DONE` | Einstieg in `/account/billing`, Ausführung im Kundenportal — dort sind anteilige Verrechnung und Widerruf gelöst |
+| §6 | Bereich Account → Billing | `DONE` | `/account/billing`: Tarif, Preis, nächste Abrechnung, Status, Zahlungsmethode, Rechnungen, Wechsel, Kündigung |
 | §6 | Verständliche Paywall statt kryptischem Fehler | `DONE` | `paywall-notice.tsx` nennt Funktion, Tarif, Preis, Mehrwert und Weg; kein Upgrade-Knopf ohne konfigurierten Checkout. Komponententest fehlt noch |
 | §7 | Kosten- und Cache-Steuerung | `IN PROGRESS` | `cost-controls.ts`, `provider-cache.ts`, Tagesquoten je Konto |
 | §7 | Kosten je Nutzer und je Tarif messbar | `NOT STARTED` | Keine Zuordnung von Providerkosten zu Nutzern |
@@ -240,7 +249,7 @@ Billing → Performance → UX → neue Features.
    Route, weil es für sie noch keine gibt.
 2. ~~Ehrliche Paywall statt 403 ohne Erklärung (§6).~~ Erledigt.
 3. ~~Tagesquoten durchsetzen (`aiAnalysesPerDay`).~~ Erledigt.
-4. **Account → Billing mit Rechnungen** (Blocker 2, §6).
+4. ~~Account → Billing mit Rechnungen (Blocker 2, §6).~~ Erledigt.
 5. **Jahresabo** (Blocker 3, §3/§5).
 6. **Billing-Edge-Cases testen**: doppelter Webhook, fehlgeschlagene Zahlung,
    Kündigung, Downgrade, gelöschtes Konto (§87).
