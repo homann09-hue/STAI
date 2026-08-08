@@ -1,6 +1,7 @@
 import { assessDataQuality } from "@/lib/data-quality";
 import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
 import { logEvent } from "@/lib/observability";
+import { resolveQuoteChain } from "@/lib/providers/quote-chain";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
 import { getServerCacheAdapter } from "@/lib/server-cache";
 import { safeDecodeURIComponent } from "@/lib/validation";
@@ -24,18 +25,10 @@ import type {
   TimeRange
 } from "@/lib/types";
 
-export type MarketProviderId =
-  | "mock"
-  | "finnhub"
-  | "twelve_data"
-  | "eodhd"
-  | "massive"
-  | "polygon"
-  | "fmp"
-  | "alpha_vantage"
-  | "databento"
-  | "binance"
-  | "coinbase";
+// Die Kennung lebt in `quote-chain.ts` und wird hier nur weitergereicht,
+// damit bestehende Importe unveraendert funktionieren.
+export type { MarketProviderId } from "@/lib/providers/quote-chain";
+import type { MarketProviderId } from "@/lib/providers/quote-chain";
 
 export type StreamMode = "provider_websocket" | "rest_polling" | "mock_stream";
 
@@ -1606,91 +1599,95 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
   }
 }
 
-function normalizeProviderId(provider: string): MarketProviderId {
-  const normalized = provider.trim().toLowerCase();
 
-  if (normalized === "polygon") return "polygon";
-  if (normalized === "twelvedata") return "twelve_data";
-  if (
-    normalized === "mock" ||
-    normalized === "finnhub" ||
-    normalized === "twelve_data" ||
-    normalized === "eodhd" ||
-    normalized === "massive" ||
-    normalized === "alpha_vantage" ||
-    normalized === "fmp" ||
-    normalized === "databento" ||
-    normalized === "binance" ||
-    normalized === "coinbase"
-  ) {
-    return normalized;
+// `autoProviderId` und `selectedProviderId` sind entfallen: die Rangfolge
+// entscheidet jetzt `resolveQuoteChain()` in quote-chain.ts, und zwar als
+// Kette statt als Einzelwahl.
+
+/**
+ * Baut den Adapter zu einer Anbieterkennung.
+ *
+ * Krypto-Boersen sind hier enthalten, weil sie ausdruecklich gewaehlt werden
+ * koennen -- in die automatische Rangfolge nehmen sie sich selbst nicht auf.
+ */
+function createQuoteProvider(id: MarketProviderId): QuoteProvider | null {
+  switch (id) {
+    case "finnhub":
+      return new FinnhubQuoteProvider();
+    case "twelve_data":
+      return new TwelveDataQuoteProvider();
+    case "eodhd":
+      return new EodhdQuoteProvider();
+    case "massive":
+    case "polygon":
+      return new MassiveSnapshotProvider();
+    case "alpha_vantage":
+      return new AlphaVantageQuoteProvider();
+    case "fmp":
+      return new FmpQuoteProvider();
+    case "binance":
+      return new BinanceQuoteProvider();
+    case "coinbase":
+      return new CoinbaseQuoteProvider();
+    default:
+      return null;
   }
-
-  return "mock";
 }
 
-function autoProviderId(): MarketProviderId {
-  if (
-    process.env.NEXT_PHASE === "phase-production-build" &&
-    process.env.STOCKPILOT_ALLOW_PROVIDER_DURING_BUILD !== "true"
-  ) {
-    return "mock";
+/**
+ * Fragt mehrere Quellen der Reihe nach.
+ *
+ * Der entscheidende Punkt ist, was **nicht** passiert: die Kette faelscht
+ * keine Qualitaetsangabe. Antwortet die zweite Quelle, traegt der Kurs deren
+ * Namen und deren Qualitaetsstufe -- nicht die der bevorzugten. Ein
+ * near-realtime-Kurs von Finnhub darf nicht als verzoegerter FMP-Kurs
+ * erscheinen, und umgekehrt erst recht nicht.
+ */
+class ChainedQuoteProvider implements QuoteProvider {
+  readonly providerName: string;
+  readonly providerId: MarketProviderId;
+  readonly quality: MarketDataQuality;
+  readonly streamMode: StreamMode;
+
+  constructor(private readonly chain: QuoteProvider[]) {
+    const head = chain[0];
+    this.providerName = head.providerName;
+    this.providerId = head.providerId;
+    this.quality = head.quality;
+    this.streamMode = head.streamMode;
   }
 
-  if (process.env.FMP_API_KEY) return "fmp";
-  if (process.env.FINNHUB_API_KEY) return "finnhub";
-  if (process.env.TWELVE_DATA_API_KEY) return "twelve_data";
-  if (process.env.EODHD_API_KEY) return "eodhd";
-  if (process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY) return "massive";
-  if (process.env.ALPHA_VANTAGE_API_KEY) return "alpha_vantage";
-  return "mock";
-}
-
-function selectedProviderId(): MarketProviderId {
-  if (
-    process.env.NEXT_PHASE === "phase-production-build" &&
-    process.env.STOCKPILOT_ALLOW_PROVIDER_DURING_BUILD !== "true"
-  ) {
-    return "mock";
+  async getQuote(symbol: string): Promise<NormalizedQuote | null> {
+    for (const provider of this.chain) {
+      try {
+        const quote = await provider.getQuote(symbol);
+        if (quote) return quote;
+      } catch (error) {
+        logEvent("warn", "market.provider_failed_over", {
+          providerId: provider.providerId,
+          symbol,
+          message: error instanceof Error ? error.message : "unknown"
+        });
+      }
+    }
+    // Keine Quelle konnte antworten. Null heisst hier ehrlich "nichts
+    // bekommen" -- der Aufrufer entscheidet ueber den Mock-Rueckfall.
+    return null;
   }
 
-  const explicit = (
-    process.env.MARKET_DATA_PROVIDER ??
-    process.env.STOCKPILOT_MARKET_PROVIDER ??
-    process.env.STOCKPILOT_QUOTE_PROVIDER
-  )
-    ?.trim()
-    .toLowerCase();
-
-  if (!explicit || explicit === "auto") return autoProviderId();
-  return normalizeProviderId(explicit);
+  async getQuotes(symbols: string[]) {
+    return getCachedProviderQuotes(this, symbols);
+  }
 }
 
 export function getMarketDataProvider(): MarketDataProvider {
-  const provider = selectedProviderId();
+  const chain = resolveQuoteChain();
+  const providers = chain.providers
+    .map((id) => createQuoteProvider(id))
+    .filter((provider): provider is QuoteProvider => provider !== null);
 
-  switch (provider) {
-    case "finnhub":
-      return new ProviderBackedMarketDataProvider(new FinnhubQuoteProvider());
-    case "twelve_data":
-      return new ProviderBackedMarketDataProvider(new TwelveDataQuoteProvider());
-    case "eodhd":
-      return new ProviderBackedMarketDataProvider(new EodhdQuoteProvider());
-    case "massive":
-    case "polygon":
-      return new ProviderBackedMarketDataProvider(new MassiveSnapshotProvider());
-    case "alpha_vantage":
-      return new ProviderBackedMarketDataProvider(new AlphaVantageQuoteProvider());
-    case "fmp":
-      return new ProviderBackedMarketDataProvider(new FmpQuoteProvider());
-    case "binance":
-      return new ProviderBackedMarketDataProvider(new BinanceQuoteProvider());
-    case "coinbase":
-      return new ProviderBackedMarketDataProvider(new CoinbaseQuoteProvider());
-    case "databento":
-      return new MockMarketDataProvider();
-    case "mock":
-    default:
-      return new MockMarketDataProvider();
-  }
+  if (providers.length === 0) return new MockMarketDataProvider();
+  if (providers.length === 1) return new ProviderBackedMarketDataProvider(providers[0]);
+
+  return new ProviderBackedMarketDataProvider(new ChainedQuoteProvider(providers));
 }

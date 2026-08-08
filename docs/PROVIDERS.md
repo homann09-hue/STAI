@@ -71,17 +71,30 @@ Das ist die Seite, die tatsächlich ausgebaut ist:
 
 §21 verlangt eine Rangfolge. Der Ist-Zustand ist ehrlich benannt:
 
-Es gibt eine **Kaskade je Kategorie** (Kurse, Krypto, News, Fundamentaldaten),
-gesteuert über `STOCKPILOT_*_PROVIDER`, mit dem Mock als letztem Glied. Was es
-**nicht** gibt, ist ein automatischer Wechsel auf eine zweite echte Quelle,
-wenn die erste ausfällt — der Rückfall landet beim Mock, nicht bei Finnhub.
+**Seit 2026-08-08 gebaut.** `src/lib/providers/quote-chain.ts` bildet aus den
+gesetzten Schlüsseln eine Rangfolge; `ChainedQuoteProvider` fragt sie der Reihe
+nach ab. Fällt die erste Quelle aus, wird die zweite versucht — erst wenn keine
+antwortet, greift der Mock.
 
-Das ist kein Versehen, sondern eine Folge der Schlüssellage: von den
-Kursanbietern ist derzeit nur FMP konfiguriert. Eine Rangfolge zwischen einer
-Quelle und sich selbst ist keine.
+Standardrangfolge nach Abdeckung: FMP → Finnhub → Twelve Data → EODHD →
+Massive/Polygon → Alpha Vantage. Krypto-Börsen stehen bewusst nicht darin: sie
+beantworten nur Kryptosymbole und wären als allgemeiner Rückfall eine
+Verschlechterung.
 
-**Voraussetzung für echtes Failover:** mindestens zwei konfigurierte
-Kursanbieter. Erst dann ist die Kaskade mehr als eine Aufzählung.
+Eine ausdrückliche Wahl über `MARKET_DATA_PROVIDER` wird nach vorne gestellt,
+schaltet den Rückfall aber **nicht** ab — wer eine Quelle bevorzugt, will damit
+fast nie sagen „und sonst lieber Demodaten". Einzige Ausnahme ist `mock`: das
+ist eine Ansage, keine Bevorzugung.
+
+**Die Kette fälscht keine Qualitätsangabe.** Antwortet die zweite Quelle, trägt
+der Kurs deren Namen und deren Qualitätsstufe. Ein near-realtime-Kurs von
+Finnhub darf nicht als verzögerter FMP-Kurs erscheinen — und umgekehrt erst
+recht nicht.
+
+**Was weiterhin fehlt:** ein zweiter konfigurierter Schlüssel. Mit nur FMP
+meldet die Kette ausdrücklich `hasFailover: false` und den Satz „Bei einem
+Ausfall gibt es keinen echten Ersatz, sondern nur Demodaten." Der Code ist
+bereit, die Konfiguration nicht. Finnhub hat einen kostenlosen Tarif.
 
 ## §22 Datenqualität — was geprüft wird
 
