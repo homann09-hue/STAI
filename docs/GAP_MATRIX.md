@@ -5,7 +5,7 @@ Soll-Zustand aus der Produktspezifikation gegen den **belegten** Ist-Stand.
 Jede Zeile ist am Code oder gegen die Live-API geprüft, nicht geschätzt.
 Was ich nicht geprüft habe, steht als „ungeprüft" da — nicht als „vorhanden".
 
-Stand: 2026-08-07 · Commit `c3d12a8`
+Stand: 2026-08-08 · Commit `91b0880` · CI vollständig grün
 
 Legende: ✅ vorhanden und verifiziert · 🟡 teilweise · ❌ fehlt ·
 🔒 extern blockiert (siehe `docs/BLOCKERS.md`)
@@ -114,14 +114,16 @@ ausgewertete Prognose" statt Platzhalterwerten.
 | Coverage ehrlich gemessen | ✅ | `all: true`, 26,56 % über 181 Dateien, Schwellen kalibriert |
 | RLS-/pgTAP-Tests ausgeführt | ✅ | Laufen in CI; 5 Suiten, Instrument Master neu abgedeckt |
 | Observability, Logs, Metriken | 🟡 | `observability.ts`; keine Dashboards, keine Alerts |
-| CI/CD | 🟡 | 8 Workflows. `ci.yml` fährt format/typecheck/lint/test:coverage/build/performance — **aber nur auf `main`** |
+| CI/CD | ✅ | 8 Workflows, PR #16 vollständig grün. Trigger nur auf `main` und PRs dagegen |
 | iOS-Build | 🔒 | BLOCKER-004 |
 
-**Achtung CI.** `ci.yml` triggert ausschließlich auf Push und PR gegen `main`.
-Der aktive Branch `codex/enterprise-saas-billing-20260711` liegt seit 16 Commits
-neben `main` und hat **nie eine CI-Prüfung gesehen**. Beim Merge laufen alle
-Gates zum ersten Mal — inklusive `npm run test:coverage`, dessen Schwellen nach
-der `all: true`-Umstellung noch nicht kalibriert sind.
+**CI-Stand.** PR #16 läuft grün: StockPilot CI, Database Tests und Vercel.
+31 Commits, 122 geänderte Dateien. Der erste Lauf über den Branch hat drei
+echte Fehler gefunden — 14 Dependency-Schwachstellen, zwei pgTAP-Bugs und eine
+zu hoch geratene Coverage-Schwelle. Alle behoben.
+
+`ci.yml` triggert weiterhin nur auf Push und PR gegen `main`. Für Feature-Branches
+ohne PR gibt es damit keine Prüfung.
 
 ## 7. Produkt und UX
 

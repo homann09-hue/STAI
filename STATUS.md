@@ -1,6 +1,6 @@
 # StockPilot AI Status
 
-Letzte Aktualisierung: 2026-08-06
+Letzte Aktualisierung: 2026-08-08
 
 ## Aktueller Meilenstein
 
@@ -72,21 +72,38 @@ STAI wird schrittweise von einer Demo-Watchlist zu einem ehrlichen, providerbasi
 
 - `npx supabase test db` konnte lokal am 2026-08-06 nicht ausgeführt werden, weil keine lokale Postgres/Supabase-Instanz erreichbar war: `LegacyDbConnectError`.
 
+## Verifikation durch CI 2026-08-08
+
+PR #16, Commit `91b0880`: **alle Checks grün** — StockPilot CI, Database Tests
+und Vercel. 31 Commits, 122 geänderte Dateien.
+
+Der erste CI-Lauf über den Branch hat drei echte Fehler gefunden, alle behoben:
+
+- 14 Dependency-Schwachstellen, davon 6 hoch (SSRF in Next.js, Path Traversal in
+  postcss). Folge der seit Juli blockierten Dependabot-Pipeline.
+- Zwei Fehler in `forecast_ledger_controls.test.sql`, seit Entstehung der Datei
+  vorhanden und nie aufgefallen, weil pgTAP lokal nie lief.
+- Eine zu hoch geratene Coverage-Schwelle (35 % Branches bei tatsächlich 26,33).
+
+`npx supabase test db` läuft jetzt nachweislich: fünf Suiten, 103 Assertions.
+Damit ist die bekannte Grenze vom 2026-08-06 aufgehoben.
+
 ## Offen nach den Fixes vom 2026-08-07
 
-- `npm test`, `npm run test:coverage` und `npm run build` lokal ausführen. Die
-  Coverage-Schwellen in `vitest.config.ts` sind bewusst niedrig und noch nicht
-  kalibriert.
+- ~~Coverage-Schwellen kalibrieren.~~ Erledigt: 26,56 % über 181 Dateien,
+  Schwellen auf 24/25/24/25 gesetzt.
 - Vor dem Deploy prüfen, dass `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` oder
   `NEXT_PUBLIC_SUPABASE_ANON_KEY` auch serverseitig gesetzt ist. Ohne den
   Schlüssel liefert `getSupabaseAuth` `missing_client` und alle Nutzerfunktionen
   fallen in den lokalen Demo-Modus.
-- `npx supabase test db` bleibt offen. Die pgTAP-Suiten sind nicht gelaufen; der
-  RLS-Nachweis stammt aus einem direkten Transaktionstest gegen Produktion.
+- ~~`npx supabase test db` bleibt offen.~~ Erledigt: Run #20 grün.
 - `src/lib/providers/market-provider.ts` (1.696 Zeilen) aufteilen. Bewusst nicht
   in diesem Durchgang gemacht, weil ein Refactor dieser Größe ohne lauffähige
   Testsuite nicht verantwortbar ist.
-- Komponententests fehlen weiterhin vollständig (40 Komponenten, 0 Tests).
+- Komponententests: Setup steht, 2 von 40 Komponenten abgedeckt. Die übrigen 38
+  fehlen weiterhin.
+- Merge nach `main` und Deployment stehen aus. Der letzte Production-Deploy
+  stammt vom 11. Juli.
 
 ## Offene Arbeiten
 
