@@ -195,7 +195,7 @@ npm run lint          # eslint . --max-warnings=0
 npm test              # vitest, aktuell 47 Dateien / 257 Tests
 npm run test:coverage # Schwellen in vitest.config.ts sind NICHT kalibriert
 npm run build
-npm run test:db       # braucht lokale Supabase-Instanz
+npm run test:db       # braucht lokale Supabase-Instanz (Docker); laeuft in CI
 ```
 
 **Wichtig zur Coverage:** `vitest.config.ts` hat `all: true`. Ohne diese Option
@@ -210,6 +210,34 @@ läuft dadurch in „Collecting page data" lange. Das ist ein bekannter Zustand,
 kein Hänger.
 
 ---
+
+### pgTAP-Suiten
+
+Fuenf Dateien unter `supabase/tests/database/`. Sie laufen **nur in CI**
+(`database-tests.yml`), lokal brauchen sie Docker.
+
+**Zwei Fallen, die dort schon zweimal zugeschlagen haben:**
+
+1. `has_table_privilege` hat in Postgres **drei** Argumente. pgTAP wrappt sie
+   nicht mit einer Beschreibung. Richtig ist
+   `ok(has_table_privilege(rolle, tabelle, recht), 'beschreibung')`.
+2. Die Zahl in `plan(n)` muss exakt der Anzahl der Assertions entsprechen.
+   Weicht sie ab, bricht pg_prove mit „Bad plan" ab — auch wenn jede einzelne
+   Assertion zutrifft.
+
+Vor jedem Commit an einer Testdatei nachzaehlen:
+
+```bash
+python3 -c "
+import re, glob
+f = r'(ok|is|isnt|throws_ok|lives_ok|has_index|has_table|has_column|results_eq|matches)'
+for p in sorted(glob.glob('supabase/tests/database/*.test.sql')):
+    s = open(p).read()
+    n = len(re.findall(r'^select\s+'+f+r'\s*\(', s, re.M))
+    plan = int(re.search(r'select plan\((\d+)\)', s).group(1))
+    print(f'{p.split(chr(47))[-1]:44s} plan={plan:3d} gezaehlt={n:3d} {"OK" if plan==n else "ABWEICHUNG"}')
+"
+```
 
 ## 6. Was du nicht noch einmal machen musst
 
