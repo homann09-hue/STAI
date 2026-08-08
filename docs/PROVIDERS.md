@@ -128,3 +128,27 @@ aus §23 — „15 Sek. alt", „2 Min. alt", „Börse geschlossen". Der Makrob
 zeigt Datenalter in Tagen; die Kursseite zeigt die Stufe, nicht die Sekunden.
 Ein Handelskalender existiert nicht, deshalb kann „Börse geschlossen" derzeit
 nicht ehrlich angezeigt werden.
+
+### Der Ausfall ist geprueft, nicht behauptet
+
+`src/lib/providers/quote-failover.test.ts` -- sechs Zusicherungen, die vor dem
+zweiten Schluessel nicht moeglich waren, weil es nichts gab, worauf ausgewichen
+werden konnte:
+
+| Fall | Verhalten |
+|---|---|
+| Erste Quelle wirft | zweite antwortet |
+| Erste Quelle liefert nichts | zweite antwortet (leer ist auch ein Ausfall) |
+| Erste Quelle antwortet | zweite wird gar nicht erst gefragt -- sonst doppelte Kosten |
+| Beide fallen aus | `null`, kein erfundener Kurs; der Aufrufer entscheidet ueber den Mock |
+| Finnhub antwortet fuer FMP | Kurs traegt `Finnhub` / `near_realtime` |
+| FMP antwortet fuer Finnhub | Kurs traegt `FMP` / `delayed` |
+
+Die letzten beiden sind der Kern. Jeder Adapter stempelt Quelle und
+Qualitaetsstufe auf den Kurs selbst -- die Kette reicht sie unveraendert
+durch. Wuerde sie ihre eigene Kennung aufpraegen, erschiene ein
+near-realtime-Kurs von Finnhub als verzoegerter FMP-Kurs. Das waere eine
+Falschauskunft an genau der Stelle, an der StockPilot Ehrlichkeit verspricht.
+
+Gegengeprueft, indem das Failover absichtlich entfernt wurde: drei der sechs
+Zusicherungen wurden rot.

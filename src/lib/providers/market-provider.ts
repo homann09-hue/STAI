@@ -1643,7 +1643,7 @@ function createQuoteProvider(id: MarketProviderId): QuoteProvider | null {
  * near-realtime-Kurs von Finnhub darf nicht als verzoegerter FMP-Kurs
  * erscheinen, und umgekehrt erst recht nicht.
  */
-class ChainedQuoteProvider implements QuoteProvider {
+export class ChainedQuoteProvider implements QuoteProvider {
   readonly providerName: string;
   readonly providerId: MarketProviderId;
   readonly quality: MarketDataQuality;
