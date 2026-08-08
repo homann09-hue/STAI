@@ -112,11 +112,16 @@ Testdateien gesucht habe. Drei standen ohne Test da, zwei davon in Billing.
 | Grammatikfehler „1 Anhebungen" | `macro/policy-rate-history.test.ts` |
 | Einheitenfehler in der Kostenrechnung | `cost/provider-costs.test.ts` |
 
-**Offen und benannt:** der DSGVO-Export faellt bei fehlender Tabelle nicht mehr
-auf 500 zurueck, sondern meldet `unavailableTables`. Die pruefende Funktion
-`isMissingRelationError` ist nicht exportiert und damit nicht direkt testbar.
-Sie gehoert bei naechster Gelegenheit herausgezogen — bis dahin ist dieser Fix
-ungeschuetzt.
+| DSGVO-Export bei fehlender Tabelle | `supabase/postgrest-errors.test.ts` |
+
+Damit hat jeder Fix dieser Arbeitsphase einen Waechter.
+
+Der letzte Eintrag hat beim Herausziehen einen zweiten Mangel aufgedeckt: die
+Textpruefung suchte nur nach „does not exist", und eine fehlende **Spalte**
+meldet denselben Wortlaut. Ein Schemafehler im Code waere damit als fehlende
+Migration durchgegangen und haette eine still unvollstaendige DSGVO-Auskunft
+erzeugt. Die Pruefung verlangt jetzt, dass die Meldung von einer Relation oder
+Tabelle spricht, und weist `42703` ausdruecklich ab.
 
 ### Wie ein Regressionstest hier geprueft wird
 

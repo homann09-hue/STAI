@@ -1,6 +1,7 @@
 import "server-only";
 
 import { analyzePortfolio } from "@/lib/portfolio-analytics";
+import { isMissingRelationError } from "@/lib/supabase/postgrest-errors";
 import { logEvent } from "@/lib/observability";
 import { createSupabaseServiceClient, createSupabaseUserClient } from "@/lib/supabase/server";
 import type { AlertFrequency, AlertNotificationChannel, AlertRule, AlertType, AssetType, PortfolioPosition, PortfolioSummary, PortfolioTradeInput } from "@/lib/types";
@@ -460,14 +461,6 @@ const personalDataTables = [
   { key: "intelligenceAlerts", table: "intelligence_alerts", ownerColumn: "user_id" }
 ] as const;
 
-/**
- * Postgres meldet eine fehlende Relation als `42P01`; PostgREST spiegelt das je
- * nach Version als `PGRST205` bzw. als Schema-Cache-Meldung.
- */
-function isMissingRelationError(error: { code?: string | null; message?: string | null }) {
-  if (error.code === "42P01" || error.code === "PGRST205") return true;
-  return /does not exist|could not find the table/i.test(error.message ?? "");
-}
 
 export async function exportUserData(auth: Extract<AuthResult, { ok: true }>) {
   // DSGVO-Auskunft: bewusst privilegiert, weil Tabellen wie `billing_events`
