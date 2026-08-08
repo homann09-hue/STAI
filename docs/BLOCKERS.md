@@ -185,6 +185,38 @@ eigenen, verifizierten Schritt — Dependabot wird es jetzt ohnehin vorschlagen.
 
 ---
 
+## BLOCKER-008 — Sicherheitslücken durch die blockierte Update-Pipeline
+
+**Status:** behoben am 2026-08-08. Bleibt als Beleg für die Folgekosten von
+BLOCKER-007 dokumentiert.
+
+Der erste CI-Lauf über den Branch scheiterte am Schritt `Dependency audit`:
+**14 Schwachstellen, 8 moderate und 6 hohe.** Alle acht Qualitäts-Gates davor
+waren grün.
+
+Das ist die direkte Folge davon, dass Dependabot seit dem 10.07. nicht mehr
+durchlief. Sicherheitsupdates konnten einen Monat lang nicht landen.
+
+Betroffen waren unter anderem:
+
+| Paket | Schwere | Problem |
+|---|---|---|
+| next 16.2.9 | hoch | SSRF in Rewrites, DoS in der Image-API, unauthentifizierte Offenlegung interner Server-Function-Endpunkte |
+| postcss 8.5.15 | hoch | Path Traversal über `sourceMappingURL` |
+| sharp | hoch | libvips-CVEs |
+| brace-expansion, js-yaml, tar | hoch/moderat | DoS |
+
+**Eine Ursache lag im eigenen Repo.** Der `overrides`-Block in `package.json`
+pinnte `postcss` fest auf `8.5.15` — genau die verwundbare Version. Der Pin hat
+das Update aktiv verhindert.
+
+**Behebung:** `next` und `eslint-config-next` auf 16.3.0, `postcss` und der
+Override auf 8.5.26, Rest über `npm audit fix` ohne `--force`.
+
+Ergebnis: **0 Schwachstellen.** Alle neun Gates verifiziert.
+
+---
+
 ## BLOCKER-002 — Keine Realtime-Marktdatenlizenz
 
 **Schweregrad:** mittel
