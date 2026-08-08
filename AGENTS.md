@@ -149,12 +149,40 @@ Server-only (Policy verweigert `authenticated` alles): `billing_events`,
 
 ---
 
+## 4a. Der Prognosekreislauf
+
+Drei Cron-Jobs in `vercel.json`, in dieser Reihenfolge sinnvoll:
+
+| Zeit | Route | Zweck |
+|---|---|---|
+| 08:00 Mo–Fr | `/api/forecasts/generate` | Prognosen erzeugen und in den Ledger schreiben |
+| 07:30 täglich | `/api/forecasts/evaluate` | Fällige Prognosen gegen den echten Kurs auswerten |
+| — | `/track-record` | Öffentliche Trefferbilanz |
+
+Alle drei brauchen `CRON_SECRET` beziehungsweise `STOCKPILOT_CRON_SECRET`.
+Ohne Secret antworten die Jobs mit 503 und tun nichts — bewusst fail-closed.
+
+**Warum planmäßig erzeugt wird:** Ohne Job entstehen Prognosen nur, wenn jemand
+zufällig eine Detailseite aufruft. Das Modell würde sich dann nur an den
+Instrumenten messen, die gerade jemand angesehen hat — ein klassischer
+Selection Bias.
+
+**Auswahlregel:** Nur Instrumente mit `quote_status = 'available'`. Ein
+Instrument ohne belegbaren Kurs bekommt keine Prognose, sonst entstehen
+Ledger-Einträge, die zwangsläufig als `insufficient_data` enden und die
+Bewertungsquote drücken.
+
+`VERIFIED_BOOTSTRAP_SYMBOLS` in `forecast-coverage.ts` greift nur, solange der
+Instrument Master leer ist. Diese sieben Symbole wurden einzeln gegen
+`stable/quote` geprüft. Sie sind **kein Universum** — sobald der Master gefüllt
+ist, greift die Liste nicht mehr.
+
 ## 5. Verifikation
 
 ```bash
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint . --max-warnings=0
-npm test              # vitest, aktuell 42 Dateien / 193 Tests
+npm test              # vitest, aktuell 46 Dateien / 252 Tests
 npm run test:coverage # Schwellen in vitest.config.ts sind NICHT kalibriert
 npm run build
 npm run test:db       # braucht lokale Supabase-Instanz
