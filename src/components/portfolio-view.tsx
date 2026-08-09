@@ -606,8 +606,15 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
             </p>
           </div>
           <div className="rounded-md bg-ink/40 p-3">
-            <p className="text-xs text-muted">Gesamtrisiko</p>
+            {/*
+              Der Wert stammt aus den Risiko-Zahlen, die der Nutzer selbst je
+              Position eingetragen hat (Vorgabe 55) -- nicht aus einer Messung.
+              Als blosses "Gesamtrisiko" sah er aus, als haette StockPilot ihn
+              berechnet.
+            */}
+            <p className="text-xs text-muted">Ihre Risikoeinschätzung, gewichtet</p>
             <p className="mt-1 font-mono text-xl font-semibold text-amber">{portfolio.totalRisk}/100</p>
+            <p className="mt-1 text-[10px] leading-3 text-muted">Aus Ihren eigenen Angaben je Position</p>
           </div>
           <div className="rounded-md bg-ink/40 p-3">
             <p className="text-xs text-muted">Diversifikation</p>
@@ -642,7 +649,7 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
             <div className="rounded-2xl border border-stroke bg-coal/70 p-3">
               <p className="text-xs text-muted">High-Risk Positionen</p>
               <p className="mt-2 font-mono text-xl font-semibold text-loss">{portfolioInsights.highRiskPositions.length}</p>
-              <p className="mt-1 text-xs text-muted">Risiko-Score ab 70</p>
+              <p className="mt-1 text-xs text-muted">Eigene Einschätzung ab 70</p>
             </div>
           </div>
           <div className="mt-4 space-y-2">
@@ -817,7 +824,7 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
                   <div className="mt-4 h-2 overflow-hidden rounded-full bg-stroke">
                     <div className="h-full rounded-full bg-amber" style={{ width: `${item.riskScore}%` }} />
                   </div>
-                  <p className="mt-2 text-xs text-muted">Risiko je Position: {item.riskScore}/100</p>
+                  <p className="mt-2 text-xs text-muted">Ihre Einschätzung: {item.riskScore}/100</p>
                 </div>
               );
             })}
@@ -893,7 +900,7 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
               className="mt-2 h-11 w-full rounded-md border border-stroke bg-ink px-3 text-mist outline-none focus:border-cyan"
             />
             <label className="mt-4 block text-sm text-muted" htmlFor="risk-score">
-              Risiko je Position 0-100
+              Ihre Risikoeinschätzung 0-100
             </label>
             <input
               id="risk-score"

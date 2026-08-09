@@ -38,7 +38,14 @@ function freeEntitlements() {
 describe("planThatUnlocks", () => {
   it("nennt den günstigsten Tarif, der die Funktion wirklich enthält", () => {
     expect(planThatUnlocks("pro_terminal")).toBe("pro");
-    expect(planThatUnlocks("screener")).toBe("pro");
+    // War `screener`. Der ist am 2026-08-09 auf "geplant" zurueckgesetzt
+    // worden, weil er nur nach Assetklasse und Freitext filtert -- und Suche
+    // bekommt auch der kostenlose Tarif. `backtesting` ist an seine Stelle
+    // getreten: gebaut, gegatet, verkaufbar.
+    expect(planThatUnlocks("backtesting")).toBe("pro");
+    // Eine geplante Funktion hat keinen Tarif, der sie freischaltet -- sonst
+    // waere der Upgrade-Knopf eine Zusage auf etwas, das es nicht gibt.
+    expect(planThatUnlocks("screener")).toBeNull();
     expect(planThatUnlocks("asset_analysis")).toBe("free");
     expect(planThatUnlocks("portfolio_risk")).toBe("premium");
   });

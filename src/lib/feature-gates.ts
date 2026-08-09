@@ -235,6 +235,26 @@ export const featureDefinitions: FeatureDefinition[] = [
  * damit wird sie auch von der Paywall verkaufbar.
  */
 const plannedFeatures: FeatureId[] = [
+  /**
+   * Am 2026-08-09 von `included` zurueck auf `geplant` gesetzt.
+   *
+   * `screener` filterte nach Assetklasse, Datenabdeckung und Freitext -- das
+   * ist Suche, und Suche bekommt nach §3 auch der kostenlose Tarif. Die
+   * beworbenen Filter (Marktkapitalisierung, KGV, Dividende, Volatilitaet)
+   * existieren nicht; sie brauchen Kennzahlen je Instrument, die der
+   * Anbietertarif fuer ein Universum dieser Groesse nicht abdeckt.
+   *
+   * `scenario_analysis` rechnete `Depotwert x (1 + Schock)` fuer feste
+   * Prozentsaetze. Jede Position bewegt sich dabei gleich -- ein Depot aus
+   * Anleihen-ETFs und eines aus Kryptowaehrungen ergeben dieselbe Zeile. Als
+   * Stresstest brauchbar, als verkaufte "Szenarioanalyse" eine Fassade.
+   *
+   * Beide kommen zurueck, sobald sie halten, was ihr Name sagt. Ein
+   * Tarifmerkmal, das der Kunde bezahlt und nicht bekommt, ist teurer als eine
+   * kurze Funktionsliste.
+   */
+  "screener",
+  "scenario_analysis",
   "peer_comparison",
   "change_detection",
   "advanced_screener",
@@ -274,9 +294,7 @@ const freeFeatures: FeatureId[] = [
 const proFeatures: FeatureId[] = [
   ...freeFeatures,
   "pro_terminal",
-  "screener",
   "risk_analysis",
-  "scenario_analysis",
   // Seit dem 2026-08-09 gebaut und serverseitig durchgesetzt: `runBacktest`
   // rechnet auf echten Tageskursen. Vorher stand es in `plannedFeatures`, weil
   // die Seite nur ein Zinseszinsrechner war -- und ein Tarifmerkmal fuer eine
@@ -318,6 +336,8 @@ export const pricingTiers: PricingTier[] = [
     technicalStatus: "Freigabe ausschließlich über Checkout und signierten Webhook",
     billingRequired: true,
     featureStatus: statusMap(proFeatures, [
+      "screener",
+      "scenario_analysis",
       "advanced_screener",
       "options_data",
       "filings_monitoring",

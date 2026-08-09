@@ -75,22 +75,20 @@ describe("Was verkauft wird, muss es geben", () => {
   /**
    * Verkauft, aber noch von keiner Route durchgesetzt.
    *
-   * Diese vier hat der Test bei seinem ersten Lauf gefunden. Sie sind **kein**
+   * Vier hat der Test bei seinem ersten Lauf gefunden. Zwei davon --
+   * `screener` und `scenario_analysis` -- stehen inzwischen wieder auf
+   * „geplant", weil sie nicht hielten, was ihr Name sagt. Sie sind damit keine
+   * Schuld mehr, sondern kein Versprechen. Zwei sind geblieben. Sie sind **kein**
    * Freibrief: `docs/PROGRESS_MATRIX.md` führt sie unter §4, und die Zusicherung
    * unten ist eine Sperrklinke — die Liste darf schrumpfen, nicht wachsen.
    *
    * Sie hier einzutragen statt den Test zu löschen ist der Unterschied zwischen
-   * bekannter Schuld und einer Fassade. Warum sie nicht sofort geschlossen
-   * wurden: bei allen vieren hängt an der Route auch Funktion, die ein
-   * kostenloses Konto behalten soll (Suche, Portfolioliste). Wo genau die
+   * bekannter Schuld und einer Fassade. Warum die beiden nicht sofort
+   * geschlossen wurden: an ihren Routen hängt auch Funktion, die ein
+   * kostenloses Konto behalten soll — die Portfolioliste etwa. Wo genau die
    * Grenze verläuft, ist eine Produktentscheidung und keine technische.
    */
-  const knownUnenforced: FeatureId[] = [
-    "screener",
-    "risk_analysis",
-    "scenario_analysis",
-    "portfolio_risk"
-  ];
+  const knownUnenforced: FeatureId[] = ["risk_analysis", "portfolio_risk"];
 
   it("setzt jede verkaufte Funktion serverseitig durch", () => {
     const unenforced = sellable

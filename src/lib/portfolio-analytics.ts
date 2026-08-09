@@ -120,6 +120,18 @@ export function analyzePortfolio(positions: PortfolioPosition[]): PortfolioSumma
     cryptoWeight,
     sectorAllocation,
     assetAllocation,
+    /**
+     * Gleichmäßiger Schock auf den gesamten Depotwert.
+     *
+     * Bewusst **keine** Szenarioanalyse, und in der Anzeige heißt es auch nicht
+     * mehr so: hier bewegt sich jede Position um denselben Prozentsatz. Beta,
+     * Korrelationen und Assetklassen bleiben außen vor — ein Depot aus
+     * Anleihen-ETFs und eines aus Kryptowährungen ergeben dieselbe Zeile.
+     *
+     * Als Stresstest ist das brauchbar und üblich. Als „Szenarioanalyse"
+     * verkauft wäre es nach §90 eine Fassade, weil der Name eine
+     * Differenzierung verspricht, die die Rechnung nicht leistet.
+     */
     scenarios: [-20, -10, -5, 10, 20].map((shockPercent) => {
       const estimatedValue = totalValue * (1 + shockPercent / 100);
       return {

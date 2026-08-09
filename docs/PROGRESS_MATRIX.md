@@ -356,6 +356,35 @@ Kursanbieter: Gold (4399,70), Brent (83,55), Silber, VIX (14,90), S&P 500.
 Ein falscher Schlüsselversuch für die Arbeitslosenquote antwortete mit 404 und
 steht **nicht** im Katalog — aufgenommen wird nur, was nachweislich liefert.
 
+### §3/§90: zwei Tarifmerkmale zurück auf „geplant" (2026-08-09)
+
+Nach dem Screener-Fund dieselbe Frage an die übrigen verkauften Funktionen
+gestellt: **trägt das, was da verkauft wird?**
+
+| Funktion | Was sie tat | Entscheidung |
+|---|---|---|
+| `screener` | Filter nach Assetklasse, Abdeckung und Freitext | Zurück auf `geplant` — das ist Suche, und Suche bekommt nach §3 auch der kostenlose Tarif |
+| `scenario_analysis` | `Depotwert × (1 + Schock)` für ±5/10/20 % | Zurück auf `geplant` — jede Position bewegt sich gleich |
+
+Der zweite Punkt ist der interessantere. Die Rechnung ist als Stresstest
+brauchbar und üblich. Falsch war der Name: ein Depot aus Anleihen-ETFs und
+eines aus Kryptowährungen ergeben **dieselbe Zeile**. Ein Test belegt das
+inzwischen ausdrücklich, statt es nur zu behaupten.
+
+Die Funktion bleibt in der Anwendung — sie heißt jetzt „Gleichmäßiger Schock
+auf das Depot" und nennt darunter, was sie nicht berücksichtigt.
+
+**Dritte Stelle derselben Art:** „Gesamtrisiko 55/100" war die gewichtete Summe
+der Zahlen, die der Nutzer **selbst** je Position eingetragen hat — Vorgabewert
+55. Es sah aus, als hätte StockPilot es gemessen. Heißt jetzt „Ihre
+Risikoeinschätzung, gewichtet", mit dem Zusatz „Aus Ihren eigenen Angaben je
+Position".
+
+**Wirkung auf die Sperrklinke:** die Liste der verkauften, aber ungegateten
+Funktionen ist von vier auf zwei geschrumpft — nicht durch Wegdefinieren,
+sondern weil zwei davon kein Versprechen mehr sind. Geblieben sind
+`risk_analysis` und `portfolio_risk`.
+
 ### §47/§90: zwei Screener-Filter hießen nach etwas, das sie nicht taten (2026-08-09)
 
 Gefunden bei der Frage, ob `screener` als Pro-Leistung überhaupt trägt.
