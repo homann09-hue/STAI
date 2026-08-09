@@ -106,10 +106,10 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §3 | Tarifstruktur zentral konfigurierbar | `DONE` | `src/lib/feature-gates.ts`, eine Datei, vier Tarife |
 | §3 | Tarifnamen/Preise laut Masterprompt | `DONE` | FREE / PRO 29,99 € / PREMIUM 69,99 € (Monat) plus Jahrespreise. Vom Inhaber am 2026-08-08 entschieden |
 | §3 | Jahresabo | `IN PROGRESS` | Code, Checkout und Anzeige stehen. Es fehlen nur die Preis-IDs aus Stripe — ohne sie ist der Zeitraum nicht buchbar und erscheint auch nicht |
-| §4 | Zentrale Entitlement-Definition | `DONE` | `feature-gates.ts` + `billing/entitlements.ts`, 11 Features, 5 Limits |
+| §4 | Zentrale Entitlement-Definition | `DONE` | `feature-gates.ts` + `billing/entitlements.ts`, 23 Features, **6 Limits — jedes mit Durchsetzungsort** |
 | §4 | Backend erzwingt dieselben Rechte wie das Frontend | `DONE` | `feature-guard.ts`; `pro_terminal` durchgesetzt und gegen den Produktionsbuild geprüft. Noch nicht `VERIFIED`, weil erst eine von elf Funktionen eine gegatete Route hat |
 | §4 | Limit `historicalDataYears` | `DONE` | `billing/history-limit.ts`, **serverseitig im Abrufpfad** statt in der Anzeige. Free 1 Jahr statt 5, gekürzt wird vorne, der Nutzer erfährt es. 14 Tests, eine Regression |
-| §4 | Limits `maxWatchlists`, `maxSavedScreeners` | `IN PROGRESS` | Je Tarif gesetzt, aber von keiner Route durchgesetzt. Nach §90 zwei Fassaden — und wirtschaftlich zwei Tarifmerkmale ohne Wirkung |
+| §4 | Limits `maxWatchlists`, `maxSavedScreeners` | `DONE` | **Entfernt.** Sie begrenzten Funktionen, die es nicht gibt: `watchlists` ist eine flache Tabelle `(user_id, symbol)` ohne benannte Listen, gespeicherte Screener existieren nirgends. Ein Test verhindert das Zurückschleichen |
 | §4 | Limits `aiAnalysesPerDay`, `apiRequestsPerDay` | `DONE` | `usage-quota.ts` + `consume_feature_quota`, atomar in einer Anweisung. Gegen Produktion gemessen, 18 pgTAP-Zusicherungen. `apiRequestsPerDay` hat noch keine Route |
 | §5 | Webhook signaturgeprüft und idempotent | `VERIFIED` | `api/billing/webhook`, Body-Cap, `billing_events`-Dedupe, Immutability-Trigger, pgTAP |
 | §5 | Statusabbildung active/trialing/past_due/canceled/unpaid/incomplete | `DONE` | `stripe-events.ts`, `normalizeBillingStatus` |

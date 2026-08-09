@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { pricingTiers } from "@/lib/feature-gates";
 import {
   evaluateResourceLimit,
   normalizePlanId,
@@ -131,5 +132,31 @@ describe("legacy plan names after the FREE/PRO/PREMIUM change", () => {
     expect(normalizePlanId("enterprise_gold")).toBe("free");
     expect(normalizePlanId(null)).toBe("free");
     expect(normalizePlanId(42)).toBe("free");
+  });
+});
+
+describe("keine Limits ohne Funktion", () => {
+  it("kennt nur Limits, die etwas begrenzen", () => {
+    // `maxWatchlists` und `maxSavedScreeners` standen lange im Tarifmodell und
+    // begrenzten Funktionen, die es nicht gibt: das Datenmodell kennt genau
+    // eine Watchlist je Nutzer, und einen gespeicherten Screener gibt es
+    // nirgends. Nach §90 ist auch Konfiguration eine Fassade, wenn sie
+    // Faehigkeiten verspricht, die nicht bestehen.
+    //
+    // Sie duerfen zurueckkommen -- aber zusammen mit der Funktion und einer
+    // Route, die sie durchsetzt.
+    const limits = pricingTiers[0].limits as Record<string, unknown>;
+
+    expect(limits).not.toHaveProperty("maxWatchlists");
+    expect(limits).not.toHaveProperty("maxSavedScreeners");
+  });
+
+  it("hat für jedes verbliebene Limit einen Durchsetzungsort", () => {
+    // Die vier echten Limits: Watchlist-Werte, Alerts, Portfolios und
+    // Historienjahre. Alle vier werden serverseitig durchgesetzt und stehen
+    // auch auf der Preisseite.
+    expect(Object.keys(pricingTiers[0].limits).sort()).toEqual(
+      ["aiAnalysesPerDay", "apiRequestsPerDay", "historicalDataYears", "maxAlerts", "maxWatchlistItems", "portfolios"].sort()
+    );
   });
 });

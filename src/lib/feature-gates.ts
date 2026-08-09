@@ -54,11 +54,25 @@ export type FeatureDefinition = {
 /**
  * Grenzen je Tarif. Die Namen folgen §4 der Zieldefinition.
  */
+/**
+ * Mengenbegrenzungen je Tarif.
+ *
+ * Hier standen zusätzlich `maxWatchlists` und `maxSavedScreeners`. Beide sind
+ * entfernt, weil sie Funktionen begrenzten, **die es nicht gibt**: das
+ * Datenmodell kennt genau eine Watchlist je Nutzer — `watchlists` ist eine
+ * flache Tabelle aus `(user_id, symbol)`, ohne benannte Listen — und einen
+ * gespeicherten Screener gibt es nirgends.
+ *
+ * Eine Durchsetzung dafür zu bauen wäre schlimmer gewesen als keine: sie hätte
+ * ausgesehen, als gäbe es die Funktion. Nach §90 ist auch Konfiguration eine
+ * Fassade, wenn sie Fähigkeiten verspricht, die nicht bestehen.
+ *
+ * Beide kommen zurück, sobald die Funktionen gebaut sind — dann mit einer Route,
+ * die sie durchsetzt.
+ */
 export type PlanLimits = {
-  maxWatchlists: number;
   maxWatchlistItems: number;
   maxAlerts: number;
-  maxSavedScreeners: number;
   /** Wie viele Jahre Historie ein Tarif zeigen darf. */
   historicalDataYears: number;
   portfolios: number;
@@ -279,10 +293,8 @@ export const pricingTiers: PricingTier[] = [
     billingRequired: false,
     featureStatus: statusMap(freeFeatures, plannedFeatures),
     limits: {
-      maxWatchlists: 1,
       maxWatchlistItems: 15,
       maxAlerts: 3,
-      maxSavedScreeners: 1,
       historicalDataYears: 1,
       portfolios: 1,
       aiAnalysesPerDay: 3,
@@ -313,10 +325,8 @@ export const pricingTiers: PricingTier[] = [
       "backtesting"
     ]),
     limits: {
-      maxWatchlists: 10,
       maxWatchlistItems: 250,
       maxAlerts: 100,
-      maxSavedScreeners: 20,
       historicalDataYears: 10,
       portfolios: 10,
       aiAnalysesPerDay: 100,
@@ -337,10 +347,8 @@ export const pricingTiers: PricingTier[] = [
     billingRequired: true,
     featureStatus: statusMap(premiumFeatures, []),
     limits: {
-      maxWatchlists: 50,
       maxWatchlistItems: 1_000,
       maxAlerts: 500,
-      maxSavedScreeners: 100,
       historicalDataYears: 20,
       portfolios: 25,
       aiAnalysesPerDay: 500,
