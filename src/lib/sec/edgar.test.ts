@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filingUrls, parseRecentFilings, secUserAgent, trackedFilingForms } from "@/lib/sec/edgar";
+import { filingUrls, parseRecentFilings, rawFilingDocumentUrl, secUserAgent, trackedFilingForms } from "@/lib/sec/edgar";
 
 /**
  * §31 verlangt Originaldokumente mit Link. Die Tests prüfen deshalb vor allem
@@ -109,6 +109,34 @@ describe("Auswertung der Einreichungsliste", () => {
     for (const form of ["10-K", "10-Q", "8-K", "4"]) {
       expect(trackedFilingForms[form]).toBeTruthy();
     }
+  });
+});
+
+describe("Rohdokument statt Anzeigeansicht", () => {
+  it("entfernt den XSL-Pfad aus dem Form-4-Link", () => {
+    // Der Fund, der erst bei der Live-Probe auffiel: `primaryDocument` zeigt
+    // auf `xslF345X06/form4.xml` -- die ueber ein Stylesheet gerenderte
+    // HTML-Ansicht, ausgeliefert als text/html. Das Rohdokument liegt eine
+    // Ebene hoeher und kommt als text/xml.
+    expect(
+      rawFilingDocumentUrl("https://www.sec.gov/Archives/edgar/data/320193/000114036126025622/xslF345X06/form4.xml")
+    ).toBe("https://www.sec.gov/Archives/edgar/data/320193/000114036126025622/form4.xml");
+  });
+
+  it("verträgt andere XSL-Fassungen", () => {
+    // Die SEC nutzt je nach Alter der Meldung xslF345X02 bis X06.
+    for (const version of ["xslF345X02", "xslF345X03", "xslF345X05"]) {
+      expect(rawFilingDocumentUrl(`https://www.sec.gov/a/b/${version}/form4.xml`)).toBe(
+        "https://www.sec.gov/a/b/form4.xml"
+      );
+    }
+  });
+
+  it("lässt einen Link ohne XSL-Pfad unverändert", () => {
+    // 10-Q und 8-K werden direkt ausgeliefert -- dort gibt es nichts zu
+    // entfernen, und ein zu gieriger Ausdruck wuerde den Pfad zerstoeren.
+    const direct = "https://www.sec.gov/Archives/edgar/data/320193/000032019326000020/aapl-20260627.htm";
+    expect(rawFilingDocumentUrl(direct)).toBe(direct);
   });
 });
 

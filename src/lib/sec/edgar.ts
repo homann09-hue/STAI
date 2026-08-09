@@ -15,7 +15,7 @@
  * 34 10-Q.
  */
 
-import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import { fetchBoundedProviderJson, fetchBoundedProviderText } from "@/lib/providers/http-json";
 
 export const SEC_DATA_HOST = "data.sec.gov";
 export const SEC_ARCHIVE_HOST = "www.sec.gov";
@@ -185,6 +185,64 @@ export async function fetchCompanyFilings(
   } catch {
     return null;
   }
+}
+
+/**
+ * Holt die Form-4-Meldungen samt Inhalt.
+ *
+ * Zwei Dinge sind hier bewusst begrenzt:
+ *
+ * - **Wenige Meldungen.** Jede ist ein eigener Abruf; die SEC bittet
+ *   ausdrücklich um Zurückhaltung. Acht decken bei den meisten Unternehmen
+ *   mehrere Wochen ab.
+ * - **Nacheinander statt gleichzeitig.** Acht parallele Anfragen gegen eine
+ *   Behördenschnittstelle sind unhöflich und riskieren eine Sperre.
+ *
+ * Einzelne unlesbare Meldungen werden übersprungen, nicht ersetzt.
+ */
+/**
+ * Macht aus dem Anzeigelink den Link auf das Rohdokument.
+ *
+ * Die SEC gibt als `primaryDocument` eines Form 4 den Pfad
+ * `xslF345X06/form4.xml` an — das ist die **über ein Stylesheet gerenderte
+ * HTML-Ansicht** und wird als `text/html` ausgeliefert. Das Rohdokument liegt
+ * eine Ebene höher unter `form4.xml` und kommt als `text/xml`.
+ *
+ * Am 2026-08-08 an einer echten Apple-Meldung geprüft. Ohne diesen Schritt
+ * bekäme der Parser HTML statt XML und fände nie eine Transaktion — ein
+ * Fehler, der still zu „keine Insidergeschäfte" geführt hätte statt zu einer
+ * Störung.
+ */
+export function rawFilingDocumentUrl(documentUrl: string): string {
+  return documentUrl.replace(/\/xsl[^/]*\//i, "/");
+}
+
+export async function fetchInsiderTransactions(symbol: string, limit = 8) {
+  const filings = await fetchCompanyFilings(symbol, { forms: ["4"], limit });
+  if (!filings) return null;
+
+  const { parseForm4 } = await import("@/lib/sec/form4");
+  const transactions = [];
+
+  for (const filing of filings.filings) {
+    try {
+      const { text } = await fetchBoundedProviderText(new URL(rawFilingDocumentUrl(filing.documentUrl)), "SEC EDGAR", {
+        timeoutMs: 8000,
+        userAgent: secUserAgent(),
+        accept: "application/xml",
+        expectedContentType: "xml",
+        maxBytes: 400_000
+      });
+
+      const parsed = parseForm4(text);
+      if (parsed) transactions.push(...parsed.transactions);
+    } catch {
+      // Eine unlesbare Meldung ueberspringen. Sie zu ersetzen waere eine
+      // Erfindung, das Abbrechen waere unverhaeltnismaessig.
+    }
+  }
+
+  return { companyName: filings.companyName, cik: filings.cik, transactions };
 }
 
 /**

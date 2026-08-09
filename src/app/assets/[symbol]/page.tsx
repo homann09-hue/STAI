@@ -6,6 +6,8 @@ import { AssetUnavailableView } from "@/components/asset-unavailable-view";
 import { buildValuationView, withImpliedGrowth } from "@/lib/analysis/valuation-view";
 import { resolveAssetUnavailability } from "@/lib/asset-availability";
 import { fetchFundamentals } from "@/lib/providers/valuation-data";
+import { fetchCompanyFilings, fetchInsiderTransactions } from "@/lib/sec/edgar";
+import { summarizeInsiderActivity } from "@/lib/sec/form4";
 import { findInstrumentIdentityBySymbol } from "@/lib/instrument-master-store";
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
 import { absoluteUrl, siteConfig } from "@/lib/seo";
@@ -131,5 +133,27 @@ export default async function AssetPage({ params }: PageProps) {
       )
     : null;
 
-  return <AssetDetailView detail={detail} valuation={valuation} />;
+  // Filings und Insidertransaktionen (§31/§32).
+  //
+  // Getrennt vom Bewertungsabruf und mit eigenem Fehlerpfad: die SEC kennt nur
+  // US-Emittenten, und für ein europäisches Papier gibt es schlicht keine CIK.
+  // Das ist kein Fehler, sondern der Geltungsbereich der Behörde — die
+  // Abschnitte entfallen dann.
+  const [filings, insider] = await Promise.all([
+    fetchCompanyFilings(parsedSymbol.data, { forms: ["10-K", "10-Q", "8-K"], limit: 12 }),
+    fetchInsiderTransactions(parsedSymbol.data, 6)
+  ]);
+
+  return (
+    <AssetDetailView
+      detail={detail}
+      valuation={valuation}
+      filings={filings}
+      insider={
+        insider
+          ? { transactions: insider.transactions, summary: summarizeInsiderActivity(insider.transactions) }
+          : null
+      }
+    />
+  );
 }

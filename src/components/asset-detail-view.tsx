@@ -43,6 +43,9 @@ import { buildAssetProvenancePassport, type AssetProvenanceEntry } from "@/lib/a
 import { buildForecastPassport, type ForecastPassport } from "@/lib/forecast-passport";
 import { useMarketStream } from "@/lib/use-market-stream";
 import { AnalystPanel, PeerComparisonPanel, ValuationPanel } from "@/components/valuation-panel";
+import { FilingsPanel, InsiderPanel } from "@/components/insider-panel";
+import type { CompanyFilings } from "@/lib/sec/edgar";
+import type { InsiderSummary, InsiderTransaction } from "@/lib/sec/form4";
 import { MetricGrid } from "@/components/metric-with-context";
 import type { ValuationView } from "@/lib/analysis/valuation-view";
 import type { AssetDetail, Candle, Quote, TimeRange } from "@/lib/types";
@@ -286,7 +289,9 @@ function ForecastPassportPanel({ passport }: { passport: ForecastPassport }) {
 
 export function AssetDetailView({
   detail,
-  valuation = null
+  valuation = null,
+  filings = null,
+  insider = null
 }: {
   detail: AssetDetail;
   /**
@@ -297,6 +302,10 @@ export function AssetDetailView({
    * wäre eine Behauptung über fehlende Daten statt einer Auskunft.
    */
   valuation?: ValuationView | null;
+  /** Einreichungen bei der SEC. `null` bei Nicht-US-Emittenten. */
+  filings?: CompanyFilings | null;
+  /** Insidertransaktionen aus Formular 4. */
+  insider?: { transactions: InsiderTransaction[]; summary: InsiderSummary } | null;
 }) {
   const [range, setRange] = useState<TimeRange>("1M");
   const [showSma, setShowSma] = useState(true);
@@ -823,6 +832,20 @@ export function AssetDetailView({
         <h2 className="mb-3 text-lg font-semibold">Unternehmensnachrichten</h2>
         <NewsList news={detail.news} />
       </section>
+
+      {/* §49 Platz 11 und 12: Insider, dann Filings -- beide nur bei
+          US-Emittenten, weil die SEC nur diese erfasst. */}
+      {insider && insider.transactions.length ? (
+        <InsiderPanel
+          transactions={insider.transactions}
+          summary={insider.summary}
+          currency={detail.asset.currency}
+        />
+      ) : null}
+
+      {filings && filings.filings.length ? (
+        <FilingsPanel filings={filings.filings} companyName={filings.companyName} />
+      ) : null}
 
       <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
         <div className={`rounded-[1.5rem] border p-5 shadow-panel ${readinessTone(readiness.status)}`}>

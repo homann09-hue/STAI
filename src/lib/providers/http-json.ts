@@ -85,7 +85,7 @@ export async function readBoundedResponseText(
   // Standard bleibt die JSON-Pflicht. Nur wer ausdruecklich ein anderes Format
   // erwartet, darf sie abschalten -- sonst wuerde ein Provider, der still auf
   // eine HTML-Fehlerseite umschaltet, unbemerkt durchrutschen.
-  options: { expectedContentType?: "json" | "csv" } = {}
+  options: { expectedContentType?: "json" | "csv" | "xml" } = {}
 ) {
   const contentLength = Number(response.headers.get("content-length") ?? 0);
 
@@ -98,6 +98,13 @@ export async function readBoundedResponseText(
   if (options.expectedContentType === "csv") {
     if (contentType && !contentType.toLowerCase().includes("csv")) {
       throw new Error(`${providerName} lieferte keine CSV-Antwort.`);
+    }
+  } else if (options.expectedContentType === "xml") {
+    // Die SEC liefert Form-4-Meldungen als XML. Ohne diesen Zweig haette die
+    // CSV-Pruefung jeden Abruf abgewiesen -- ein Fehler, der erst beim
+    // Verdrahten aufgefallen ist.
+    if (contentType && !/xml|text\/plain/i.test(contentType)) {
+      throw new Error(`${providerName} lieferte keine XML-Antwort.`);
     }
   } else if (!isJsonContentType(contentType)) {
     throw new Error(`${providerName} lieferte keine JSON-Antwort.`);
@@ -189,7 +196,14 @@ export async function fetchBoundedProviderJson<T>(
 export async function fetchBoundedProviderText(
   url: URL,
   providerName: string,
-  options: { timeoutMs?: number; userAgent?: string; maxBytes?: number; accept?: string } = {}
+  options: {
+    timeoutMs?: number;
+    userAgent?: string;
+    maxBytes?: number;
+    accept?: string;
+    /** Erwartetes Format. Standard bleibt CSV, damit bestehende Aufrufe gleich bleiben. */
+    expectedContentType?: "csv" | "xml";
+  } = {}
 ): Promise<{ text: string; latencyMs: number }> {
   if (url.protocol !== "https:") {
     throw new Error(`${providerName} Provider-URL muss HTTPS verwenden.`);
@@ -220,7 +234,9 @@ export async function fetchBoundedProviderText(
     }
 
     return {
-      text: await readBoundedResponseText(response, providerName, maxBytes, { expectedContentType: "csv" }),
+      text: await readBoundedResponseText(response, providerName, maxBytes, {
+        expectedContentType: options.expectedContentType ?? "csv"
+      }),
       latencyMs: Date.now() - started
     };
   } finally {
