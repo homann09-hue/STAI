@@ -356,6 +356,50 @@ Kursanbieter: Gold (4399,70), Brent (83,55), Silber, VIX (14,90), S&P 500.
 Ein falscher Schlüsselversuch für die Arbeitslosenquote antwortete mit 404 und
 steht **nicht** im Katalog — aufgenommen wird nur, was nachweislich liefert.
 
+### §61: Demodaten kamen bis in die Anzeige (2026-08-09)
+
+Gemessen beim Abgleich des Architekturbilds. `getAsset()` **begann** bei
+`mock/market.ts` und ersetzte davon genau zwei Felder:
+
+```ts
+const detail = await this.fallback.getAsset(symbol);
+return quote ? enrichAssetWithQuote(detail, quote) : detail;  // nur quote + dataQuality
+```
+
+Für die sechs Symbole der Mock-Tabelle (NVDA, AAPL, MSFT, VOO, BTC-USD,
+ETH-USD) überlebte alles Übrige bis zum Nutzer: Scores aus `scoreSeeds`,
+Fundamentaldaten aus `fundamentalsMap`, erfundene Nachrichten, ein
+„Executive Officer" mit einem Verkauf über 1,8 Mio. $ und das Earnings-Datum
+`2026-07-29`. Auf derselben Seite standen daneben echte SEC- und
+Fundamentaldaten — ohne jeden Unterschied in der Darstellung.
+
+**Drei weitere Wege fand erst der Test:**
+
+| Stelle | Was zurückkam |
+|---|---|
+| `getQuote()` | `this.fallback.getQuote()` — ein **erfundener Kurs**, wenn der echte Anbieter nicht antwortete |
+| `getQuotes()` | Fehlende Symbole wurden aus dem Mock aufgefüllt — im Dashboard nicht unterscheidbar |
+| `getCandles()` | `makeCandles()`, also Schlusskurse aus Sinus und Kosinus — dieselbe Sorte Kerze, die §26 bereits einmal entfernt hat |
+
+Der Kursfall ist der schwerste: kein fehlendes Feld, sondern eine falsche Zahl
+an der Stelle, auf die alles andere aufbaut.
+
+**Behoben:** `getAsset` baut die Ansicht vollständig aus Anbieterdaten über
+`detailFromProviderQuote` — der ehrliche Pfad, der für jedes Symbol *außerhalb*
+der Mock-Tabelle ohnehin schon galt. `getQuote` gibt `null` zurück, `getQuotes`
+liefert eine kürzere Liste mit Protokolleintrag, `getCandles` nur echte
+Tageshistorie und für Intraday-Intervalle nichts.
+
+**Der eigentliche Befund:** als ich das Mock-Gerüst entfernte, blieben alle 774
+Tests grün. **Keiner deckte es ab.** `market-provider.mock-leak.test.ts`
+schließt die Lücke mit sieben Tests; jeder wurde gegengeprüft, indem der
+jeweilige Rückfall wieder eingebaut wurde.
+
+**Offen:** `getDashboard()` bezieht seine Symbolliste weiterhin aus dem Mock.
+Das ist eine kuratierte Standardauswahl und keine erfundene Zahl — die
+Kennzahlen der Kacheln stammen aus echten Quotes. Die `scores` der
+Mock-Zusammenfassungen sind es aber noch.
+
 ### §28: die US-Reihen hingen an nichts (2026-08-09)
 
 `fred.ts` war vollständig — Katalog, Parser, Abruf, Lizenzstand je Reihe, eigene

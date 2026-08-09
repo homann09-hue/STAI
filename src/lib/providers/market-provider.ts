@@ -1,5 +1,5 @@
 import { NO_INDICATORS, buildTechnicalIndicators } from "@/lib/analysis/technical";
-import { assessDataQuality } from "@/lib/data-quality";
+
 import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
 import { logEvent } from "@/lib/observability";
 import { resolveQuoteChain } from "@/lib/providers/quote-chain";
@@ -839,16 +839,14 @@ function quoteFromNormalized(base: Quote, normalized: NormalizedQuote): Quote {
   };
 }
 
-function enrichAssetWithQuote(detail: AssetDetail, normalized: NormalizedQuote): AssetDetail {
-  const quote = quoteFromNormalized(detail.quote, normalized);
-  const merged = { ...detail, quote };
-  const dataQuality = assessDataQuality(merged);
-
-  return {
-    ...merged,
-    dataQuality
-  };
-}
+/*
+ * Hier stand `enrichAssetWithQuote`. Die Funktion nahm ein Mock-Asset, ersetzte
+ * darin `quote` und `dataQuality` -- und lieferte alles Uebrige unveraendert
+ * aus: Scores, Fundamentaldaten, News, Insider-Trades, Earnings-Datum.
+ *
+ * Sie ist ersatzlos entfernt. Es gibt kein Geruest mehr, das angereichert
+ * werden koennte: `getAsset` baut die Ansicht vollstaendig aus Anbieterdaten.
+ */
 
 function enrichSummaryWithQuote(summary: AssetSummary, normalized: NormalizedQuote): AssetSummary {
   return {
@@ -1491,21 +1489,40 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
     };
   }
 
+  /**
+   * Baut die Asset-Ansicht **allein aus Anbieterdaten**.
+   *
+   * Hier stand vorher `this.fallback.getAsset(symbol)` als Gerüst, und
+   * `enrichAssetWithQuote` überschrieb davon genau zwei Felder: `quote` und
+   * `dataQuality`. Alles andere überlebte aus `mock/market.ts` — und das war
+   * für sechs Symbole eine ganze Menge:
+   *
+   * | Feld | Was ausgeliefert wurde |
+   * |---|---|
+   * | `scores` | Eine Tabelle. `AAPL: { trend: 46, news: 52, … }`, fest im Code |
+   * | `professionalScores` | Daraus gerechnet — inklusive des angezeigten Sentiments |
+   * | `fundamentals` | KGV, Wachstum, Verschuldung aus `fundamentalsMap` |
+   * | `news` | Erfundene Meldungen mit erfundenen Zeitstempeln |
+   * | `insiderActivity` | „Executive Officer", Sell, 1.800.000 $ |
+   * | `earningsDate` | `"2026-07-29"` |
+   *
+   * Für AAPL stand damit ein echter Kurs neben erfundenen Fundamentaldaten,
+   * ohne jeden Unterschied in der Darstellung. Das ist §61 in seiner
+   * gefährlichsten Form: nicht offensichtlich falsch, sondern plausibel falsch.
+   *
+   * Der ehrliche Pfad existierte bereits — `detailFromProviderQuote` wurde für
+   * jedes Symbol *außerhalb* der Mock-Tabelle benutzt und meldet Lücken als
+   * Lücken. Er gilt jetzt für alle.
+   */
   async getAsset(symbol: string) {
-    const detail = await this.fallback.getAsset(symbol);
-
     const quote = await withDeadline(this.getQuote(symbol), DEFAULT_ASSET_QUOTE_TIMEOUT_MS, null);
-    if (!detail) {
-      if (!quote) return null;
+    if (!quote) return null;
 
-      // Die Historie ist der teuerste Abruf im Pfad (ueber 1000 Kerzen). Sie
-      // bekommt ein eigenes, groesseres Zeitlimit -- und bei Ueberschreitung
-      // eine leere Reihe statt einer erzeugten.
-      const history = await withDeadline(fetchDailyHistory(symbol), 9500, NO_HISTORY);
-      return detailFromProviderQuote(quote, history);
-    }
-
-    return quote ? enrichAssetWithQuote(detail, quote) : detail;
+    // Die Historie ist der teuerste Abruf im Pfad (ueber 1000 Kerzen). Sie
+    // bekommt ein eigenes, groesseres Zeitlimit -- und bei Ueberschreitung
+    // eine leere Reihe statt einer erzeugten.
+    const history = await withDeadline(fetchDailyHistory(symbol), 9500, NO_HISTORY);
+    return detailFromProviderQuote(quote, history);
   }
 
   async getQuote(symbol: string) {
@@ -1545,7 +1562,14 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
       }
     }
 
-    return this.fallback.getQuote(symbol);
+    // Hier stand `return this.fallback.getQuote(symbol)`. Antwortete der echte
+    // Anbieter nicht, bekam der Nutzer fuer die sechs Symbole der Mock-Tabelle
+    // einen **erfundenen Kurs** -- ununterscheidbar vom echten.
+    //
+    // Das ist der schlimmste Fall von §61: kein fehlendes Feld, sondern eine
+    // falsche Zahl an der Stelle, auf die alles andere aufbaut. Kein Kurs ist
+    // besser als ein ausgedachter.
+    return null;
   }
 
   async getQuotes(symbols: string[]) {
@@ -1580,22 +1604,50 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
       }
     }
 
-    const realMap = new Map([...cryptoQuotes, ...realQuotes].map((quote) => [quote.symbol, quote]));
-    const missing = requested.filter((symbol) => !realMap.has(symbol));
-    const fallbackQuotes = missing.length ? await this.fallback.getQuotes(missing) : [];
+    // Symbole ohne echte Antwort fehlen in der Liste. Vorher wurden sie aus
+    // `this.fallback.getQuotes(missing)` aufgefuellt -- erfundene Kurse, im
+    // Dashboard nicht von echten zu unterscheiden. Eine kuerzere Liste ist die
+    // ehrliche Antwort; wer sie anzeigt, sieht auch, dass etwas fehlt.
+    const missing = requested.filter(
+      (symbol) => ![...cryptoQuotes, ...realQuotes].some((quote) => quote.symbol === symbol)
+    );
 
-    return [...cryptoQuotes, ...realQuotes, ...fallbackQuotes].sort((a, b) => requested.indexOf(a.symbol) - requested.indexOf(b.symbol));
+    if (missing.length > 0) {
+      logEvent("warn", "market_provider.quotes_missing", {
+        provider: this.providerName,
+        requested: requested.length,
+        missing: missing.length
+      });
+    }
+
+    return [...cryptoQuotes, ...realQuotes].sort(
+      (a, b) => requested.indexOf(a.symbol) - requested.indexOf(b.symbol)
+    );
   }
 
   async getDelayedQuote(symbol: string) {
     return this.getQuote(symbol);
   }
 
+  /**
+   * Kerzen aus echter Tageshistorie.
+   *
+   * Hier stand `this.fallback.getAsset(symbol)` — also `makeCandles()` aus
+   * `mock/market.ts`, wo der Schlusskurs aus einer Sinus- und einer
+   * Kosinusfunktion entsteht. Genau diese Sorte Kerze hat dieses Projekt
+   * bereits einmal aus dem Analysepfad entfernt; über diesen Weg kam sie
+   * zurück.
+   *
+   * Intraday-Intervalle liefern **nichts**. Tagesschlusskurse enthalten keinen
+   * Verlauf innerhalb des Tages, und ihn zu erfinden wäre der Ausgangsfehler.
+   */
   async getCandles(symbol: string, interval: "1m" | "5m" | "15m" | "1h" | "1d") {
-    const detail = await this.fallback.getAsset(symbol);
-    if (!detail) return [];
-    if (interval === "1d") return detail.candles["1Y"];
-    return detail.candles["1D"];
+    if (interval !== "1d") return [];
+
+    const history = await withDeadline(fetchDailyHistory(symbol), 9500, NO_HISTORY);
+    if (!history.candles.length) return [];
+
+    return sliceHistoryRanges(history.candles)["1Y"];
   }
 
   streamQuotes(symbols: string[], options?: MarketStreamOptions) {
