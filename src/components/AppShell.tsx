@@ -21,11 +21,13 @@ import {
   Search,
   Settings2,
   ShieldAlert,
+  ShieldCheck,
   Star,
   WifiOff
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { legalDisclaimer } from "@/lib/scoring";
+import { fetchWithSupabaseAuth } from "@/lib/supabase/client-fetch";
 import { GlobalCommandPalette } from "@/components/global-command-palette";
 import { BillingPlanBadge } from "@/components/billing-plan-badge";
 import { NotificationCenter } from "@/components/notification-center";
@@ -55,6 +57,51 @@ const navItems = [
   { href: "/settings", label: "Einstellungen", icon: Settings2 }
 ];
 
+/**
+ * Der Adminpunkt steht bewusst **nicht** in `navItems`.
+ *
+ * Er wird eingeblendet, wenn das angemeldete Konto Adminrechte hat -- und das
+ * ist reine Anzeige. Die Berechtigung entsteht nicht dadurch, dass ein Link
+ * sichtbar ist: `/admin` ruft ausschliesslich Routen auf, die die Rolle
+ * serverseitig in der Datenbank nachlesen. Wer den Punkt nicht sieht, kommt
+ * durch Eintippen der Adresse keinen Schritt weiter; wer ihn faelschlich sieht,
+ * bekommt von jeder Route eine Absage.
+ */
+const adminNavItem = { href: "/admin", label: "Verwaltung", icon: ShieldCheck };
+
+/**
+ * Fragt einmal je Seitenaufruf, ob das Konto Adminrechte hat.
+ *
+ * Fällt im Zweifel auf `false` zurück — ein fehlgeschlagener Abruf blendet
+ * den Punkt aus, statt ihn vorsichtshalber zu zeigen.
+ */
+function useIsAdmin() {
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const response = await fetchWithSupabaseAuth("/api/account/role");
+        if (!response.ok) return;
+        const payload = (await response.json()) as { isAdmin?: unknown };
+        if (!cancelled) setIsAdmin(payload.isAdmin === true);
+      } catch {
+        // Bewusst stumm: die Navigation ist kein Ort für Fehlermeldungen, und
+        // der Adminbereich ist ohne diesen Punkt weiterhin ueber die Adresse
+        // erreichbar — für die, die dort ohnehin hindürfen.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return isAdmin;
+}
+
 const mobileNavItems = navItems.filter((item) =>
   ["/", "/markets", "/watchlist", "/portfolio", "/settings"].includes(item.href)
 );
@@ -63,6 +110,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [online, setOnline] = useState(true);
   const [noticeAccepted, setNoticeAccepted] = useState(true);
+  const isAdmin = useIsAdmin();
+  // Der Adminpunkt haengt hinten an, nicht zwischen den Produktseiten: er
+  // gehoert nicht zum Produkt, sondern zum Betrieb.
+  const visibleNavItems = useMemo(() => (isAdmin ? [...navItems, adminNavItem] : navItems), [isAdmin]);
 
   useEffect(() => {
     setOnline(navigator.onLine);
@@ -109,7 +160,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </Link>
 
         <nav className="mt-8 flex flex-1 flex-col gap-1 overflow-y-auto pr-1">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             const separated = item.href === "/watchlist" || item.href === "/learn" || item.href === "/settings";
@@ -179,7 +230,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-muted">⌘K</span>
             </form>
             <nav className="hidden max-w-[62vw] items-center gap-1 overflow-x-auto rounded-2xl border border-stroke bg-panel/70 p-1 md:flex lg:hidden">
-              {navItems.map((item) => {
+              {visibleNavItems.map((item) => {
                 const Icon = item.icon;
                 const active =
                   item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
