@@ -594,7 +594,7 @@ export function AssetDetailView({
           ) : null}
 
           {valuation.analysts ? (
-            <AnalystPanel view={valuation.analysts} currency={detail.asset.currency} />
+            <AnalystPanel view={valuation.analysts} currency={detail.asset.currency} price={displayedQuote.price} />
           ) : null}
 
           {valuation.peers.length ? <PeerComparisonPanel comparisons={valuation.peers} /> : null}

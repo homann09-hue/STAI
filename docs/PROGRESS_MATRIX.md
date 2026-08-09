@@ -156,7 +156,7 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §30 | Sentiment | `IN PROGRESS` | Teilweise über News |
 | §31 | SEC-Filings mit Originallink | `DONE` | `sec/edgar.ts` + `GET /api/sec/filings`. EDGAR ist **kostenlos und die Primärquelle**. Gemessen an Apple: 1000 Filings, davon 587 Form 4, 105 8-K, 34 10-Q. 13 Tests |
 | §32 | Insidertransaktionen | `DONE` | `sec/form4.ts` **auf der Seite**: Person, Position, Stückzahl, Preis, Wert und die Unterscheidung echter Käufe von Vergütung, Optionsausübung und 10b5-1-Plänen. Jede Zeile trägt ihren Transaktionscode. 25 Tests |
-| §33 | Analystenurteile | `IN PROGRESS` | `providers/valuation-data.ts`: Buy/Hold/Sell und Kursziele **nach Zeitraum getrennt**. Live: AAPL 111 Urteile, Ziel 1M 329,55 $ gegen 1J 306,68 $. Offen: Anzeige |
+| §33 | Analystenurteile | `DONE` | Buy/Hold/Sell und Kursziele nach Zeitraum getrennt, dazu die **zeitliche Veränderung als Darstellung**: gemeinsame Skala mit dem aktuellen Kurs als Bezugslinie. Live: AAPL 111 Urteile, Ziel 1M 329,55 $ gegen 1J 306,68 $ |
 | §34 | Short Interest | `BLOCKED` | `short-interest` gibt HTTP 404 — nicht im Tarif |
 | §35 | Optionen | `BLOCKED` | `options-chain` gibt HTTP 404 — nicht im Tarif |
 | §36 | Peer-Analyse | `NOT STARTED` | **Quelle vorhanden**: `stock-peers` antwortet mit 200 |

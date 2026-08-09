@@ -15,7 +15,12 @@ import {
  * zwei Nachkommastellen liest sich wie ein Kursziel, obwohl sie aus Annahmen
  * entsteht, die um Prozentpunkte danebenliegen können.
  *
- * An echten Apple-Zahlen: Punktwert 182,10 $, Spanne 140–290 $.
+ * An echten Apple-Zahlen: Punktwert 128,77 $, Spanne 88–240 $.
+ *
+ * (Die Zahlen standen hier zunächst als 182,10 $ und 140–290 $ — gerechnet mit
+ * einer Nettoverschuldung, die aus `enterpriseValue − marketCap` abgeleitet war
+ * und deshalb zwei verschiedene Stichtage vermischte. Sie kommt jetzt aus der
+ * Bilanz.)
  */
 export function ValuationPanel({
   dcf,
@@ -119,6 +124,82 @@ function Fact({ label, value }: { label: string; value: string }) {
 }
 
 /**
+ * Die Kursziele im Verlauf, gegen den aktuellen Kurs.
+ *
+ * §33 verlangt ausdrücklich, zeitliche Veränderungen **darzustellen**. Drei
+ * Zahlen nebeneinander sind noch keine Darstellung — erst die gemeinsame Skala
+ * zeigt, dass die Ziele mit dem Kurs gestiegen sind statt ihn vorwegzunehmen.
+ *
+ * Der aktuelle Kurs ist als Linie eingezeichnet, weil er die einzige Größe ist,
+ * gegen die ein Kursziel überhaupt eine Aussage hat.
+ */
+function TargetTrend({
+  targets,
+  price,
+  currency
+}: {
+  targets: Array<[string, number | null, number]>;
+  price: number | null;
+  currency: string;
+}) {
+  const values = targets.map(([, value]) => value).filter((value): value is number => value !== null);
+  if (values.length < 2 || price === null || price <= 0) return null;
+
+  // Gemeinsame Skala ueber Ziele und Kurs, mit etwas Luft an beiden Enden.
+  const min = Math.min(...values, price) * 0.96;
+  const max = Math.max(...values, price) * 1.04;
+  const position = (value: number) => ((value - min) / (max - min)) * 100;
+
+  return (
+    <div className="mt-3 rounded-2xl border border-stroke bg-coal/55 p-4">
+      <p className="text-[11px] uppercase tracking-[0.14em] text-muted">Kursziele im Verlauf</p>
+
+      <div className="relative mt-4 space-y-3">
+        {targets.map(([label, value, count]) =>
+          value === null ? null : (
+            <div key={label} className="relative">
+              <div className="flex items-baseline justify-between gap-2 text-[11px] text-muted">
+                <span>{label}</span>
+                <span className="font-mono text-mist">
+                  {value.toFixed(2)} {currency} · {count} Häuser
+                </span>
+              </div>
+              <div className="mt-1 h-2 overflow-hidden rounded-full bg-panel2">
+                <div
+                  className={`h-full rounded-full ${value >= price ? "bg-profit/60" : "bg-loss/60"}`}
+                  style={{ width: `${Math.max(2, Math.min(100, position(value)))}%` }}
+                />
+              </div>
+            </div>
+          )
+        )}
+
+        {/* Der aktuelle Kurs als Bezugslinie. */}
+        <div className="relative pt-1">
+          <div className="flex items-baseline justify-between gap-2 text-[11px]">
+            <span className="text-cyan">Aktueller Kurs</span>
+            <span className="font-mono text-cyan">
+              {price.toFixed(2)} {currency}
+            </span>
+          </div>
+          <div className="mt-1 h-2 overflow-hidden rounded-full bg-panel2">
+            <div
+              className="h-full rounded-full bg-cyan/70"
+              style={{ width: `${Math.max(2, Math.min(100, position(price)))}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-3 text-[11px] leading-4 text-muted">
+        Gemeinsame Skala. Ein Kursziel über dem Kurs ist keine Prognose, sondern die Einschätzung eines
+        Hauses — und sie folgt dem Kurs häufiger, als sie ihn vorwegnimmt.
+      </p>
+    </div>
+  );
+}
+
+/**
  * Analystenurteile und Kursziele (§33).
  *
  * Die Zeiträume stehen **nebeneinander** statt zu einem Wert verrechnet. Die
@@ -128,7 +209,8 @@ function Fact({ label, value }: { label: string; value: string }) {
  */
 export function AnalystPanel({
   view,
-  currency
+  currency,
+  price = null
 }: {
   view: {
     strongBuy: number;
@@ -142,6 +224,8 @@ export function AnalystPanel({
     note: string;
   };
   currency: string;
+  /** Der aktuelle Kurs. Ohne ihn hat ein Kursziel keine Bezugsgröße. */
+  price?: number | null;
 }) {
   const ratings: Array<[string, number, string]> = [
     ["Strong Buy", view.strongBuy, "text-profit"],
@@ -188,6 +272,8 @@ export function AnalystPanel({
           </div>
         ))}
       </div>
+
+      <TargetTrend targets={targets} price={price} currency={currency} />
 
       <p className="mt-3 text-[11px] leading-4 text-muted">{view.note}</p>
     </section>
