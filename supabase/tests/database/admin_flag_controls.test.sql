@@ -1,5 +1,5 @@
 begin;
-select plan(11);
+select plan(13);
 
 -- Die Adminrolle lebt an `profiles`, und der Schutz liegt auf der Spalte, nicht
 -- in einer Policy. Diese Tests prüfen genau die Verwechslung, die hier nahelag:
@@ -96,9 +96,25 @@ select ok(
 
 -- Und die Gegenprobe: ein nicht angemeldeter Besucher hat mit Profilen nichts
 -- zu tun.
+--
+-- Diese Zusicherung lief in der CI immer gruen -- und war in der *echten*
+-- Datenbank am 2026-08-09 trotzdem verletzt: `anon` hatte dort INSERT, SELECT
+-- und UPDATE auf `profiles`, aus einer Aenderung ausserhalb der Migrationen.
+-- Ausnutzbar war es nicht, weil RLS ohne Policy fuer `anon` keine Zeile
+-- freigibt. Ein Recht, das niemand braucht, gehoert aber nicht vergeben.
 select ok(
   not has_table_privilege('anon', 'public.profiles', 'SELECT'),
   'anonymous visitors cannot read profiles'
+);
+
+select ok(
+  not has_table_privilege('anon', 'public.profiles', 'UPDATE'),
+  'anonymous visitors cannot write profiles'
+);
+
+select ok(
+  not has_column_privilege('anon', 'public.profiles', 'is_admin', 'UPDATE'),
+  'anonymous visitors cannot grant themselves admin rights'
 );
 
 select * from finish();

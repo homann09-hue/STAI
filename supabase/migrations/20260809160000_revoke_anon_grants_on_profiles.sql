@@ -1,0 +1,43 @@
+-- `anon` hatte in der Produktionsdatenbank Rechte auf `profiles`.
+--
+-- Gefunden am 2026-08-09 beim Nachmessen, **nachdem** die Adminspalte
+-- eingespielt war. Die Kontrollabfrage auf `information_schema.column_privileges`
+-- lieferte für `is_admin` unter anderem:
+--
+--     anon  INSERT
+--     anon  SELECT
+--     anon  UPDATE
+--
+-- Das steht in **keiner** Migration dieses Projekts. Das Ausgangsschema vom Juni
+-- vergibt auf `profiles` ausschließlich an `authenticated`. Die Rechte sind also
+-- außerhalb der Migrationen entstanden — vermutlich durch ein pauschales
+-- `grant ... to anon` im Dashboard oder eine frühere Ad-hoc-Änderung.
+--
+-- ## War es ausnutzbar?
+--
+-- Nein — und der Grund ist wichtig, weil er auch erklärt, warum es trotzdem weg
+-- muss.
+--
+-- `profiles` hat RLS aktiviert (`relrowsecurity = true`), und **alle** Policies
+-- laufen auf `TO authenticated`. Für `anon` gibt es damit keine Policy, und ohne
+-- Policy sieht RLS keine einzige Zeile. Ein Tabellenrecht ohne passende Policy
+-- ist wirkungslos.
+--
+-- Das ist aber Schutz durch eine zweite Schicht, nicht durch die erste. Wer
+-- später eine Policy für `anon` ergänzt — etwa für ein öffentliches Profil —
+-- oder RLS für eine Wartung kurz abschaltet, öffnet damit unbeabsichtigt auch
+-- das Schreiben auf `is_admin`. Ein Recht, das niemand braucht, gehört nicht
+-- vergeben.
+--
+-- ## Was auffällt und benannt gehört
+--
+-- Die Produktionsdatenbank weicht von den Migrationen ab. Die pgTAP-Prüfung
+-- `not has_table_privilege('anon', 'public.profiles', 'SELECT')` lief in der CI
+-- grün, weil die CI die Datenbank aus den Migrationen frisch aufbaut. Sie hätte
+-- gegen die echte Datenbank angeschlagen.
+--
+-- Diese Migration schreibt den Ist-Zustand fest. Sie ist wiederholbar und in
+-- einer frisch aufgebauten Datenbank wirkungslos, weil dort ohnehin nichts an
+-- `anon` vergeben wurde.
+
+revoke all on public.profiles from anon;
