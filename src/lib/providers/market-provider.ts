@@ -3,6 +3,7 @@ import { NO_INDICATORS, buildTechnicalIndicators } from "@/lib/analysis/technica
 import { buildRiskReport } from "@/lib/risk-engine";
 
 import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
+import { getNewsWithMetadata } from "@/lib/providers/news-provider";
 import { logEvent } from "@/lib/observability";
 import { resolveQuoteChain } from "@/lib/providers/quote-chain";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
@@ -703,7 +704,37 @@ function providerOnlyProfessionalScores(summary: AssetSummary): ProfessionalScor
  * Funktion ohne Netzzugriff prüfbar, und der Aufrufer entscheidet über das
  * Zeitlimit.
  */
-function detailFromProviderQuote(quote: NormalizedQuote, history: HistoryResult = NO_HISTORY): AssetDetail {
+/**
+ * Holt echte Nachrichten — und nur echte.
+ *
+ * `getNewsWithMetadata` fällt am Ende auf `getMockNews()` zurück. Dieser
+ * Rückfall ist für `/api/news` gedacht, wo er als Demoquelle gekennzeichnet
+ * wird; im Analysepfad wäre er ein §61-Verstoß. Übernommen wird deshalb nur,
+ * was **nicht** als `quality: "mock"` gekennzeichnet ist.
+ *
+ * Wirft nicht: eine nicht erreichbare Nachrichtenquelle darf die Asset-Seite
+ * nicht abbrechen. Sie darf aber auch nicht durch erfundene Meldungen ersetzt
+ * werden.
+ */
+async function realNewsFor(symbol: string): Promise<NewsItem[]> {
+  try {
+    const { news, metadata } = await getNewsWithMetadata(symbol);
+    if (metadata.quality === "mock") return [];
+    return news;
+  } catch (error) {
+    logEvent("warn", "market_provider.news_failed", {
+      symbol,
+      message: error instanceof Error ? error.message : "unknown"
+    });
+    return [];
+  }
+}
+
+function detailFromProviderQuote(
+  quote: NormalizedQuote,
+  history: HistoryResult = NO_HISTORY,
+  news: NewsItem[] = []
+): AssetDetail {
   const summary = summaryFromNormalizedQuote(quote);
   const candles = history.candles.length ? sliceHistoryRanges(history.candles) : emptyCandleRanges();
   // Indikatoren nur aus echter Historie. Ohne sie bleibt es bei Luecken statt
@@ -720,7 +751,6 @@ function detailFromProviderQuote(quote: NormalizedQuote, history: HistoryResult 
     dividendYield: null,
     marketCap: quote.marketCap ?? 0
   };
-  const news: NewsItem[] = [];
   const professionalScores = providerOnlyProfessionalScores(summary);
   const dataQuality = providerOnlyDataQuality(quote);
   const analysisLayers: AnalysisLayer[] = [
@@ -1538,8 +1568,14 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
     // Die Historie ist der teuerste Abruf im Pfad (ueber 1000 Kerzen). Sie
     // bekommt ein eigenes, groesseres Zeitlimit -- und bei Ueberschreitung
     // eine leere Reihe statt einer erzeugten.
-    const history = await withDeadline(fetchDailyHistory(symbol), 9500, NO_HISTORY);
-    return detailFromProviderQuote(quote, history);
+    // Historie und Nachrichten parallel. Beide haben ein eigenes Zeitlimit und
+    // enden im Fehlerfall leer -- nie in Ersatzdaten.
+    const [history, news] = await Promise.all([
+      withDeadline(fetchDailyHistory(symbol), 9500, NO_HISTORY),
+      withDeadline(realNewsFor(symbol), 6000, [] as NewsItem[])
+    ]);
+
+    return detailFromProviderQuote(quote, history, news);
   }
 
   async getQuote(symbol: string) {

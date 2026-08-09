@@ -175,3 +175,62 @@ describe("Die Risiko-Engine hängt am echten Pfad", () => {
     }
   });
 });
+
+describe("Echte News erreichen die Asset-Ansicht", () => {
+  /**
+   * Nach dem Entfernen des Mock-Gerüsts stand `news: []` fest im Code. Damit
+   * zeigte die Asset-Seite für **kein** Symbol Nachrichten — und die
+   * News-Befunde der Risiko-Engine konnten nie auslösen. Die gesamte Arbeit an
+   * §27 (Ereignisarten, Entdopplung, Sentiment) erreichte den Analysepfad
+   * nicht.
+   *
+   * Der Anschluss muss dabei die Mock-Falle vermeiden: `getNewsWithMetadata`
+   * fällt am Ende auf `getMockNews()` zurück. Übernommen wird deshalb nur, was
+   * **nicht** als `quality: "mock"` gekennzeichnet ist.
+   */
+  it("reicht echte Meldungen durch", async () => {
+    const newsProvider = await import("@/lib/providers/news-provider");
+    vi.spyOn(newsProvider, "getNewsWithMetadata").mockResolvedValue({
+      news: [
+        {
+          id: "n1",
+          symbol: "AAPL",
+          title: "Apple hebt Prognose an",
+          source: "Reuters",
+          publishedAt: "2026-08-08T10:00:00.000Z",
+          sentiment: "positive",
+          relevance: 22,
+          impactScore: 40,
+          events: []
+        }
+      ],
+      metadata: { quality: "near_realtime" }
+    } as never);
+
+    const detail = await loadAsset("AAPL");
+
+    expect(detail!.news).toHaveLength(1);
+    expect(detail!.news[0].title).toContain("Prognose");
+  });
+
+  it("übernimmt keine Mock-Meldungen", async () => {
+    const newsProvider = await import("@/lib/providers/news-provider");
+    vi.spyOn(newsProvider, "getNewsWithMetadata").mockResolvedValue({
+      news: [{ id: "m1", symbol: "NVDA", title: "Erfundene Meldung", sentiment: "positive", events: [] }],
+      metadata: { quality: "mock" }
+    } as never);
+
+    // Lieber keine Nachricht als eine erfundene -- §61 gilt auch hier.
+    expect((await loadAsset("NVDA"))!.news).toEqual([]);
+  });
+
+  it("bricht nicht ab, wenn der News-Anbieter scheitert", async () => {
+    const newsProvider = await import("@/lib/providers/news-provider");
+    vi.spyOn(newsProvider, "getNewsWithMetadata").mockRejectedValue(new Error("Anbieter kaputt"));
+
+    const detail = await loadAsset("VOO");
+
+    expect(detail).not.toBeNull();
+    expect(detail!.news).toEqual([]);
+  });
+});

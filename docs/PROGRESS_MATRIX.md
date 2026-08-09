@@ -356,6 +356,34 @@ Kursanbieter: Gold (4399,70), Brent (83,55), Silber, VIX (14,90), S&P 500.
 Ein falscher Schlüsselversuch für die Arbeitslosenquote antwortete mit 404 und
 steht **nicht** im Katalog — aufgenommen wird nur, was nachweislich liefert.
 
+### §27/§61: die Asset-Seite zeigte gar keine Nachrichten mehr (2026-08-09)
+
+Folgefund derselben Kette. Nach dem Entfernen des Mock-Geruests stand in
+`detailFromProviderQuote` fest:
+
+```ts
+const news: NewsItem[] = [];
+```
+
+Damit zeigte die Asset-Seite fuer **kein** Symbol Nachrichten. Zwei Folgen, die
+schwerer wiegen als die fehlende Anzeige:
+
+1. Die News-Befunde der Risiko-Engine konnten nie ausloesen -- weder
+   "Negative relevante News" noch die Eskalation bei Gewinnwarnungen,
+   Rechtsstreit oder Kapitalmassnahmen.
+2. Die gesamte Arbeit an §27 -- 18 Ereignisarten mit Belegtext, Entdopplung
+   mit Stemming, Sentiment -- erreichte den Analysepfad nicht. Sie lief nur
+   unter `/api/news`.
+
+`getNewsWithMetadata` haengt jetzt am Asset-Pfad, parallel zur Historie und mit
+eigenem Zeitlimit.
+
+**Die Mock-Falle dabei:** die Funktion faellt am Ende auf `getMockNews()`
+zurueck. Fuer `/api/news` ist das gedacht und dort gekennzeichnet; im
+Analysepfad waere es genau der Verstoss, der zwei Commits vorher geschlossen
+wurde. Uebernommen wird deshalb nur, was **nicht** als `quality: "mock"`
+gekennzeichnet ist -- lieber keine Nachricht als eine erfundene.
+
 ### §24/§90: die Risiko-Engine hing an nichts - und ihre Schwelle war tot (2026-08-09)
 
 Zwei Funde, der erste selbst verursacht.
