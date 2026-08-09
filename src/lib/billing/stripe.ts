@@ -115,6 +115,26 @@ export function getPlanForStripePriceId(priceId: string): PaidPlanId | null {
   return null;
 }
 
+/**
+ * Von der Preis-ID zum Abrechnungsintervall.
+ *
+ * Der Adminbereich braucht das, um MRR zu rechnen: ein Jahresabo traegt ein
+ * Zwoelftel bei, kein volles Monatsentgelt.
+ *
+ * `null` heisst „nicht zuzuordnen" — etwa weil die Preis-ID aus einem alten
+ * Preis stammt, den keine Umgebungsvariable mehr nennt. Solche Abos duerfen
+ * nicht stillschweigend als Monatsabo gezaehlt werden; sie gehoeren als
+ * ungeklaert ausgewiesen.
+ */
+export function getIntervalForStripePriceId(priceId: string): BillingInterval | null {
+  const prices = getStripeBillingConfiguration().priceIds;
+  for (const plan of Object.keys(prices) as PaidPlanId[]) {
+    if (prices[plan].month === priceId) return "month";
+    if (prices[plan].year === priceId) return "year";
+  }
+  return null;
+}
+
 function safeOrigin(candidate: string | undefined) {
   if (!candidate) return null;
 

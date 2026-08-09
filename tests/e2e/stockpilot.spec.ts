@@ -96,7 +96,18 @@ test("professional finance terminal pages render core data areas", async ({ page
   // Ohne Konto zeigt /markets die Paywall statt des Profi-Berichts -- das ist
   // die Durchsetzung aus §4, nicht ein Fehler. Vorher lag der Inhalt fuer
   // jeden Besucher offen im HTML.
-  await expect(page.getByText(/Pro-Tarif|Anmeldung|nicht verfügbar/i).first()).toBeVisible();
+  //
+  // „sicher pruefen" gehoert in die Liste, weil der Guard zwei verschiedene
+  // Gruende hat, zu schliessen: kein Tarif (Paywall) und Tarif nicht pruefbar,
+  // etwa weil Supabase in dieser Umgebung fehlt. Beides ist dieselbe
+  // Zusicherung -- der Bezahlinhalt bleibt zu -- und der Test darf nicht davon
+  // abhaengen, welcher der beiden Gruende gerade zutrifft.
+  await expect(page.getByText(/Pro-Tarif|Anmeldung|nicht verfügbar|sicher prüfen/i).first()).toBeVisible();
+
+  // Und die eigentliche Aussage als Gegenprobe: der Profi-Bericht selbst darf
+  // nicht im HTML stehen. Ohne diese Zeile wuerde der Test auch dann gruen,
+  // wenn die Paywall ueber offen liegendem Inhalt eingeblendet waere.
+  await expect(page.getByTestId("professional-overview")).toHaveCount(0);
 
   await safeGoto(page, "/stocks");
   await expect(page.getByText("Aktien-Screener").first()).toBeVisible();

@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { resolveEntitlements, type EntitlementRecordInput } from "@/lib/billing/entitlements";
+import { pickEffectiveEntitlement, resolveEntitlements, type EntitlementRow } from "@/lib/billing/entitlements";
 import { getStripeBillingConfiguration, getStripePublicConfiguration } from "@/lib/billing/stripe";
 import { logEvent } from "@/lib/observability";
 
@@ -18,8 +18,13 @@ export async function getUserEntitlements(auth: BillingAuthContext) {
     )
     .eq("user_id", auth.userId)
     .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    // Bewusst **alle** Eintraege des Kontos, nicht nur der juengste. Die Tabelle
+    // ist auf `(user_id, provider)` eindeutig: neben einem Stripe-Abo kann eine
+    // manuelle Freischaltung stehen. Wer hier `limit(1)` nimmt, laesst darueber
+    // entscheiden, welches System zuletzt geschrieben hat -- siehe
+    // `pickEffectiveEntitlement`. Die Obergrenze ist eine Sicherung gegen eine
+    // unerwartet lange Liste, nicht die eigentliche Auswahl.
+    .limit(20);
 
   if (error) {
     logEvent("error", "billing.entitlements_read_failed", {
@@ -34,7 +39,7 @@ export async function getUserEntitlements(auth: BillingAuthContext) {
     });
   }
 
-  return resolveEntitlements(data as EntitlementRecordInput | null, {
+  return pickEffectiveEntitlement((data ?? []) as EntitlementRow[], {
     billingConfigured: stripeConfiguration.entitlementsConfigured
   });
 }

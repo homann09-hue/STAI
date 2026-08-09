@@ -87,6 +87,18 @@ export type PlanPricing = {
   yearly: string | null;
   /** Wie viel das Jahresabo gegenüber zwölf Monatszahlungen spart. */
   yearlySavingsNote: string | null;
+  /**
+   * Derselbe Preis in Cent — für Rechnungen statt für die Anzeige.
+   *
+   * Bewusst getrennt vom Anzeigetext. Wer aus `"29,99 € / Monat"` eine Zahl
+   * herausliest, hängt an Komma, Währungszeichen und Suffix; die erste
+   * Umformulierung im Marketing macht daraus stillschweigend eine falsche
+   * Umsatzzahl. Der Anzeigetext gehört der Oberfläche, der Betrag der Rechnung.
+   *
+   * `null` heißt: dieses Intervall gibt es nicht — nicht „kostenlos".
+   */
+  monthlyCents: number | null;
+  yearlyCents: number | null;
 };
 
 export type PricingTier = {
@@ -309,7 +321,7 @@ export const pricingTiers: PricingTier[] = [
     id: "free",
     name: "Free",
     price: "0 €",
-    pricing: { monthly: "0 €", yearly: null, yearlySavingsNote: null },
+    pricing: { monthly: "0 €", yearly: null, yearlySavingsNote: null, monthlyCents: 0, yearlyCents: null },
     audience: "StockPilot ausprobieren",
     technicalStatus: "Ohne Zahlung aktiv, mit serverseitigen Free-Grenzen",
     billingRequired: false,
@@ -330,7 +342,9 @@ export const pricingTiers: PricingTier[] = [
     pricing: {
       monthly: "29,99 € / Monat",
       yearly: "299,90 € / Jahr",
-      yearlySavingsNote: "Zwei Monate günstiger als die monatliche Zahlung"
+      yearlySavingsNote: "Zwei Monate günstiger als die monatliche Zahlung",
+      monthlyCents: 2999,
+      yearlyCents: 29990
     },
     audience: "Aktive Anleger, die vollständig analysieren wollen",
     technicalStatus: "Freigabe ausschließlich über Checkout und signierten Webhook",
@@ -363,7 +377,9 @@ export const pricingTiers: PricingTier[] = [
     pricing: {
       monthly: "69,99 € / Monat",
       yearly: "699,90 € / Jahr",
-      yearlySavingsNote: "Zwei Monate günstiger als die monatliche Zahlung"
+      yearlySavingsNote: "Zwei Monate günstiger als die monatliche Zahlung",
+      monthlyCents: 6999,
+      yearlyCents: 69990
     },
     audience: "Intensivnutzer mit höheren Grenzen und Zusatzdaten",
     technicalStatus: "Freigabe ausschließlich über Checkout und signierten Webhook",
@@ -410,4 +426,22 @@ export function isFeatureTechnicallyActive(
   const tier = getPricingTier(planId);
   if (tier.billingRequired && !billingActive) return false;
   return getFeatureGateStatus(planId, featureId) === "included";
+}
+
+/**
+ * Der monatliche Betrag eines Tarifs in Cent — Jahresabos anteilig.
+ *
+ * Für den Adminbereich: MRR ist der monatlich wiederkehrende Umsatz, und ein
+ * Jahresabo trägt dazu ein Zwölftel bei. Wer den vollen Jahresbetrag in den
+ * Monat schreibt, meldet das Zwölffache.
+ *
+ * `null` heißt „nicht bezifferbar" und ist kein Synonym für 0. Ein Tarif ohne
+ * hinterlegten Preis darf nicht als kostenlos in die Summe eingehen — er darf
+ * gar nicht eingehen, und der Adminbereich muss das benennen.
+ */
+export function getMonthlyRevenueCents(planId: PlanId, interval: BillingInterval): number | null {
+  const { monthlyCents, yearlyCents } = getPricingTier(planId).pricing;
+
+  if (interval === "year") return yearlyCents === null ? null : Math.round(yearlyCents / 12);
+  return monthlyCents;
 }

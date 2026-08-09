@@ -230,3 +230,71 @@ export function isPlanLimitError(error: unknown) {
     (value) => typeof value === "string" && value.includes("plan_limit_exceeded")
   );
 }
+
+/**
+ * Welcher Eintrag gilt, wenn ein Konto mehrere hat.
+ *
+ * Ein Konto kann mehrere Zeilen in `entitlements` haben -- die Tabelle ist auf
+ * `(user_id, provider)` eindeutig, nicht auf `user_id`. Sobald es neben einem
+ * Stripe-Abo eine manuelle Freischaltung gibt, sind es zwei.
+ *
+ * Vorher entschied `order by updated_at desc limit 1`, also schlicht: der
+ * zuletzt geschriebene Eintrag gewinnt. Das ist kein Kriterium, sondern ein
+ * Zufall. Konkret:
+ *
+ *   1. Kunde zahlt PRO ueber Stripe.
+ *   2. Der Betreiber schaltet ihm PREMIUM von Hand frei -- Kulanz, Support-Fall.
+ *   3. Stripe schickt irgendein Abo-Ereignis (Rechnung, Kartenwechsel).
+ *   4. Die Stripe-Zeile ist jetzt die juengere. Der Kunde faellt auf PRO
+ *      zurueck, ohne dass jemand etwas entzogen haette.
+ *
+ * Der Tarif hinge damit daran, welches System zuletzt geschrieben hat. Das ist
+ * fuer einen zahlenden Kunden nicht zumutbar und waere im Support kaum
+ * auffindbar.
+ *
+ * Die Regel hier ist stattdessen: **der staerkste aktive Anspruch gilt.**
+ * Niemand bekommt weniger, als er bezahlt oder zugesagt bekommen hat. Bei
+ * gleichem Tarif gewinnt Stripe, damit "Abo verwalten" auf das echte Abo zeigt
+ * und nicht auf eine manuelle Zeile ohne Kundenkonto.
+ *
+ * Gibt es keinen aktiven Anspruch, gilt der zuletzt geaenderte Eintrag. Dann
+ * traegt die Antwort den aktuellen Grund -- `past_due` statt eines aelteren
+ * `canceled` --, denn das ist es, was der Kunde erklaert bekommen muss.
+ */
+const planRank: Record<PlanId, number> = { free: 0, pro: 1, premium: 2 };
+
+export type EntitlementRow = EntitlementRecordInput & { updated_at?: unknown };
+
+function updatedAtMillis(row: EntitlementRow) {
+  const parsed = Date.parse(typeof row.updated_at === "string" ? row.updated_at : "");
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function pickEffectiveEntitlement(
+  rows: readonly EntitlementRow[],
+  options: { billingConfigured: boolean; degraded?: boolean; reason?: string | null; now?: number }
+): ResolvedEntitlements {
+  if (rows.length === 0) return resolveEntitlements(null, options);
+
+  const evaluated = rows.map((row) => ({ row, resolved: resolveEntitlements(row, options) }));
+  const active = evaluated.filter((entry) => entry.resolved.billingActive);
+
+  if (active.length === 0) {
+    const newest = evaluated.reduce((best, entry) =>
+      updatedAtMillis(entry.row) > updatedAtMillis(best.row) ? entry : best
+    );
+    return newest.resolved;
+  }
+
+  const strongest = active.reduce((best, entry) => {
+    const rank = planRank[entry.resolved.plan] - planRank[best.resolved.plan];
+    if (rank !== 0) return rank > 0 ? entry : best;
+
+    const stripe = Number(entry.resolved.provider === "stripe") - Number(best.resolved.provider === "stripe");
+    if (stripe !== 0) return stripe > 0 ? entry : best;
+
+    return updatedAtMillis(entry.row) > updatedAtMillis(best.row) ? entry : best;
+  });
+
+  return strongest.resolved;
+}

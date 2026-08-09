@@ -17,10 +17,18 @@ const apiRoutes = [
   "/api/assets/BTC-USD",
   "/api/news?symbol=NVDA",
   "/api/fundamentals/NVDA",
-  "/api/ai/analysis?symbol=NVDA",
   "/api/portfolio",
   "/api/alerts"
 ];
+
+/**
+ * Routen, die ohne Konto **nicht** liefern duerfen.
+ *
+ * Sie stehen bewusst nicht in `apiRoutes`: dort lautet die Zusicherung
+ * "antwortet erfolgreich", und genau das sollen diese Routen nicht tun. Ihre
+ * eigene Zusicherung steht weiter unten.
+ */
+const gatedRoutes = ["/api/professional/overview", "/api/ai/analysis?symbol=NVDA"];
 
 async function acceptRiskNotice(page: import("@playwright/test").Page) {
   const button = page.getByRole("button", { name: "Verstanden" });
@@ -115,22 +123,24 @@ test.describe("deep red-team browser checks", () => {
     // diesen Test haette das Entfernen der Route aus `apiRoutes` die Pruefung
     // nur geloescht statt verschoben -- und niemand haette gemerkt, wenn der
     // Profi-Inhalt wieder offen liegt.
-    const response = await request.get("/api/professional/overview");
+    for (const route of gatedRoutes) {
+      const response = await request.get(route);
 
-    // 503 gehoert ausdruecklich dazu. In dieser Umgebung ist Supabase nicht
-    // konfiguriert, `getSupabaseAuth` meldet `missing_client`, und der Guard
-    // unterscheidet dann zwischen "abgelehnt" und "nicht pruefbar" -- er
-    // antwortet mit 503 statt mit 401.
-    //
-    // Fuer diesen Test ist beides derselbe Befund: die Route liefert **keinen**
-    // Profi-Inhalt ohne Konto. Ein Guard, der bei fehlender Konfiguration
-    // oeffnet statt zu schliessen, waere der Fehler -- und genau den wuerde
-    // diese Zusicherung fangen.
-    expect([401, 402, 403, 503]).toContain(response.status());
-    expect(response.headers()["x-content-type-options"]).toBe("nosniff");
-    // Kein CDN-Cache auf einer gegateten Antwort: sonst liefert das CDN den
-    // Bezahlinhalt nach einem berechtigten Aufruf an alle weiteren aus.
-    expect(response.headers()["cache-control"] ?? "").toMatch(/no-store|private/);
+      // 503 gehoert ausdruecklich dazu. In dieser Umgebung ist Supabase nicht
+      // konfiguriert, `getSupabaseAuth` meldet `missing_client`, und der Guard
+      // unterscheidet dann zwischen "abgelehnt" und "nicht pruefbar" -- er
+      // antwortet mit 503 statt mit 401.
+      //
+      // Fuer diesen Test ist beides derselbe Befund: die Route liefert
+      // **keinen** Profi-Inhalt ohne Konto. Ein Guard, der bei fehlender
+      // Konfiguration oeffnet statt zu schliessen, waere der Fehler -- und
+      // genau den wuerde diese Zusicherung fangen.
+      expect([401, 402, 403, 503], route).toContain(response.status());
+      expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+      // Kein CDN-Cache auf einer gegateten Antwort: sonst liefert das CDN den
+      // Bezahlinhalt nach einem berechtigten Aufruf an alle weiteren aus.
+      expect(response.headers()["cache-control"] ?? "").toMatch(/no-store|private/);
+    }
   });
 
   test("portfolio form accepts transaction and updates UI", async ({ page }) => {
