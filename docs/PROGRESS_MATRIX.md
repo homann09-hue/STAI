@@ -551,7 +551,7 @@ dokumentiert.
 | §47 | Screener über Gesamtuniversum | `BLOCKED` | BLOCKER-005, `company-screener` = 402 |
 | §48 | Globale Suche | `IN PROGRESS` | `search/fuzzy.ts`: Damerau-Levenshtein, ISIN mit **Prüfziffernvalidierung**, Treffer über Ticker/Name/Wortanfang/ISIN, Akzente ignoriert. 22 Tests, drei Regressionen gegengeprüft. Offen: Anbindung an die Command Palette |
 | §50 | Kennzahlen mit Kontext | `IN PROGRESS` | `analysis/metric-context.ts` + `MetricWithContext`: 12 Kennzahlen mit Erklärung, Begründung, Vorbehalt und Fünfjahresvergleich. 18 Tests, zwei Regressionen gegengeprüft. Offen: Verdrahtung auf allen Seiten |
-| §49 | Asset-Seiten | `DONE` | Inklusive ehrlicher Sackgassen-Ansicht |
+| §49 | Asset-Seiten | `IN PROGRESS` | Reihenfolge nach §49 umgestellt: Chart von Platz **10 auf 2**, News vom **Ende auf 9**, Szenarien zuletzt. Offen: Bewertung, Insider, Filings und Peers sind gebaut, aber noch nicht auf der Seite platziert |
 | §51 | Design | `IN PROGRESS` | Eigenständig, nicht systematisch geprüft |
 | §52 | Mobile/PWA | `IN PROGRESS` | Manifest vorhanden, nie auf Geräten geprüft |
 | §79 | i18n de/en | `NOT STARTED` | Oberfläche durchgängig deutsch |

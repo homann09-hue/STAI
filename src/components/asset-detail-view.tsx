@@ -411,6 +411,11 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
 
   return (
     <div className="space-y-7">
+      {/* Reihenfolge nach §49: Übersicht, Chart, Summary, Bewertung und
+          Fundamentaldaten, technische Analyse, News, dann Qualität und Risiko,
+          zuletzt die Szenarien. Der Chart stand vorher an zehnter Stelle und
+          die News ganz am Ende — beides genau umgekehrt zur Blickrichtung
+          eines Lesers, der eine Aktie zum ersten Mal öffnet. */}
       <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-md border border-stroke bg-[linear-gradient(140deg,#101712,#07100d_70%,#172114)] p-5 shadow-panel">
           <div className="flex items-start justify-between gap-4">
@@ -458,102 +463,6 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
             <p className="mt-2 text-sm leading-6 text-muted">{detail.asset.description}</p>
           </div>
         </div>
-      </section>
-
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric
-          label="Bid / Ask"
-          value={
-            displayedQuote.bid !== undefined && displayedQuote.ask !== undefined
-              ? `${formatCurrency(displayedQuote.bid, detail.asset.currency)} / ${formatCurrency(displayedQuote.ask, detail.asset.currency)}`
-              : "vom Anbieter nicht geliefert"
-          }
-        />
-        <Metric
-          label="Spread"
-          value={displayedQuote.spread !== undefined ? formatCurrency(displayedQuote.spread, detail.asset.currency) : "vom Anbieter nicht geliefert"}
-          tone={displayedQuote.spread !== undefined && isFiniteNumber(displayedQuote.price) ? "text-cyan" : undefined}
-        />
-        <Metric
-          label="Tageshoch / Tief"
-          value={`${formatCurrency(displayedQuote.dayHigh, detail.asset.currency)} / ${formatCurrency(displayedQuote.dayLow, detail.asset.currency)}`}
-        />
-        <Metric
-          label="Open / Prev. Close"
-          value={`${formatMaybeCurrency(displayedQuote.open, detail.asset.currency)} / ${formatMaybeCurrency(displayedQuote.previousClose, detail.asset.currency)}`}
-        />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
-        <div className={`rounded-[1.5rem] border p-5 shadow-panel ${readinessTone(readiness.status)}`}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] opacity-75">Analysefreigabe</p>
-              <h2 className="mt-2 text-2xl font-semibold">{readiness.label}</h2>
-            </div>
-            <DatabaseZap className="h-6 w-6" />
-          </div>
-          <p className="mt-3 text-sm leading-6 opacity-90">{readiness.detail}</p>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-current/20 bg-ink/25 p-3">
-              <p className="text-xs opacity-70">Datenqualität</p>
-              <p className="mt-1 font-mono text-2xl font-semibold">{readiness.qualityScore}/100</p>
-            </div>
-            <div className="rounded-2xl border border-current/20 bg-ink/25 p-3">
-              <p className="text-xs opacity-70">Konfidenz</p>
-              <p className="mt-1 font-mono text-2xl font-semibold">{readiness.confidence}/100</p>
-            </div>
-          </div>
-          {readiness.missingAreas.length ? (
-            <p className="mt-4 text-xs leading-5 opacity-80">
-              Fehlende Bereiche: {readiness.missingAreas.join(", ")}.
-            </p>
-          ) : null}
-        </div>
-        <div className="rounded-[1.5rem] border border-stroke bg-panel/82 p-5 shadow-panel">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan">Datenabdeckung</p>
-              <h2 className="mt-2 text-xl font-semibold text-mist">Was ist wirklich nutzbar?</h2>
-            </div>
-            <span className="rounded-xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">
-              Provider: {displayedQuote.provider}
-            </span>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {readiness.coverage.map((item) => (
-              <article key={item.label} className={`rounded-2xl border p-3 ${qualityTone(item.available)}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">{item.label}</p>
-                  <span className="rounded-full border border-current/25 px-2 py-1 text-[10px] uppercase">
-                    {item.available ? "verfügbar" : "fehlt"}
-                  </span>
-                </div>
-                <p className="mt-2 text-xs leading-5 text-muted">{item.note}</p>
-              </article>
-            ))}
-          </div>
-          <p className="mt-4 rounded-2xl border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
-            Wenn Daten fehlen, zeigt STAI keine Ersatz-Fundamentals und keine scheinpräzise Prognose. Das ist Absicht, nicht ein Darstellungsfehler.
-          </p>
-        </div>
-      </section>
-
-      <AssetProvenancePanel passport={provenancePassport} />
-
-      <ForecastPassportPanel passport={forecastPassport} />
-
-      <AssetDecisionPanel detail={detail} />
-
-      <TechnicalTrendPanel detail={{ ...detail, quote: displayedQuote }} />
-
-      <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <DataQualityPanel quality={detail.dataQuality} />
-        <RiskEnginePanel report={detail.riskReport} />
-      </section>
-
-      <section>
-        <AnalysisLayersPanel layers={detail.analysisLayers} macroFactors={detail.macroFactors} />
       </section>
 
       <section className={`space-y-3 ${chartFullscreen ? "fixed inset-0 z-[80] overflow-y-auto bg-[#050b14] p-3 sm:p-6" : ""}`}>
@@ -632,6 +541,32 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
         <CandlestickChart candles={candles} />
       </section>
 
+      <AssetDecisionPanel detail={detail} />
+
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric
+          label="Bid / Ask"
+          value={
+            displayedQuote.bid !== undefined && displayedQuote.ask !== undefined
+              ? `${formatCurrency(displayedQuote.bid, detail.asset.currency)} / ${formatCurrency(displayedQuote.ask, detail.asset.currency)}`
+              : "vom Anbieter nicht geliefert"
+          }
+        />
+        <Metric
+          label="Spread"
+          value={displayedQuote.spread !== undefined ? formatCurrency(displayedQuote.spread, detail.asset.currency) : "vom Anbieter nicht geliefert"}
+          tone={displayedQuote.spread !== undefined && isFiniteNumber(displayedQuote.price) ? "text-cyan" : undefined}
+        />
+        <Metric
+          label="Tageshoch / Tief"
+          value={`${formatCurrency(displayedQuote.dayHigh, detail.asset.currency)} / ${formatCurrency(displayedQuote.dayLow, detail.asset.currency)}`}
+        />
+        <Metric
+          label="Open / Prev. Close"
+          value={`${formatMaybeCurrency(displayedQuote.open, detail.asset.currency)} / ${formatMaybeCurrency(displayedQuote.previousClose, detail.asset.currency)}`}
+        />
+      </section>
+
       <section>
         <h2 className="mb-3 text-lg font-semibold">Transparentes Score-Modell</h2>
         <ProfessionalScoresPanel scores={detail.professionalScores} />
@@ -639,82 +574,6 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
           <ScoreMeter score={detail.scores.trend} label="Legacy Trend Score" />
           <ScoreMeter score={detail.scores.news} label="Legacy News Score" />
           <ScoreMeter score={detail.scores.risk} label="Legacy Risk Score" />
-        </div>
-      </section>
-
-      <section className="grid gap-5 lg:grid-cols-2">
-        <div>
-          <div className="mb-3 flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-cyan" />
-            <h2 className="text-lg font-semibold">Technische Indikatoren</h2>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Metric
-              label="RSI 14"
-              value={detail.indicators.rsi === null ? "Zu wenig Daten" : detail.indicators.rsi.toFixed(1)}
-              tone={
-                detail.indicators.rsi === null
-                  ? "text-muted"
-                  : detail.indicators.rsi > 70
-                    ? "text-loss"
-                    : detail.indicators.rsi < 30
-                      ? "text-amber"
-                      : "text-profit"
-              }
-            />
-            <Metric
-              label="MACD"
-              value={
-                detail.indicators.macd
-                  ? `${formatMaybeNumber(detail.indicators.macd.value)} / Signal ${formatMaybeNumber(detail.indicators.macd.signal)}`
-                  : "Zu wenig Daten"
-              }
-            />
-            <Metric label="SMA 20" value={formatMaybeCurrency(detail.indicators.movingAverages.ma20, detail.asset.currency)} />
-            <Metric label="SMA 50" value={formatMaybeCurrency(detail.indicators.movingAverages.ma50, detail.asset.currency)} />
-            <Metric label="SMA 200" value={formatMaybeCurrency(detail.indicators.movingAverages.ma200, detail.asset.currency)} />
-            <Metric
-              label="Bollinger Bänder"
-              value={
-                detail.indicators.bollingerBands
-                  ? `${formatCurrency(detail.indicators.bollingerBands.lower, detail.asset.currency)} - ${formatCurrency(detail.indicators.bollingerBands.upper, detail.asset.currency)}`
-                  : "Zu wenig Daten"
-              }
-            />
-            <Metric label="Unterstützung" value={detail.indicators.support.length ? detail.indicators.support.map((value) => formatCurrency(value, detail.asset.currency)).join(" / ") : "Zu wenig Daten"} />
-            <Metric label="Widerstand" value={detail.indicators.resistance.length ? detail.indicators.resistance.map((value) => formatCurrency(value, detail.asset.currency)).join(" / ") : "Zu wenig Daten"} />
-          </div>
-          <p className="mt-3 text-xs text-muted">
-            {detail.indicators.sampleSize === 0
-              ? "Keine Kurshistorie verfügbar — es werden keine Indikatoren berechnet."
-              : `Berechnet aus ${detail.indicators.sampleSize} Kerzen.${
-                  detail.indicators.unavailable.length
-                    ? ` Nicht berechenbar: ${detail.indicators.unavailable.join(", ")}.`
-                    : ""
-                }`}
-          </p>
-        </div>
-
-        <div>
-          <div className="mb-3 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-profit" />
-            <h2 className="text-lg font-semibold">Fundamentaldaten</h2>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {fundamentalMetrics.map((metric) => (
-              <Metric
-                key={metric.label}
-                label={metric.label}
-                value={metric.value}
-                tone={metric.available ? undefined : "text-amber"}
-              />
-            ))}
-          </div>
-          {!readiness.trustedFundamentals ? (
-            <p className="mt-3 rounded-md border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
-              Fundamentaldaten sind für dieses Symbol aktuell nicht ausreichend verifiziert. STAI zeigt deshalb keine Nullwerte als echte Kennzahlen.
-            </p>
-          ) : null}
         </div>
       </section>
 
@@ -833,10 +692,156 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
         </div>
       </section>
 
+      <section className="grid gap-5 lg:grid-cols-2">
+        <div>
+          <div className="mb-3 flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-cyan" />
+            <h2 className="text-lg font-semibold">Technische Indikatoren</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Metric
+              label="RSI 14"
+              value={detail.indicators.rsi === null ? "Zu wenig Daten" : detail.indicators.rsi.toFixed(1)}
+              tone={
+                detail.indicators.rsi === null
+                  ? "text-muted"
+                  : detail.indicators.rsi > 70
+                    ? "text-loss"
+                    : detail.indicators.rsi < 30
+                      ? "text-amber"
+                      : "text-profit"
+              }
+            />
+            <Metric
+              label="MACD"
+              value={
+                detail.indicators.macd
+                  ? `${formatMaybeNumber(detail.indicators.macd.value)} / Signal ${formatMaybeNumber(detail.indicators.macd.signal)}`
+                  : "Zu wenig Daten"
+              }
+            />
+            <Metric label="SMA 20" value={formatMaybeCurrency(detail.indicators.movingAverages.ma20, detail.asset.currency)} />
+            <Metric label="SMA 50" value={formatMaybeCurrency(detail.indicators.movingAverages.ma50, detail.asset.currency)} />
+            <Metric label="SMA 200" value={formatMaybeCurrency(detail.indicators.movingAverages.ma200, detail.asset.currency)} />
+            <Metric
+              label="Bollinger Bänder"
+              value={
+                detail.indicators.bollingerBands
+                  ? `${formatCurrency(detail.indicators.bollingerBands.lower, detail.asset.currency)} - ${formatCurrency(detail.indicators.bollingerBands.upper, detail.asset.currency)}`
+                  : "Zu wenig Daten"
+              }
+            />
+            <Metric label="Unterstützung" value={detail.indicators.support.length ? detail.indicators.support.map((value) => formatCurrency(value, detail.asset.currency)).join(" / ") : "Zu wenig Daten"} />
+            <Metric label="Widerstand" value={detail.indicators.resistance.length ? detail.indicators.resistance.map((value) => formatCurrency(value, detail.asset.currency)).join(" / ") : "Zu wenig Daten"} />
+          </div>
+          <p className="mt-3 text-xs text-muted">
+            {detail.indicators.sampleSize === 0
+              ? "Keine Kurshistorie verfügbar — es werden keine Indikatoren berechnet."
+              : `Berechnet aus ${detail.indicators.sampleSize} Kerzen.${
+                  detail.indicators.unavailable.length
+                    ? ` Nicht berechenbar: ${detail.indicators.unavailable.join(", ")}.`
+                    : ""
+                }`}
+          </p>
+        </div>
+
+        <div>
+          <div className="mb-3 flex items-center gap-2">
+            <Activity className="h-5 w-5 text-profit" />
+            <h2 className="text-lg font-semibold">Fundamentaldaten</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {fundamentalMetrics.map((metric) => (
+              <Metric
+                key={metric.label}
+                label={metric.label}
+                value={metric.value}
+                tone={metric.available ? undefined : "text-amber"}
+              />
+            ))}
+          </div>
+          {!readiness.trustedFundamentals ? (
+            <p className="mt-3 rounded-md border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
+              Fundamentaldaten sind für dieses Symbol aktuell nicht ausreichend verifiziert. STAI zeigt deshalb keine Nullwerte als echte Kennzahlen.
+            </p>
+          ) : null}
+        </div>
+      </section>
+
+      <TechnicalTrendPanel detail={{ ...detail, quote: displayedQuote }} />
+
       <section>
         <h2 className="mb-3 text-lg font-semibold">Unternehmensnachrichten</h2>
         <NewsList news={detail.news} />
       </section>
+
+      <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+        <div className={`rounded-[1.5rem] border p-5 shadow-panel ${readinessTone(readiness.status)}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] opacity-75">Analysefreigabe</p>
+              <h2 className="mt-2 text-2xl font-semibold">{readiness.label}</h2>
+            </div>
+            <DatabaseZap className="h-6 w-6" />
+          </div>
+          <p className="mt-3 text-sm leading-6 opacity-90">{readiness.detail}</p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-current/20 bg-ink/25 p-3">
+              <p className="text-xs opacity-70">Datenqualität</p>
+              <p className="mt-1 font-mono text-2xl font-semibold">{readiness.qualityScore}/100</p>
+            </div>
+            <div className="rounded-2xl border border-current/20 bg-ink/25 p-3">
+              <p className="text-xs opacity-70">Konfidenz</p>
+              <p className="mt-1 font-mono text-2xl font-semibold">{readiness.confidence}/100</p>
+            </div>
+          </div>
+          {readiness.missingAreas.length ? (
+            <p className="mt-4 text-xs leading-5 opacity-80">
+              Fehlende Bereiche: {readiness.missingAreas.join(", ")}.
+            </p>
+          ) : null}
+        </div>
+        <div className="rounded-[1.5rem] border border-stroke bg-panel/82 p-5 shadow-panel">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan">Datenabdeckung</p>
+              <h2 className="mt-2 text-xl font-semibold text-mist">Was ist wirklich nutzbar?</h2>
+            </div>
+            <span className="rounded-xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">
+              Provider: {displayedQuote.provider}
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {readiness.coverage.map((item) => (
+              <article key={item.label} className={`rounded-2xl border p-3 ${qualityTone(item.available)}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">{item.label}</p>
+                  <span className="rounded-full border border-current/25 px-2 py-1 text-[10px] uppercase">
+                    {item.available ? "verfügbar" : "fehlt"}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-muted">{item.note}</p>
+              </article>
+            ))}
+          </div>
+          <p className="mt-4 rounded-2xl border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
+            Wenn Daten fehlen, zeigt STAI keine Ersatz-Fundamentals und keine scheinpräzise Prognose. Das ist Absicht, nicht ein Darstellungsfehler.
+          </p>
+        </div>
+      </section>
+
+      <AssetProvenancePanel passport={provenancePassport} />
+
+      <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <DataQualityPanel quality={detail.dataQuality} />
+        <RiskEnginePanel report={detail.riskReport} />
+      </section>
+
+      <section>
+        <AnalysisLayersPanel layers={detail.analysisLayers} macroFactors={detail.macroFactors} />
+      </section>
+
+      <ForecastPassportPanel passport={forecastPassport} />
     </div>
   );
 }
