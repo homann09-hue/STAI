@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, Play, Save } from "lucide-react";
+import { BacktestRunner } from "@/components/backtest-runner";
 import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
 import { formatCurrency, formatPercent, legalDisclaimer } from "@/lib/scoring";
 
@@ -158,20 +159,27 @@ export function BacktestingLab() {
   return (
     <div className="space-y-6">
       <section className="rounded-[2rem] border border-stroke bg-[radial-gradient(circle_at_top_right,rgba(120,231,255,0.14),transparent_34%),linear-gradient(145deg,rgba(12,19,32,0.98),rgba(5,8,14,0.98))] p-5 shadow-panel sm:p-7">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-cyan">Backtesting MVP</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-cyan">Backtesting</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-mist sm:text-4xl">
-          Strategien lokal simulieren, Risiken sehen, Annahmen speichern
+          Was gewesen wäre — und was daneben nur eine Annahme ist
         </h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-muted">
-          Dieses Modul ist sofort nutzbar als Szenario-Backtest. Es ersetzt keine historischen,
-          adjustierten Tick-/Candle-Daten, markiert aber Rendite, Volatilität und Drawdown transparent als Modellannahmen.
+          Oben läuft ein Backtest über echte Tagesschlusskurse: Rendite, Rückgang und Volatilität sind
+          gemessen. Darunter steht ein Projektionsrechner. Der ist kein Backtest — dort geben Sie die
+          Rendite selbst vor, und heraus kommt Ihre eigene Annahme, fortgeschrieben.
         </p>
         <p className="mt-4 rounded-2xl border border-amber/30 bg-amber/10 p-3 text-xs leading-5 text-amber">{legalDisclaimer}</p>
       </section>
 
+      <BacktestRunner />
+
       <section className="grid gap-5 xl:grid-cols-[0.85fr_1.15fr]">
         <div className="rounded-[1.5rem] border border-stroke bg-panel/72 p-4">
-          <h2 className="text-lg font-semibold text-mist">Strategie-Annahmen</h2>
+          <h2 className="text-lg font-semibold text-mist">Projektion — kein Backtest</h2>
+          <p className="mt-2 text-xs leading-5 text-amber">
+            Die Rendite unten ist Ihre Annahme, nicht ein Messwert. Das Ergebnis sagt aus, was bei genau
+            dieser Rendite herauskäme — nicht, ob sie eintritt.
+          </p>
           <div className="mt-4 grid gap-3">
             <label className="text-sm text-muted">
               Strategie
@@ -209,19 +217,19 @@ export function BacktestingLab() {
         <div className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-2xl border border-stroke bg-panel/72 p-4">
-              <p className="text-xs text-muted">Endwert Modell</p>
+              <p className="text-xs text-muted">Endwert bei angenommener Rendite</p>
               <p className="mt-2 font-mono text-2xl font-semibold text-mist">{formatCurrency(model.finalValue, "EUR")}</p>
             </div>
             <div className="rounded-2xl border border-stroke bg-panel/72 p-4">
-              <p className="text-xs text-muted">Gewinn Modell</p>
+              <p className="text-xs text-muted">Gewinn bei angenommener Rendite</p>
               <p className={`mt-2 font-mono text-2xl font-semibold ${model.profit >= 0 ? "text-profit" : "text-loss"}`}>{formatCurrency(model.profit, "EUR")}</p>
             </div>
             <div className="rounded-2xl border border-stroke bg-panel/72 p-4">
-              <p className="text-xs text-muted">Max Drawdown Schätzung</p>
+              <p className="text-xs text-muted">Rückgang aus der Volatilitätsannahme</p>
               <p className="mt-2 font-mono text-2xl font-semibold text-amber">{model.estimatedDrawdown.toFixed(1)}%</p>
             </div>
             <div className="rounded-2xl border border-stroke bg-panel/72 p-4">
-              <p className="text-xs text-muted">Rendite/Risiko</p>
+              <p className="text-xs text-muted">Rendite je Einheit Volatilität</p>
               <p className="mt-2 font-mono text-2xl font-semibold text-cyan">{model.sharpeLike.toFixed(2)}</p>
             </div>
           </div>
@@ -254,7 +262,7 @@ export function BacktestingLab() {
       <section className="rounded-[1.5rem] border border-stroke bg-panel/72 p-4">
         <div className="flex items-center gap-2">
           <Play className="h-5 w-5 text-profit" />
-          <h2 className="text-lg font-semibold text-mist">Gespeicherte Szenarien</h2>
+          <h2 className="text-lg font-semibold text-mist">Gespeicherte Projektionen</h2>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {saved.length ? saved.map((item) => (
@@ -267,7 +275,7 @@ export function BacktestingLab() {
             </article>
           )) : (
             <p className="rounded-2xl border border-stroke bg-coal/70 p-4 text-sm text-muted">
-              Noch kein Szenario gespeichert. Nutze das Formular, um ein Backtest-Modell lokal abzulegen.
+              Noch keine Projektion gespeichert. Das Formular legt Ihre Annahmen lokal ab — Backtests werden nicht gespeichert.
             </p>
           )}
         </div>

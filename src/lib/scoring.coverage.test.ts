@@ -15,6 +15,7 @@ import {
   scoreTone,
   sentimentTone
 } from "./scoring";
+import type { TechnicalIndicators } from "@/lib/types";
 
 describe("scoring helpers coverage", () => {
   it("formats labels, tones and disclaimers across all threshold bands", () => {
@@ -82,7 +83,10 @@ describe("scoring helpers coverage", () => {
           sentiment: "positive",
           impactScore: 64,
           summary: "test",
-          url: "#"
+          url: "#",
+          events: [],
+          subjects: [],
+          duplicateSources: []
         }
       ],
       earningsDate: "2026-07-20",
@@ -109,7 +113,10 @@ describe("scoring helpers coverage", () => {
           sentiment: "negative",
           impactScore: -54,
           summary: "test",
-          url: "#"
+          url: "#",
+          events: [],
+          subjects: [],
+          duplicateSources: []
         }
       ],
       earningsDate: "2026-07-06",
@@ -172,14 +179,22 @@ function quote(overrides: { changePercent: number; volume: number }) {
   } as const;
 }
 
-function indicators(overrides: { rsi: number; histogram: number }) {
+function indicators(overrides: { rsi: number | null; histogram: number | null }): TechnicalIndicators {
   return {
     rsi: overrides.rsi,
-    macd: { value: overrides.histogram, signal: 0, histogram: overrides.histogram },
+    macd:
+      overrides.histogram === null
+        ? null
+        : { value: overrides.histogram, signal: 0, histogram: overrides.histogram },
     movingAverages: { ma20: 99, ma50: 97, ma200: 92 },
     bollingerBands: { upper: 110, middle: 100, lower: 90 },
-    support: [95, 90],
-    resistance: [105, 110]
+    support: [95],
+    resistance: [105],
+    adx: null,
+    trendChannel: null,
+    breakout: null,
+    sampleSize: 200,
+    unavailable: []
   };
 }
 

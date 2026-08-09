@@ -128,16 +128,24 @@ function averageSentimentScore(news: NewsItem[]) {
     negative: 28
   };
 
-  const weighted = news.reduce(
-    (sum, item) => sum + sentimentValues[item.sentiment] * (item.relevance / 100),
-    0
-  );
-  const weights = news.reduce((sum, item) => sum + item.relevance / 100, 0);
+  // Meldungen ohne Relevanzangabe zaehlen mit einfachem Gewicht mit. Sie
+  // auszulassen hiesse, eine fehlende Angabe als Bedeutungslosigkeit zu lesen;
+  // ihnen ein hohes Gewicht zu geben waere das Gegenteil.
+  const weightOf = (item: NewsItem) => (item.relevance === null ? 1 : Math.max(item.relevance / 100, 0.01));
+
+  const weighted = news.reduce((sum, item) => sum + sentimentValues[item.sentiment] * weightOf(item), 0);
+  const weights = news.reduce((sum, item) => sum + weightOf(item), 0);
   return Math.round(weighted / Math.max(weights, 0.01));
 }
 
 function eventRiskScore(earningsDate: string | null, news: NewsItem[], now = new Date()) {
-  const negativeNewsRisk = news.some((item) => item.sentiment === "negative" && item.relevance >= 75)
+  // Wie in der Risiko-Engine: die Ereignisart statt einer anbieterabhängigen
+  // Relevanzschwelle. Eine Gewinnwarnung ist ein Ereignisrisiko, egal welchen
+  // Score der Anbieter dafür vergibt.
+  const severeEventTypes = new Set(["profit_warning", "litigation", "regulatory_decision", "capital_measure"]);
+  const negativeNewsRisk = news.some(
+    (item) => item.sentiment === "negative" && item.events.some((event) => severeEventTypes.has(event.type))
+  )
     ? 18
     : 0;
 
@@ -167,11 +175,17 @@ export function calculateProfessionalScores(input: {
   const first = input.candles[0];
   const momentumChange = first ? ((latest.close - first.close) / Math.max(first.close, 0.01)) * 100 : 0;
   const momentum = clamp(50 + momentumChange * 2.1 + input.quote.changePercent * 2);
+  // Fehlt ein Indikator, bleibt der Basiswert unveraendert. Vorher konnte hier
+  // ein `undefined > 70` nie zutreffen und `macd.histogram > 0` war bei
+  // fehlenden Daten immer falsch -- was still -5 Punkte kostete. Datenmangel
+  // sah damit aus wie ein schwaches technisches Bild.
+  const rsiValue = input.indicators.rsi;
+  const histogram = input.indicators.macd?.histogram ?? null;
   const technical = clamp(
     input.baseScores.technical +
-      (input.indicators.rsi > 70 ? -12 : 0) +
-      (input.indicators.rsi < 30 ? -8 : 0) +
-      (input.indicators.macd.histogram > 0 ? 7 : -5)
+      (rsiValue !== null && rsiValue > 70 ? -12 : 0) +
+      (rsiValue !== null && rsiValue < 30 ? -8 : 0) +
+      (histogram === null ? 0 : histogram > 0 ? 7 : -5)
   );
   const fundamental = clamp(
     input.baseScores.fundamental +
@@ -180,7 +194,13 @@ export function calculateProfessionalScores(input: {
   );
   const newsScore = clamp(
     input.baseScores.news +
-      input.news.reduce((sum, item) => sum + item.impactScore * (item.relevance / 100), 0) / 12
+      // Ohne Impact kein Beitrag. Vorher waeren hier zwei erfundene Zahlen
+      // miteinander multipliziert worden.
+      input.news.reduce(
+        (sum, item) =>
+          item.impactScore === null ? sum : sum + item.impactScore * ((item.relevance ?? 100) / 100),
+        0
+      ) / 12
   );
   const volatilityRisk = clamp(volatility * 14 + Math.abs(input.quote.changePercent) * 3);
   const liquidityRisk = clamp(

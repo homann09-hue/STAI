@@ -37,6 +37,11 @@ function normalizeClientKey(value: string | null) {
 }
 
 function getRateLimitClientKey(request: Request) {
+  // `x-forwarded-for` wird als Kette "Client, Proxy1, Proxy2" aufgebaut. Der
+  // erste Eintrag ist der ursprüngliche Client; die hinteren Einträge sind die
+  // Proxys und liegen bei allen Nutzern gleich, was den Limiter unbrauchbar
+  // macht. Vercel setzt die Kette selbst, ein vorgelagerter Client-Wert wird
+  // dort nicht übernommen.
   const forwardedFor = request.headers
     .get("x-forwarded-for")
     ?.split(",")
@@ -46,7 +51,7 @@ function getRateLimitClientKey(request: Request) {
   return (
     normalizeClientKey(request.headers.get("x-real-ip")) ??
     normalizeClientKey(request.headers.get("x-vercel-forwarded-for")) ??
-    normalizeClientKey(forwardedFor?.at(-1) ?? null) ??
+    normalizeClientKey(forwardedFor?.[0] ?? null) ??
     "local"
   );
 }

@@ -1,14 +1,32 @@
 import "server-only";
 
 import { analyzePortfolio } from "@/lib/portfolio-analytics";
+import { isMissingRelationError } from "@/lib/supabase/postgrest-errors";
 import { logEvent } from "@/lib/observability";
-import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient, createSupabaseUserClient } from "@/lib/supabase/server";
 import type { AlertExecutionStatus, AlertFrequency, AlertNotificationChannel, AlertRule, AlertType, AssetType, PortfolioPosition, PortfolioSummary, PortfolioTradeInput } from "@/lib/types";
 
 type SupabaseClient = NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
 
+/**
+ * `supabase` ist nutzergebunden und unterliegt RLS. Es ist der Standardpfad für
+ * alle Nutzerdaten.
+ *
+ * `serviceSupabase` umgeht RLS und ist bewusst nur für die drei privilegierten
+ * Pfade gedacht, die es technisch brauchen: die `apply_portfolio_trade`-RPC
+ * (nur `service_role` hat execute), den DSGVO-Export (liest u. a.
+ * `billing_events`, das `authenticated` verweigert) und die Admin-API zur
+ * Kontolöschung.
+ */
 type AuthResult =
-  | { ok: true; supabase: SupabaseClient; userId: string; email: string | null; accessToken: string }
+  | {
+      ok: true;
+      supabase: SupabaseClient;
+      serviceSupabase: SupabaseClient;
+      userId: string;
+      email: string | null;
+      accessToken: string;
+    }
   | { ok: false; reason: "missing_client" | "anonymous" | "invalid_token" };
 
 type AlertRuleRow = {
@@ -166,18 +184,29 @@ function portfolioBookFromRow(row: PortfolioBookRow): PortfolioBookRow {
 }
 
 export async function getSupabaseAuth(request: Request): Promise<AuthResult> {
-  const supabase = createSupabaseServiceClient();
-  if (!supabase) return { ok: false, reason: "missing_client" };
+  const serviceSupabase = createSupabaseServiceClient();
+  if (!serviceSupabase) return { ok: false, reason: "missing_client" };
 
   const authorization = request.headers.get("authorization") ?? "";
   const token = authorization.startsWith("Bearer ") ? authorization.slice("Bearer ".length).trim() : "";
 
   if (!token) return { ok: false, reason: "anonymous" };
 
-  const { data, error } = await supabase.auth.getUser(token);
+  const { data, error } = await serviceSupabase.auth.getUser(token);
 
   if (error || !data.user) {
     return { ok: false, reason: "invalid_token" };
+  }
+
+  const supabase = createSupabaseUserClient(token);
+  if (!supabase) {
+    // Fehlkonfiguration, kein Nutzerfehler: ohne publishable/anon Key gibt es
+    // keinen RLS-gebundenen Client. Bewusst kein Rueckfall auf den
+    // Service-Client, weil das exakt die Mandantentrennung aufheben wuerde.
+    logEvent("error", "supabase.user_client_unavailable", {
+      reason: "missing_publishable_key"
+    });
+    return { ok: false, reason: "missing_client" };
   }
 
   const { error: profileError } = await supabase.from("profiles").upsert({
@@ -198,6 +227,7 @@ export async function getSupabaseAuth(request: Request): Promise<AuthResult> {
   return {
     ok: true,
     supabase,
+    serviceSupabase,
     userId: data.user.id,
     email: data.user.email ?? null,
     accessToken: token
@@ -413,7 +443,9 @@ export class PortfolioTradeConflictError extends Error {}
 
 async function applyPortfolioTradeRpc(auth: Extract<AuthResult, { ok: true }>, trade: PortfolioTradeInput) {
   const normalizedTrade = normalizePortfolioTrade(trade);
-  const { error } = await auth.supabase.rpc("apply_portfolio_trade", {
+  // `apply_portfolio_trade` ist ausschließlich `service_role` gewährt und
+  // erzwingt die Eigentümerprüfung selbst über `p_user_id`.
+  const { error } = await auth.serviceSupabase.rpc("apply_portfolio_trade", {
     p_user_id: auth.userId,
     p_symbol: normalizedTrade.symbol,
     p_name: normalizedTrade.name ?? null,
@@ -456,14 +488,37 @@ const personalDataTables = [
   { key: "analyses", table: "analysis_snapshots", ownerColumn: "user_id" },
   { key: "notifications", table: "notifications", ownerColumn: "user_id" },
   { key: "entitlements", table: "entitlements", ownerColumn: "user_id" },
+  { key: "billingEvents", table: "billing_events", ownerColumn: "user_id" },
   { key: "intelligenceAlerts", table: "intelligence_alerts", ownerColumn: "user_id" }
 ] as const;
 
+
 export async function exportUserData(auth: Extract<AuthResult, { ok: true }>) {
+  // DSGVO-Auskunft: bewusst privilegiert, weil Tabellen wie `billing_events`
+  // der Rolle `authenticated` per Policy jeden Zugriff verweigern. Die
+  // Eigentümerbindung erzwingt hier zwingend der `ownerColumn`-Filter.
+  const unavailableTables: string[] = [];
+
   const entries = await Promise.all(
     personalDataTables.map(async ({ key, table, ownerColumn }) => {
-      const { data, error } = await auth.supabase.from(table).select("*").eq(ownerColumn, auth.userId).limit(5_000);
-      if (error) throw error;
+      const { data, error } = await auth.serviceSupabase
+        .from(table)
+        .select("*")
+        .eq(ownerColumn, auth.userId)
+        .limit(5_000);
+
+      if (error) {
+        // Eine noch nicht angewandte Migration darf die gesamte Auskunft nicht
+        // scheitern lassen. Der Nutzer bekommt seine übrigen Daten plus einen
+        // sichtbaren Hinweis, welche Bereiche gefehlt haben.
+        if (isMissingRelationError(error)) {
+          logEvent("warn", "supabase.export_table_missing", { table, code: error.code });
+          unavailableTables.push(table);
+          return [key, []] as const;
+        }
+        throw error;
+      }
+
       return [key, data ?? []] as const;
     })
   );
@@ -473,16 +528,22 @@ export async function exportUserData(auth: Extract<AuthResult, { ok: true }>) {
     exportedAt: new Date().toISOString(),
     user: { id: auth.userId, email: auth.email },
     rowLimitPerTable: 5_000,
+    // Leer, solange alle Migrationen angewandt sind. Nicht weglassen: ein
+    // stiller Teil-Export waere bei einer Auskunftspflicht das schlechtere
+    // Ergebnis als ein sichtbar unvollstaendiger.
+    unavailableTables,
+    complete: unavailableTables.length === 0,
     data: Object.fromEntries(entries)
   };
 }
 
 export async function deleteUserAccount(auth: Extract<AuthResult, { ok: true }>) {
-  const { error: signOutError } = await auth.supabase.auth.admin.signOut(auth.accessToken, "global");
+  // Admin-API: nur mit Service-Role verfügbar.
+  const { error: signOutError } = await auth.serviceSupabase.auth.admin.signOut(auth.accessToken, "global");
   const signOutStatus = (signOutError as { status?: number } | null)?.status;
   if (signOutError && signOutStatus !== 401 && signOutStatus !== 404) throw signOutError;
 
-  const { error } = await auth.supabase.auth.admin.deleteUser(auth.userId);
+  const { error } = await auth.serviceSupabase.auth.admin.deleteUser(auth.userId);
   if (error) throw error;
 }
 

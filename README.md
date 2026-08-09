@@ -48,6 +48,13 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
+STOCKPILOT_APP_URL=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_STARTER_PRICE_ID=
+STRIPE_PRO_PRICE_ID=
+STRIPE_PORTAL_CONFIGURATION_ID=
+
 STOCKPILOT_MARKET_PROVIDER=mock
 STOCKPILOT_QUOTE_PROVIDER=mock
 STOCKPILOT_CRYPTO_PROVIDER=binance
@@ -118,6 +125,7 @@ STOCKPILOT_ENABLE_SIMULATED_ALERT_WORKER=false
 - `src/lib/portfolio-analytics.ts`: Portfolio-Gewichtung, Diversifikation, Szenarioanalyse und Klumpenrisiko.
 - `src/lib/api-guard.ts`: Rate Limit, sichere JSON-Fehler, Security Header und Body-Parsing.
 - `src/lib/supabase/*`: Supabase-Clients für Browser und serverseitige Service-Aufgaben.
+- `src/lib/billing/*`: fail-closed Entitlements, Stripe-Provider, sichere Redirects und Planlimits.
 - `supabase/schema.sql`: Tabellen und RLS-Policies für Nutzerprofile, Watchlists, Alerts, Portfolio und Analyse-Snapshots.
 
 ## API-Anbieter und echte Marktdaten
@@ -226,7 +234,8 @@ Der Vercel-Workflow läuft bewusst nur manuell und nutzt StockPilot-spezifische 
 2. Für neue Projekte bevorzugt die SQL-Migrationen aus `supabase/migrations/` anwenden.
 3. `supabase/schema.sql` ist nur eine historische Baseline. Für neue und bestehende Umgebungen gelten ausschließlich die versionierten Migrationen.
 4. `.env.local` mit Supabase URL und Keys befüllen.
-5. Auth-UI und echte Persistenz können auf den vorhandenen Tabellen aufgebaut werden.
+5. Auth-UI und private Persistenz nutzen die vorhandenen Tabellen und RLS-Policies.
+6. Für Billing zusätzlich [SaaS Billing](./docs/saas-billing.md) befolgen und zuerst Stripe-Testmodus verwenden.
 
 Das Schema enthält RLS-Policies pro Operation, `updated_at`-Trigger, Portfolio-Transaktionen,
 Alert-Events, Portfolio-Snapshots und Provider-Status. User-Daten sind per `auth.uid()` auf eigene
@@ -255,4 +264,4 @@ npm run test:capacity
 npm run evidence:generate
 ```
 
-Die neue Governance-Migration muss vor einem Deployment in einer isolierten Supabase-Umgebung mit pgTAP geprüft werden. Sie wurde bewusst nicht unkontrolliert auf Produktion angewendet.
+Die Governance-Migrationen wurden am 10.07.2026 auf dem STAI-Produktionsprojekt angewendet und mit Security Advisor sowie pgTAP geprüft. Jede neue Migration muss weiterhin zuerst lokal oder in Staging alle Datenbanktests bestehen.

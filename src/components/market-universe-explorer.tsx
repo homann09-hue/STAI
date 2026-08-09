@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpDown, Database, LockKeyhole, Radio, Search, Star } from "lucide-react";
+import { ArrowUpDown, CheckCircle2, Database, Fingerprint, LockKeyhole, Loader2, Radio, Search, ShieldAlert, Star } from "lucide-react";
 import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
+import { buildMarketCoverageIntelligenceReport, type MarketCoverageStage, type MarketCoverageTone } from "@/lib/market-coverage-intelligence";
+import { buildMarketOperationsReport, type MarketActivationStatus, type MarketOperationsTone } from "@/lib/market-operations";
 import type { MarketUniverseAssetClass, MarketUniverseCoverage, MarketUniverseInstrument } from "@/lib/types";
 
 const assetClasses: Array<{ key: MarketUniverseAssetClass | "all"; label: string }> = [
@@ -19,16 +21,42 @@ const assetClasses: Array<{ key: MarketUniverseAssetClass | "all"; label: string
 ];
 
 const MAX_VISIBLE_MARKET_ROWS = 80;
-type SortKey = "symbol" | "assetClass" | "coverage" | "quality";
+type SortKey = "symbol" | "assetClass" | "coverage" | "quality" | "identity";
 type PresetKey = "all" | "live" | "momentum" | "income" | "license";
 const momentumAssetClasses: MarketUniverseAssetClass[] = ["stock", "crypto", "index"];
 const incomeAssetClasses: MarketUniverseAssetClass[] = ["etf", "fund"];
 
+/**
+ * Die Schnellfilter — benannt nach dem, was sie tun.
+ *
+ * Zwei hießen vorher „Momentum" und „Income/ETF". Gefiltert haben sie nach der
+ * **Assetklasse**: `momentum` ließ jede Aktie, jede Kryptowährung und jeden
+ * Index durch, `income` jeden ETF und jeden Fonds. Kein Momentum wurde
+ * gemessen, keine Ausschüttung geprüft.
+ *
+ * Wer „Momentum" anklickt und das gesamte Aktienuniversum bekommt, hält das
+ * Ergebnis für eine Auswahl. In einem Finanzprodukt ist ein Filtername eine
+ * Aussage über die Zeilen, die er übrig lässt — nach §90 also eine Fassade.
+ *
+ * Echtes Momentum bräuchte je Instrument eine Kurshistorie. Die liegt für ein
+ * Universum dieser Größe nicht vor und wäre im aktuellen Anbietertarif auch
+ * nicht abrufbar. Deshalb tragen die Filter jetzt den Namen ihrer tatsächlichen
+ * Bedingung, statt zu verschwinden: die Einschränkung ist nützlich, nur die
+ * Beschriftung war falsch.
+ */
 const screenerPresets: Array<{ key: PresetKey; label: string; description: string }> = [
   { key: "all", label: "Alle", description: "Komplettes vorbereitetes Marktuniversum." },
   { key: "live", label: "Live-fähig", description: "Nur wirklich streambare Anbieter, keine vorbereiteten Public-Provider." },
-  { key: "momentum", label: "Momentum", description: "Aktien, Krypto und Indizes für Trendprüfung." },
-  { key: "income", label: "Income/ETF", description: "ETFs und Fonds für Kosten/Dividenden-Prüfung." },
+  {
+    key: "momentum",
+    label: "Aktien, Krypto & Indizes",
+    description: "Filtert nach Assetklasse — nicht nach gemessenem Momentum."
+  },
+  {
+    key: "income",
+    label: "ETFs & Fonds",
+    description: "Filtert nach Assetklasse — Ausschüttungen und Kosten werden hier nicht geprüft."
+  },
   { key: "license", label: "Lizenz nötig", description: "Professionelle Feeds, die nicht live gefaked werden." }
 ];
 
@@ -79,12 +107,75 @@ function qualityLabel(quality: MarketUniverseInstrument["quoteQuality"]) {
   return "Nicht verfügbar";
 }
 
+function resolutionTone(status: MarketUniverseInstrument["resolutionStatus"]) {
+  if (status === "resolved") return "border-profit/25 bg-profit/10 text-profit";
+  if (status === "provider_only") return "border-cyan/25 bg-cyan/10 text-cyan";
+  if (status === "ambiguous") return "border-amber/25 bg-amber/10 text-amber";
+  return "border-loss/25 bg-loss/10 text-loss";
+}
+
+function resolutionLabel(status: MarketUniverseInstrument["resolutionStatus"]) {
+  if (status === "resolved") return "Eindeutig";
+  if (status === "provider_only") return "Provider-only";
+  if (status === "ambiguous") return "Prüfen";
+  return "Nicht nutzbar";
+}
+
+function readinessTone(status: MarketUniverseInstrument["analysisReadiness"]) {
+  if (status === "ready") return "border-profit/25 bg-profit/10 text-profit";
+  if (status === "limited") return "border-amber/25 bg-amber/10 text-amber";
+  return "border-loss/25 bg-loss/10 text-loss";
+}
+
+function readinessLabel(status: MarketUniverseInstrument["analysisReadiness"]) {
+  if (status === "ready") return "Analyse bereit";
+  if (status === "limited") return "Eingeschränkt";
+  return "Blockiert";
+}
+
+function operationsTone(tone: MarketOperationsTone) {
+  if (tone === "profit") return "border-profit/25 bg-profit/10 text-profit";
+  if (tone === "cyan") return "border-cyan/25 bg-cyan/10 text-cyan";
+  if (tone === "amber") return "border-amber/25 bg-amber/10 text-amber";
+  return "border-loss/25 bg-loss/10 text-loss";
+}
+
+function activationTone(status: MarketActivationStatus) {
+  if (status === "done") return "border-profit/25 bg-profit/10 text-profit";
+  if (status === "next") return "border-cyan/25 bg-cyan/10 text-cyan";
+  return "border-amber/25 bg-amber/10 text-amber";
+}
+
+function activationLabel(status: MarketActivationStatus) {
+  if (status === "done") return "aktiv";
+  if (status === "next") return "nächster Schritt";
+  return "blockiert";
+}
+
+function coverageIntelligenceTone(tone: MarketCoverageTone) {
+  if (tone === "profit") return "border-profit/25 bg-profit/10 text-profit";
+  if (tone === "cyan") return "border-cyan/25 bg-cyan/10 text-cyan";
+  if (tone === "amber") return "border-amber/25 bg-amber/10 text-amber";
+  return "border-loss/25 bg-loss/10 text-loss";
+}
+
+function coverageStageLabel(status: MarketCoverageStage) {
+  if (status === "production_ready") return "Produktionsnah";
+  if (status === "live_candidate") return "Research nutzbar";
+  if (status === "limited") return "Eingeschränkt";
+  return "Blockiert";
+}
+
 export function MarketUniverseExplorer({
   instruments,
-  coverage
+  coverage,
+  provider,
+  disclaimer
 }: {
   instruments: MarketUniverseInstrument[];
   coverage: MarketUniverseCoverage[];
+  provider?: string;
+  disclaimer?: string;
 }) {
   const [query, setQuery] = useState("");
   const [assetClass, setAssetClass] = useState<MarketUniverseAssetClass | "all">("all");
@@ -92,6 +183,10 @@ export function MarketUniverseExplorer({
   const [preset, setPreset] = useState<PresetKey>("all");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [remoteInstruments, setRemoteInstruments] = useState<MarketUniverseInstrument[]>(instruments);
+  const [remoteProvider, setRemoteProvider] = useState(provider ?? "StockPilot Prepared Universe");
+  const [remoteDisclaimer, setRemoteDisclaimer] = useState(disclaimer ?? "");
+  const [searchStatus, setSearchStatus] = useState<"idle" | "loading" | "error">("idle");
 
   useEffect(() => {
     setFavorites(normalizeFavorites(readOfflineValue<unknown>(OFFLINE_KEYS.screenerFavorites)));
@@ -101,10 +196,67 @@ export function MarketUniverseExplorer({
     saveOfflineValue(OFFLINE_KEYS.screenerFavorites, favorites);
   }, [favorites]);
 
+  useEffect(() => {
+    const normalizedQuery = query.trim();
+    if (normalizedQuery.length < 2) {
+      setRemoteInstruments(instruments);
+      setRemoteProvider(provider ?? "StockPilot Prepared Universe");
+      setRemoteDisclaimer(disclaimer ?? "");
+      setSearchStatus("idle");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setSearchStatus("loading");
+
+      try {
+        const params = new URLSearchParams({
+          q: normalizedQuery,
+          assetClass,
+          limit: "200"
+        });
+        const response = await fetch(`/api/market/universe?${params.toString()}`, {
+          headers: { Accept: "application/json" },
+          signal: controller.signal
+        });
+
+        if (!response.ok) throw new Error("Universe search failed");
+        const payload = await response.json() as {
+          instruments?: MarketUniverseInstrument[];
+          provider?: string;
+          disclaimer?: string;
+          data?: {
+            instruments?: MarketUniverseInstrument[];
+            provider?: string;
+            disclaimer?: string;
+          };
+        };
+        const result = payload.data ?? payload;
+
+        setRemoteInstruments(Array.isArray(result?.instruments) ? result.instruments : []);
+        setRemoteProvider(result?.provider ?? provider ?? "StockPilot Provider Universe");
+        setRemoteDisclaimer(result?.disclaimer ?? disclaimer ?? "");
+        setSearchStatus("idle");
+      } catch {
+        if (controller.signal.aborted) return;
+        setRemoteInstruments(instruments);
+        setRemoteProvider(provider ?? "StockPilot Prepared Universe");
+        setRemoteDisclaimer("Provider-Suche konnte gerade nicht geladen werden. Lokale Startabdeckung wird weiter angezeigt.");
+        setSearchStatus("error");
+      }
+    }, 260);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [assetClass, disclaimer, instruments, provider, query]);
+
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return instruments.filter((item) => {
+    return remoteInstruments.filter((item) => {
       if (assetClass !== "all" && item.assetClass !== assetClass) return false;
       if (favoritesOnly && !favorites.includes(item.symbol)) return false;
       if (preset === "live" && !item.subscribable) return false;
@@ -112,22 +264,34 @@ export function MarketUniverseExplorer({
       if (preset === "income" && !incomeAssetClasses.includes(item.assetClass)) return false;
       if (preset === "license" && item.coverage !== "license_required") return false;
       if (!normalizedQuery) return true;
-      return `${item.symbol} ${item.name} ${item.exchange} ${item.country} ${item.assetClass}`.toLowerCase().includes(normalizedQuery);
+      return `${item.symbol} ${item.name} ${item.exchange} ${item.country} ${item.assetClass} ${item.identifiers?.map((identifier) => identifier.value).join(" ") ?? ""}`.toLowerCase().includes(normalizedQuery);
     }).sort((a, b) => {
       if (sortKey === "symbol") return a.symbol.localeCompare(b.symbol);
       if (sortKey === "assetClass") return a.assetClass.localeCompare(b.assetClass) || a.symbol.localeCompare(b.symbol);
       if (sortKey === "coverage") return a.coverage.localeCompare(b.coverage) || a.symbol.localeCompare(b.symbol);
+      if (sortKey === "identity") return (b.identityConfidence ?? 0) - (a.identityConfidence ?? 0) || a.symbol.localeCompare(b.symbol);
       return a.quoteQuality.localeCompare(b.quoteQuality) || a.symbol.localeCompare(b.symbol);
     });
-  }, [assetClass, favorites, favoritesOnly, instruments, preset, query, sortKey]);
+  }, [assetClass, favorites, favoritesOnly, preset, query, remoteInstruments, sortKey]);
   const visibleResults = filtered.slice(0, MAX_VISIBLE_MARKET_ROWS);
   const hiddenResultCount = Math.max(0, filtered.length - visibleResults.length);
+  const operations = useMemo(
+    () => buildMarketOperationsReport(filtered, coverage, remoteProvider),
+    [coverage, filtered, remoteProvider]
+  );
+  const coverageIntelligence = useMemo(
+    () => buildMarketCoverageIntelligenceReport(filtered, coverage),
+    [coverage, filtered]
+  );
 
   const stats = {
-    available: instruments.filter((item) => item.coverage === "available").length,
-    prepared: instruments.filter((item) => item.coverage === "prepared").length,
-    license: instruments.filter((item) => item.coverage === "license_required").length,
-    subscribable: instruments.filter((item) => item.subscribable).length
+    available: remoteInstruments.filter((item) => item.coverage === "available").length,
+    prepared: remoteInstruments.filter((item) => item.coverage === "prepared").length,
+    license: remoteInstruments.filter((item) => item.coverage === "license_required").length,
+    subscribable: remoteInstruments.filter((item) => item.subscribable).length,
+    resolved: remoteInstruments.filter((item) => item.resolutionStatus === "resolved").length,
+    needsReview: remoteInstruments.filter((item) => item.resolutionStatus === "ambiguous" || item.resolutionStatus === "invalid").length,
+    analysisReady: remoteInstruments.filter((item) => item.analysisReadiness === "ready").length
   };
 
   function toggleFavorite(symbol: string) {
@@ -146,6 +310,27 @@ export function MarketUniverseExplorer({
             Aktien, ETFs, Krypto, Indizes, Forex, Rohstoffe, Futures und Optionen werden als universelles Instrumentenmodell geführt.
             Was nicht lizenziert oder angebunden ist, wird nie als live dargestellt.
           </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-xl border border-cyan/25 bg-cyan/10 px-3 py-2 text-cyan">
+              Quelle: {remoteProvider}
+            </span>
+            {searchStatus === "loading" ? (
+              <span className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-panel px-3 py-2 text-muted">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Provider-Suche läuft
+              </span>
+            ) : null}
+            {searchStatus === "error" ? (
+              <span className="rounded-xl border border-loss/25 bg-loss/10 px-3 py-2 text-loss">
+                Provider-Suche gestört
+              </span>
+            ) : null}
+          </div>
+          {remoteDisclaimer ? (
+            <p className="mt-2 max-w-3xl rounded-2xl border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
+              {remoteDisclaimer}
+            </p>
+          ) : null}
         </div>
         <div className="grid gap-2 sm:grid-cols-3 xl:min-w-[28rem]">
           <div className="rounded-2xl border border-profit/25 bg-profit/10 p-3">
@@ -163,6 +348,195 @@ export function MarketUniverseExplorer({
             <p className="mt-2 font-mono text-xl font-semibold text-amber">{stats.license}</p>
             <p className="text-xs text-muted">Lizenz nötig</p>
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-[1.5rem] border border-stroke bg-[linear-gradient(135deg,rgba(43,210,150,0.10),rgba(7,13,24,0.92)_42%,rgba(88,166,255,0.10))] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-profit">Market Operations Cockpit</p>
+            <h3 className="mt-2 text-xl font-semibold text-mist">Was ist jetzt wirklich nutzbar?</h3>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{operations.userMessage}</p>
+          </div>
+          <span className={`rounded-2xl border px-4 py-2 text-sm font-semibold ${operationsTone(operations.operationalRisk === "niedrig" ? "profit" : operations.operationalRisk === "mittel" ? "cyan" : operations.operationalRisk === "hoch" ? "amber" : "loss")}`}>
+            Operations-Risiko: {operations.operationalRisk}
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {operations.metrics.map((metric) => (
+            <article key={metric.label} className={`rounded-2xl border p-4 ${operationsTone(metric.tone)}`}>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em]">{metric.label}</p>
+              <p className="mt-3 font-mono text-2xl font-semibold text-mist">{metric.value}</p>
+              <p className="mt-2 text-xs leading-5 text-muted">{metric.note}</p>
+            </article>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_0.9fr]">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {operations.activationSteps.map((step) => (
+              <article key={step.id} className={`rounded-2xl border p-3 ${activationTone(step.status)}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <p className="text-sm font-semibold">{step.label}</p>
+                  </div>
+                  <span className="rounded-full border border-current/20 px-2 py-1 text-[10px] uppercase">
+                    {activationLabel(step.status)}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-muted">{step.detail}</p>
+              </article>
+            ))}
+          </div>
+          <div className="rounded-2xl border border-stroke bg-coal/70 p-4">
+            <p className="text-sm font-semibold text-mist">Abdeckung nach Qualität</p>
+            <div className="mt-3 space-y-2">
+              {operations.qualityBreakdown.map((item) => (
+                <div key={item.label} className="flex items-center justify-between gap-3 text-xs">
+                  <span className={`rounded-full border px-2 py-1 ${qualityTone(item.label)}`}>{qualityLabel(item.label)}</span>
+                  <span className="font-mono text-muted">{item.count}</span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-sm font-semibold text-mist">Top-Assetklassen</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {operations.assetClassBreakdown.map((item) => (
+                <span key={item.label} className="rounded-full border border-stroke bg-panel px-3 py-1 text-xs text-muted">
+                  {item.label}: {item.count}
+                </span>
+              ))}
+              {!operations.assetClassBreakdown.length ? (
+                <span className="rounded-full border border-amber/25 bg-amber/10 px-3 py-1 text-xs text-amber">Keine Instrumente geladen</span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[1.5rem] border border-stroke bg-[radial-gradient(circle_at_10%_10%,rgba(88,166,255,0.16),transparent_34%),linear-gradient(135deg,rgba(7,13,24,0.94),rgba(2,6,12,0.98))] p-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan">Coverage Intelligence</p>
+            <h3 className="mt-2 text-xl font-semibold text-mist">Wie professionell ist dieses Marktfenster wirklich?</h3>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-muted">{coverageIntelligence.conclusion}</p>
+          </div>
+          <div className="grid min-w-full gap-2 sm:grid-cols-3 xl:min-w-[28rem]">
+            <div className={`rounded-2xl border p-3 ${coverageIntelligenceTone(coverageIntelligence.tone)}`}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em]">Status</p>
+              <p className="mt-2 text-lg font-semibold text-mist">{coverageStageLabel(coverageIntelligence.status)}</p>
+            </div>
+            <div className="rounded-2xl border border-cyan/25 bg-cyan/10 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan">Coverage</p>
+              <p className="mt-2 font-mono text-2xl font-semibold text-mist">{coverageIntelligence.coverageScore}/100</p>
+            </div>
+            <div className="rounded-2xl border border-profit/25 bg-profit/10 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-profit">Echtheit</p>
+              <p className="mt-2 font-mono text-2xl font-semibold text-mist">{coverageIntelligence.truthScore}/100</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          {coverageIntelligence.lanes.map((lane) => (
+            <article key={lane.id} className={`rounded-2xl border p-4 ${coverageIntelligenceTone(lane.tone)}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-mist">{lane.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted">{lane.detail}</p>
+                </div>
+                <span className="rounded-full border border-current/20 px-2 py-1 font-mono text-xs">{lane.score}</span>
+              </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-black/30">
+                <div className="h-full rounded-full bg-current" style={{ width: `${lane.score}%` }} />
+              </div>
+              <p className="mt-3 text-xs text-muted">
+                Bereit {lane.ready} · eingeschränkt {lane.limited} · blockiert {lane.blocked}
+              </p>
+            </article>
+          ))}
+        </div>
+
+        <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_0.9fr]">
+          <div className="rounded-2xl border border-stroke bg-coal/70 p-4">
+            <p className="text-sm font-semibold text-mist">Nächste technische Prioritäten</p>
+            <div className="mt-3 space-y-2">
+              {coverageIntelligence.priorities.map((item) => (
+                <article key={item.id} className="rounded-xl border border-stroke bg-panel p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-mist">{item.label}</p>
+                    <span className="rounded-full border border-amber/25 bg-amber/10 px-2 py-1 text-[10px] uppercase text-amber">
+                      {item.impact} · {item.status.replaceAll("_", " ")}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-muted">{item.action}</p>
+                </article>
+              ))}
+              {!coverageIntelligence.priorities.length ? (
+                <p className="rounded-xl border border-profit/25 bg-profit/10 p-3 text-sm text-profit">
+                  Keine akute Coverage-Lücke im aktuellen Trefferfenster erkannt.
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-stroke bg-coal/70 p-4">
+            <p className="text-sm font-semibold text-mist">Provider-Fähigkeiten</p>
+            <div className="mt-3 space-y-2">
+              {coverageIntelligence.providerCapabilities.slice(0, 5).map((item) => (
+                <article key={item.provider} className="rounded-xl border border-stroke bg-panel p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-mist">{item.provider}</p>
+                    <span className={`rounded-full px-2 py-1 text-[10px] uppercase ${
+                      item.status === "connected" ? "bg-profit/10 text-profit" : item.status === "prepared" ? "bg-cyan/10 text-cyan" : "bg-amber/10 text-amber"
+                    }`}>
+                      {item.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-muted">Assetklassen: {item.assetClasses}</p>
+                  <p className="mt-1 text-xs leading-5 text-muted">Kandidaten: {item.unlocks}</p>
+                  {item.blocker ? <p className="mt-1 text-xs leading-5 text-amber">{item.blocker}</p> : null}
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {coverageIntelligence.riskFlags.length ? (
+          <div className="mt-4 rounded-2xl border border-loss/25 bg-loss/10 p-4">
+            <p className="text-sm font-semibold text-loss">Datenrisiken im aktuellen Trefferfenster</p>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+              {coverageIntelligence.riskFlags.map((flag) => (
+                <p key={flag} className="rounded-xl border border-loss/20 bg-black/20 p-3 text-xs leading-5 text-muted">{flag}</p>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-2xl border border-profit/20 bg-profit/8 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-profit">
+            <Fingerprint className="h-4 w-4" />
+            Instrument-Master aktiv
+          </div>
+          <p className="mt-2 font-mono text-2xl font-semibold text-mist">{stats.resolved}</p>
+          <p className="text-xs leading-5 text-muted">Instrumente mit eindeutiger interner Kennung, Börse, Währung und Assetklasse.</p>
+        </div>
+        <div className="rounded-2xl border border-amber/20 bg-amber/8 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-amber">
+            <ShieldAlert className="h-4 w-4" />
+            Prüfung nötig
+          </div>
+          <p className="mt-2 font-mono text-2xl font-semibold text-mist">{stats.needsReview}</p>
+          <p className="text-xs leading-5 text-muted">Uneindeutige Provider-Symbole, fehlender Handelsplatz oder nicht nutzbare Daten werden sichtbar markiert.</p>
+        </div>
+        <div className="rounded-2xl border border-stroke bg-coal/70 p-4">
+          <p className="text-sm font-semibold text-mist">Warum das wichtig ist</p>
+          <p className="mt-2 text-xs leading-5 text-muted">
+            Gleiche Ticker können je Börse, Assetklasse oder Währung andere Instrumente bedeuten. STAI trennt diese Fälle,
+            statt falsche Live- oder Analyse-Daten zusammenzumischen.
+          </p>
+          <p className="mt-2 text-xs leading-5 text-cyan">{stats.analysisReady} Instrumente sind im aktuellen Trefferfenster direkt analysebereit.</p>
         </div>
       </div>
 
@@ -225,7 +599,7 @@ export function MarketUniverseExplorer({
             Preset: {item.label}
           </button>
         ))}
-        {(["symbol", "assetClass", "coverage", "quality"] as SortKey[]).map((item) => (
+        {(["symbol", "assetClass", "coverage", "quality", "identity"] as SortKey[]).map((item) => (
           <button
             key={item}
             type="button"
@@ -239,19 +613,25 @@ export function MarketUniverseExplorer({
           </button>
         ))}
       </div>
+      {filtered.length === 0 ? (
+        <div className="rounded-2xl border border-amber/25 bg-amber/10 p-4 text-sm leading-6 text-amber" role="status">
+          Keine Treffer für diese Kombination. Prüfe Schreibweise, Assetklasse oder Provider-Status. Es werden keine synthetischen Treffer erzeugt.
+        </div>
+      ) : null}
 
       <div className="overflow-hidden rounded-2xl border border-stroke">
-        <div className="hidden grid-cols-[0.8fr_1.5fr_0.8fr_0.8fr_0.9fr_1fr] gap-3 border-b border-stroke bg-coal px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted xl:grid">
+        <div className="hidden grid-cols-[0.8fr_1.4fr_0.7fr_0.75fr_0.85fr_0.85fr_1fr] gap-3 border-b border-stroke bg-coal px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted xl:grid">
           <span>Symbol</span>
           <span>Name</span>
           <span>Klasse</span>
           <span>Börse</span>
+          <span>Identität</span>
           <span>Provider</span>
           <span>Status</span>
         </div>
         <div className="divide-y divide-stroke">
           {visibleResults.length > 0 ? visibleResults.map((item) => (
-            <article key={`${item.symbol}-${item.exchange}`} className="grid gap-2 bg-panel/55 px-4 py-4 xl:grid-cols-[0.8fr_1.5fr_0.8fr_0.8fr_0.9fr_1fr] xl:items-center">
+            <article key={item.canonicalId ?? `${item.symbol}-${item.exchange}`} className="grid gap-2 bg-panel/55 px-4 py-4 xl:grid-cols-[0.8fr_1.4fr_0.7fr_0.75fr_0.85fr_0.85fr_1fr] xl:items-center">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -271,6 +651,15 @@ export function MarketUniverseExplorer({
               </div>
               <p className="text-sm uppercase tracking-[0.14em] text-muted">{item.assetClass}</p>
               <p className="text-sm text-muted">{item.exchange}</p>
+              <div>
+                <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${resolutionTone(item.resolutionStatus)}`}>
+                  {resolutionLabel(item.resolutionStatus)} · {item.identityConfidence ?? 0}%
+                </span>
+                <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${readinessTone(item.analysisReadiness)}`}>
+                  {readinessLabel(item.analysisReadiness)}
+                </span>
+                <p className="mt-1 break-all font-mono text-[10px] leading-4 text-muted">{item.canonicalId ?? "keine Kennung"}</p>
+              </div>
               <p className="text-sm text-muted">{item.provider}</p>
               <div>
                 <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${coverageTone(item.coverage)}`}>
@@ -279,6 +668,15 @@ export function MarketUniverseExplorer({
                 <span className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${qualityTone(item.quoteQuality)}`}>
                   Kurs: {qualityLabel(item.quoteQuality)} · {item.subscribable ? "streambar" : "nicht streambar"}
                 </span>
+                {item.resolutionWarnings?.length ? (
+                  <p className="mt-1 text-xs leading-5 text-amber">{item.resolutionWarnings.slice(0, 2).join(" ")}</p>
+                ) : null}
+                {item.matchReasons?.length ? (
+                  <p className="mt-1 text-xs leading-5 text-cyan">Treffer: {item.matchReasons.slice(0, 3).join(", ")} · Score {item.searchScore ?? 0}/100</p>
+                ) : null}
+                {item.analysisBlockers?.length ? (
+                  <p className="mt-1 text-xs leading-5 text-muted">Blocker: {item.analysisBlockers.slice(0, 2).join(" ")}</p>
+                ) : null}
                 <p className="mt-1 text-xs leading-5 text-muted">{item.note}</p>
               </div>
             </article>

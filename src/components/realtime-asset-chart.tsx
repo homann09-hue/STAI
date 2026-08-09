@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { CandlestickChart, PriceLineChart } from "@/components/charts";
 import { ConnectionBadge, DataQualityBadge, PriceChangeLabel, RealtimePrice } from "@/components/live-market-widgets";
+import { NO_INDICATORS } from "@/lib/analysis/technical";
 import { deriveIndicators, selectCandles } from "@/lib/chart-data";
 import { formatCompact, formatCurrency } from "@/lib/scoring";
 import type { Asset, Candle, ChartRange, MarketConnectionStatus, NormalizedQuote, Quote, RefreshInterval, RefreshMode, TechnicalIndicators } from "@/lib/types";
@@ -88,30 +89,78 @@ export function ChartToolbar({
   );
 }
 
+/**
+ * Anzeige der Indikatoren.
+ *
+ * „Zu wenig Daten" steht bewusst da, wo vorher eine Zahl stand. Der Nutzer
+ * erfährt damit den Grund und nicht bloß ein `n/a` — und die Zeile „Bollinger:
+ * modelliert / vorbereitet" ist verschwunden, weil die Bänder jetzt gerechnet
+ * werden.
+ */
 export function TechnicalIndicatorsPanel({ indicators, currency }: { indicators: TechnicalIndicators; currency: string }) {
-  const macdValue = Number.isFinite(indicators.macd.value) ? indicators.macd.value : "n/a";
-  const macdSignal = Number.isFinite(indicators.macd.signal) ? indicators.macd.signal : "n/a";
-  const support = indicators.support.length ? indicators.support.map((value) => formatCurrency(value, currency)).join(" · ") : "n/a";
-  const resistance = indicators.resistance.length ? indicators.resistance.map((value) => formatCurrency(value, currency)).join(" · ") : "n/a";
-  const items = [
-    ["RSI", indicators.rsi],
-    ["SMA 20", formatCurrency(indicators.movingAverages.ma20, currency)],
-    ["SMA 50", formatCurrency(indicators.movingAverages.ma50, currency)],
-    ["SMA 200", formatCurrency(indicators.movingAverages.ma200, currency)],
-    ["MACD", `${macdValue} / ${macdSignal}`],
-    ["Bollinger", "modelliert / vorbereitet"],
-    ["Support", support],
-    ["Resistance", resistance]
+  const tooShort = "Zu wenig Daten";
+  const price = (value: number | null) => (value === null ? tooShort : formatCurrency(value, currency));
+  const levels = (values: number[]) =>
+    values.length ? values.map((value) => formatCurrency(value, currency)).join(" · ") : tooShort;
+
+  const items: Array<[string, string]> = [
+    ["RSI 14", indicators.rsi === null ? tooShort : indicators.rsi.toFixed(1)],
+    ["SMA 20", price(indicators.movingAverages.ma20)],
+    ["SMA 50", price(indicators.movingAverages.ma50)],
+    ["SMA 200", price(indicators.movingAverages.ma200)],
+    [
+      "MACD",
+      indicators.macd ? `${indicators.macd.value.toFixed(2)} / ${indicators.macd.signal.toFixed(2)}` : tooShort
+    ],
+    [
+      "Bollinger",
+      indicators.bollingerBands
+        ? `${formatCurrency(indicators.bollingerBands.lower, currency)} – ${formatCurrency(indicators.bollingerBands.upper, currency)}`
+        : tooShort
+    ],
+    ["Unterstützung", levels(indicators.support)],
+    ["Widerstand", levels(indicators.resistance)]
   ];
 
   return (
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-      {items.map(([label, value]) => (
-        <div key={label} className="rounded-2xl border border-stroke bg-panel/68 p-3">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted">{label}</p>
-          <p className="mt-1 text-sm font-semibold text-mist">{value}</p>
-        </div>
-      ))}
+    <div className="space-y-2">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {items.map(([label, value]) => (
+          <div key={label} className="rounded-2xl border border-stroke bg-panel/68 p-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-muted">{label}</p>
+            <p className={`mt-1 text-sm font-semibold ${value === tooShort ? "text-muted" : "text-mist"}`}>{value}</p>
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] text-muted">
+        {indicators.sampleSize === 0
+          ? "Keine Kurshistorie verfügbar — es werden keine Indikatoren berechnet."
+          : `Berechnet aus ${indicators.sampleSize} Kerzen.${
+              indicators.unavailable.length ? ` Nicht berechenbar: ${indicators.unavailable.join(", ")}.` : ""
+            }`}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Leeres Zeitfenster.
+ *
+ * Der Nutzer erfährt den Grund statt eine erfundene Kurve zu sehen. Beim
+ * Tagesfenster ist der Grund ein anderer als sonst und wird deshalb auch
+ * anders benannt: Tagesschlusskurse enthalten keinen Intraday-Verlauf.
+ */
+export function EmptyChartNotice({ range }: { range: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-stroke bg-coal/40 p-6 text-center">
+      <p className="text-sm font-semibold text-mist">Keine Kurshistorie für dieses Zeitfenster</p>
+      <p className="mt-2 text-xs leading-5 text-muted">
+        {range === "1T"
+          ? "Der Anbieter liefert Tagesschlusskurse. Ein Intraday-Verlauf liegt damit nicht vor."
+          : "Für dieses Instrument sind im aktuellen Anbietertarif keine historischen Kurse enthalten."}
+        <br />
+        Es wird bewusst kein Ersatzverlauf gezeichnet.
+      </p>
     </div>
   );
 }
@@ -216,8 +265,11 @@ export function RealtimeAssetChart({
         : quote,
     [liveQuote, quote]
   );
-  const candles = useMemo(() => selectCandles(candlesByRange, asset, mergedQuote, range), [asset, candlesByRange, mergedQuote, range]);
-  const activeIndicators = useMemo(() => indicators ?? deriveIndicators(candles), [candles, indicators]);
+  const candles = useMemo(() => selectCandles(candlesByRange, range), [candlesByRange, range]);
+  const activeIndicators = useMemo(
+    () => indicators ?? (candles.length ? deriveIndicators(candles) : NO_INDICATORS),
+    [candles, indicators]
+  );
 
   return (
     <section className="space-y-4 rounded-[2rem] border border-stroke bg-[radial-gradient(circle_at_20%_0%,rgba(39,224,183,0.16),transparent_28%),linear-gradient(145deg,rgba(10,15,24,0.98),rgba(4,7,12,0.98))] p-4 shadow-panel sm:p-5">
@@ -243,8 +295,14 @@ export function RealtimeAssetChart({
 
       <ChartToolbar range={range} chartType={chartType} onRangeChange={setRange} onChartTypeChange={setChartType} />
 
-      {chartType === "candlestick" ? <CandlestickChart candles={candles} /> : <PriceLineChart candles={candles} />}
-      <VolumeBars candles={candles} />
+      {candles.length ? (
+        <>
+          {chartType === "candlestick" ? <CandlestickChart candles={candles} /> : <PriceLineChart candles={candles} />}
+          <VolumeBars candles={candles} />
+        </>
+      ) : (
+        <EmptyChartNotice range={range} />
+      )}
       <TechnicalIndicatorsPanel indicators={activeIndicators} currency={asset.currency} />
       <ChartStatusBar quote={mergedQuote} connectionStatus={connectionStatus} refreshMode={refreshMode} intervalMs={intervalMs} />
     </section>

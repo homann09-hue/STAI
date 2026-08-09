@@ -2,6 +2,13 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { AssetDetailView } from "@/components/asset-detail-view";
+import { AssetUnavailableView } from "@/components/asset-unavailable-view";
+import { buildValuationView, withImpliedGrowth } from "@/lib/analysis/valuation-view";
+import { resolveAssetUnavailability } from "@/lib/asset-availability";
+import { fetchFundamentals } from "@/lib/providers/valuation-data";
+import { fetchCompanyFilings, fetchInsiderTransactions } from "@/lib/sec/edgar";
+import { summarizeInsiderActivity } from "@/lib/sec/form4";
+import { findInstrumentIdentityBySymbol } from "@/lib/instrument-master-store";
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
 import { absoluteUrl, siteConfig } from "@/lib/seo";
 import { validateSymbol } from "@/lib/validation";
@@ -94,7 +101,59 @@ export default async function AssetPage({ params }: PageProps) {
 
   const detail = await getAssetDetail(parsedSymbol.data);
 
-  if (!detail) notFound();
+  if (!detail) {
+    // Nur ein wirklich unbekanntes Instrument rechtfertigt notFound(). Existiert
+    // es im Instrument Master und ist lediglich der Tarif die Ursache, bekommt
+    // der Nutzer die bekannten Stammdaten und den echten Grund zu sehen.
+    const known = await findInstrumentIdentityBySymbol(parsedSymbol.data);
+    const unavailability = resolveAssetUnavailability({ symbol: parsedSymbol.data, known });
 
-  return <AssetDetailView detail={detail} />;
+    if (unavailability.reason === "unknown_instrument") notFound();
+
+    return <AssetUnavailableView symbol={parsedSymbol.data} unavailability={unavailability} />;
+  }
+
+  // Bewertung, Kennzahlen mit Einordnung, Peers und Analysten.
+  //
+  // Bewusst hier auf dem Server und nicht im Client: die Abschlussdaten sind
+  // sieben Abrufe beim Anbieter, und der Nutzer soll die fertige Seite sehen
+  // statt sieben nachladende Kacheln. Faellt der Abruf aus, bleibt `valuation`
+  // schlicht `null` -- die Seite zeigt dann keinen Bewertungsteil, statt einen
+  // leeren.
+  const bundle = await fetchFundamentals(parsedSymbol.data, {
+    marketCap: detail.fundamentals.marketCap || null,
+    price: detail.quote.price
+  });
+
+  const valuation = bundle
+    ? withImpliedGrowth(
+        buildValuationView(bundle, { currency: detail.asset.currency }),
+        bundle,
+        detail.quote.price
+      )
+    : null;
+
+  // Filings und Insidertransaktionen (§31/§32).
+  //
+  // Getrennt vom Bewertungsabruf und mit eigenem Fehlerpfad: die SEC kennt nur
+  // US-Emittenten, und für ein europäisches Papier gibt es schlicht keine CIK.
+  // Das ist kein Fehler, sondern der Geltungsbereich der Behörde — die
+  // Abschnitte entfallen dann.
+  const [filings, insider] = await Promise.all([
+    fetchCompanyFilings(parsedSymbol.data, { forms: ["10-K", "10-Q", "8-K"], limit: 12 }),
+    fetchInsiderTransactions(parsedSymbol.data, 6)
+  ]);
+
+  return (
+    <AssetDetailView
+      detail={detail}
+      valuation={valuation}
+      filings={filings}
+      insider={
+        insider
+          ? { transactions: insider.transactions, summary: summarizeInsiderActivity(insider.transactions) }
+          : null
+      }
+    />
+  );
 }

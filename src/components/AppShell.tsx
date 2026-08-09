@@ -9,7 +9,9 @@ import {
   BookOpen,
   Briefcase,
   CalendarDays,
+  CreditCard,
   Gem,
+  Landmark,
   Globe2,
   Home,
   LineChart,
@@ -25,6 +27,7 @@ import {
 import { useEffect, useState } from "react";
 import { legalDisclaimer } from "@/lib/scoring";
 import { GlobalCommandPalette } from "@/components/global-command-palette";
+import { BillingPlanBadge } from "@/components/billing-plan-badge";
 import { NotificationCenter } from "@/components/notification-center";
 import { PwaRegister } from "@/components/PwaRegister";
 import { RiskNoticeDialog } from "@/components/risk-notice-dialog";
@@ -40,6 +43,7 @@ const navItems = [
   { href: "/watchlist", label: "Watchlist", icon: Star },
   { href: "/portfolio", label: "Portfolio", icon: Briefcase },
   { href: "/alerts", label: "Alerts", icon: Bell },
+  { href: "/macro", label: "Makro", icon: Landmark },
   { href: "/news-terminal", label: "News", icon: Newspaper },
   { href: "/intelligence", label: "Intelligence", icon: Radar },
   { href: "/calendar", label: "Kalender", icon: CalendarDays },
@@ -47,6 +51,7 @@ const navItems = [
   { href: "/backtesting", label: "Backtesting", icon: Activity },
   { href: "/learn", label: "Lernen", icon: BookOpen },
   { href: "/pricing", label: "Pläne", icon: Gem },
+  { href: "/account/billing", label: "Abrechnung", icon: CreditCard },
   { href: "/settings", label: "Einstellungen", icon: Settings2 }
 ];
 
@@ -139,7 +144,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-mist">Mein Profil</p>
-              <p className="text-xs text-muted">Demo / kein Billingstatus</p>
+              <BillingPlanBadge />
             </div>
             <button className="ml-auto rounded-xl border border-stroke bg-panel px-2 py-1 text-xs text-muted" type="button" aria-label="Profil Optionen">
               ⋯

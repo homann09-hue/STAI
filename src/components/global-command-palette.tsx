@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Activity, BarChart3, Bell, Briefcase, Command, LineChart, Search, Settings2, Star, X } from "lucide-react";
+import { Activity, BarChart3, Bell, Briefcase, Command, LineChart, Search, Settings2, ShieldAlert, Star, X } from "lucide-react";
 import { formatCurrency, formatPercent } from "@/lib/scoring";
 import type { MarketUniverseInstrument, NormalizedQuote } from "@/lib/types";
 
@@ -25,6 +25,7 @@ const commandItems: CommandItem[] = [
   { href: "/alerts", label: "Alerts", group: "Automation", hint: "Preis, RSI, News, Earnings", keywords: "alerts alarme rsi preis news earnings" },
   { href: "/news-terminal", label: "News-Terminal", group: "Research", hint: "Quelle, Impact, Sentiment", keywords: "news nachrichten sentiment impact marketaux newsapi" },
   { href: "/risk", label: "Risiko-Dashboard", group: "Risk", hint: "Klumpenrisiko, Drawdown, Datenrisiko", keywords: "risiko risk drawdown volatilität klumpen" },
+  { href: "/track-record", label: "Trefferbilanz", group: "Research", hint: "Wie gut waren unsere Prognosen wirklich", keywords: "trefferbilanz track record prognose treffer kalibrierung baseline modellgüte historie" },
   { href: "/compare", label: "Vergleich", group: "Research", hint: "Asset vs Benchmark", keywords: "vergleich compare benchmark asset etf" },
   { href: "/learn", label: "Investieren lernen", group: "Lernen", hint: "Glossar und Beispiel-Portfolios", keywords: "lernen anfänger glossar aktie etf risiko" },
   { href: "/pricing", label: "Pläne", group: "Business", hint: "Free, Starter, Pro, Elite", keywords: "pricing preis pläne pro elite billing" },
@@ -75,14 +76,126 @@ function safeInstrument(value: MarketUniverseInstrument): MarketUniverseInstrume
     exchange: safeText(value.exchange, "Exchange offen", 48),
     provider: safeText(value.provider, "Provider offen", 64),
     assetClass: safeText(value.assetClass, "asset", 24) as MarketUniverseInstrument["assetClass"],
-    quoteQuality: safeText(value.quoteQuality, "unavailable", 24) as MarketUniverseInstrument["quoteQuality"]
+    quoteQuality: safeText(value.quoteQuality, "unavailable", 24) as MarketUniverseInstrument["quoteQuality"],
+    matchReasons: Array.isArray(value.matchReasons) ? value.matchReasons.map((item) => safeText(item, "", 80)).filter(Boolean).slice(0, 4) : [],
+    analysisReadiness: value.analysisReadiness,
+    searchScore: typeof value.searchScore === "number" && Number.isFinite(value.searchScore) ? Math.max(0, Math.min(100, value.searchScore)) : undefined,
+    detailHref: safeText(value.detailHref, `/assets/${encodeURIComponent(symbol)}`, 120)
   };
+}
+
+/**
+ * Treffer aus dem persistierten Instrument Master beziehungsweise aus der
+ * Provider-Suche. Bewusst getrennt vom Seed-Universum, damit in der UI sichtbar
+ * bleibt, woher ein Instrument stammt und wie belastbar seine Identitaet ist.
+ */
+type InstrumentSearchHit = {
+  canonicalId: string;
+  symbol: string;
+  name: string;
+  assetClass: string;
+  exchange: string;
+  currency: string;
+  provider: string;
+  identityConfidence: number;
+  resolutionStatus: "resolved" | "ambiguous" | "provider_only" | "invalid";
+  resolutionWarnings: string[];
+  origin: "instrument_master" | "provider_search";
+  quoteStatus: "unknown" | "available" | "restricted" | "error";
+};
+
+type InstrumentSearchCoverage = {
+  complete: boolean;
+  directorySyncAvailable: boolean;
+  note: string;
+};
+
+function safeInstrumentHit(value: InstrumentSearchHit): InstrumentSearchHit | null {
+  const symbol = safeSymbol(value.symbol);
+  if (!symbol) return null;
+
+  return {
+    canonicalId: safeText(value.canonicalId, symbol, 200),
+    symbol,
+    name: safeText(value.name, symbol, 140),
+    assetClass: safeText(value.assetClass, "asset", 24),
+    exchange: safeText(value.exchange, "Handelsplatz offen", 60),
+    currency: safeText(value.currency, "", 12),
+    provider: safeText(value.provider, "Provider offen", 40),
+    identityConfidence:
+      typeof value.identityConfidence === "number" && Number.isFinite(value.identityConfidence)
+        ? Math.max(0, Math.min(100, Math.round(value.identityConfidence)))
+        : 0,
+    resolutionStatus:
+      value.resolutionStatus === "resolved" ||
+      value.resolutionStatus === "ambiguous" ||
+      value.resolutionStatus === "invalid"
+        ? value.resolutionStatus
+        : "provider_only",
+    resolutionWarnings: Array.isArray(value.resolutionWarnings)
+      ? value.resolutionWarnings.map((item) => safeText(item, "", 160)).filter(Boolean).slice(0, 3)
+      : [],
+    origin: value.origin === "instrument_master" ? "instrument_master" : "provider_search",
+    quoteStatus:
+      value.quoteStatus === "available" || value.quoteStatus === "restricted" || value.quoteStatus === "error"
+        ? value.quoteStatus
+        : "unknown"
+  };
+}
+
+/**
+ * Kursverfuegbarkeit im aktiven Tarif. `unknown` wird bewusst als "ungeprüft"
+ * dargestellt und nie als verfuegbar, damit die Suche nichts verspricht, was
+ * die Detailseite nicht halten kann.
+ */
+function quoteStatusCopy(status: InstrumentSearchHit["quoteStatus"]) {
+  if (status === "available") return "Kurs verfügbar";
+  if (status === "restricted") return "Kurs im Tarif gesperrt";
+  if (status === "error") return "Kurs zuletzt nicht abrufbar";
+  return "Kurs ungeprüft";
+}
+
+function quoteStatusTone(status: InstrumentSearchHit["quoteStatus"]) {
+  if (status === "available") return "border-profit/25 bg-profit/10 text-profit";
+  if (status === "restricted") return "border-loss/25 bg-loss/10 text-loss";
+  if (status === "error") return "border-amber/25 bg-amber/10 text-amber";
+  return "border-stroke bg-coal text-muted";
+}
+
+function resolutionCopy(status: InstrumentSearchHit["resolutionStatus"]) {
+  if (status === "resolved") return "Identität aufgelöst";
+  if (status === "ambiguous") return "Identität mehrdeutig";
+  if (status === "invalid") return "Identität ungültig";
+  return "Nur providerseitig belegt";
+}
+
+function resolutionTone(status: InstrumentSearchHit["resolutionStatus"]) {
+  if (status === "resolved") return "border-profit/25 bg-profit/10 text-profit";
+  if (status === "ambiguous") return "border-amber/25 bg-amber/10 text-amber";
+  if (status === "invalid") return "border-loss/25 bg-loss/10 text-loss";
+  return "border-stroke bg-coal text-muted";
+}
+
+function readinessCopy(status: MarketUniverseInstrument["analysisReadiness"]) {
+  if (status === "ready") return "Analyse bereit";
+  if (status === "limited") return "Eingeschränkt";
+  if (status === "blocked") return "Blockiert";
+  return "Status offen";
+}
+
+function readinessTone(status: MarketUniverseInstrument["analysisReadiness"]) {
+  if (status === "ready") return "border-profit/25 bg-profit/10 text-profit";
+  if (status === "limited") return "border-amber/25 bg-amber/10 text-amber";
+  if (status === "blocked") return "border-loss/25 bg-loss/10 text-loss";
+  return "border-stroke bg-coal text-muted";
 }
 
 export function GlobalCommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [assetResults, setAssetResults] = useState<MarketUniverseInstrument[]>([]);
+  const [instrumentHits, setInstrumentHits] = useState<InstrumentSearchHit[]>([]);
+  const [instrumentCoverage, setInstrumentCoverage] = useState<InstrumentSearchCoverage | null>(null);
   const [quotes, setQuotes] = useState<Record<string, NormalizedQuote>>({});
   const [assetSearchStatus, setAssetSearchStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const results = useMemo(() => {
@@ -96,6 +209,8 @@ export function GlobalCommandPalette() {
   useEffect(() => {
     if (!open) {
       setAssetResults([]);
+      setInstrumentHits([]);
+      setInstrumentCoverage(null);
       setQuotes({});
       setAssetSearchStatus("idle");
       return;
@@ -112,7 +227,21 @@ export function GlobalCommandPalette() {
       try {
         setAssetSearchStatus("loading");
         setAssetResults([]);
+        setInstrumentHits([]);
+        setInstrumentCoverage(null);
         setQuotes({});
+
+        // Instrument Master parallel abfragen. Der Aufruf darf die Suche nicht
+        // zum Scheitern bringen, deshalb bewusst ohne throw.
+        const instrumentRequest = normalized
+          ? fetch(`/api/instruments/search?q=${encodeURIComponent(normalized)}`, {
+              cache: "no-store",
+              signal: controller.signal
+            })
+              .then((res) => (res.ok ? res.json() : null))
+              .catch(() => null)
+          : Promise.resolve(null);
+
         const response = await fetch(`/api/market/universe?${params.toString()}`, {
           cache: "no-store",
           signal: controller.signal
@@ -120,14 +249,38 @@ export function GlobalCommandPalette() {
 
         if (!response.ok) throw new Error("Universe search failed");
 
-        const payload = (await response.json()) as { instruments?: MarketUniverseInstrument[] };
+        const payload = (await response.json()) as {
+          instruments?: MarketUniverseInstrument[];
+          data?: { instruments?: MarketUniverseInstrument[] };
+        };
         if (controller.signal.aborted) return;
 
-        const instruments = (payload.instruments ?? [])
+        const instruments = (payload.data?.instruments ?? payload.instruments ?? [])
           .map(safeInstrument)
           .filter((item): item is MarketUniverseInstrument => Boolean(item))
           .slice(0, 8);
         setAssetResults(instruments);
+
+        const instrumentPayload = (await instrumentRequest) as {
+          data?: { results?: InstrumentSearchHit[]; coverage?: InstrumentSearchCoverage };
+          results?: InstrumentSearchHit[];
+          coverage?: InstrumentSearchCoverage;
+        } | null;
+
+        if (controller.signal.aborted) return;
+
+        if (instrumentPayload) {
+          const seedSymbols = new Set(instruments.map((item) => item.symbol));
+          const hits = (instrumentPayload.data?.results ?? instrumentPayload.results ?? [])
+            .map(safeInstrumentHit)
+            .filter((item): item is InstrumentSearchHit => Boolean(item))
+            // Was das Seed-Universum ohnehin zeigt, nicht doppelt auflisten.
+            .filter((item) => !seedSymbols.has(item.symbol))
+            .slice(0, 8);
+
+          setInstrumentHits(hits);
+          setInstrumentCoverage(instrumentPayload.data?.coverage ?? instrumentPayload.coverage ?? null);
+        }
 
         const symbols = instruments
           .map((item) => item.symbol)
@@ -255,7 +408,7 @@ export function GlobalCommandPalette() {
                     return (
                       <Link
                         key={`${item.symbol}-${item.exchange}`}
-                        href={`/assets/${encodeURIComponent(item.symbol)}`}
+                        href={item.detailHref ?? `/assets/${encodeURIComponent(item.symbol)}`}
                         onClick={() => setOpen(false)}
                         className="grid gap-2 rounded-2xl px-4 py-3 transition hover:bg-panel md:grid-cols-[1fr_auto] md:items-center"
                       >
@@ -268,9 +421,16 @@ export function GlobalCommandPalette() {
                             <span className="rounded-full border border-cyan/25 bg-cyan/10 px-2 py-1 text-[10px] uppercase text-cyan">
                               {item.quoteQuality}
                             </span>
+                            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] uppercase ${readinessTone(item.analysisReadiness)}`}>
+                              <ShieldAlert className="h-3 w-3" />
+                              {readinessCopy(item.analysisReadiness)}
+                            </span>
                           </div>
                           <p className="mt-1 truncate text-sm text-muted">{item.name}</p>
                           <p className="mt-1 text-xs text-muted">{item.exchange} · {item.provider}</p>
+                          {item.matchReasons?.length ? (
+                            <p className="mt-1 text-xs text-cyan">Treffer: {item.matchReasons.slice(0, 2).join(", ")} · {item.searchScore ?? 0}/100</p>
+                          ) : null}
                         </div>
                         <div className="text-left md:text-right">
                           {quote ? (
@@ -290,6 +450,59 @@ export function GlobalCommandPalette() {
                 </div>
               ) : null}
 
+              {instrumentHits.length ? (
+                <div className="border-t border-stroke/60 pt-2">
+                  <p className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                    Instrument Master
+                  </p>
+                  {instrumentHits.map((hit) => (
+                    <Link
+                      key={hit.canonicalId}
+                      href={`/assets/${encodeURIComponent(hit.symbol)}`}
+                      onClick={() => setOpen(false)}
+                      className="grid gap-1 rounded-2xl px-4 py-3 transition hover:bg-panel"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono text-sm font-semibold text-mist">{hit.symbol}</span>
+                        <span className="rounded-full border border-stroke bg-coal px-2 py-0.5 text-[10px] font-semibold uppercase text-muted">
+                          {hit.assetClass}
+                        </span>
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${resolutionTone(hit.resolutionStatus)}`}
+                        >
+                          {resolutionCopy(hit.resolutionStatus)} · {hit.identityConfidence}/100
+                        </span>
+                        <span className="rounded-full border border-stroke bg-coal px-2 py-0.5 text-[10px] font-semibold uppercase text-muted">
+                          {hit.origin === "instrument_master" ? "gespeichert" : "neu vom Provider"}
+                        </span>
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${quoteStatusTone(hit.quoteStatus)}`}
+                        >
+                          {quoteStatusCopy(hit.quoteStatus)}
+                        </span>
+                      </div>
+                      <p className="truncate text-sm text-muted">{hit.name}</p>
+                      <p className="text-xs text-muted">
+                        {hit.exchange}
+                        {hit.currency ? ` · ${hit.currency}` : ""} · {hit.provider}
+                      </p>
+                      {hit.resolutionWarnings.length ? (
+                        <p className="text-xs text-amber">{hit.resolutionWarnings[0]}</p>
+                      ) : null}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+
+              {instrumentCoverage && !instrumentCoverage.complete && (instrumentHits.length || assetResults.length) ? (
+                <div
+                  className="mx-2 mt-2 rounded-2xl border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber"
+                  role="status"
+                >
+                  Universum unvollständig: {instrumentCoverage.note}
+                </div>
+              ) : null}
+
               {results.length ? results.map((item) => (
                 <Link
                   key={item.href}
@@ -305,7 +518,7 @@ export function GlobalCommandPalette() {
                   </div>
                   <p className="text-sm text-muted">{item.hint}</p>
                 </Link>
-              )) : !assetResults.length && assetSearchStatus !== "loading" ? (
+              )) : !assetResults.length && !instrumentHits.length && assetSearchStatus !== "loading" ? (
                 <div className="px-4 py-10 text-center" role="status">
                   <p className="font-semibold text-mist">Kein Treffer.</p>
                   <p className="mt-2 text-sm text-muted">

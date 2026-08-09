@@ -13,6 +13,9 @@ import {
   BarChart3,
   Brain,
   CalendarDays,
+  DatabaseZap,
+  FileSearch,
+  Gauge,
   Layers3,
   Maximize2,
   Minimize2,
@@ -35,7 +38,16 @@ import {
   scoreLabel,
   scoreTone
 } from "@/lib/scoring";
+import { buildAssetReadiness, buildFundamentalMetrics } from "@/lib/asset-readiness";
+import { buildAssetProvenancePassport, type AssetProvenanceEntry } from "@/lib/asset-provenance";
+import { buildForecastPassport, type ForecastPassport } from "@/lib/forecast-passport";
 import { useMarketStream } from "@/lib/use-market-stream";
+import { AnalystPanel, PeerComparisonPanel, ValuationPanel } from "@/components/valuation-panel";
+import { FilingsPanel, InsiderPanel } from "@/components/insider-panel";
+import type { CompanyFilings } from "@/lib/sec/edgar";
+import type { InsiderSummary, InsiderTransaction } from "@/lib/sec/form4";
+import { MetricGrid } from "@/components/metric-with-context";
+import type { ValuationView } from "@/lib/analysis/valuation-view";
 import type { AssetDetail, Candle, Quote, TimeRange } from "@/lib/types";
 import { timeRanges } from "@/lib/types";
 
@@ -55,6 +67,25 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: s
       <p className={`mt-2 font-mono text-lg font-semibold ${tone ?? "text-mist"}`}>{value}</p>
     </div>
   );
+}
+
+function readinessTone(status: ReturnType<typeof buildAssetReadiness>["status"]) {
+  if (status === "ready") return "border-profit/30 bg-profit/10 text-profit";
+  if (status === "limited") return "border-amber/30 bg-amber/10 text-amber";
+  return "border-loss/35 bg-loss/10 text-loss";
+}
+
+function qualityTone(available: boolean) {
+  return available ? "border-profit/25 bg-profit/10 text-profit" : "border-amber/25 bg-amber/10 text-amber";
+}
+
+function provenanceStatusTone(status: AssetProvenanceEntry["status"]) {
+  if (status === "fresh") return "border-profit/25 bg-profit/10 text-profit";
+  if (status === "delayed") return "border-amber/25 bg-amber/10 text-amber";
+  if (status === "stale") return "border-loss/25 bg-loss/10 text-loss";
+  if (status === "mock") return "border-cyan/25 bg-cyan/10 text-cyan";
+  if (status === "blocked") return "border-loss/30 bg-loss/10 text-loss";
+  return "border-stroke bg-coal text-muted";
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -80,7 +111,202 @@ function formatMaybeNumber(value: number | null | undefined, digits = 2) {
   return isFiniteNumber(value) ? value.toFixed(digits) : "n/a";
 }
 
-export function AssetDetailView({ detail }: { detail: AssetDetail }) {
+function formatTimestamp(value: string) {
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toLocaleString("de-DE") : "nicht verfügbar";
+}
+
+function AssetProvenancePanel({ passport }: { passport: ReturnType<typeof buildAssetProvenancePassport> }) {
+  return (
+    <section className="rounded-[1.5rem] border border-stroke bg-panel/82 p-5 shadow-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <FileSearch className="h-5 w-5 text-cyan" />
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan">Data Passport</p>
+          </div>
+          <h2 className="mt-2 text-xl font-semibold text-mist">Quellen, Frische und Analyse-Gates</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{passport.userMessage}</p>
+        </div>
+        <div className="rounded-2xl border border-stroke bg-coal px-4 py-3 text-sm text-muted">
+          <p>Provider: <span className="text-mist">{passport.primaryProvider}</span></p>
+          <p className="mt-1">Erstellt: {formatTimestamp(passport.generatedAt)}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <Metric label="Entscheidung" value={passport.decision.replace("analysis_", "")} tone={passport.decision === "analysis_blocked" ? "text-loss" : passport.decision === "analysis_limited" ? "text-amber" : "text-profit"} />
+        <Metric label="Qualität" value={`${passport.qualityScore}/100`} tone="text-cyan" />
+        <Metric label="Konfidenz" value={`${passport.confidence}/100`} tone="text-cyan" />
+        <Metric label="Fehlend/blockiert" value={`${passport.missingSources}`} tone={passport.missingSources ? "text-amber" : "text-profit"} />
+        <Metric label="Mock-Quellen" value={`${passport.mockSources}`} tone={passport.mockSources ? "text-loss" : "text-profit"} />
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-2xl border border-stroke">
+        <div className="hidden grid-cols-[0.85fr_0.75fr_0.75fr_0.9fr_1fr_1.25fr] gap-3 border-b border-stroke bg-coal px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted xl:grid">
+          <span>Bereich</span>
+          <span>Status</span>
+          <span>Qualität</span>
+          <span>asOf</span>
+          <span>Referenz</span>
+          <span>Hinweis</span>
+        </div>
+        <div className="divide-y divide-stroke">
+          {passport.entries.map((entry) => (
+            <article key={entry.id} className="grid gap-3 bg-panel/55 px-4 py-4 xl:grid-cols-[0.85fr_0.75fr_0.75fr_0.9fr_1fr_1.25fr] xl:items-start">
+              <div>
+                <p className="font-semibold text-mist">{entry.label}</p>
+                <p className="mt-1 text-xs text-muted">{entry.provider}</p>
+              </div>
+              <span className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold ${provenanceStatusTone(entry.status)}`}>
+                {entry.status}
+              </span>
+              <span className="w-fit rounded-full border border-stroke bg-coal px-3 py-1 text-xs font-semibold text-muted">
+                {entry.quality.toUpperCase()}
+              </span>
+              <p className="text-xs leading-5 text-muted">{formatTimestamp(entry.asOf)}<br />{entry.timezone}</p>
+              <p className="break-all font-mono text-[11px] leading-5 text-cyan">{entry.sourceReference}</p>
+              <p className="text-xs leading-5 text-muted">{entry.note}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      {passport.blockers.length ? (
+        <div className="mt-4 rounded-2xl border border-amber/25 bg-amber/10 p-4">
+          <p className="text-sm font-semibold text-amber">Blocker und Unsicherheiten</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {passport.blockers.map((blocker) => (
+              <p key={blocker} className="rounded-xl border border-amber/20 bg-coal/45 px-3 py-2 text-xs leading-5 text-muted">
+                {blocker}
+              </p>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function forecastStatusTone(status: ForecastPassport["status"]) {
+  if (status === "ready") return "border-profit/30 bg-profit/10 text-profit";
+  if (status === "limited") return "border-amber/30 bg-amber/10 text-amber";
+  return "border-loss/35 bg-loss/10 text-loss";
+}
+
+function formatMaybePercent(value: number | null | undefined) {
+  return isFiniteNumber(value) ? formatPercent(value) : "blockiert";
+}
+
+function ForecastPassportPanel({ passport }: { passport: ForecastPassport }) {
+  return (
+    <section className="rounded-[1.5rem] border border-stroke bg-[radial-gradient(circle_at_top_left,rgba(43,210,150,0.14),transparent_34%),linear-gradient(145deg,rgba(13,20,32,0.96),rgba(6,11,20,0.98))] p-5 shadow-panel">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Gauge className="h-5 w-5 text-profit" />
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-profit">Forecast Passport</p>
+          </div>
+          <h2 className="mt-2 text-xl font-semibold text-mist">Szenarien statt Scheinsicherheit</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{passport.userMessage}</p>
+        </div>
+        <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${forecastStatusTone(passport.status)}`}>
+          {passport.label}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <Metric label="Modell-Konfidenz" value={`${passport.confidence}/100`} tone={passport.status === "blocked" ? "text-loss" : "text-cyan"} />
+        <Metric label="Datenqualität" value={`${passport.qualityScore}/100`} tone="text-cyan" />
+        <Metric label="Chance steigend" value={passport.status === "blocked" ? "blockiert" : `${passport.probabilityUp}%`} tone="text-profit" />
+        <Metric label="Chance fallend" value={passport.status === "blocked" ? "blockiert" : `${passport.probabilityDown}%`} tone="text-loss" />
+        <Metric label="Seitwärts" value={passport.status === "blocked" ? "blockiert" : `${passport.probabilitySideways}%`} tone="text-amber" />
+      </div>
+
+      <div className="mt-4 grid gap-3 xl:grid-cols-[1fr_0.9fr]">
+        <div className="overflow-hidden rounded-2xl border border-stroke">
+          <div className="grid grid-cols-[0.7fr_1fr_1fr_1fr] gap-2 border-b border-stroke bg-coal px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+            <span>Horizont</span>
+            <span>Band unten</span>
+            <span>Mitte</span>
+            <span>Band oben</span>
+          </div>
+          <div className="divide-y divide-stroke">
+            {passport.bands.map((band) => (
+              <div key={band.horizon} className="grid grid-cols-[0.7fr_1fr_1fr_1fr] gap-2 bg-panel/45 px-4 py-3 text-sm">
+                <span className="font-semibold text-mist">{band.label}</span>
+                <span className="font-mono text-loss">{formatMaybePercent(band.lowerReturnPercent)}</span>
+                <span className="font-mono text-cyan">{formatMaybePercent(band.medianReturnPercent)}</span>
+                <span className="font-mono text-profit">{formatMaybePercent(band.upperReturnPercent)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3">
+          {passport.scenarios.map((scenario) => (
+            <article key={scenario.id} className="rounded-2xl border border-stroke bg-panel/60 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-semibold text-mist">{scenario.label}</p>
+                <span className="rounded-full border border-stroke bg-coal px-3 py-1 font-mono text-xs text-muted">
+                  {scenario.probability}%
+                </span>
+              </div>
+              <p className="mt-2 font-mono text-lg text-cyan">
+                {scenario.projectedPrice === null ? "keine Zielspanne" : formatCurrency(scenario.projectedPrice, passport.currency)}
+              </p>
+              <p className="mt-2 text-xs leading-5 text-muted">{scenario.rationale}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="rounded-2xl border border-profit/20 bg-profit/10 p-4">
+          <p className="text-sm font-semibold text-profit">Wichtigste Treiber</p>
+          <ul className="mt-2 space-y-2 text-xs leading-5 text-muted">
+            {passport.drivers.length ? passport.drivers.map((driver) => <li key={driver}>{driver}</li>) : <li>Keine belastbaren Treiber verfügbar.</li>}
+          </ul>
+        </div>
+        <div className="rounded-2xl border border-loss/20 bg-loss/10 p-4">
+          <p className="text-sm font-semibold text-loss">Risiken und Blocker</p>
+          <ul className="mt-2 space-y-2 text-xs leading-5 text-muted">
+            {[...passport.risks, ...passport.blockers].slice(0, 6).map((risk) => <li key={risk}>{risk}</li>)}
+            {!passport.risks.length && !passport.blockers.length ? <li>Keine zusätzlichen Blocker in der aktuellen Datenbasis.</li> : null}
+          </ul>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-stroke bg-coal/70 p-4 text-xs leading-5 text-muted">
+        <p>
+          Modell: <span className="font-mono text-cyan">{passport.modelVersion}</span> · Datenstand: {formatTimestamp(passport.dataCutoff)} · Provider: {passport.provider} · Qualität: {passport.quality.toUpperCase()}
+        </p>
+        <p className="mt-2">{legalDisclaimer}</p>
+      </div>
+    </section>
+  );
+}
+
+export function AssetDetailView({
+  detail,
+  valuation = null,
+  filings = null,
+  insider = null
+}: {
+  detail: AssetDetail;
+  /**
+   * Bewertung, Kennzahlen mit Einordnung, Peers und Analysten.
+   *
+   * Optional und `null`, wenn der Abruf der Abschlussdaten ausgefallen ist. Die
+   * betreffenden Abschnitte entfallen dann ganz — ein leerer Bewertungsteil
+   * wäre eine Behauptung über fehlende Daten statt einer Auskunft.
+   */
+  valuation?: ValuationView | null;
+  /** Einreichungen bei der SEC. `null` bei Nicht-US-Emittenten. */
+  filings?: CompanyFilings | null;
+  /** Insidertransaktionen aus Formular 4. */
+  insider?: { transactions: InsiderTransaction[]; summary: InsiderSummary } | null;
+}) {
   const [range, setRange] = useState<TimeRange>("1M");
   const [showSma, setShowSma] = useState(true);
   const [showVolume, setShowVolume] = useState(true);
@@ -131,6 +357,11 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
       marketStatus: liveQuote.marketStatus
     };
   }, [detail.asset.symbol, detail.quote, stream.quotes]);
+  const displayedDetail = useMemo<AssetDetail>(() => ({ ...detail, quote: displayedQuote }), [detail, displayedQuote]);
+  const readiness = useMemo(() => buildAssetReadiness(displayedDetail), [displayedDetail]);
+  const fundamentalMetrics = useMemo(() => buildFundamentalMetrics(displayedDetail), [displayedDetail]);
+  const provenancePassport = useMemo(() => buildAssetProvenancePassport(displayedDetail), [displayedDetail]);
+  const forecastPassport = useMemo(() => buildForecastPassport(displayedDetail), [displayedDetail]);
   const positive = isFiniteNumber(displayedQuote.changePercent) ? displayedQuote.changePercent >= 0 : false;
   const chartStats = useMemo(() => {
     if (candles.length < 2) return null;
@@ -205,6 +436,11 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
 
   return (
     <div className="space-y-7">
+      {/* Reihenfolge nach §49: Übersicht, Chart, Summary, Bewertung und
+          Fundamentaldaten, technische Analyse, News, dann Qualität und Risiko,
+          zuletzt die Szenarien. Der Chart stand vorher an zehnter Stelle und
+          die News ganz am Ende — beides genau umgekehrt zur Blickrichtung
+          eines Lesers, der eine Aktie zum ersten Mal öffnet. */}
       <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-md border border-stroke bg-[linear-gradient(140deg,#101712,#07100d_70%,#172114)] p-5 shadow-panel">
           <div className="flex items-start justify-between gap-4">
@@ -252,43 +488,6 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
             <p className="mt-2 text-sm leading-6 text-muted">{detail.asset.description}</p>
           </div>
         </div>
-      </section>
-
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric
-          label="Bid / Ask"
-          value={
-            displayedQuote.bid !== undefined && displayedQuote.ask !== undefined
-              ? `${formatCurrency(displayedQuote.bid, detail.asset.currency)} / ${formatCurrency(displayedQuote.ask, detail.asset.currency)}`
-              : "vom Anbieter nicht geliefert"
-          }
-        />
-        <Metric
-          label="Spread"
-          value={displayedQuote.spread !== undefined ? formatCurrency(displayedQuote.spread, detail.asset.currency) : "vom Anbieter nicht geliefert"}
-          tone={displayedQuote.spread !== undefined && isFiniteNumber(displayedQuote.price) ? "text-cyan" : undefined}
-        />
-        <Metric
-          label="Tageshoch / Tief"
-          value={`${formatCurrency(displayedQuote.dayHigh, detail.asset.currency)} / ${formatCurrency(displayedQuote.dayLow, detail.asset.currency)}`}
-        />
-        <Metric
-          label="Open / Prev. Close"
-          value={`${formatMaybeCurrency(displayedQuote.open, detail.asset.currency)} / ${formatMaybeCurrency(displayedQuote.previousClose, detail.asset.currency)}`}
-        />
-      </section>
-
-      <AssetDecisionPanel detail={detail} />
-
-      <TechnicalTrendPanel detail={{ ...detail, quote: displayedQuote }} />
-
-      <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <DataQualityPanel quality={detail.dataQuality} />
-        <RiskEnginePanel report={detail.riskReport} />
-      </section>
-
-      <section>
-        <AnalysisLayersPanel layers={detail.analysisLayers} macroFactors={detail.macroFactors} />
       </section>
 
       <section className={`space-y-3 ${chartFullscreen ? "fixed inset-0 z-[80] overflow-y-auto bg-[#050b14] p-3 sm:p-6" : ""}`}>
@@ -367,6 +566,65 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
         <CandlestickChart candles={candles} />
       </section>
 
+      <AssetDecisionPanel detail={detail} />
+
+      {/* §49 Platz 4 bis 6: Bewertung, dann Kennzahlen mit historischer
+          Einordnung, dann die Vergleichsgruppe. Alles nur, wenn die
+          Abschlussdaten geladen werden konnten. */}
+      {valuation ? (
+        <>
+          {valuation.sensitivity ? (
+            <ValuationPanel
+              dcf={valuation.dcf}
+              sensitivity={valuation.sensitivity}
+              impliedGrowth={valuation.impliedGrowth}
+              yields={valuation.yields}
+              currency={detail.asset.currency}
+            />
+          ) : null}
+
+          {valuation.metrics.length ? (
+            <section className="rounded-[2rem] border border-stroke bg-panel/82 p-4 shadow-panel sm:p-5">
+              <h2 className="text-lg font-semibold">Kennzahlen im Fünfjahresvergleich</h2>
+              <p className="mt-1 text-xs text-muted">{valuation.note}</p>
+              <div className="mt-3">
+                <MetricGrid results={valuation.metrics} />
+              </div>
+            </section>
+          ) : null}
+
+          {valuation.analysts ? (
+            <AnalystPanel view={valuation.analysts} currency={detail.asset.currency} price={displayedQuote.price} />
+          ) : null}
+
+          {valuation.peers.length ? <PeerComparisonPanel comparisons={valuation.peers} /> : null}
+        </>
+      ) : null}
+
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric
+          label="Bid / Ask"
+          value={
+            displayedQuote.bid !== undefined && displayedQuote.ask !== undefined
+              ? `${formatCurrency(displayedQuote.bid, detail.asset.currency)} / ${formatCurrency(displayedQuote.ask, detail.asset.currency)}`
+              : "vom Anbieter nicht geliefert"
+          }
+        />
+        <Metric
+          label="Spread"
+          value={displayedQuote.spread !== undefined ? formatCurrency(displayedQuote.spread, detail.asset.currency) : "vom Anbieter nicht geliefert"}
+          tone={displayedQuote.spread !== undefined && isFiniteNumber(displayedQuote.price) ? "text-cyan" : undefined}
+        />
+        <Metric
+          label="Tageshoch / Tief"
+          value={`${formatCurrency(displayedQuote.dayHigh, detail.asset.currency)} / ${formatCurrency(displayedQuote.dayLow, detail.asset.currency)}`}
+        />
+        <Metric
+          label="Open / Prev. Close"
+          value={`${formatMaybeCurrency(displayedQuote.open, detail.asset.currency)} / ${formatMaybeCurrency(displayedQuote.previousClose, detail.asset.currency)}`}
+        />
+      </section>
+
       <section>
         <h2 className="mb-3 text-lg font-semibold">Transparentes Score-Modell</h2>
         <ProfessionalScoresPanel scores={detail.professionalScores} />
@@ -374,45 +632,6 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
           <ScoreMeter score={detail.scores.trend} label="Legacy Trend Score" />
           <ScoreMeter score={detail.scores.news} label="Legacy News Score" />
           <ScoreMeter score={detail.scores.risk} label="Legacy Risk Score" />
-        </div>
-      </section>
-
-      <section className="grid gap-5 lg:grid-cols-2">
-        <div>
-          <div className="mb-3 flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-cyan" />
-            <h2 className="text-lg font-semibold">Technische Indikatoren</h2>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Metric label="RSI" value={`${detail.indicators.rsi}`} tone={detail.indicators.rsi > 70 ? "text-loss" : detail.indicators.rsi < 30 ? "text-amber" : "text-profit"} />
-            <Metric label="MACD" value={`${formatMaybeNumber(detail.indicators.macd.value)} / Signal ${formatMaybeNumber(detail.indicators.macd.signal)}`} />
-            <Metric label="MA 20" value={formatCurrency(detail.indicators.movingAverages.ma20, detail.asset.currency)} />
-            <Metric label="MA 50" value={formatCurrency(detail.indicators.movingAverages.ma50, detail.asset.currency)} />
-            <Metric label="MA 200" value={formatCurrency(detail.indicators.movingAverages.ma200, detail.asset.currency)} />
-            <Metric
-              label="Bollinger Bands"
-              value={`${formatMaybeCurrency(detail.indicators.bollingerBands.lower, detail.asset.currency)} - ${formatMaybeCurrency(detail.indicators.bollingerBands.upper, detail.asset.currency)}`}
-            />
-            <Metric label="Support" value={detail.indicators.support.length ? detail.indicators.support.map((value) => formatMaybeCurrency(value, detail.asset.currency)).join(" / ") : "n/a"} />
-            <Metric label="Resistance" value={detail.indicators.resistance.length ? detail.indicators.resistance.map((value) => formatMaybeCurrency(value, detail.asset.currency)).join(" / ") : "n/a"} />
-          </div>
-        </div>
-
-        <div>
-          <div className="mb-3 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-profit" />
-            <h2 className="text-lg font-semibold">Fundamentaldaten</h2>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Metric label="KGV" value={detail.fundamentals.peRatio === null ? "n/a" : `${detail.fundamentals.peRatio}`} />
-            <Metric label="Umsatzwachstum" value={formatPercent(detail.fundamentals.revenueGrowth)} />
-            <Metric label="Gewinnwachstum" value={formatPercent(detail.fundamentals.earningsGrowth)} />
-            <Metric label="Verschuldung" value={`${detail.fundamentals.debtToEquity.toFixed(2)} D/E`} />
-            <Metric label="Cashflow" value={formatCompact(detail.fundamentals.cashflow)} />
-            <Metric label="Dividende" value={detail.fundamentals.dividendYield === null ? "n/a" : `${detail.fundamentals.dividendYield}%`} />
-            <Metric label="Marktkapitalisierung" value={formatCompact(detail.fundamentals.marketCap)} />
-            <Metric label="Volumen" value={formatCompact(displayedQuote.volume)} />
-          </div>
         </div>
       </section>
 
@@ -531,10 +750,170 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
         </div>
       </section>
 
+      <section className="grid gap-5 lg:grid-cols-2">
+        <div>
+          <div className="mb-3 flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-cyan" />
+            <h2 className="text-lg font-semibold">Technische Indikatoren</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Metric
+              label="RSI 14"
+              value={detail.indicators.rsi === null ? "Zu wenig Daten" : detail.indicators.rsi.toFixed(1)}
+              tone={
+                detail.indicators.rsi === null
+                  ? "text-muted"
+                  : detail.indicators.rsi > 70
+                    ? "text-loss"
+                    : detail.indicators.rsi < 30
+                      ? "text-amber"
+                      : "text-profit"
+              }
+            />
+            <Metric
+              label="MACD"
+              value={
+                detail.indicators.macd
+                  ? `${formatMaybeNumber(detail.indicators.macd.value)} / Signal ${formatMaybeNumber(detail.indicators.macd.signal)}`
+                  : "Zu wenig Daten"
+              }
+            />
+            <Metric label="SMA 20" value={formatMaybeCurrency(detail.indicators.movingAverages.ma20, detail.asset.currency)} />
+            <Metric label="SMA 50" value={formatMaybeCurrency(detail.indicators.movingAverages.ma50, detail.asset.currency)} />
+            <Metric label="SMA 200" value={formatMaybeCurrency(detail.indicators.movingAverages.ma200, detail.asset.currency)} />
+            <Metric
+              label="Bollinger Bänder"
+              value={
+                detail.indicators.bollingerBands
+                  ? `${formatCurrency(detail.indicators.bollingerBands.lower, detail.asset.currency)} - ${formatCurrency(detail.indicators.bollingerBands.upper, detail.asset.currency)}`
+                  : "Zu wenig Daten"
+              }
+            />
+            <Metric label="Unterstützung" value={detail.indicators.support.length ? detail.indicators.support.map((value) => formatCurrency(value, detail.asset.currency)).join(" / ") : "Zu wenig Daten"} />
+            <Metric label="Widerstand" value={detail.indicators.resistance.length ? detail.indicators.resistance.map((value) => formatCurrency(value, detail.asset.currency)).join(" / ") : "Zu wenig Daten"} />
+          </div>
+          <p className="mt-3 text-xs text-muted">
+            {detail.indicators.sampleSize === 0
+              ? "Keine Kurshistorie verfügbar — es werden keine Indikatoren berechnet."
+              : `Berechnet aus ${detail.indicators.sampleSize} Kerzen.${
+                  detail.indicators.unavailable.length
+                    ? ` Nicht berechenbar: ${detail.indicators.unavailable.join(", ")}.`
+                    : ""
+                }`}
+          </p>
+        </div>
+
+        <div>
+          <div className="mb-3 flex items-center gap-2">
+            <Activity className="h-5 w-5 text-profit" />
+            <h2 className="text-lg font-semibold">Fundamentaldaten</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {fundamentalMetrics.map((metric) => (
+              <Metric
+                key={metric.label}
+                label={metric.label}
+                value={metric.value}
+                tone={metric.available ? undefined : "text-amber"}
+              />
+            ))}
+          </div>
+          {!readiness.trustedFundamentals ? (
+            <p className="mt-3 rounded-md border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
+              Fundamentaldaten sind für dieses Symbol aktuell nicht ausreichend verifiziert. STAI zeigt deshalb keine Nullwerte als echte Kennzahlen.
+            </p>
+          ) : null}
+        </div>
+      </section>
+
+      <TechnicalTrendPanel detail={{ ...detail, quote: displayedQuote }} />
+
       <section>
         <h2 className="mb-3 text-lg font-semibold">Unternehmensnachrichten</h2>
         <NewsList news={detail.news} />
       </section>
+
+      {/* §49 Platz 11 und 12: Insider, dann Filings -- beide nur bei
+          US-Emittenten, weil die SEC nur diese erfasst. */}
+      {insider && insider.transactions.length ? (
+        <InsiderPanel
+          transactions={insider.transactions}
+          summary={insider.summary}
+          currency={detail.asset.currency}
+        />
+      ) : null}
+
+      {filings && filings.filings.length ? (
+        <FilingsPanel filings={filings.filings} companyName={filings.companyName} />
+      ) : null}
+
+      <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+        <div className={`rounded-[1.5rem] border p-5 shadow-panel ${readinessTone(readiness.status)}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] opacity-75">Analysefreigabe</p>
+              <h2 className="mt-2 text-2xl font-semibold">{readiness.label}</h2>
+            </div>
+            <DatabaseZap className="h-6 w-6" />
+          </div>
+          <p className="mt-3 text-sm leading-6 opacity-90">{readiness.detail}</p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-current/20 bg-ink/25 p-3">
+              <p className="text-xs opacity-70">Datenqualität</p>
+              <p className="mt-1 font-mono text-2xl font-semibold">{readiness.qualityScore}/100</p>
+            </div>
+            <div className="rounded-2xl border border-current/20 bg-ink/25 p-3">
+              <p className="text-xs opacity-70">Konfidenz</p>
+              <p className="mt-1 font-mono text-2xl font-semibold">{readiness.confidence}/100</p>
+            </div>
+          </div>
+          {readiness.missingAreas.length ? (
+            <p className="mt-4 text-xs leading-5 opacity-80">
+              Fehlende Bereiche: {readiness.missingAreas.join(", ")}.
+            </p>
+          ) : null}
+        </div>
+        <div className="rounded-[1.5rem] border border-stroke bg-panel/82 p-5 shadow-panel">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan">Datenabdeckung</p>
+              <h2 className="mt-2 text-xl font-semibold text-mist">Was ist wirklich nutzbar?</h2>
+            </div>
+            <span className="rounded-xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">
+              Provider: {displayedQuote.provider}
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {readiness.coverage.map((item) => (
+              <article key={item.label} className={`rounded-2xl border p-3 ${qualityTone(item.available)}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">{item.label}</p>
+                  <span className="rounded-full border border-current/25 px-2 py-1 text-[10px] uppercase">
+                    {item.available ? "verfügbar" : "fehlt"}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-muted">{item.note}</p>
+              </article>
+            ))}
+          </div>
+          <p className="mt-4 rounded-2xl border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
+            Wenn Daten fehlen, zeigt STAI keine Ersatz-Fundamentals und keine scheinpräzise Prognose. Das ist Absicht, nicht ein Darstellungsfehler.
+          </p>
+        </div>
+      </section>
+
+      <AssetProvenancePanel passport={provenancePassport} />
+
+      <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <DataQualityPanel quality={detail.dataQuality} />
+        <RiskEnginePanel report={detail.riskReport} />
+      </section>
+
+      <section>
+        <AnalysisLayersPanel layers={detail.analysisLayers} macroFactors={detail.macroFactors} />
+      </section>
+
+      <ForecastPassportPanel passport={forecastPassport} />
     </div>
   );
 }

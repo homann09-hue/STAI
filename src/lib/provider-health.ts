@@ -28,6 +28,30 @@ export type ProviderHealthReport = {
   nextActions: string[];
 };
 
+export type PublicProviderCapability = {
+  id: ProviderCategory;
+  label: string;
+  status: ProviderOperationalStatus;
+  quality: ProviderHealthItem["quality"];
+  configuredCount: number;
+  totalCount: number;
+  readinessScore: number;
+  liveClaim: "allowed" | "limited" | "blocked";
+  capabilities: string[];
+  limitations: string[];
+  userImpact: string;
+  nextAction: string;
+};
+
+export type PublicProviderCapabilityReport = {
+  generatedAt: string;
+  readinessScore: number;
+  categories: PublicProviderCapability[];
+  criticalLimitations: string[];
+  nextActions: string[];
+  publicNotice: string;
+};
+
 function hasEnv(name: string) {
   return Boolean(process.env[name]?.trim());
 }
@@ -46,6 +70,58 @@ const statusScore: Record<ProviderOperationalStatus, number> = {
   license_required: 36,
   missing_key: 16
 };
+
+const categoryLabels: Record<ProviderCategory, string> = {
+  market: "Marktdaten",
+  crypto: "Krypto",
+  news: "News & Events",
+  fundamentals: "Fundamentaldaten",
+  ai: "KI-Analyse",
+  auth: "Auth & Userdaten",
+  cache: "Cache & Limits",
+  billing: "Billing & Gates"
+};
+
+const statusPriority: ProviderOperationalStatus[] = [
+  "missing_key",
+  "license_required",
+  "demo",
+  "degraded",
+  "configured",
+  "ready"
+];
+
+function uniqueLimited(items: string[], limit: number) {
+  return [...new Set(items.filter(Boolean))].slice(0, limit);
+}
+
+function worstStatus(items: ProviderHealthItem[]) {
+  return items
+    .map((item) => item.status)
+    .sort((a, b) => statusPriority.indexOf(a) - statusPriority.indexOf(b))[0] ?? "missing_key";
+}
+
+function bestQuality(items: ProviderHealthItem[]): ProviderHealthItem["quality"] {
+  const qualityRank: Record<ProviderHealthItem["quality"], number> = {
+    realtime: 7,
+    near_realtime: 6,
+    delayed: 5,
+    historical: 4,
+    cached: 3,
+    mock: 2,
+    unavailable: 1,
+    not_applicable: 0
+  };
+  return items
+    .map((item) => item.quality)
+    .sort((a, b) => qualityRank[b] - qualityRank[a])[0] ?? "unavailable";
+}
+
+function liveClaimFor(items: ProviderHealthItem[]) {
+  if (items.some((item) => item.quality === "realtime" && item.status === "ready")) return "allowed" as const;
+  if (items.some((item) => item.quality === "near_realtime" && item.configured)) return "limited" as const;
+  return "blocked" as const;
+}
 
 function provider(item: ProviderHealthItem): ProviderHealthItem {
   return item;
@@ -230,5 +306,47 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
       "Mock/Demo-Daten nur mit sichtbarer Kennzeichnung verwenden.",
       "Alert-Ausführung, Billing und mehrere Portfolios erst nach Backend-Gate als aktiv anzeigen."
     ]
+  };
+}
+
+export function getPublicProviderCapabilityReport(now = new Date()): PublicProviderCapabilityReport {
+  const report = getProviderHealthReport(now);
+  const categories = Object.entries(categoryLabels).map(([category, label]) => {
+    const categoryItems = report.items.filter((item) => item.category === category);
+    const configuredCount = categoryItems.filter((item) => item.configured).length;
+    const totalCount = categoryItems.length;
+    const readinessScore = totalCount
+      ? Math.round(categoryItems.reduce((sum, item) => sum + statusScore[item.status], 0) / totalCount)
+      : 0;
+    const status = worstStatus(categoryItems);
+
+    return {
+      id: category as ProviderCategory,
+      label,
+      status,
+      quality: bestQuality(categoryItems),
+      configuredCount,
+      totalCount,
+      readinessScore,
+      liveClaim: liveClaimFor(categoryItems),
+      capabilities: uniqueLimited(categoryItems.flatMap((item) => item.capabilities), 5),
+      limitations: uniqueLimited(categoryItems.flatMap((item) => item.limitations), 4),
+      userImpact: uniqueLimited(categoryItems.map((item) => item.userImpact), 2).join(" "),
+      nextAction: uniqueLimited(categoryItems.map((item) => item.nextAction), 2).join(" ")
+    } satisfies PublicProviderCapability;
+  });
+  const criticalLimitations = uniqueLimited(
+    report.topRisks.flatMap((item) => item.limitations.length ? item.limitations : [item.userImpact]),
+    6
+  );
+
+  return {
+    generatedAt: report.generatedAt,
+    readinessScore: report.readinessScore,
+    categories,
+    criticalLimitations,
+    nextActions: report.nextActions.slice(0, 5),
+    publicNotice:
+      "Diese Übersicht zeigt sichere Capability-Informationen ohne API-Key-Namen oder Secret-Werte. Realtime wird nur behauptet, wenn Provider, Tarif und Lizenz es zulassen."
   };
 }

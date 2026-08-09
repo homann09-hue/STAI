@@ -21,10 +21,13 @@ export default [
     ignores: [
       ".next/**",
       ".vercel/**",
+      ".vercel*/**",
       "node_modules/**",
       "out/**",
       "ios/**",
       "coverage/**",
+      "artifacts/**",
+      "docs/audits/**",
       "playwright-report/**",
       "test-results/**"
     ]

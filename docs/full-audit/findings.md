@@ -24,5 +24,5 @@ Keine bestätigten Critical-Findings im geprüften Stand.
 ## Offen
 
 - Providerverträge, vollständige Betreiberangaben, Datenschutztexte und Finanzaufsichtsfragen benötigen externe Prüfung.
-- Echte Billing-Gates, SMTP, Error Tracking, Staging und dokumentierter Restore-Drill sind organisatorisch/vertraglich offen.
+- Stripe-Billing, signierte Webhooks und serverseitige Entitlements sind implementiert, bleiben ohne Test-/Live-Keys sicher deaktiviert. SMTP, Error Tracking, Staging und dokumentierter Restore-Drill sind organisatorisch/vertraglich offen.
 - Große UI-/Provider-Dateien bleiben wartbar, sollten aber bei künftigen Features modularisiert werden.

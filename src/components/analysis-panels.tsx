@@ -233,7 +233,12 @@ export function ScenarioTable({
 }) {
   return (
     <div className="rounded-md border border-stroke bg-panel p-4">
-      <p className="text-sm font-semibold">Szenarioanalyse</p>
+      <p className="text-sm font-semibold">Gleichmäßiger Schock auf das Depot</p>
+      <p className="mt-1 text-xs leading-5 text-muted">
+        Jede Position bewegt sich hier um denselben Prozentsatz. Das ist eine Rechnung, keine
+        Szenarioanalyse: Korrelationen, Beta und Assetklassen bleiben unberücksichtigt. Ein Depot aus
+        Anleihen-ETFs und eines aus Kryptowährungen ergeben dieselbe Zeile.
+      </p>
       <div className="mt-3 space-y-2">
         {scenarios.map((scenario) => (
           <div key={scenario.label} className="flex items-center justify-between gap-3 rounded-md bg-panel2 px-3 py-2 text-sm">

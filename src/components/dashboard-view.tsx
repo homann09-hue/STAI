@@ -29,7 +29,7 @@ import {
   scoreTone
 } from "@/lib/scoring";
 import { useMarketStream } from "@/lib/use-market-stream";
-import type { AssetDetail, AssetSummary, DashboardData, MarketDashboardTile, NormalizedQuote, SignalSummary } from "@/lib/types";
+import type { AssetDetail, AssetSummary, DashboardData, NormalizedQuote } from "@/lib/types";
 
 function LazyPanelFallback({ label = "Modul wird geladen" }: { label?: string }) {
   return (

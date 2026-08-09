@@ -1,4 +1,4 @@
-const STATIC_CACHE = "stockpilot-static-v6";
+const STATIC_CACHE = "stockpilot-static-v7";
 const DATA_CACHE = "stockpilot-data-v3";
 const STATIC_ASSETS = ["/", "/offline", "/manifest.webmanifest", "/icons/icon.svg"];
 const STATIC_ASSET_PREFIXES = ["/_next/static/", "/icons/"];
@@ -31,6 +31,7 @@ const PUBLIC_NAVIGATION_PATHS = new Set([
   "/risk",
   "/backtesting",
   "/learn",
+  "/track-record",
   "/pricing",
   "/watchlist",
   "/portfolio",

@@ -3,6 +3,7 @@ import { getMarketDataProvider } from "@/lib/providers/market-provider";
 import { calculateVolatility } from "@/lib/scoring";
 import type {
   AssetDetail,
+  DashboardData,
   CryptoProfessionalProfile,
   DataQualityReport,
   ETFProfessionalProfile,
@@ -41,6 +42,24 @@ export interface ProfessionalDataProvider extends ETFProvider, CryptoProvider, P
 const mockProvider = "StockPilot Professional Mock Dataset";
 const preparedProvider = "StockPilot Provider Contract Prepared";
 const now = () => new Date().toISOString();
+const DEFAULT_PROFESSIONAL_SYMBOLS = [
+  "AAPL",
+  "MSFT",
+  "NVDA",
+  "TSLA",
+  "AMZN",
+  "GOOGL",
+  "META",
+  "JPM",
+  "XOM",
+  "LLY",
+  "SPY",
+  "QQQ",
+  "VOO",
+  "BTC-USD",
+  "ETH-USD"
+];
+const MAX_PROFESSIONAL_SYMBOLS = Math.max(12, Math.min(80, Number(process.env.STOCKPILOT_PROFESSIONAL_SYMBOL_LIMIT) || 36));
 
 function point(input: {
   label: string;
@@ -105,6 +124,22 @@ function holding(symbol: string, name: string, weightValue: number, sector: stri
     provider: mockProvider,
     quality: "mock"
   };
+}
+
+function unavailableFundamentalPoint(label: string, detail: AssetDetail, note = "Für dieses Symbol liegen aktuell keine verifizierten Fundamentaldaten vom aktiven Anbieter vor.") {
+  return point({
+    label,
+    value: null,
+    provider: preparedProvider,
+    quality: "unavailable",
+    updatedAt: detail.quote.asOf,
+    availability: "provider_missing",
+    note
+  });
+}
+
+function hasUsableFundamentals(detail: AssetDetail) {
+  return detail.dataQuality.sufficientForAnalysis && Number.isFinite(detail.fundamentals.marketCap) && detail.fundamentals.marketCap > 0;
 }
 
 function normalizedFromDetail(detail: AssetDetail): NormalizedQuote {
@@ -183,6 +218,50 @@ function marketCore(detail: AssetDetail, quote: NormalizedQuote): ProfessionalDa
 function equityFundamentals(detail: AssetDetail): EquityFundamentalsProfile {
   const f = detail.fundamentals;
   const q = detail.quote.asOf;
+  const dataIsUsable = hasUsableFundamentals(detail);
+
+  if (!dataIsUsable) {
+    const fp = (label: string, note?: string) => unavailableFundamentalPoint(label, detail, note);
+
+    return {
+      symbol: detail.asset.symbol,
+      companyName: detail.asset.name,
+      exchange: detail.asset.exchange,
+      currency: detail.asset.currency,
+      updatedAt: q,
+      provider: preparedProvider,
+      quality: "unavailable",
+      revenue: fp("Umsatz"),
+      netIncome: fp("Gewinn"),
+      eps: fp("EPS"),
+      peRatio: fp("KGV / P/E"),
+      forwardPe: fp("Forward P/E"),
+      pegRatio: fp("PEG Ratio"),
+      priceToSales: fp("KUV / P/S"),
+      priceToBook: fp("KBV / P/B"),
+      ebitda: fp("EBITDA"),
+      ebitMargin: fp("EBIT-Marge"),
+      netMargin: fp("Nettomarge"),
+      grossMargin: fp("Bruttomarge"),
+      revenueGrowth: fp("Umsatzwachstum"),
+      earningsGrowth: fp("Gewinnwachstum"),
+      debtToEquity: fp("Verschuldung"),
+      operatingCashflow: fp("Cashflow"),
+      freeCashflow: fp("Free Cashflow"),
+      dividendYield: fp("Dividendenrendite"),
+      payoutRatio: fp("Ausschüttungsquote"),
+      buybacks: prepared("Aktienrückkäufe"),
+      analystConsensus: fp("Analysten-Konsens", "Analysten-Konsens wird nur angezeigt, wenn eine lizenzierte Quelle ihn liefert."),
+      priceTargetLow: fp("Kursziel niedrig", "Kursziele werden nicht geschätzt."),
+      priceTargetMedian: fp("Kursziel Median", "Kursziele werden nicht geschätzt."),
+      priceTargetHigh: fp("Kursziel hoch", "Kursziele werden nicht geschätzt."),
+      earningsDate: fp("Earnings-Termin"),
+      guidance: prepared("Guidance"),
+      insiderTransactions: prepared("Insider-Transaktionen"),
+      institutionalHolders: prepared("Institutionelle Halter")
+    };
+  }
+
   const fp = (label: string, value: string | number | null, note?: string) =>
     point({ label, value, updatedAt: q, note: note ?? "Mock-Fundamentals. Nach Anbieteranbindung an Finnhub, EODHD, FactSet-ähnliche Quellen oder andere Anbieter anbinden." });
 
@@ -416,6 +495,28 @@ function comparisons(rows: ProfessionalScreenerRow[]): ProfessionalComparison[] 
   ];
 }
 
+function professionalUniverseSymbols(dashboard: DashboardData) {
+  const configuredSymbols = (process.env.STOCKPILOT_PROFESSIONAL_SYMBOLS ?? process.env.STOCKPILOT_MARKET_SYMBOLS ?? "")
+    .split(",")
+    .map((symbol) => symbol.trim().toUpperCase())
+    .filter((symbol) => /^[A-Z0-9./:-]{1,32}$/.test(symbol));
+  const dashboardSymbols = [
+    ...dashboard.watchlist,
+    ...dashboard.gainers,
+    ...dashboard.losers,
+    ...dashboard.mostActive,
+    ...dashboard.trendingAssets
+  ].map((item) => item.asset.symbol);
+
+  return [...new Set([...configuredSymbols, ...DEFAULT_PROFESSIONAL_SYMBOLS, ...dashboardSymbols])].slice(0, MAX_PROFESSIONAL_SYMBOLS);
+}
+
+async function loadProfessionalDetails(provider: ReturnType<typeof getMarketDataProvider>, symbols: string[]) {
+  const details = await Promise.all(symbols.map((symbol) => provider.getAsset(symbol).catch(() => null)));
+
+  return details.filter((detail): detail is AssetDetail => Boolean(detail));
+}
+
 class StockPilotProfessionalDataProvider implements ProfessionalDataProvider {
   async getETFProfile(symbol: string) {
     const detail = getMockAsset(symbol);
@@ -435,22 +536,27 @@ class StockPilotProfessionalDataProvider implements ProfessionalDataProvider {
 
   async getMarketReport(): Promise<ProfessionalMarketReport> {
     const dashboard = getMockDashboard();
-    const details = dashboard.watchlist
-      .map((item) => getMockAsset(item.asset.symbol))
-      .filter((item): item is AssetDetail => Boolean(item));
     const provider = getMarketDataProvider();
-    const liveQuotes = await provider.getQuotes(details.map((detail) => detail.asset.symbol));
-    const quoteMap = new Map(liveQuotes.map((quote) => [quote.symbol, quote]));
-    const rows = details.map((detail) => rowFromDetail(detail, quoteMap.get(detail.asset.symbol) ?? normalizedFromDetail(detail)));
+    const details = await loadProfessionalDetails(provider, professionalUniverseSymbols(dashboard));
+    const rows = details.map((detail) => rowFromDetail(detail, normalizedFromDetail(detail)));
     const bySymbol = new Map(rows.map((row) => [row.asset.symbol, row]));
     const selectRows = (items: typeof dashboard.watchlist) => items.map((item) => bySymbol.get(item.asset.symbol)).filter((row): row is ProfessionalScreenerRow => Boolean(row));
     const updatedAt = now();
 
     return {
       updatedAt,
-      providerStack: [...new Set(rows.map((row) => row.quote.provider))],
+      providerStack: [...new Set([provider.providerName, ...rows.map((row) => row.quote.provider)])],
       qualitySummary: qualitySummary(rows),
       globalOverview: [
+        point({
+          label: "Aktive Instrumente im Report",
+          value: rows.length,
+          provider: "StockPilot Security Master",
+          quality: rows.length ? "near_realtime" : "unavailable",
+          updatedAt,
+          availability: rows.length ? "available" : "provider_missing",
+          note: "Report wird aus Provider-/Universe-Symbolen erzeugt. STOCKPILOT_PROFESSIONAL_SYMBOLS kann serverseitig erweitert werden."
+        }),
         point({ label: "S&P 500", value: dashboard.marketOverview[0]?.value ?? null, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Indexübersicht ist Mock, bis echter Indexprovider verbunden ist." }),
         point({ label: "Nasdaq 100", value: dashboard.marketOverview[1]?.value ?? null, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Indexübersicht ist Mock, bis echter Indexprovider verbunden ist." }),
         point({ label: "DAX", value: dashboard.marketOverview[2]?.value ?? null, provider: mockProvider, quality: "mock", updatedAt, availability: "mock", note: "Indexübersicht ist Mock, bis echter Indexprovider verbunden ist." }),

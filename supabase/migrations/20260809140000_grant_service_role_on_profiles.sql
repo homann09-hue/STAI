@@ -1,0 +1,36 @@
+-- Der Service-Rolle ausdrücklich Zugriff auf `profiles` geben.
+--
+-- Gefunden, weil die pgTAP-Prüfung zur Adminrolle in der CI fehlschlug. Die
+-- Zusicherung war:
+--
+--     has_column_privilege('service_role', 'public.profiles', 'is_admin', 'UPDATE')
+--
+-- Sie ist rot geworden, und sie hatte recht: `public.profiles` ist die einzige
+-- Tabelle dieses Schemas **ohne** ausdrücklichen Grant an `service_role`. Jede
+-- andere — `intelligence_sources`, `company_intelligence_state`,
+-- `raw_intelligence_events` und die übrigen — bekommt ihn in ihrer Migration.
+-- Bei `profiles` fehlte er seit dem Ausgangsschema.
+--
+-- ## Warum das mehr ist als ein roter Test
+--
+-- `admin-guard.ts` liest die Adminrolle bewusst **serverseitig über den
+-- Service-Client**, nicht aus dem Token. Ohne Leserecht auf `profiles` schlägt
+-- diese Abfrage fehl. Die Prüfung schließt in dem Fall — sie antwortet mit 503
+-- statt versehentlich Rechte zu vergeben —, aber das Ergebnis wäre gewesen:
+-- **der Adminbereich hätte nie funktioniert**, und die Fehlermeldung hätte auf
+-- eine fehlende Konfiguration gedeutet statt auf ein fehlendes Recht.
+--
+-- Ob die gehostete Supabase-Instanz das über `alter default privileges` ohnehin
+-- abdeckt, ist dabei nicht der Punkt. Eine Berechtigung, auf der eine
+-- Rechteprüfung ruht, gehört sichtbar in die Migration und nicht in die
+-- Annahme, dass die Plattform sie schon mitbringt.
+--
+-- `grant` ist wiederholbar; die Migration ist damit auch dann unschädlich, wenn
+-- das Recht bereits besteht.
+
+grant select, insert, update, delete on public.profiles to service_role;
+
+-- Kein Grant an `anon`: ein nicht angemeldeter Besucher hat mit Profilen
+-- nichts zu tun. Und keine Rücknahme bei `authenticated` — dort gilt weiter,
+-- was die vorige Migration festgelegt hat: Lesen der eigenen Zeile, Schreiben
+-- nur auf `email` und `display_name`.

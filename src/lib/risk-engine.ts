@@ -16,6 +16,42 @@ function finding(input: RiskFinding) {
   return input;
 }
 
+/**
+ * Ab wann eine Tagesbewegung auffällig ist — gemessen, nicht geschätzt.
+ *
+ * Hier stand `volatility > 4.5`, mit einer Eskalation auf „extrem" ab 7. Beide
+ * Schwellen konnten **nie** auslösen. `calculateVolatility` liefert die
+ * durchschnittliche absolute Tagesbewegung in Prozent, und die liegt bei realen
+ * Instrumenten weit darunter.
+ *
+ * Am 2026-08-09 über je ein Jahr Tageskurse gemessen:
+ *
+ * | Instrument | Ø Tagesbewegung |
+ * |---|---|
+ * | S&P-500-ETF (SPY) | 0,62 % |
+ * | Coca-Cola | 0,87 % |
+ * | Apple | 1,12 % |
+ * | Bitcoin | 1,61 % |
+ * | Nvidia | 1,81 % |
+ * | Tesla | 2,26 % |
+ * | Ethereum | 2,36 % |
+ * | Dogecoin | 2,72 % |
+ * | Coinbase | 3,24 % |
+ *
+ * Median 1,61 %, höchster Wert 3,24 %. Eine Schwelle bei 4,5 hätte selbst
+ * Dogecoin für ruhig gehalten.
+ *
+ * Es ist derselbe Fehler wie bei `relevance >= 70` weiter unten in dieser
+ * Datei: die Schwelle war gegen die erzeugten Sinus-Kerzen kalibriert und starb
+ * in dem Moment, in dem echte Kurse kamen.
+ *
+ * `VOLATILITY_HIGH` liegt oberhalb des dritten Quartils der Messung — Tesla und
+ * Ethereum lösen nicht aus, Dogecoin und Coinbase schon. `VOLATILITY_EXTREME`
+ * liegt über allen gemessenen Werten und ist damit dem Krisenfall vorbehalten.
+ */
+const VOLATILITY_HIGH = 2.5;
+const VOLATILITY_EXTREME = 4;
+
 export function buildRiskReport(
   detail: Pick<
     AssetDetail,
@@ -34,26 +70,68 @@ export function buildRiskReport(
 ): RiskEngineReport {
   const findings: RiskFinding[] = [];
   const candles = detail.candles["1M"];
-  const volatility = calculateVolatility(candles);
+
+  // Mindestlaenge fuer eine Aussage ueber Verlauf und Volumen. Vorher gab es
+  // keine: die Kerzen kamen aus `candlesFromQuote` und waren immer 32 Stueck,
+  // also nie zu wenige -- weil sie erzeugt statt gemessen waren.
+  const MIN_CANDLES_FOR_TREND = 16;
+  const hasHistory = candles.length >= MIN_CANDLES_FOR_TREND;
+
+  const volatility = hasHistory ? calculateVolatility(candles) : 0;
   const latest = candles[candles.length - 1];
   const first = candles[0];
-  const monthlyMove = first ? ((latest.close - first.close) / Math.max(first.close, 0.01)) * 100 : 0;
-  const positiveNews = detail.news.some((item) => item.sentiment === "positive" && item.relevance >= 70);
-  const negativeNews = detail.news.filter((item) => item.sentiment === "negative" && item.relevance >= 70);
+  const monthlyMove = hasHistory && first && latest ? ((latest.close - first.close) / Math.max(first.close, 0.01)) * 100 : 0;
+  // Rang statt absoluter Schwelle.
+  //
+  // Vorher stand hier `relevance >= 70` -- was funktionierte, solange die
+  // Relevanz erfunden war und konstruktionsbedingt zwischen 42 und 98 lag. Der
+  // echte Uebereinstimmungswert von Marketaux liegt bei 13 bis 27, und die
+  // Schwelle haette nie wieder ausgeloest. Eine anbieterspezifische Skala darf
+  // nicht als absolute Grenze auftreten; die vier relevantesten Meldungen sind
+  // dagegen bei jedem Anbieter dieselbe Aussage.
+  const MOST_RELEVANT = 4;
+  const ranked = [...detail.news].sort((left, right) => (right.relevance ?? -1) - (left.relevance ?? -1));
+  const leading = ranked.slice(0, MOST_RELEVANT);
+
+  const positiveNews = leading.some((item) => item.sentiment === "positive");
+  const negativeNews = leading.filter((item) => item.sentiment === "negative");
+  // Ereignisarten aus §27, die eine Meldung unabhaengig von ihrem Rang schwer
+  // machen. Sie sind belegt -- jede traegt den ausloesenden Wortlaut mit.
+  const severeEventTypes = new Set(["profit_warning", "litigation", "regulatory_decision", "capital_measure"]);
+  const severeNews = negativeNews.filter((item) => item.events.some((event) => severeEventTypes.has(event.type)));
   const recentVolumes = candles.slice(-8).map((item) => item.volume);
   const olderVolumes = candles.slice(-16, -8).map((item) => item.volume);
   const recentVolumeAvg = recentVolumes.reduce((sum, value) => sum + value, 0) / Math.max(recentVolumes.length, 1);
   const olderVolumeAvg = olderVolumes.reduce((sum, value) => sum + value, 0) / Math.max(olderVolumes.length, 1);
 
-  if (volatility > 4.5 || detail.professionalScores.volatilityRisk > 70) {
+  // Die fehlende Historie ist selbst ein Befund. Sonst saehe ein Instrument
+  // ohne Daten aus wie eines ohne Risiken -- der gefaehrlichste Trugschluss,
+  // den diese Engine erzeugen kann.
+  if (!hasHistory) {
+    findings.push(
+      finding({
+        id: "history-missing",
+        category: "technical",
+        title: "Keine belastbare Kurshistorie",
+        severity: "mittel",
+        detail: "Ohne ausreichende Historie sind Trend-, Volumen- und Indikatoraussagen nicht möglich.",
+        evidence: `${candles.length} Kerzen im 1M-Fenster, benötigt werden mindestens ${MIN_CANDLES_FOR_TREND}.`,
+        action: "Das Fehlen von Befunden nicht als Abwesenheit von Risiko lesen."
+      })
+    );
+  }
+
+  if (hasHistory && (volatility > VOLATILITY_HIGH || detail.professionalScores.volatilityRisk > 70)) {
     findings.push(
       finding({
         id: "volatility-high",
         category: "volatility",
-        title: "Extrem hohe Volatilität",
-        severity: volatility > 7 ? "extrem" : "hoch",
-        detail: "Die durchschnittliche Kerzenbewegung ist auffaellig hoch.",
-        evidence: `${volatility.toFixed(2)}% durchschnittliche Bewegung im 1M-Fenster.`,
+        title: volatility > VOLATILITY_EXTREME ? "Außergewöhnlich hohe Volatilität" : "Erhöhte Volatilität",
+        severity: volatility > VOLATILITY_EXTREME ? "extrem" : "hoch",
+        detail: "Die durchschnittliche Tagesbewegung liegt deutlich über dem, was für liquide Instrumente üblich ist.",
+        // Der Vergleichswert steht dabei, sonst ist "erhoeht" eine Behauptung
+        // ohne Massstab.
+        evidence: `${volatility.toFixed(2)}% durchschnittliche Tagesbewegung im 1M-Fenster. Zum Vergleich: S&P-500-ETF 0,6 %, Apple 1,1 %, Bitcoin 1,6 % (Jahreswerte, gemessen 2026-08-09).`,
         action: "Positionsgroesse und Stop-Risiko sehr konservativ prüfen."
       })
     );
@@ -79,9 +157,17 @@ export function buildRiskReport(
         id: "negative-news",
         category: "news",
         title: "Negative relevante News",
-        severity: negativeNews.some((item) => item.relevance > 85) ? "hoch" : "mittel",
+        // Die Schwere haengt jetzt an der erkannten Ereignisart statt an einer
+        // Relevanzzahl: eine Gewinnwarnung wiegt schwerer als eine schlecht
+        // besprochene Produktvorstellung, unabhaengig vom Anbieterscore.
+        severity: severeNews.length ? "hoch" : "mittel",
         detail: "Mehrere News werden modellbasiert als belastend eingestuft.",
-        evidence: negativeNews.map((item) => item.title).join(" | "),
+        evidence: negativeNews
+          .map((item) => {
+            const events = item.events.map((event) => event.label).join(", ");
+            return events ? `${item.title} [${events}]` : item.title;
+          })
+          .join(" | "),
         action: "Quellen lesen und These gegenprüfen."
       })
     );
@@ -121,7 +207,7 @@ export function buildRiskReport(
     );
   }
 
-  if (monthlyMove > 12 && recentVolumeAvg < olderVolumeAvg * 0.82) {
+  if (hasHistory && monthlyMove > 12 && recentVolumeAvg < olderVolumeAvg * 0.82) {
     findings.push(
       finding({
         id: "volume-falling",
@@ -135,29 +221,38 @@ export function buildRiskReport(
     );
   }
 
-  if (detail.indicators.rsi > 70 || detail.indicators.rsi < 30) {
+  // Ohne RSI kein RSI-Befund. Vorher konnte diese Stelle gar nicht ausloesen:
+  // der damalige "RSI" war auf 30 bis 75 begrenzt, meldete also nie ein Extrem.
+  // Ein Befund mit `evidence: "RSI 74"` waere ausserdem der schlimmste Fall von
+  // Erfindung gewesen -- eine erfundene Zahl, die als Beleg auftritt.
+  const rsiValue = detail.indicators.rsi;
+  if (rsiValue !== null && (rsiValue > 70 || rsiValue < 30)) {
     findings.push(
       finding({
-        id: detail.indicators.rsi > 70 ? "rsi-overbought" : "rsi-oversold",
+        id: rsiValue > 70 ? "rsi-overbought" : "rsi-oversold",
         category: "technical",
-        title: detail.indicators.rsi > 70 ? "Überkaufter RSI" : "Überverkaufter RSI",
-        severity: detail.indicators.rsi > 82 || detail.indicators.rsi < 18 ? "hoch" : "mittel",
+        title: rsiValue > 70 ? "Überkaufter RSI" : "Überverkaufter RSI",
+        severity: rsiValue > 82 || rsiValue < 18 ? "hoch" : "mittel",
         detail: "RSI-Extreme können Trendstärke oder Rückschlagrisiko anzeigen.",
-        evidence: `RSI ${detail.indicators.rsi}.`,
+        evidence: `RSI ${rsiValue.toFixed(1)} über ${detail.indicators.sampleSize} Kerzen.`,
         action: "RSI immer mit Trend, Volumen und Support/Resistance abgleichen."
       })
     );
   }
 
-  if (detail.quote.price < detail.indicators.support[0]) {
+  // Die Unterstuetzung ist jetzt das Tief des Fensters. Vorher war sie
+  // `Kurs × 0,96` -- der Kurs konnte damit nie darunter liegen, der Befund war
+  // eine Fassade nach §90.
+  const support = detail.indicators.support[0];
+  if (support !== undefined && detail.quote.price < support) {
     findings.push(
       finding({
         id: "support-broken",
         category: "technical",
         title: "Support gebrochen",
         severity: "hoch",
-        detail: "Der aktuelle Kurs liegt unter dem nächsten Modell-Support.",
-        evidence: `Kurs ${detail.quote.price}, Support ${detail.indicators.support[0]}.`,
+        detail: "Der aktuelle Kurs liegt unter dem Tief der letzten Perioden.",
+        evidence: `Kurs ${detail.quote.price}, bisheriges Tief ${support.toFixed(2)}.`,
         action: "Breakdown-Szenario und Fehlsignal prüfen."
       })
     );

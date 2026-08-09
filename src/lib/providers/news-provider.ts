@@ -1,4 +1,6 @@
 import { getMockNews } from "@/lib/mock/market";
+import { classifySubjects, detectEvents, type ProviderEntity } from "@/lib/news/classification";
+import { clusterNews } from "@/lib/news/dedupe";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
 import type { MarketDataQuality, NewsItem, Sentiment } from "@/lib/types";
 
@@ -17,7 +19,27 @@ export type NewsProviderMetadata = {
     total: number;
     warning: string | null;
   };
+  /** Wie viele Meldungen als Duplikate zusammengeführt wurden. */
+  mergedDuplicates?: number;
 };
+
+/**
+ * Führt Duplikate zusammen und trägt die Zusatzquellen an der Meldung nach.
+ *
+ * Dieselbe Meldung läuft über mehrere Häuser. Ohne diesen Schritt sieht ein
+ * Feed nach sechs Ereignissen aus, wo eines war.
+ */
+function mergeDuplicates(news: NewsItem[]): { news: NewsItem[]; mergedCount: number } {
+  const { clusters, mergedCount } = clusterNews(news);
+
+  return {
+    news: clusters.map((cluster) => ({
+      ...cluster.primary,
+      duplicateSources: cluster.sources.filter((source) => source !== cluster.primary.source)
+    })),
+    mergedCount
+  };
+}
 
 function clamp(value: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, value));
@@ -82,9 +104,34 @@ function sentimentFromScore(score: number | undefined): Sentiment {
   return "neutral";
 }
 
-function impactFromSentiment(sentiment: Sentiment, relevance: number) {
+/**
+ * Impact aus Sentiment und Relevanz.
+ *
+ * Ohne Relevanz nicht bildbar — vorher entstand hier aus einer erfundenen
+ * Relevanz ein ebenso erfundener Impact, der wie eine Messung aussah.
+ */
+function impactFromSentiment(sentiment: Sentiment, relevance: number | null) {
+  if (relevance === null) return null;
   const direction = sentiment === "positive" ? 1 : sentiment === "negative" ? -1 : 0;
   return Math.round(direction * clamp(relevance * 0.72, 10, 72));
+}
+
+/**
+ * Reichert eine Meldung um Ereignisarten und Bezüge an.
+ *
+ * Beides wird aus dem Text bzw. den Anbieterentitäten gewonnen und trägt
+ * jeweils seinen Beleg mit.
+ */
+function enrich(
+  base: Omit<NewsItem, "events" | "subjects" | "duplicateSources">,
+  entities: ProviderEntity[]
+): NewsItem {
+  return {
+    ...base,
+    events: detectEvents(base.title, base.summary),
+    subjects: classifySubjects(entities, base.symbol),
+    duplicateSources: []
+  };
 }
 
 function hasConfiguredNewsProvider() {
@@ -182,7 +229,15 @@ class MarketauxNewsProvider implements NewsProvider {
         published_at?: string;
         url?: string;
         sentiment_score?: number;
-        entities?: Array<{ symbol?: string; sentiment_score?: number }>;
+        entities?: Array<{
+          symbol?: string;
+          name?: string;
+          type?: string;
+          industry?: string;
+          country?: string;
+          match_score?: number;
+          sentiment_score?: number;
+        }>;
       }>;
     }>(url, "Marketaux");
 
@@ -192,22 +247,43 @@ class MarketauxNewsProvider implements NewsProvider {
         const entity = item.entities?.[0];
         const score = parseNumber(entity?.sentiment_score ?? item.sentiment_score);
         const sentiment = sentimentFromScore(score);
-        const relevance = clamp(Math.round(74 + Math.abs(score ?? 0) * 22 - index * 2), 42, 98);
+
+        // Der eigene Wert des Anbieters statt einer Zahl aus der Listenposition.
+        // Am 2026-08-08 gemessen: `match_score` liegt bei 13 bis 27,
+        // `relevance_score` ist im vorhandenen Tarif durchgehend null. Der Wert
+        // wird deshalb nur begrenzt, nicht umskaliert -- eine Umrechnung auf
+        // 0..100 waere eine Kalibrierung, die ich nicht gemessen habe.
+        const relevance = (() => {
+          const match = parseNumber(entity?.match_score);
+          return match === undefined ? null : Math.round(clamp(match, 0, 100));
+        })();
+
         const sourceUrl = safeExternalNewsUrl(item.url);
         const fallbackId = `marketaux-${index}-${sourceUrl}`;
+        const entities: ProviderEntity[] = (item.entities ?? []).map((raw) => ({
+          symbol: raw.symbol,
+          name: raw.name,
+          type: raw.type,
+          industry: raw.industry,
+          country: raw.country,
+          matchScore: parseNumber(raw.match_score) ?? null
+        }));
 
-        return {
-          id: safeNewsId(item.uuid ?? fallbackId, fallbackId),
-          symbol: safeNewsSymbol(symbol ?? entity?.symbol),
-          title: safeNewsText(item.title, "Marketaux News", 240),
-          source: item.source ? `Marketaux / ${safeNewsText(item.source, "Quelle offen", 90)}` : "Marketaux",
-          publishedAt: safeNewsTimestamp(item.published_at),
-          relevance,
-          sentiment,
-          impactScore: impactFromSentiment(sentiment, relevance),
-          summary: safeNewsText(item.description ?? item.snippet, "News-Meldung von Marketaux. Bitte Quelle prüfen.", 420),
-          url: sourceUrl
-        };
+        return enrich(
+          {
+            id: safeNewsId(item.uuid ?? fallbackId, fallbackId),
+            symbol: safeNewsSymbol(symbol ?? entity?.symbol),
+            title: safeNewsText(item.title, "Marketaux News", 240),
+            source: item.source ? `Marketaux / ${safeNewsText(item.source, "Quelle offen", 90)}` : "Marketaux",
+            publishedAt: safeNewsTimestamp(item.published_at),
+            relevance,
+            sentiment,
+            impactScore: impactFromSentiment(sentiment, relevance),
+            summary: safeNewsText(item.description ?? item.snippet, "News-Meldung von Marketaux. Bitte Quelle prüfen.", 420),
+            url: sourceUrl
+          },
+          entities
+        );
       });
   }
 }
@@ -247,22 +323,28 @@ class NewsApiProvider implements NewsProvider {
             : /falls|drops|misses|lawsuit|probe|risk|downgrade|loss/.test(text)
               ? "negative"
               : "neutral";
-        const relevance = clamp(82 - index * 3, 45, 92);
         const sourceUrl = safeExternalNewsUrl(item.url);
         const fallbackId = `newsapi-${index}-${sourceUrl}`;
 
-        return {
-          id: safeNewsId(fallbackId, fallbackId),
-          symbol: safeNewsSymbol(symbol),
-          title,
-          source: item.source?.name ? `NewsAPI / ${safeNewsText(item.source.name, "Quelle offen", 90)}` : "NewsAPI",
-          publishedAt: safeNewsTimestamp(item.publishedAt),
-          relevance,
-          sentiment,
-          impactScore: impactFromSentiment(sentiment, relevance),
-          summary,
-          url: sourceUrl
-        };
+        return enrich(
+          {
+            id: safeNewsId(fallbackId, fallbackId),
+            symbol: safeNewsSymbol(symbol),
+            title,
+            source: item.source?.name ? `NewsAPI / ${safeNewsText(item.source.name, "Quelle offen", 90)}` : "NewsAPI",
+            publishedAt: safeNewsTimestamp(item.publishedAt),
+            // NewsAPI liefert keine Relevanz. Vorher stand hier `82 - index * 3`
+            // -- die Reihenfolge der Antwort als Messwert ausgegeben.
+            relevance: null,
+            sentiment,
+            impactScore: null,
+            summary,
+            url: sourceUrl
+          },
+          // NewsAPI erkennt keine Entitaeten. Der Bezug kann daher nur aus dem
+          // abgefragten Symbol kommen und wird als abgeleitet gekennzeichnet.
+          []
+        );
       });
   }
 }
@@ -274,7 +356,9 @@ class FallbackNewsProvider implements NewsProvider {
     for (const provider of this.providers) {
       try {
         const news = await provider.getNews(symbol);
-        if (news.length) return news.sort((a, b) => b.relevance - a.relevance);
+        // Meldungen ohne Relevanzangabe nach hinten -- aber nicht heraus. Eine
+        // fehlende Angabe ist keine niedrige Relevanz.
+        if (news.length) return news.sort((a, b) => (b.relevance ?? -1) - (a.relevance ?? -1));
       } catch {
         // News providers are optional. The next provider or mock fallback keeps the UI honest.
       }
@@ -350,13 +434,15 @@ export async function getNewsWithMetadata(symbol?: string) {
     if (attempt.id === "mock" && emptyProviderResult) break;
 
     try {
-      const news = await attempt.provider.getNews(symbol);
-      if (news.length) {
+      const raw = await attempt.provider.getNews(symbol);
+      if (raw.length) {
+        const { news, mergedCount } = mergeDuplicates(raw);
         return {
           news,
-          metadata: buildNewsMetadata(provider, attempt.id, news)
+          metadata: { ...buildNewsMetadata(provider, attempt.id, news), mergedDuplicates: mergedCount }
         };
       }
+      const news = raw;
 
       if (attempt.id !== "mock" && !emptyProviderResult) {
         emptyProviderResult = {

@@ -194,7 +194,7 @@ async function runAlertWorker() {
   if (insertError) throw insertError;
 
   const notifications = triggeredAlerts
-    .map(({ alert, source, quote }) => {
+    .map(({ alert, source }) => {
       const channel = typeof alert.condition?.notificationChannel === "string" ? alert.condition.notificationChannel : "none";
       if (!["in_app", "email", "push", "webhook"].includes(channel)) return null;
 

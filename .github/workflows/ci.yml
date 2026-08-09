@@ -1,15 +1,20 @@
 name: StockPilot CI
 
+# Auf jedem Branch, nicht nur auf main. Der bisherige Zuschnitt liess einen
+# Feature-Branch ohne offenen Pull Request voellig ungeprueft -- genau so lagen
+# hier 27 Commits vier Wochen lang, ohne dass CI sie je gesehen hat.
 on:
   push:
-    branches:
-      - main
   pull_request:
-    branches:
-      - main
+  workflow_dispatch:
 
+# Der Gruppenschluessel nutzt bewusst `ref_name` bzw. den Head-Branch des Pull
+# Requests statt `github.ref`. Beide Ereignisse -- Push und
+# `pull_request: synchronize` -- ergeben damit denselben Schluessel, und der
+# zweite Lauf bricht den ersten ab. Ohne diese Normalisierung liefe jeder Push
+# mit offenem Pull Request doppelt: einmal fuer den Push, einmal fuer den PR.
 concurrency:
-  group: stockpilot-ci-${{ github.workflow }}-${{ github.ref }}
+  group: stockpilot-ci-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:

@@ -1,33 +1,40 @@
-import { assessDataQuality } from "@/lib/data-quality";
+import { NO_INDICATORS, buildTechnicalIndicators } from "@/lib/analysis/technical";
+
+import { buildRiskReport } from "@/lib/risk-engine";
+
 import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
+import { getNewsWithMetadata } from "@/lib/providers/news-provider";
 import { logEvent } from "@/lib/observability";
+import { resolveQuoteChain } from "@/lib/providers/quote-chain";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import { NO_HISTORY, fetchDailyHistory, sliceHistoryRanges, type HistoryResult } from "@/lib/providers/price-history";
 import { getServerCacheAdapter } from "@/lib/server-cache";
 import { safeDecodeURIComponent } from "@/lib/validation";
 import type {
   Asset,
+  AiAnalysis,
+  AnalysisLayer,
   AssetDetail,
   AssetSummary,
   Candle,
   DashboardData,
+  DataQualityReport,
+  Fundamentals,
   MarketDataQuality,
   MarketStatus,
+  MacroFactor,
+  NewsItem,
   NormalizedQuote,
-  Quote
+  ProfessionalScores,
+  Quote,
+  TechnicalIndicators,
+  TimeRange
 } from "@/lib/types";
 
-export type MarketProviderId =
-  | "mock"
-  | "finnhub"
-  | "twelve_data"
-  | "eodhd"
-  | "massive"
-  | "polygon"
-  | "fmp"
-  | "alpha_vantage"
-  | "databento"
-  | "binance"
-  | "coinbase";
+// Die Kennung lebt in `quote-chain.ts` und wird hier nur weitergereicht,
+// damit bestehende Importe unveraendert funktionieren.
+export type { MarketProviderId } from "@/lib/providers/quote-chain";
+import type { MarketProviderId } from "@/lib/providers/quote-chain";
 
 export type StreamMode = "provider_websocket" | "rest_polling" | "mock_stream";
 
@@ -86,6 +93,24 @@ class ProviderAccessUnavailableError extends Error {}
 
 const DEFAULT_STREAM_INTERVAL_MS = 5000;
 const MAX_BATCH_SIZE = 40;
+const DEFAULT_DASHBOARD_SYMBOLS = [
+  "AAPL",
+  "MSFT",
+  "NVDA",
+  "TSLA",
+  "AMZN",
+  "GOOGL",
+  "META",
+  "JPM",
+  "XOM",
+  "LLY",
+  "SPY",
+  "QQQ",
+  "VOO",
+  "BTC-USD",
+  "ETH-USD"
+];
+const DETAIL_RANGES = ["1D", "5D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y", "MAX"] as const;
 const DEFAULT_QUOTE_CACHE_TTL_MS = Math.max(5000, Number(process.env.STOCKPILOT_QUOTE_CACHE_TTL_MS) || 30000);
 const DEFAULT_CRYPTO_QUOTE_CACHE_TTL_MS = Math.max(1000, Number(process.env.STOCKPILOT_CRYPTO_QUOTE_CACHE_TTL_MS) || 3000);
 const DEFAULT_STALE_QUOTE_CACHE_TTL_MS = Math.max(
@@ -488,6 +513,354 @@ function normalizedFromDetail(detail: AssetDetail | AssetSummary): NormalizedQuo
   });
 }
 
+function clampScore(value: number) {
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function sectorForQuote(quote: NormalizedQuote) {
+  if (quote.assetType === "crypto") return "Digital Asset";
+  if (quote.assetType === "etf") return "ETF / Fonds";
+  if (quote.assetType === "index") return "Index / Benchmark";
+  if (quote.assetType === "forex") return "Devisen";
+  return "Aktie";
+}
+
+function summaryFromNormalizedQuote(quote: NormalizedQuote): AssetSummary {
+  const trend = clampScore(50 + quote.changePercent * 5);
+  const liquidity = quote.volume ? clampScore(Math.log10(Math.max(10, quote.volume)) * 9) : 45;
+  const risk = quote.assetType === "crypto" ? 38 : quote.assetType === "etf" ? 72 : clampScore(66 - Math.abs(quote.changePercent) * 4);
+  const scores = {
+    trend,
+    news: 50,
+    fundamental: quote.assetType === "crypto" ? 42 : quote.assetType === "etf" ? 70 : 56,
+    technical: clampScore(50 + quote.changePercent * 4),
+    risk,
+    total: clampScore(trend * 0.28 + liquidity * 0.16 + risk * 0.22 + 50 * 0.14 + (quote.assetType === "etf" ? 68 : 55) * 0.2)
+  };
+
+  return {
+    asset: {
+      symbol: quote.symbol,
+      name: quote.name ?? quote.symbol,
+      type: quote.assetType,
+      exchange: quote.exchange ?? (quote.assetType === "crypto" ? "Crypto" : "Provider"),
+      currency: quote.currency,
+      sector: sectorForQuote(quote),
+      description:
+        "Aus dem aktiven Marktdatenanbieter normalisiert. Detaildaten hängen von Provider, Tarif und Börsenlizenz ab."
+    },
+    quote: {
+      price: quote.price,
+      change: quote.change,
+      changePercent: quote.changePercent,
+      dayHigh: quote.high ?? quote.price,
+      dayLow: quote.low ?? quote.price,
+      volume: quote.volume ?? 0,
+      delayedByMinutes: quote.quality === "delayed" ? 15 : 0,
+      asOf: quote.timestamp,
+      bid: quote.bid,
+      ask: quote.ask,
+      spread: quote.spread,
+      open: quote.open,
+      previousClose: quote.previousClose,
+      fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh,
+      fiftyTwoWeekLow: quote.fiftyTwoWeekLow,
+      provider: quote.provider,
+      quality: quote.quality,
+      latencyMs: quote.latencyMs,
+      marketStatus: quote.marketStatus
+    },
+    scores,
+    aiRisk: quote.assetType === "crypto" ? "hoch" : scores.risk >= 72 ? "niedrig" : scores.risk >= 48 ? "mittel" : "hoch"
+  };
+}
+
+/**
+ * Leere Zeitfenster.
+ *
+ * Hier stand `candlesFromQuote`: aus einem einzelnen Kurs wurden 32 Kerzen je
+ * Zeitfenster mit einer Sinusfunktion erzeugt. Die Risiko-Engine las daraus
+ * Momentum und Volumentrend und erzeugte Befunde mit Belegen — erfundene Daten,
+ * die als Analyseergebnis auftraten.
+ *
+ * Echte Historie kommt jetzt aus `price-history.ts`. Wenn keine verfügbar ist,
+ * bleibt es leer.
+ */
+function emptyCandleRanges(): Record<TimeRange, Candle[]> {
+  return Object.fromEntries(DETAIL_RANGES.map((range) => [range, [] as Candle[]])) as Record<
+    TimeRange,
+    Candle[]
+  >;
+}
+
+/**
+ * Aus einem einzelnen Kurs lassen sich keine Indikatoren berechnen.
+ *
+ * Hier stand vorher der Versuch, es trotzdem zu tun:
+ *
+ * ```
+ * rsi = 50 + Vorzeichen × min(24, |Tagesveränderung| × 4)
+ * macd.value = Vorzeichen × Kurs × 0,004
+ * ma200 = Kurs × (1 − Vorzeichen × 0,018)
+ * ```
+ *
+ * Das ist kein RSI, sondern die Tagesveränderung in anderer Skala. Ein MACD,
+ * der proportional zum Kursniveau ist, sagt über Momentum nichts aus — und ein
+ * „MA 200" aus einem einzigen Kurswert ist eine Behauptung über 200 Perioden,
+ * von denen genau null vorlagen.
+ *
+ * §90 verbietet Funktionsfassaden. Der ehrliche Rückgabewert ist deshalb: nichts.
+ * Sobald dieser Pfad echte Historie bekommt, ersetzt `buildTechnicalIndicators`
+ * die Zeile — die Kerzen aus `candlesFromQuote` reichen dafür nicht, weil sie
+ * selbst aus dem Kurs erzeugt sind.
+ */
+function indicatorsFromQuote(_quote: NormalizedQuote): TechnicalIndicators {
+  return NO_INDICATORS;
+}
+
+function providerOnlyDataQuality(quote: NormalizedQuote): DataQualityReport {
+  const isCurrent = quote.quality === "realtime" || quote.quality === "near_realtime";
+  const isDelayed = quote.quality === "delayed" || quote.quality === "historical";
+  const unavailable = quote.quality === "unavailable";
+
+  return {
+    score: unavailable ? 18 : isCurrent ? 62 : 45,
+    freshness: unavailable ? "stale" : isDelayed ? "delayed" : "fresh",
+    sourceLabel: quote.quality === "near_realtime" ? "Near-Realtime-Daten" : quote.quality,
+    isMock: false,
+    updatedAt: quote.timestamp,
+    stale: unavailable,
+    sufficientForAnalysis: false,
+    confidence: unavailable ? 12 : isCurrent ? 45 : 32,
+    issues: [
+      "Für eine belastbare Einschätzung liegen derzeit nicht genügend verifizierte Fundamentaldaten, News und historische Kerzen vor."
+    ],
+    warnings: [
+      "Diese Detailseite basiert auf einem normalisierten Provider-Quote und zeigt fehlende Analysebereiche bewusst als Datenlücke.",
+      ...(isDelayed ? ["Kursdaten sind verzögert oder historisch und nicht als Live-Signal geeignet."] : [])
+    ],
+    contradictions: [],
+    sources: [
+      {
+        name: quote.provider,
+        type: "provider",
+        rank: 5,
+        fetchedAt: quote.timestamp,
+        status: unavailable ? "missing" : isDelayed ? "delayed" : "fresh",
+        note: "Serverseitig normalisierter Quote. Keine API-Keys im Frontend."
+      },
+      {
+        name: "StockPilot Analysis Guard",
+        type: "derived",
+        rank: 4,
+        fetchedAt: quote.timestamp,
+        status: "missing",
+        note: "Fundamentaldaten, News, Analystenfelder und echte historische Kerzen sind für dieses Symbol noch nicht ausreichend verifiziert."
+      }
+    ]
+  };
+}
+
+function providerOnlyProfessionalScores(summary: AssetSummary): ProfessionalScores {
+  const riskTotal = summary.quote.quality === "realtime" || summary.quote.quality === "near_realtime" ? 58 : 72;
+  const opportunityTotal = clampScore(summary.scores.total - 12);
+  let probabilityUp = Math.round(clampScore(30 + summary.quote.changePercent * 2));
+  let probabilityDown = Math.round(clampScore(30 - summary.quote.changePercent * 2));
+
+  if (probabilityUp + probabilityDown > 95) {
+    const scale = 95 / (probabilityUp + probabilityDown);
+    probabilityUp = Math.round(probabilityUp * scale);
+    probabilityDown = 95 - probabilityUp;
+  }
+
+  const probabilitySideways = Math.max(5, 100 - probabilityUp - probabilityDown);
+
+  return {
+    technical: summary.scores.technical,
+    fundamental: 0,
+    news: 0,
+    sentiment: 50,
+    momentum: summary.scores.trend,
+    volatilityRisk: clampScore(Math.abs(summary.quote.changePercent) * 8 + 35),
+    liquidityRisk: summary.quote.volume > 5_000_000 ? 24 : summary.quote.volume > 500_000 ? 46 : 72,
+    eventRisk: 55,
+    opportunityTotal,
+    riskTotal,
+    probabilityUp,
+    probabilityDown,
+    probabilitySideways,
+    explanation: [
+      "Nur Provider-Quote verfügbar; Fundamentals, News und volle Historie fehlen.",
+      "Wahrscheinlichkeiten sind modellbasierte, schwache Einschätzungen und keine Garantie."
+    ]
+  };
+}
+
+/**
+ * Detailansicht aus einem Provider-Kurs — jetzt mit echter Historie, wenn es
+ * sie gibt.
+ *
+ * `history` ist bewusst ein Parameter und wird nicht hier geholt: so bleibt die
+ * Funktion ohne Netzzugriff prüfbar, und der Aufrufer entscheidet über das
+ * Zeitlimit.
+ */
+/**
+ * Holt echte Nachrichten — und nur echte.
+ *
+ * `getNewsWithMetadata` fällt am Ende auf `getMockNews()` zurück. Dieser
+ * Rückfall ist für `/api/news` gedacht, wo er als Demoquelle gekennzeichnet
+ * wird; im Analysepfad wäre er ein §61-Verstoß. Übernommen wird deshalb nur,
+ * was **nicht** als `quality: "mock"` gekennzeichnet ist.
+ *
+ * Wirft nicht: eine nicht erreichbare Nachrichtenquelle darf die Asset-Seite
+ * nicht abbrechen. Sie darf aber auch nicht durch erfundene Meldungen ersetzt
+ * werden.
+ */
+async function realNewsFor(symbol: string): Promise<NewsItem[]> {
+  try {
+    const { news, metadata } = await getNewsWithMetadata(symbol);
+    if (metadata.quality === "mock") return [];
+    return news;
+  } catch (error) {
+    logEvent("warn", "market_provider.news_failed", {
+      symbol,
+      message: error instanceof Error ? error.message : "unknown"
+    });
+    return [];
+  }
+}
+
+function detailFromProviderQuote(
+  quote: NormalizedQuote,
+  history: HistoryResult = NO_HISTORY,
+  news: NewsItem[] = []
+): AssetDetail {
+  const summary = summaryFromNormalizedQuote(quote);
+  const candles = history.candles.length ? sliceHistoryRanges(history.candles) : emptyCandleRanges();
+  // Indikatoren nur aus echter Historie. Ohne sie bleibt es bei Luecken statt
+  // bei Zahlen, die aus dem Tageskurs abgeleitet waeren.
+  const indicators = history.candles.length
+    ? buildTechnicalIndicators(history.candles)
+    : indicatorsFromQuote(quote);
+  const fundamentals: Fundamentals = {
+    peRatio: null,
+    revenueGrowth: 0,
+    earningsGrowth: 0,
+    debtToEquity: 0,
+    cashflow: 0,
+    dividendYield: null,
+    marketCap: quote.marketCap ?? 0
+  };
+  const professionalScores = providerOnlyProfessionalScores(summary);
+  const dataQuality = providerOnlyDataQuality(quote);
+  const analysisLayers: AnalysisLayer[] = [
+    {
+      label: "Kursdaten",
+      value: quote.quality,
+      status: quote.changePercent >= 0 ? "positive" : "negative",
+      detail: "Provider-Quote ist verfügbar, aber tiefe Analysefelder sind noch nicht vollständig angebunden.",
+      source: quote.provider,
+      updatedAt: quote.timestamp
+    },
+    {
+      label: "Datenabdeckung",
+      value: "unvollständig",
+      status: "risk",
+      detail: "Keine belastbaren Fundamentaldaten, News, Analystenfelder oder historischen Provider-Kerzen für dieses Symbol bestätigt.",
+      source: "StockPilot Analysis Guard",
+      updatedAt: quote.timestamp
+    }
+  ];
+  const macroFactors: MacroFactor[] = [
+    {
+      label: "Makro-Kontext",
+      impact: "neutral",
+      detail: "Makro- und Branchenfaktoren sind für dieses Symbol noch nicht quellenbasiert verknüpft.",
+      source: "StockPilot Analysis Guard"
+    }
+  ];
+  /**
+   * Der Risikobericht kommt aus der Engine, nicht aus einer Konstante.
+   *
+   * Hier stand ein fest verdrahteter Bericht: Score 82, Level „hoch", eine
+   * einzige Feststellung — für **jedes** Symbol dieselbe. Ein Risiko-Score, der
+   * sich nie ändert, sieht aus wie eine Messung und ist eine Konstante.
+   *
+   * Aufgefallen ist das erst durch einen Nebeneffekt meiner eigenen Änderung:
+   * `buildRiskReport` wurde ausschließlich aus `mock/market.ts` aufgerufen. Als
+   * das Mock-Gerüst aus `getAsset` verschwand, fiel damit auch die Risiko-Engine
+   * aus der Anwendung — 278 Zeilen geprüfter Rechnung, die niemand mehr
+   * erreichte.
+   *
+   * Die Engine kommt mit dünner Datenlage zurecht; genau dafür ist sie gebaut.
+   * Fehlt die Historie, meldet sie „Keine belastbare Kurshistorie" als eigenen
+   * Befund — statt zu schweigen und damit ein Instrument ohne Daten wie eines
+   * ohne Risiken aussehen zu lassen.
+   */
+  const riskReport = buildRiskReport(
+    {
+      asset: summary.asset,
+      quote: summary.quote,
+      candles,
+      indicators,
+      news,
+      earningsDate: null,
+      professionalScores,
+      analysisLayers,
+      macroFactors
+    },
+    dataQuality
+  );
+  const aiAnalysis: AiAnalysis = {
+    summary:
+      "Für dieses Symbol liegt ein Provider-Quote vor. Für eine belastbare Einschätzung fehlen noch verifizierte Fundamentaldaten, News, historische Kerzen und Ereignisdaten.",
+    upsideDrivers: ["Aktueller Kurs und Tagesbewegung sind verfügbar."],
+    downsideDrivers: ["Wesentliche Analysequellen fehlen oder sind nicht verifiziert."],
+    counterArguments: ["Ein einzelner Quote reicht nicht für eine robuste Chancen-/Risikoanalyse."],
+    dataGaps: [
+      "Fundamentaldaten fehlen.",
+      "Unternehmensnachrichten fehlen.",
+      "Historische Provider-Kerzen fehlen.",
+      "Analysten-, Insider- und Eventdaten fehlen."
+    ],
+    bullCase: "Nicht belastbar ableitbar, bis zusätzliche Quellen verifiziert sind.",
+    bearCase: "Nicht belastbar ableitbar, bis zusätzliche Quellen verifiziert sind.",
+    neutralCase: "Beobachten, Datenabdeckung prüfen und keine Signale aus einem Einzelquote ableiten.",
+    shortTerm: "Nur Kursstatus sichtbar; Einschätzung mit niedriger Konfidenz.",
+    mediumTerm: "Nicht ausreichend belastbar.",
+    longTerm: "Nicht ausreichend belastbar.",
+    riskLevel: "hoch",
+    uncertainty: "hoch",
+    probabilities: {
+      up: professionalScores.probabilityUp,
+      down: professionalScores.probabilityDown,
+      sideways: professionalScores.probabilitySideways
+    },
+    sources: [quote.provider, "StockPilot Analysis Guard"],
+    weakDataWarning:
+      "Für eine belastbare Einschätzung liegen derzeit nicht genügend verifizierte Daten vor.",
+    modelNote:
+      "Modellbasierte Einordnung aus begrenzten Provider-Kursdaten. Keine Garantie und keine Anlageberatung."
+  };
+
+  return {
+    ...summary,
+    candles,
+    indicators,
+    fundamentals,
+    news,
+    aiAnalysis,
+    professionalScores,
+    dataQuality,
+    riskReport,
+    analysisLayers,
+    macroFactors,
+    analystOpinion: null,
+    insiderActivity: [],
+    earningsDate: null
+  };
+}
+
 function quoteFromNormalized(base: Quote, normalized: NormalizedQuote): Quote {
   return {
     ...base,
@@ -513,16 +886,14 @@ function quoteFromNormalized(base: Quote, normalized: NormalizedQuote): Quote {
   };
 }
 
-function enrichAssetWithQuote(detail: AssetDetail, normalized: NormalizedQuote): AssetDetail {
-  const quote = quoteFromNormalized(detail.quote, normalized);
-  const merged = { ...detail, quote };
-  const dataQuality = assessDataQuality(merged);
-
-  return {
-    ...merged,
-    dataQuality
-  };
-}
+/*
+ * Hier stand `enrichAssetWithQuote`. Die Funktion nahm ein Mock-Asset, ersetzte
+ * darin `quote` und `dataQuality` -- und lieferte alles Uebrige unveraendert
+ * aus: Scores, Fundamentaldaten, News, Insider-Trades, Earnings-Datum.
+ *
+ * Sie ist ersatzlos entfernt. Es gibt kein Geruest mehr, das angereichert
+ * werden koennte: `getAsset` baut die Ansicht vollstaendig aus Anbieterdaten.
+ */
 
 function enrichSummaryWithQuote(summary: AssetSummary, normalized: NormalizedQuote): AssetSummary {
   return {
@@ -1106,9 +1477,12 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
   async getDashboard() {
     const dashboard = await this.fallback.getDashboard();
     const symbols = uniqueSymbols([
+      ...DEFAULT_DASHBOARD_SYMBOLS,
       ...dashboard.watchlist.map((item) => item.asset.symbol),
       ...dashboard.gainers.map((item) => item.asset.symbol),
-      ...dashboard.losers.map((item) => item.asset.symbol)
+      ...dashboard.losers.map((item) => item.asset.symbol),
+      ...dashboard.mostActive.map((item) => item.asset.symbol),
+      ...dashboard.trendingAssets.map((item) => item.asset.symbol)
     ]);
     const quotes = await withDeadline(this.getQuotes(symbols), DEFAULT_DASHBOARD_QUOTE_TIMEOUT_MS, []);
     const quoteMap = new Map(quotes.map((quote) => [quote.symbol, quote]));
@@ -1117,29 +1491,91 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
         const quote = quoteMap.get(item.asset.symbol);
         return quote ? enrichSummaryWithQuote(item, quote) : item;
       });
+    const knownSymbols = new Set([
+      ...dashboard.watchlist.map((item) => item.asset.symbol),
+      ...dashboard.gainers.map((item) => item.asset.symbol),
+      ...dashboard.losers.map((item) => item.asset.symbol),
+      ...dashboard.mostActive.map((item) => item.asset.symbol),
+      ...dashboard.trendingAssets.map((item) => item.asset.symbol)
+    ]);
+    const providerSummaries = quotes
+      .filter((quote) => !knownSymbols.has(quote.symbol))
+      .map(summaryFromNormalizedQuote);
+    const combine = (items: AssetSummary[]) => {
+      const bySymbol = new Map<string, AssetSummary>();
+      [...items, ...providerSummaries].forEach((item) => bySymbol.set(item.asset.symbol, item));
+      return [...bySymbol.values()];
+    };
     const mockSources = quotes.filter((quote) => quote.quality === "mock").length;
+    const enrichedWatchlist = combine(enrichList(dashboard.watchlist)).slice(0, 12);
+    const enrichedMostActive = combine(enrichList(dashboard.mostActive))
+      .sort((a, b) => b.quote.volume - a.quote.volume)
+      .slice(0, 10);
+    const enrichedTrending = combine(enrichList(dashboard.trendingAssets))
+      .sort((a, b) => (b.professionalScores?.momentum ?? b.scores.trend) - (a.professionalScores?.momentum ?? a.scores.trend))
+      .slice(0, 10);
+    const enrichedGainers = combine(enrichList(dashboard.gainers))
+      .sort((a, b) => b.quote.changePercent - a.quote.changePercent)
+      .slice(0, 10);
+    const enrichedLosers = combine(enrichList(dashboard.losers))
+      .sort((a, b) => a.quote.changePercent - b.quote.changePercent)
+      .slice(0, 10);
 
     return {
       ...dashboard,
-      watchlist: enrichList(dashboard.watchlist),
-      gainers: enrichList(dashboard.gainers),
-      losers: enrichList(dashboard.losers),
-      mostActive: enrichList(dashboard.mostActive),
-      trendingAssets: enrichList(dashboard.trendingAssets),
+      watchlist: enrichedWatchlist,
+      gainers: enrichedGainers,
+      losers: enrichedLosers,
+      mostActive: enrichedMostActive,
+      trendingAssets: enrichedTrending,
       dataQualitySummary: {
         ...dashboard.dataQualitySummary,
-        label: mockSources === quotes.length ? "Mock-Fallback aktiv" : `${this.providerName} + Fallback`,
+        label: quotes.length > 0 && mockSources === quotes.length ? "Mock-Fallback aktiv" : `${this.providerName} + Fallback`,
         mockSources
       }
     };
   }
 
+  /**
+   * Baut die Asset-Ansicht **allein aus Anbieterdaten**.
+   *
+   * Hier stand vorher `this.fallback.getAsset(symbol)` als Gerüst, und
+   * `enrichAssetWithQuote` überschrieb davon genau zwei Felder: `quote` und
+   * `dataQuality`. Alles andere überlebte aus `mock/market.ts` — und das war
+   * für sechs Symbole eine ganze Menge:
+   *
+   * | Feld | Was ausgeliefert wurde |
+   * |---|---|
+   * | `scores` | Eine Tabelle. `AAPL: { trend: 46, news: 52, … }`, fest im Code |
+   * | `professionalScores` | Daraus gerechnet — inklusive des angezeigten Sentiments |
+   * | `fundamentals` | KGV, Wachstum, Verschuldung aus `fundamentalsMap` |
+   * | `news` | Erfundene Meldungen mit erfundenen Zeitstempeln |
+   * | `insiderActivity` | „Executive Officer", Sell, 1.800.000 $ |
+   * | `earningsDate` | `"2026-07-29"` |
+   *
+   * Für AAPL stand damit ein echter Kurs neben erfundenen Fundamentaldaten,
+   * ohne jeden Unterschied in der Darstellung. Das ist §61 in seiner
+   * gefährlichsten Form: nicht offensichtlich falsch, sondern plausibel falsch.
+   *
+   * Der ehrliche Pfad existierte bereits — `detailFromProviderQuote` wurde für
+   * jedes Symbol *außerhalb* der Mock-Tabelle benutzt und meldet Lücken als
+   * Lücken. Er gilt jetzt für alle.
+   */
   async getAsset(symbol: string) {
-    const detail = await this.fallback.getAsset(symbol);
-    if (!detail) return null;
-
     const quote = await withDeadline(this.getQuote(symbol), DEFAULT_ASSET_QUOTE_TIMEOUT_MS, null);
-    return quote ? enrichAssetWithQuote(detail, quote) : detail;
+    if (!quote) return null;
+
+    // Die Historie ist der teuerste Abruf im Pfad (ueber 1000 Kerzen). Sie
+    // bekommt ein eigenes, groesseres Zeitlimit -- und bei Ueberschreitung
+    // eine leere Reihe statt einer erzeugten.
+    // Historie und Nachrichten parallel. Beide haben ein eigenes Zeitlimit und
+    // enden im Fehlerfall leer -- nie in Ersatzdaten.
+    const [history, news] = await Promise.all([
+      withDeadline(fetchDailyHistory(symbol), 9500, NO_HISTORY),
+      withDeadline(realNewsFor(symbol), 6000, [] as NewsItem[])
+    ]);
+
+    return detailFromProviderQuote(quote, history, news);
   }
 
   async getQuote(symbol: string) {
@@ -1179,7 +1615,14 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
       }
     }
 
-    return this.fallback.getQuote(symbol);
+    // Hier stand `return this.fallback.getQuote(symbol)`. Antwortete der echte
+    // Anbieter nicht, bekam der Nutzer fuer die sechs Symbole der Mock-Tabelle
+    // einen **erfundenen Kurs** -- ununterscheidbar vom echten.
+    //
+    // Das ist der schlimmste Fall von §61: kein fehlendes Feld, sondern eine
+    // falsche Zahl an der Stelle, auf die alles andere aufbaut. Kein Kurs ist
+    // besser als ein ausgedachter.
+    return null;
   }
 
   async getQuotes(symbols: string[]) {
@@ -1214,22 +1657,50 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
       }
     }
 
-    const realMap = new Map([...cryptoQuotes, ...realQuotes].map((quote) => [quote.symbol, quote]));
-    const missing = requested.filter((symbol) => !realMap.has(symbol));
-    const fallbackQuotes = missing.length ? await this.fallback.getQuotes(missing) : [];
+    // Symbole ohne echte Antwort fehlen in der Liste. Vorher wurden sie aus
+    // `this.fallback.getQuotes(missing)` aufgefuellt -- erfundene Kurse, im
+    // Dashboard nicht von echten zu unterscheiden. Eine kuerzere Liste ist die
+    // ehrliche Antwort; wer sie anzeigt, sieht auch, dass etwas fehlt.
+    const missing = requested.filter(
+      (symbol) => ![...cryptoQuotes, ...realQuotes].some((quote) => quote.symbol === symbol)
+    );
 
-    return [...cryptoQuotes, ...realQuotes, ...fallbackQuotes].sort((a, b) => requested.indexOf(a.symbol) - requested.indexOf(b.symbol));
+    if (missing.length > 0) {
+      logEvent("warn", "market_provider.quotes_missing", {
+        provider: this.providerName,
+        requested: requested.length,
+        missing: missing.length
+      });
+    }
+
+    return [...cryptoQuotes, ...realQuotes].sort(
+      (a, b) => requested.indexOf(a.symbol) - requested.indexOf(b.symbol)
+    );
   }
 
   async getDelayedQuote(symbol: string) {
     return this.getQuote(symbol);
   }
 
+  /**
+   * Kerzen aus echter Tageshistorie.
+   *
+   * Hier stand `this.fallback.getAsset(symbol)` — also `makeCandles()` aus
+   * `mock/market.ts`, wo der Schlusskurs aus einer Sinus- und einer
+   * Kosinusfunktion entsteht. Genau diese Sorte Kerze hat dieses Projekt
+   * bereits einmal aus dem Analysepfad entfernt; über diesen Weg kam sie
+   * zurück.
+   *
+   * Intraday-Intervalle liefern **nichts**. Tagesschlusskurse enthalten keinen
+   * Verlauf innerhalb des Tages, und ihn zu erfinden wäre der Ausgangsfehler.
+   */
   async getCandles(symbol: string, interval: "1m" | "5m" | "15m" | "1h" | "1d") {
-    const detail = await this.fallback.getAsset(symbol);
-    if (!detail) return [];
-    if (interval === "1d") return detail.candles["1Y"];
-    return detail.candles["1D"];
+    if (interval !== "1d") return [];
+
+    const history = await withDeadline(fetchDailyHistory(symbol), 9500, NO_HISTORY);
+    if (!history.candles.length) return [];
+
+    return sliceHistoryRanges(history.candles)["1Y"];
   }
 
   streamQuotes(symbols: string[], options?: MarketStreamOptions) {
@@ -1241,61 +1712,95 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
   }
 }
 
-function selectedProviderId(): MarketProviderId {
-  const provider = (
-    process.env.MARKET_DATA_PROVIDER ??
-    process.env.STOCKPILOT_MARKET_PROVIDER ??
-    process.env.STOCKPILOT_QUOTE_PROVIDER ??
-    "mock"
-  )
-    .trim()
-    .toLowerCase();
 
-  if (provider === "polygon") return "polygon";
-  if (provider === "twelvedata") return "twelve_data";
-  if (
-    provider === "mock" ||
-    provider === "finnhub" ||
-    provider === "twelve_data" ||
-    provider === "eodhd" ||
-    provider === "massive" ||
-    provider === "alpha_vantage" ||
-    provider === "fmp" ||
-    provider === "databento" ||
-    provider === "binance" ||
-    provider === "coinbase"
-  ) {
-    return provider;
+// `autoProviderId` und `selectedProviderId` sind entfallen: die Rangfolge
+// entscheidet jetzt `resolveQuoteChain()` in quote-chain.ts, und zwar als
+// Kette statt als Einzelwahl.
+
+/**
+ * Baut den Adapter zu einer Anbieterkennung.
+ *
+ * Krypto-Boersen sind hier enthalten, weil sie ausdruecklich gewaehlt werden
+ * koennen -- in die automatische Rangfolge nehmen sie sich selbst nicht auf.
+ */
+function createQuoteProvider(id: MarketProviderId): QuoteProvider | null {
+  switch (id) {
+    case "finnhub":
+      return new FinnhubQuoteProvider();
+    case "twelve_data":
+      return new TwelveDataQuoteProvider();
+    case "eodhd":
+      return new EodhdQuoteProvider();
+    case "massive":
+    case "polygon":
+      return new MassiveSnapshotProvider();
+    case "alpha_vantage":
+      return new AlphaVantageQuoteProvider();
+    case "fmp":
+      return new FmpQuoteProvider();
+    case "binance":
+      return new BinanceQuoteProvider();
+    case "coinbase":
+      return new CoinbaseQuoteProvider();
+    default:
+      return null;
+  }
+}
+
+/**
+ * Fragt mehrere Quellen der Reihe nach.
+ *
+ * Der entscheidende Punkt ist, was **nicht** passiert: die Kette faelscht
+ * keine Qualitaetsangabe. Antwortet die zweite Quelle, traegt der Kurs deren
+ * Namen und deren Qualitaetsstufe -- nicht die der bevorzugten. Ein
+ * near-realtime-Kurs von Finnhub darf nicht als verzoegerter FMP-Kurs
+ * erscheinen, und umgekehrt erst recht nicht.
+ */
+export class ChainedQuoteProvider implements QuoteProvider {
+  readonly providerName: string;
+  readonly providerId: MarketProviderId;
+  readonly quality: MarketDataQuality;
+  readonly streamMode: StreamMode;
+
+  constructor(private readonly chain: QuoteProvider[]) {
+    const head = chain[0];
+    this.providerName = head.providerName;
+    this.providerId = head.providerId;
+    this.quality = head.quality;
+    this.streamMode = head.streamMode;
   }
 
-  return "mock";
+  async getQuote(symbol: string): Promise<NormalizedQuote | null> {
+    for (const provider of this.chain) {
+      try {
+        const quote = await provider.getQuote(symbol);
+        if (quote) return quote;
+      } catch (error) {
+        logEvent("warn", "market.provider_failed_over", {
+          providerId: provider.providerId,
+          symbol,
+          message: error instanceof Error ? error.message : "unknown"
+        });
+      }
+    }
+    // Keine Quelle konnte antworten. Null heisst hier ehrlich "nichts
+    // bekommen" -- der Aufrufer entscheidet ueber den Mock-Rueckfall.
+    return null;
+  }
+
+  async getQuotes(symbols: string[]) {
+    return getCachedProviderQuotes(this, symbols);
+  }
 }
 
 export function getMarketDataProvider(): MarketDataProvider {
-  const provider = selectedProviderId();
+  const chain = resolveQuoteChain();
+  const providers = chain.providers
+    .map((id) => createQuoteProvider(id))
+    .filter((provider): provider is QuoteProvider => provider !== null);
 
-  switch (provider) {
-    case "finnhub":
-      return new ProviderBackedMarketDataProvider(new FinnhubQuoteProvider());
-    case "twelve_data":
-      return new ProviderBackedMarketDataProvider(new TwelveDataQuoteProvider());
-    case "eodhd":
-      return new ProviderBackedMarketDataProvider(new EodhdQuoteProvider());
-    case "massive":
-    case "polygon":
-      return new ProviderBackedMarketDataProvider(new MassiveSnapshotProvider());
-    case "alpha_vantage":
-      return new ProviderBackedMarketDataProvider(new AlphaVantageQuoteProvider());
-    case "fmp":
-      return new ProviderBackedMarketDataProvider(new FmpQuoteProvider());
-    case "binance":
-      return new ProviderBackedMarketDataProvider(new BinanceQuoteProvider());
-    case "coinbase":
-      return new ProviderBackedMarketDataProvider(new CoinbaseQuoteProvider());
-    case "databento":
-      return new MockMarketDataProvider();
-    case "mock":
-    default:
-      return new MockMarketDataProvider();
-  }
+  if (providers.length === 0) return new MockMarketDataProvider();
+  if (providers.length === 1) return new ProviderBackedMarketDataProvider(providers[0]);
+
+  return new ProviderBackedMarketDataProvider(new ChainedQuoteProvider(providers));
 }

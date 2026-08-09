@@ -110,13 +110,45 @@ export type MarketUniverseAssetClass =
   | "warrant"
   | "fund";
 
+export type InstrumentIdentifierType =
+  | "ticker"
+  | "provider_symbol"
+  | "isin"
+  | "figi"
+  | "cusip"
+  | "sedol"
+  | "lei"
+  | "mic"
+  | "exchange";
+
+export interface InstrumentIdentifier {
+  type: InstrumentIdentifierType;
+  value: string;
+  provider?: string;
+}
+
+export type InstrumentResolutionStatus = "resolved" | "ambiguous" | "provider_only" | "invalid";
+export type InstrumentAnalysisReadiness = "ready" | "limited" | "blocked";
+
 export interface MarketUniverseInstrument {
   symbol: string;
+  displaySymbol?: string;
+  normalizedSymbol?: string;
+  canonicalId?: string;
   name: string;
   assetClass: MarketUniverseAssetClass;
   exchange: string;
   country: string;
   currency: string;
+  identifiers?: InstrumentIdentifier[];
+  identityConfidence?: number;
+  resolutionStatus?: InstrumentResolutionStatus;
+  resolutionWarnings?: string[];
+  searchScore?: number;
+  matchReasons?: string[];
+  detailHref?: string;
+  analysisReadiness?: InstrumentAnalysisReadiness;
+  analysisBlockers?: string[];
   provider: string;
   quality: MarketDataQuality;
   quoteQuality: MarketDataQuality;
@@ -147,25 +179,71 @@ export interface Candle {
   volume: number;
 }
 
+/**
+ * Technische Indikatoren.
+ *
+ * `null` heißt hier durchgehend: **die Zeitreihe war zu kurz**, nicht „null".
+ * Vorher waren alle Felder pflichtig, weshalb jede Quelle etwas erfinden
+ * musste, um den Typ zu erfüllen — genau das ist passiert. Die Nullbarkeit ist
+ * deshalb kein Detail, sondern die Stelle, an der der Typ die Ehrlichkeit
+ * erzwingt.
+ */
 export interface TechnicalIndicators {
-  rsi: number;
+  rsi: number | null;
   macd: {
     value: number;
     signal: number;
     histogram: number;
-  };
+  } | null;
   movingAverages: {
-    ma20: number;
-    ma50: number;
-    ma200: number;
+    ma20: number | null;
+    ma50: number | null;
+    ma200: number | null;
   };
   bollingerBands: {
     upper: number;
     middle: number;
     lower: number;
-  };
+  } | null;
   support: number[];
   resistance: number[];
+  /** Trendstärke nach Wilder. `adx` sagt nichts über die Richtung — dafür sind +DI/−DI da. */
+  adx: { adx: number; plusDi: number; minusDi: number } | null;
+  /**
+   * Trendkanal aus einer Regressionsgeraden.
+   *
+   * `fit` gehört zwingend mit angezeigt: eine Gerade durch reines Rauschen hat
+   * ebenfalls eine Steigung.
+   */
+  trendChannel: {
+    direction: "up" | "down" | "sideways";
+    upper: number;
+    lower: number;
+    middle: number;
+    changePercent: number;
+    fit: number;
+    reliable: boolean;
+  } | null;
+  /**
+   * Ausbruch aus der Spanne der Vorperioden.
+   *
+   * `null` heißt „lässt sich nicht sagen", `{ status: "none" }` heißt „kein
+   * Ausbruch". Der Unterschied ist Absicht.
+   */
+  breakout:
+    | { status: "none" }
+    | {
+        status: "breakout";
+        direction: "up" | "down";
+        level: number;
+        strengthInAtr: number;
+        volumeConfirmed: boolean;
+      }
+    | null;
+  /** Wie viele Kerzen zugrunde lagen. Bestimmt, was überhaupt möglich war. */
+  sampleSize: number;
+  /** Was nicht berechnet werden konnte — mit lesbarem Namen. */
+  unavailable: string[];
 }
 
 export interface Fundamentals {
@@ -184,11 +262,41 @@ export interface NewsItem {
   title: string;
   source: string;
   publishedAt: string;
-  relevance: number;
+  /**
+   * Der Übereinstimmungswert des Anbieters — **nicht** auf 0–100 kalibriert.
+   *
+   * Vorher war das eine Zahl aus der Listenposition: `74 + |sentiment| × 22 −
+   * index × 2`. Der zweite Treffer war damit immer relevanter als der dritte,
+   * unabhängig vom Inhalt. `null` heißt: der Anbieter liefert keine Relevanz.
+   */
+  relevance: number | null;
   sentiment: Sentiment;
-  impactScore: number;
+  /** Aus Sentiment und Relevanz abgeleitet. Ohne Relevanz nicht bildbar. */
+  impactScore: number | null;
   summary: string;
   url: string;
+  /** Erkannte Ereignisarten, jeweils mit dem auslösenden Wortlaut. */
+  events: NewsEvent[];
+  /** Bezüge der Meldung: Unternehmen, Branche, Land, Index, Rohstoff, Währung, Krypto. */
+  subjects: NewsSubjectRef[];
+  /** Weitere Quellen, die dieselbe Meldung gebracht haben. */
+  duplicateSources: string[];
+}
+
+export interface NewsEvent {
+  type: string;
+  label: string;
+  /** Der Wortlaut, der die Einordnung ausgelöst hat. Ohne ihn wäre es eine Black Box. */
+  matchedText: string;
+}
+
+export interface NewsSubjectRef {
+  type: "company" | "industry" | "country" | "index" | "commodity" | "currency" | "crypto";
+  id: string;
+  label: string;
+  /** `provider` ist belastbar, `symbol` ist abgeleitet. */
+  origin: "provider" | "symbol";
+  matchScore: number | null;
 }
 
 export interface DataSource {
@@ -650,7 +758,8 @@ export interface ProfessionalNewsEvent {
   symbol?: string;
   source: string;
   publishedAt: string;
-  relevance: number;
+  /** `null`, wenn der Nachrichtenanbieter keine Relevanz liefert. */
+  relevance: number | null;
   impact: "positive" | "neutral" | "negative" | "unclear";
   quality: MarketDataQuality;
   checked: boolean;
