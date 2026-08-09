@@ -2,6 +2,8 @@
 
 import { BriefcaseBusiness, Check, Crown, Lock, Rocket, Shield } from "lucide-react";
 import { billingGateStatus, featureDefinitions, pricingTiers, type FeatureGateStatus, type PlanId } from "@/lib/feature-gates";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { useState } from "react";
 
 const tierIcons: Record<PlanId, typeof Shield> = {
   free: Shield,
@@ -58,6 +60,52 @@ function tierStats(tier: (typeof pricingTiers)[number]) {
 }
 
 export function PricingView() {
+  const supabase = createSupabaseBrowserClient();
+  const [busyPlan, setBusyPlan] = useState<PlanId | null>(null);
+  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
+
+  async function startCheckout(plan: PlanId) {
+    setCheckoutMessage(null);
+    setBusyPlan(plan);
+
+    if (!supabase) {
+      setCheckoutMessage("Supabase-Browser-Client ist nicht konfiguriert. Bitte prüfe die App-Umgebung.");
+      setBusyPlan(null);
+      return;
+    }
+
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+
+    if (!session?.access_token) {
+      setCheckoutMessage("Bitte zuerst anmelden, um ein Upgrade zu starten.");
+      setBusyPlan(null);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ plan })
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload.url) {
+        throw new Error(payload.error || "Checkout konnte nicht gestartet werden.");
+      }
+
+      window.location.assign(payload.url);
+    } catch (error) {
+      setCheckoutMessage(String(error instanceof Error ? error.message : "Checkout konnte nicht gestartet werden."));
+    } finally {
+      setBusyPlan(null);
+    }
+  }
+
   return (
     <div className="space-y-7">
       <section className="rounded-[1.6rem] border border-amber/20 bg-[radial-gradient(circle_at_top_right,rgba(245,201,107,0.14),transparent_34%),linear-gradient(145deg,#101712,#050706_72%)] p-5 shadow-panel sm:p-7">
@@ -136,6 +184,12 @@ export function PricingView() {
         </div>
       </section>
 
+      {checkoutMessage ? (
+        <section className="rounded-[1.5rem] border border-amber/25 bg-amber/10 p-4 text-sm text-amber">
+          {checkoutMessage}
+        </section>
+      ) : null}
+
       <section className="grid gap-4 lg:grid-cols-4">
         {pricingTiers.map((tier) => {
           const Icon = tierIcons[tier.id];
@@ -189,10 +243,11 @@ export function PricingView() {
               </div>
               <button
                 type="button"
-                disabled
-                className="mt-5 h-11 w-full cursor-not-allowed rounded-xl border border-stroke bg-coal px-4 text-sm font-semibold text-muted"
+                onClick={() => startCheckout(tier.id)}
+                disabled={tier.id === "free" || busyPlan !== null}
+                className="mt-5 h-11 w-full rounded-xl border border-cyan/30 bg-cyan/10 px-4 text-sm font-semibold text-cyan transition hover:bg-cyan/20 disabled:cursor-not-allowed disabled:border-stroke disabled:bg-coal disabled:text-muted"
               >
-                Billing noch nicht aktiv
+                {tier.id === "free" ? "Free nutzen" : busyPlan === tier.id ? "Weiterleiten…" : `Upgrade auf ${tier.name}`}
               </button>
             </article>
           );

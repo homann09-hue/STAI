@@ -17,7 +17,7 @@ Stand: 10. Juli 2026
 
 1. `NewsItem` war ein UI-Modell, kein unveränderlicher Rohbeleg. Quelleninhalt, Normalisierung, Analyse und Score waren nicht getrennt.
 2. Fallback auf Mock-News ist für Produktdemos sinnvoll, darf aber nie in einer Research-Pipeline persistiert oder als echtes Ereignis bewertet werden.
-3. Der bestehende Alert-Worker verwendet absichtlich keine echten Providerwerte. Intelligence-Alerts benötigen einen eigenen, beleggebundenen Pfad.
+3. Der bestehende Alert-Worker nutzt jetzt echte Providerwerte für unterstützte `price`, `volume` und `rsi`-Alerts, während Simulationsmodus weiterhin optional für kontrollierte Tests verfügbar bleibt. Intelligence-Alerts benötigen dennoch einen eigenen, beleggebundenen Pfad für komplexere Risiko- und Earnings-Signale.
 4. Ein globaler Feed über direkte Client-Tabellenzugriffe würde Rohpayloads und lizenzpflichtige Inhalte exponieren. Deshalb liest die UI nur serverseitig über eine reduzierte View.
 5. Der Service-Client umgeht RLS. Alle nutzerbezogenen Schreiboperationen müssen daher weiterhin serverseitig aus einer verifizierten Session oder einer deterministischen Watchlist-Regel abgeleitet werden.
 6. In-Memory-Caches und Circuit Breaker sind auf Vercel instanzlokal. Horizontale Koordination benötigt später Redis/Queue-Infrastruktur.

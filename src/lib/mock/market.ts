@@ -784,6 +784,110 @@ export function getMockDashboard(): DashboardData {
       summary:
         "Momentum und News sind freundlich, aber Bewertungen und Krypto-Volatilität erhöhen das Rückschlagrisiko."
     },
+    signalSummary: {
+      fundamental: "neutral",
+      technical: "bullish",
+      momentum: "strong",
+      sentiment: "positive",
+      valuation: "expensive",
+      macro: "unfavorable",
+      risk: "moderate",
+      overall: "cautiously positive",
+      rationale:
+        "Technische Indikatoren und Momentum bleiben unterstützend, während Bewertungen hoch sind und makroökonomische Unsicherheiten bestehen. Selektive Positionierung und Risikosteuerung sind daher ratsam."
+    },
+    marketDashboard: [
+      {
+        label: "Indizes",
+        value: "S&P 500 +0.43 %, Nasdaq +0.82 %, DAX -0.18 %",
+        detail: "US-Technologieindizes treiben die Marktbreite, während europäische Benchmarks leicht underperformen.",
+        status: "positive"
+      },
+      {
+        label: "Gewinner",
+        value: "NVDA +3.1 %, TSLA +2.5 %",
+        detail: "Semiconductor- und EV-Titel zeigen heute relative Stärke gegenüber dem Gesamtmarkt.",
+        status: "positive"
+      },
+      {
+        label: "Verlierer",
+        value: "AAPL -1.8 %, ETH -1.2 %",
+        detail: "Zyklische und Krypto-Positionen korrigieren nach starken Vortagesgewinnen.",
+        status: "negative"
+      },
+      {
+        label: "Volumen",
+        value: "US-Aktien +12 %, Krypto +8 %",
+        detail: "Volumenbasierte Marktaktivität bleibt über dem Mittel, was die Trendvalidität stärkt.",
+        status: "positive"
+      },
+      {
+        label: "Sektoren",
+        value: "AI, Energy, Financials",
+        detail: "Technologie, Energie und Finanzwerte führen die Sektorrotation an.",
+        status: "neutral"
+      },
+      {
+        label: "VIX",
+        value: "18.2",
+        detail: "Leicht erhöhte Volatilität signalisiert vorsichtiges Anlegerverhalten.",
+        status: "warning"
+      },
+      {
+        label: "Bonds",
+        value: "10Y US-Treasury 4.25 %",
+        detail: "Zinsniveau bleibt robust, was Renditeorientierte Positionen begünstigt.",
+        status: "neutral"
+      },
+      {
+        label: "Dollar",
+        value: "DXY 106.8",
+        detail: "Starke Dollar-Dynamik belastet exportorientierte Werte und Rohstoffpreise.",
+        status: "negative"
+      },
+      {
+        label: "Gold",
+        value: "XAU/USD 2.008",
+        detail: "Gold bleibt als Absicherung gefragt, aber ohne klare Trendbeschleunigung.",
+        status: "neutral"
+      },
+      {
+        label: "Öl",
+        value: "WTI 83.4 USD",
+        detail: "Rohölpreise profitieren von Angebotssorgen und stabiler Nachfrage.",
+        status: "positive"
+      },
+      {
+        label: "Bitcoin",
+        value: "68.2k USD",
+        detail: "Bitcoin bleibt nahe Jahreshochs, jedoch mit erhöhten Rückschlagrisiken.",
+        status: "warning"
+      },
+      {
+        label: "News",
+        value: "Fed-Spekulation, Tech-Sektor, Krypto-Risikobewertung",
+        detail: "Nachrichtenlage bleibt fokussiert auf Zinserwartungen und Technologie-Wachstum.",
+        status: "positive"
+      },
+      {
+        label: "Economic Calendar",
+        value: "US-Kerninflation morgen, EZB-Sitzung nächste Woche",
+        detail: "Makro-Termine bleiben die entscheidenden Treiber für kurzfristige Marktbewegungen.",
+        status: "warning"
+      },
+      {
+        label: "Earnings",
+        value: "NVDA, AAPL, BA diese Woche",
+        detail: "Schwerpunkt läuft auf große Tech- und Industrieberichte mit hoher Volatilität.",
+        status: "warning"
+      },
+      {
+        label: "Market Breadth",
+        value: "Advancers 58 %, Decliners 42 %",
+        detail: "Die Marktbreite bleibt positiv, aber die internals sind nicht eindeutig stark genug für einen breiten Durchbruch.",
+        status: "neutral"
+      }
+    ],
     riskWarnings: [
       {
         id: "r1",

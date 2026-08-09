@@ -72,6 +72,11 @@ describe("mock market data coverage", () => {
     );
     expect(dashboard.dataQualitySummary.mockSources).toBeGreaterThan(0);
     expect(dashboard.aiSentiment.summary).toContain("Momentum");
+    expect(dashboard.signalSummary).toMatchObject({
+      overall: expect.any(String),
+      rationale: expect.any(String)
+    });
+    expect(dashboard.marketDashboard).toHaveLength(4);
     expect(dashboard.riskWarnings).toHaveLength(2);
 
     expect(getMockNews()).toHaveLength(5);

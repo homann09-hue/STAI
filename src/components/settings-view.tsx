@@ -4,6 +4,7 @@ import { InvestorModeDock } from "@/components/investor-mode-dock";
 import { OnboardingPanel } from "@/components/onboarding-panel";
 import { ProviderHealthCenter } from "@/components/provider-health-center";
 import { SupabaseAuthPanel } from "@/components/supabase-auth-panel";
+import { BillingActionsPanel } from "@/components/billing-actions-panel";
 import { refreshIntervals, refreshProfiles } from "@/lib/refresh-config";
 
 const settingsCards = [
@@ -103,6 +104,8 @@ export function SettingsView() {
       </section>
 
       <SupabaseAuthPanel />
+
+      <BillingActionsPanel />
 
       <OnboardingPanel />
 

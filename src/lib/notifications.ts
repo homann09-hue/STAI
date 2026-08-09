@@ -29,9 +29,9 @@ export function buildSystemNotifications(now = new Date()): AppNotification[] {
     },
     {
       id: "alerts-worker",
-      title: "Alert-Worker läuft sicher im Dry-Run",
+      title: "Alert-Worker prüft echte Providerwerte",
       message:
-        "Lokale Alerts sind nutzbar. Serverseitige Ausführung schreibt erst Events, wenn echte Providerwerte angebunden sind oder Simulation bewusst für Tests aktiviert wird.",
+        "Der serverseitige Alert-Worker wertet unterstützte Preis-, Volumen- und RSI-Alarme gegen Providerdaten aus. Simulierte Auslösung wird nur mit STOCKPILOT_ENABLE_SIMULATED_ALERT_WORKER=true persitiert.",
       severity: "warning",
       category: "alert",
       createdAt,

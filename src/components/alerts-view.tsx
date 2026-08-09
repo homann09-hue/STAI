@@ -456,10 +456,26 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
     }
   }
 
-  function deleteAlert(id: string) {
+  async function deleteAlert(id: string) {
     setAlerts((current) => current.filter((alert) => alert.id !== id));
-    setSyncMode("demo");
-    setSyncStatus("Alert lokal gelöscht. Cloud-Löschung braucht Supabase-Session.");
+
+    try {
+      const response = await fetchWithSupabaseAuth("/api/alerts", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ id })
+      });
+
+      if (!response.ok) throw new Error("alert delete not authenticated");
+      const data = (await response.json()) as { mode?: string };
+      setSyncMode(data.mode === "supabase" ? "supabase" : "demo");
+      setSyncStatus(data.mode === "supabase" ? "Alert gelöscht." : "Alert lokal gelöscht. Supabase nicht erreichbar.");
+    } catch {
+      setSyncMode("demo");
+      setSyncStatus("Nicht eingeloggt oder Supabase nicht erreichbar. Alert lokal gelöscht.");
+    }
   }
 
   function duplicateAlert(alert: AlertRule) {
