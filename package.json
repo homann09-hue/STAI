@@ -43,7 +43,8 @@
     "test:db": "supabase test db",
     "cap:prepare": "node scripts/capacitor/prepare-web.mjs",
     "cap:sync:ios": "npm run cap:prepare && npx cap sync ios",
-    "cap:open:ios": "npm run cap:prepare && npx cap open ios"
+    "cap:open:ios": "npm run cap:prepare && npx cap open ios",
+    "ci:local": "bash scripts/qa/ci-local.sh"
   },
   "dependencies": {
     "@capacitor/core": "8.4.1",

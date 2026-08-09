@@ -139,9 +139,9 @@ function averageSentimentScore(news: NewsItem[]) {
 }
 
 function eventRiskScore(earningsDate: string | null, news: NewsItem[], now = new Date()) {
-  // Wie in der Risiko-Engine: die Ereignisart statt einer anbieterabhaengigen
+  // Wie in der Risiko-Engine: die Ereignisart statt einer anbieterabhängigen
   // Relevanzschwelle. Eine Gewinnwarnung ist ein Ereignisrisiko, egal welchen
-  // Score der Anbieter dafuer vergibt.
+  // Score der Anbieter dafür vergibt.
   const severeEventTypes = new Set(["profit_warning", "litigation", "regulatory_decision", "capital_measure"]);
   const negativeNewsRisk = news.some(
     (item) => item.sentiment === "negative" && item.events.some((event) => severeEventTypes.has(event.type))

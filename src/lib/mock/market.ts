@@ -293,7 +293,7 @@ const newsItems: NewsItem[] = [
     summary:
       "Mehrere Hyperscaler melden weiterhin hohe Investitionen in KI-Infrastruktur. Das Modell bewertet die Nachricht als positiv, aber bereits teilweise eingepreist.",
     url: "#"
- 
+
   }),
   mockNewsItem({
     id: "n2",
@@ -307,7 +307,7 @@ const newsItems: NewsItem[] = [
     summary:
       "Neue Vorgaben könnten App-Store-Gebühren in mehreren Regionen reduzieren. Kurzfristig steigt die Unsicherheit für Margenannahmen.",
     url: "#"
- 
+
   }),
   mockNewsItem({
     id: "n3",
@@ -321,7 +321,7 @@ const newsItems: NewsItem[] = [
     summary:
       "Cloud-Checks deuten auf robuste Nachfrage nach Datenbank-, Security- und KI-Diensten hin.",
     url: "#"
- 
+
   }),
   mockNewsItem({
     id: "n4",
@@ -335,7 +335,7 @@ const newsItems: NewsItem[] = [
     summary:
       "Institutionelle Zuflüsse sprechen für Nachfrage, während Hebelpositionen das Rückschlagrisiko erhöhen.",
     url: "#"
- 
+
   }),
   mockNewsItem({
     id: "n5",
