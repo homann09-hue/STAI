@@ -1,5 +1,6 @@
 import type { MarketDataQuality, MarketUniverseAssetClass, MarketUniverseCoverage, MarketUniverseInstrument } from "@/lib/types";
 import { enrichInstrumentSearchResults, resolveInstrumentUniverse } from "@/lib/instrument-master";
+import { searchInstruments } from "@/lib/search/fuzzy";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
 import { getServerCacheAdapter } from "@/lib/server-cache";
 
@@ -260,18 +261,52 @@ function instrumentFromProvider(input: {
   };
 }
 
+/**
+ * Sucht im vorbereiteten Universum — jetzt unscharf.
+ *
+ * Hier stand ein wörtlicher `includes()`-Vergleich. Der findet „Apple", aber
+ * nicht „Aplpe", und §48 verlangt ausdrücklich Fuzzy Search.
+ *
+ * Die Sortierung kommt jetzt aus dem Trefferwert statt aus der Reihenfolge der
+ * Seed-Liste: ein Tippfehler-Treffer steht nie über einem wörtlichen.
+ *
+ * Der Filter nach Anlageklasse bleibt **vor** der Suche. Wer ETFs sucht, will
+ * keine ähnlich geschriebene Aktie — eine unscharfe Suche darf die
+ * ausdrückliche Einschränkung nicht aufweichen.
+ */
 function searchPreparedUniverse(input: UniverseSearchInput = {}) {
-  const query = input.query?.trim().toLowerCase() ?? "";
+  const query = input.query?.trim() ?? "";
   const assetClass = input.assetClass ?? "all";
   const limit = Math.min(Math.max(input.limit ?? 80, 1), 250);
 
-  const matches = universeSeeds.filter((item) => {
-      if (assetClass !== "all" && item.assetClass !== assetClass) return false;
-      if (!query) return true;
-      return `${item.symbol} ${item.name} ${item.exchange} ${item.country} ${item.assetClass}`.toLowerCase().includes(query);
-    });
+  const pool = universeSeeds.filter((item) => assetClass === "all" || item.assetClass === assetClass);
 
-  return enrichInstrumentSearchResults(resolveInstrumentUniverse(matches, limit), input.query, limit);
+  if (!query) {
+    return enrichInstrumentSearchResults(resolveInstrumentUniverse(pool, limit), input.query, limit);
+  }
+
+  const { hits } = searchInstruments(
+    query,
+    pool.map((item) => ({
+      symbol: item.symbol,
+      // Boerse, Land und Anlageklasse bleiben durchsuchbar: "NASDAQ" oder
+      // "crypto" waren vorher gueltige Eingaben und sollen es bleiben.
+      name: `${item.name} ${item.exchange} ${item.country} ${item.assetClass}`,
+      isin: null,
+      assetClass: item.assetClass,
+      original: item
+    })),
+    limit
+  );
+
+  return enrichInstrumentSearchResults(
+    resolveInstrumentUniverse(
+      hits.map((hit) => hit.item.original),
+      limit
+    ),
+    input.query,
+    limit
+  );
 }
 
 function mergeUniverseResults(primary: MarketUniverseInstrument[], fallback: MarketUniverseInstrument[], limit: number, query?: string) {

@@ -155,7 +155,7 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §29 | Zentralbanken: Sitzungstermine, Statements, Protokolle | `NOT STARTED` | Aus einem Zinspfad nicht ableitbar, braucht eine Terminquelle |
 | §30 | Sentiment | `IN PROGRESS` | Teilweise über News |
 | §31 | SEC-Filings mit Originallink | `DONE` | `sec/edgar.ts` + `GET /api/sec/filings`. EDGAR ist **kostenlos und die Primärquelle**. Gemessen an Apple: 1000 Filings, davon 587 Form 4, 105 8-K, 34 10-Q. 13 Tests |
-| §32 | Insidertransaktionen | `IN PROGRESS` | `sec/form4.ts`: Person, Position, Stückzahl, Preis, Wert — und die von §32 verlangte Unterscheidung echter Käufe von Vergütung, Optionsausübung und 10b5-1-Plänen. 22 Tests. Offen: Anbindung an die Oberfläche |
+| §32 | Insidertransaktionen | `DONE` | `sec/form4.ts` **auf der Seite**: Person, Position, Stückzahl, Preis, Wert und die Unterscheidung echter Käufe von Vergütung, Optionsausübung und 10b5-1-Plänen. Jede Zeile trägt ihren Transaktionscode. 25 Tests |
 | §33 | Analystenurteile | `IN PROGRESS` | `providers/valuation-data.ts`: Buy/Hold/Sell und Kursziele **nach Zeitraum getrennt**. Live: AAPL 111 Urteile, Ziel 1M 329,55 $ gegen 1J 306,68 $. Offen: Anzeige |
 | §34 | Short Interest | `BLOCKED` | `short-interest` gibt HTTP 404 — nicht im Tarif |
 | §35 | Optionen | `BLOCKED` | `options-chain` gibt HTTP 404 — nicht im Tarif |
@@ -560,9 +560,9 @@ Rund 30 % Unterschied im Ergebnis — aus einem einzigen falsch beschafften Feld
 | §45 | Mehrdimensionales Signalsystem | `DONE` | Keine simplen BUY/SELL-Ausgaben |
 | §46 | Market Dashboard | `DONE` | — |
 | §47 | Screener über Gesamtuniversum | `BLOCKED` | BLOCKER-005, `company-screener` = 402 |
-| §48 | Globale Suche | `IN PROGRESS` | `search/fuzzy.ts`: Damerau-Levenshtein, ISIN mit **Prüfziffernvalidierung**, Treffer über Ticker/Name/Wortanfang/ISIN, Akzente ignoriert. 22 Tests, drei Regressionen gegengeprüft. Offen: Anbindung an die Command Palette |
+| §48 | Globale Suche | `DONE` | `search/fuzzy.ts` **verdrahtet**: `market-universe.ts` nutzt sie statt `includes()`. „Mircosoft" findet Microsoft. Damerau-Levenshtein, ISIN mit Prüfziffernvalidierung, Akzente ignoriert. 28 Tests, vier Regressionen gegengeprüft |
 | §50 | Kennzahlen mit Kontext | `IN PROGRESS` | `analysis/metric-context.ts` + `MetricWithContext`: 12 Kennzahlen mit Erklärung, Begründung, Vorbehalt und Fünfjahresvergleich. 18 Tests, zwei Regressionen gegengeprüft. Offen: Verdrahtung auf allen Seiten |
-| §49 | Asset-Seiten | `IN PROGRESS` | Reihenfolge nach §49 umgestellt: Chart von Platz **10 auf 2**, News vom **Ende auf 9**, Szenarien zuletzt. Offen: Bewertung, Insider, Filings und Peers sind gebaut, aber noch nicht auf der Seite platziert |
+| §49 | Asset-Seiten | `DONE` | Reihenfolge nach §49: Chart von Platz **10 auf 2**, News vom **Ende auf 9**, Bewertung/Kennzahlen/Analysten/Peers auf 4–6, Insider und Filings auf 11–12, Szenarien zuletzt. Alle Abschnitte an echten Daten |
 | §51 | Design | `IN PROGRESS` | Eigenständig, nicht systematisch geprüft |
 | §52 | Mobile/PWA | `IN PROGRESS` | Manifest vorhanden, nie auf Geräten geprüft |
 | §79 | i18n de/en | `NOT STARTED` | Oberfläche durchgängig deutsch |
