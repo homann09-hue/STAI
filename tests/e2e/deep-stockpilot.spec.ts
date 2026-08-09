@@ -1,11 +1,18 @@
 import { expect, test } from "@playwright/test";
 
 const routes = ["/", "/markets", "/stocks", "/etfs", "/crypto", "/indices", "/screener", "/watchlist", "/news-terminal", "/intelligence", "/calendar", "/analyses", "/backtesting", "/risk", "/compare", "/assets/NVDA", "/assets/AAPL", "/assets/MSFT", "/assets/VOO", "/assets/BTC-USD", "/assets/ETH-USD", "/learn", "/portfolio", "/alerts", "/pricing", "/settings", "/offline"];
+/**
+ * Routen, die **ohne Konto** eine gueltige Antwort liefern muessen.
+ *
+ * `/api/professional/overview` stand hier und ist entfernt: die Route ist seit
+ * der Entitlement-Durchsetzung gegatet und antwortet ohne Anmeldung mit 401.
+ * Das ist das gewuenschte Verhalten -- der Profi-Inhalt lag vorher fuer jeden
+ * Besucher offen. Die Gegenprobe dazu steht weiter unten.
+ */
 const apiRoutes = [
   "/api/market/overview",
   "/api/market/universe",
   "/api/market/quotes?symbols=NVDA,AAPL,BTC-USD",
-  "/api/professional/overview",
   "/api/assets/NVDA",
   "/api/assets/BTC-USD",
   "/api/news?symbol=NVDA",
@@ -95,6 +102,20 @@ test.describe("deep red-team browser checks", () => {
     expect(unsafeAlert.status()).toBe(400);
   });
 
+  test("gated routes stay closed without an account", async ({ request }) => {
+    // Die Gegenprobe zu `/api/professional/overview` in der Liste oben. Ohne
+    // diesen Test haette das Entfernen der Route aus `apiRoutes` die Pruefung
+    // nur geloescht statt verschoben -- und niemand haette gemerkt, wenn der
+    // Profi-Inhalt wieder offen liegt.
+    const response = await request.get("/api/professional/overview");
+
+    expect([401, 402, 403]).toContain(response.status());
+    expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+    // Kein CDN-Cache auf einer gegateten Antwort: sonst liefert das CDN den
+    // Bezahlinhalt nach einem berechtigten Aufruf an alle weiteren aus.
+    expect(response.headers()["cache-control"] ?? "").toMatch(/no-store|private/);
+  });
+
   test("portfolio form accepts transaction and updates UI", async ({ page }) => {
     await safeGoto(page, "/portfolio");
     await acceptRiskNotice(page);
@@ -103,7 +124,7 @@ test.describe("deep red-team browser checks", () => {
     await page.getByLabel("Branche / Thema").fill("Software / Cloud");
     await page.getByLabel("Menge").fill("2");
     await page.getByLabel("Durchschnittskurs").fill("500");
-    await page.getByLabel("Risiko je Position 0-100").fill("45");
+    await page.getByLabel("Ihre Risikoeinschätzung 0-100").fill("45");
     await page.getByRole("button", { name: "Vorgang speichern" }).click();
 
     await expect(page.getByText("MSFT").first()).toBeVisible();
