@@ -19,7 +19,7 @@ const bundle: FundamentalsBundle = {
     { fiscalYear: "2021", peRatio: 25.91, priceToSales: 6.71, priceToBook: 38.89, grossMargin: 0.418, netMargin: 0.259, debtToEquity: 2.16 }
   ],
   keyMetrics: [
-    { fiscalYear: "2025", returnOnEquity: 1.519, earningsYield: 0.0293, freeCashFlowYield: 0.0259, enterpriseValue: 3_895_186_810_000 }
+    { fiscalYear: "2025", returnOnEquity: 1.519, returnOnInvestedCapital: 0.6045, earningsYield: 0.0293, freeCashFlowYield: 0.0259, enterpriseValue: 3_895_186_810_000 }
   ],
   valuation: {
     freeCashFlow: 98_767_000_000,
@@ -31,10 +31,21 @@ const bundle: FundamentalsBundle = {
     freeCashFlowYield: 0.0259,
     blockers: []
   },
+  // Echte Kennzahlen vom 2026-08-08. Der Anbieter liefert sie einzeln je
+  // Symbol; nur der Sammelabruf ist gesperrt.
   peers: [
-    { symbol: "GOOGL", name: "Alphabet", marketCap: 4_287_778_028_630, price: 354.3 },
-    { symbol: "MSFT", name: "Microsoft", marketCap: 3_700_000_000_000, price: 502 },
-    { symbol: "META", name: "Meta", marketCap: 1_600_000_000_000, price: 620 }
+    {
+      symbol: "GOOGL", name: "Alphabet", marketCap: 4_287_778_028_630, price: 354.3,
+      metrics: { peRatio: 28.7, priceToSales: 8.1, grossMargin: 0.597, netMargin: 0.29, debtToEquity: 0.14, returnOnEquity: 0.32, returnOnInvestedCapital: 0.26 }
+    },
+    {
+      symbol: "MSFT", name: "Microsoft", marketCap: 3_700_000_000_000, price: 502,
+      metrics: { peRatio: 20.7, priceToSales: 11.2, grossMargin: 0.679, netMargin: 0.36, debtToEquity: 0.29, returnOnEquity: 0.3023, returnOnInvestedCapital: 0.2056 }
+    },
+    {
+      symbol: "META", name: "Meta", marketCap: 1_600_000_000_000, price: 620,
+      metrics: { peRatio: 27.5, priceToSales: 9.4, grossMargin: 0.82, netMargin: 0.34, debtToEquity: 0.39, returnOnEquity: 0.35, returnOnInvestedCapital: 0.28 }
+    }
   ],
   analysts: {
     strongBuy: 1, buy: 70, hold: 32, sell: 8, strongSell: 0, consensus: "Buy",
@@ -87,9 +98,44 @@ describe("Zusammensetzung der Ansicht", () => {
     expect(view.analysts?.consensus).toBe("Buy");
   });
 
-  it("stellt die Vergleichsgruppe dar", () => {
-    expect(view.peers).toHaveLength(1);
-    expect(view.peers[0].peers).toHaveLength(3);
+  it("vergleicht über Bewertung, Marge, Schulden und Kapitalrendite", () => {
+    // §36 verlangt genau diese Achsen. Eine fruehere Fassung zeigte nur
+    // Marktkapitalisierungen, weil ich annahm, der Tarif liefere zu Peers keine
+    // Kennzahlen -- nachgemessen war das falsch.
+    const labels = view.peers.map((row) => row.metric);
+
+    expect(labels).toContain("KGV");
+    expect(labels).toContain("Bruttomarge in %");
+    expect(labels).toContain("Verschuldungsgrad");
+    expect(labels).toContain("Kapitalrendite (ROIC) in %");
+  });
+
+  it("setzt das eigene KGV gegen den Median der Gruppe", () => {
+    // Peers: 28,7 / 20,7 / 27,5 -> Median 27,5. Apple steht bei 34,11.
+    const pe = view.peers.find((row) => row.metric === "KGV");
+
+    expect(pe?.own).toBeCloseTo(34.11, 2);
+    expect(pe?.median).toBeCloseTo(27.5, 2);
+    expect(pe?.interpretation).toContain("über dem Median");
+  });
+
+  it("rechnet Margen in Prozent, damit die Zahlen lesbar bleiben", () => {
+    const margin = view.peers.find((row) => row.metric === "Bruttomarge in %");
+
+    expect(margin?.own).toBeCloseTo(46.9, 1);
+    expect(margin?.median).toBeCloseTo(67.9, 1);
+  });
+
+  it("faellt ohne Peer-Kennzahlen auf die Marktkapitalisierung zurueck", () => {
+    // Besser eine Liste als gar nichts -- aber ausdruecklich als das benannt,
+    // was sie ist.
+    const bare = buildValuationView({
+      ...bundle,
+      peers: bundle.peers.map((peer) => ({ ...peer, metrics: null }))
+    });
+
+    expect(bare.peers).toHaveLength(1);
+    expect(bare.peers[0].metric).toContain("Marktkapitalisierung");
   });
 });
 

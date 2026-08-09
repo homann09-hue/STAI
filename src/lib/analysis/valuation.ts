@@ -377,6 +377,36 @@ export type PeerComparison = {
   interpretation: string;
 };
 
+/**
+ * Beschreibt eine Abweichung vom Median in der Sprache der jeweiligen Kennzahl.
+ *
+ * Bewusst ohne Kauf- oder Verkaufsempfehlung: beschrieben wird, **was** die
+ * Abweichung bedeutet, nicht was zu tun ist.
+ */
+function describeDeviation(metric: string, premiumPercent: number, direction: PeerMetricDirection): string {
+  const above = premiumPercent > 0;
+  const amount = `${Math.abs(premiumPercent)} %`;
+  const side = above ? "über" : "unter";
+  const lead = `${metric} liegt ${amount} ${side} dem Median der Gruppe.`;
+
+  if (direction === "valuation") {
+    return above
+      ? `${lead} Ein Aufschlag kann berechtigt sein — er muss durch Wachstum, Marge oder Qualität gedeckt sein.`
+      : `${lead} Ein Abschlag ist kein Kaufgrund, solange sein Anlass nicht geklärt ist.`;
+  }
+
+  if (direction === "lower_is_better") {
+    // Verschuldung und Aehnliches: mehr ist mehr Risiko, kein Aufschlag.
+    return above
+      ? `${lead} Der höhere Wert bedeutet mehr Hebel als bei den Wettbewerbern — Gewinne und Verluste fallen dadurch stärker aus.`
+      : `${lead} Der niedrigere Wert bedeutet mehr Spielraum in schlechten Jahren.`;
+  }
+
+  return above
+    ? `${lead} Das Unternehmen arbeitet an dieser Stelle wirksamer als die Vergleichsgruppe.`
+    : `${lead} Hier bleibt das Unternehmen hinter der Vergleichsgruppe zurück.`;
+}
+
 function median(values: readonly number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((left, right) => left - right);
@@ -394,7 +424,26 @@ function median(values: readonly number[]): number | null {
  * aus zwei Zahlen ist deren Mittelwert und hat mit einer Vergleichsgruppe
  * nichts zu tun.
  */
-export function comparePeers(metric: string, own: number | null, peers: readonly PeerMultiple[]): PeerComparison {
+/**
+ * In welche Richtung eine Abweichung zu lesen ist.
+ *
+ * Ohne diese Angabe bekam jede Kennzahl die Sprache eines Bewertungsvielfachen.
+ * An echten Daten las sich das so:
+ *
+ * > „Verschuldungsgrad liegt 666,7 % über dem Median. Ein **Aufschlag** kann
+ * > berechtigt sein — er muss durch Wachstum, Marge oder Qualität gedeckt sein."
+ *
+ * Das ist inhaltlich falsch. Ein höherer Verschuldungsgrad ist kein Aufschlag,
+ * den Wachstum rechtfertigt, sondern mehr Hebel und damit mehr Risiko.
+ */
+export type PeerMetricDirection = "valuation" | "higher_is_better" | "lower_is_better";
+
+export function comparePeers(
+  metric: string,
+  own: number | null,
+  peers: readonly PeerMultiple[],
+  direction: PeerMetricDirection = "valuation"
+): PeerComparison {
   const usable = peers
     .map((peer) => peer.value)
     .filter((value): value is number => value !== null && Number.isFinite(value) && value > 0);
@@ -415,9 +464,7 @@ export function comparePeers(metric: string, own: number | null, peers: readonly
           ? `Vergleich nicht bildbar.`
           : Math.abs(premiumPercent) < 10
             ? `${metric} liegt mit ${own.toFixed(1)} nahe am Median der Gruppe (${peerMedian.toFixed(1)}).`
-            : premiumPercent > 0
-              ? `${metric} liegt ${premiumPercent} % über dem Median der Gruppe. Ein Aufschlag kann berechtigt sein — er muss durch Wachstum, Marge oder Qualität gedeckt sein.`
-              : `${metric} liegt ${Math.abs(premiumPercent)} % unter dem Median der Gruppe. Ein Abschlag ist kein Kaufgrund, solange sein Anlass nicht geklärt ist.`;
+            : describeDeviation(metric, premiumPercent, direction);
 
   return { metric, own, peers: [...peers], median: peerMedian, premiumPercent, interpretation };
 }

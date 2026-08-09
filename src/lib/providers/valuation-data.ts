@@ -76,6 +76,8 @@ export function parseRatioHistory(raw: unknown): RatioYear[] {
 export type KeyMetricsYear = {
   fiscalYear: string | null;
   returnOnEquity: number | null;
+  /** §36 verlangt ROIC ausdrücklich. Das Feld fehlte hier zunächst ganz. */
+  returnOnInvestedCapital: number | null;
   earningsYield: number | null;
   freeCashFlowYield: number | null;
   enterpriseValue: number | null;
@@ -95,6 +97,7 @@ export function parseKeyMetrics(raw: unknown): KeyMetricsYear[] {
         // ist das Feld im Tarif durchgehend 0. Ein Wert von 0 % waere eine
         // Aussage, keine Luecke, deshalb wird die andere Quelle genutzt.
         returnOnEquity: num(entry.returnOnEquity),
+        returnOnInvestedCapital: num(entry.returnOnInvestedCapital),
         earningsYield: num(entry.earningsYield),
         freeCashFlowYield: num(entry.freeCashFlowYield),
         enterpriseValue: num(entry.enterpriseValue)
@@ -183,7 +186,24 @@ export function toDcfAssumptions(inputs: ValuationInputs): DcfAssumptions | null
   };
 }
 
-export type PeerEntry = { symbol: string; name: string; marketCap: number | null; price: number | null };
+export type PeerEntry = {
+  symbol: string;
+  name: string;
+  marketCap: number | null;
+  price: number | null;
+  /** Kennzahlen des Peers. `null`, solange sie nicht geladen wurden. */
+  metrics: PeerMetrics | null;
+};
+
+export type PeerMetrics = {
+  peRatio: number | null;
+  priceToSales: number | null;
+  grossMargin: number | null;
+  netMargin: number | null;
+  debtToEquity: number | null;
+  returnOnEquity: number | null;
+  returnOnInvestedCapital: number | null;
+};
 
 export function parsePeers(raw: unknown): PeerEntry[] {
   const rows = Array.isArray(raw) ? raw : [];
@@ -199,11 +219,40 @@ export function parsePeers(raw: unknown): PeerEntry[] {
         symbol,
         name: typeof entry.companyName === "string" ? entry.companyName : symbol,
         marketCap: num(entry.mktCap),
-        price: num(entry.price)
+        price: num(entry.price),
+        metrics: null
       }
     ];
   });
 }
+
+/** Wertet Kennzahlen und Renditen eines Peers aus. Rein. */
+export function parsePeerMetrics(ratiosRaw: unknown, keyMetricsRaw: unknown): PeerMetrics | null {
+  const ratio = Array.isArray(ratiosRaw) ? (ratiosRaw[0] as Record<string, unknown> | undefined) : undefined;
+  const metric = Array.isArray(keyMetricsRaw) ? (keyMetricsRaw[0] as Record<string, unknown> | undefined) : undefined;
+  if (!ratio && !metric) return null;
+
+  return {
+    peRatio: num(ratio?.priceToEarningsRatio),
+    priceToSales: num(ratio?.priceToSalesRatio),
+    grossMargin: num(ratio?.grossProfitMargin),
+    netMargin: num(ratio?.netProfitMargin),
+    debtToEquity: num(ratio?.debtToEquityRatio),
+    // Beide kommen aus `key-metrics`: in `ratios` steht die
+    // Eigenkapitalrendite im Tarif durchgehend auf 0.
+    returnOnEquity: num(metric?.returnOnEquity),
+    returnOnInvestedCapital: num(metric?.returnOnInvestedCapital)
+  };
+}
+
+/**
+ * Wie viele Peers Kennzahlen bekommen.
+ *
+ * Jeder kostet **zwei** Abrufe, weil der Sammelabruf über eine Kommaliste mit
+ * HTTP 402 antwortet. Fünf Peers sind zehn Anfragen — genug für einen Median
+ * und wenig genug, um den Seitenaufbau nicht zu verschleppen.
+ */
+export const MAX_PEERS_WITH_METRICS = 5;
 
 export type AnalystView = {
   strongBuy: number;
@@ -323,6 +372,21 @@ export async function fetchFundamentals(
 
   const ratios = parseRatioHistory(ratiosRaw);
   const keyMetrics = parseKeyMetrics(metricsRaw);
+  const peers = parsePeers(peersRaw);
+
+  // Kennzahlen der Vergleichsgruppe nachladen. Der Sammelabruf ueber eine
+  // Kommaliste antwortet mit HTTP 402, also bleibt nur einzeln -- und deshalb
+  // gedeckelt.
+  const peersWithMetrics = await Promise.all(
+    peers.slice(0, MAX_PEERS_WITH_METRICS).map(async (peer) => {
+      const [peerRatios, peerMetrics] = await Promise.all([
+        fmp<unknown>("ratios", { symbol: peer.symbol, limit: "1" }),
+        fmp<unknown>("key-metrics", { symbol: peer.symbol, limit: "1" })
+      ]);
+
+      return { ...peer, metrics: parsePeerMetrics(peerRatios, peerMetrics) };
+    })
+  );
   const cash = Array.isArray(cashRaw) ? (cashRaw[0] as Record<string, unknown> | undefined) : undefined;
   const balance = Array.isArray(balanceRaw) ? (balanceRaw[0] as Record<string, unknown> | undefined) : undefined;
 
@@ -339,7 +403,9 @@ export async function fetchFundamentals(
       earningsYield: keyMetrics[0]?.earningsYield ?? null,
       freeCashFlowYield: keyMetrics[0]?.freeCashFlowYield ?? null
     }),
-    peers: parsePeers(peersRaw),
+    // Peers ohne Kennzahlen bleiben in der Liste: sie gehoeren zur
+    // Vergleichsgruppe, auch wenn ihre Zahlen nicht geladen wurden.
+    peers: [...peersWithMetrics, ...peers.slice(MAX_PEERS_WITH_METRICS)],
     analysts: parseAnalystView(consensusRaw, targetsRaw),
     note: `Abschlussdaten aus bis zu ${MAX_FISCAL_YEARS} Geschäftsjahren. Financial Modeling Prep.`
   };

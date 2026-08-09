@@ -288,4 +288,40 @@ describe("Peer-Vergleich", () => {
   it("nennt eine geringe Abweichung eine geringe Abweichung", () => {
     expect(comparePeers("KGV", 27.5, peers).interpretation).toContain("nahe am Median");
   });
+
+  it("spricht bei Verschuldung nicht von einem Aufschlag", () => {
+    // Der Fehler, den die Live-Probe zeigte: jede Kennzahl bekam die Sprache
+    // eines Bewertungsvielfachen. An echten Daten stand da
+    //
+    //   „Verschuldungsgrad liegt 666,7 % über dem Median. Ein Aufschlag kann
+    //    berechtigt sein — er muss durch Wachstum, Marge oder Qualität gedeckt
+    //    sein."
+    //
+    // Ein höherer Verschuldungsgrad ist kein Aufschlag, den Wachstum
+    // rechtfertigt, sondern mehr Hebel.
+    const debt = comparePeers("Verschuldungsgrad", 1.5, [
+      { symbol: "A", name: "A", value: 0.14 },
+      { symbol: "B", name: "B", value: 0.29 },
+      { symbol: "C", name: "C", value: 0.39 }
+    ], "lower_is_better");
+
+    expect(debt.interpretation).not.toContain("Aufschlag");
+    expect(debt.interpretation).toContain("mehr Hebel");
+  });
+
+  it("beschreibt eine hohe Marge als Vorsprung, nicht als teuer", () => {
+    const margin = comparePeers("Bruttomarge in %", 82, [
+      { symbol: "A", name: "A", value: 46 },
+      { symbol: "B", name: "B", value: 59 },
+      { symbol: "C", name: "C", value: 67 }
+    ], "higher_is_better");
+
+    expect(margin.interpretation).toContain("wirksamer als die Vergleichsgruppe");
+    expect(margin.interpretation).not.toContain("Aufschlag");
+  });
+
+  it("bleibt bei Bewertungsvielfachen bei der alten Sprache", () => {
+    // Dort war sie richtig und soll bleiben.
+    expect(comparePeers("KGV", 40, peers).interpretation).toContain("Aufschlag");
+  });
 });

@@ -159,7 +159,7 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §33 | Analystenurteile | `DONE` | Buy/Hold/Sell und Kursziele nach Zeitraum getrennt, dazu die **zeitliche Veränderung als Darstellung**: gemeinsame Skala mit dem aktuellen Kurs als Bezugslinie. Live: AAPL 111 Urteile, Ziel 1M 329,55 $ gegen 1J 306,68 $ |
 | §34 | Short Interest | `BLOCKED` | `short-interest` gibt HTTP 404 — nicht im Tarif |
 | §35 | Optionen | `BLOCKED` | `options-chain` gibt HTTP 404 — nicht im Tarif |
-| §36 | Peer-Analyse | `NOT STARTED` | **Quelle vorhanden**: `stock-peers` antwortet mit 200 |
+| §36 | Peer-Analyse | `DONE` | Vergleich über KGV, KUV, Brutto- und Nettomarge, Verschuldung und **ROIC** gegen den Median der Gruppe. Live an AAPL gegen fünf Wettbewerber. Offen: Wachstum, Performance und Analystenerwartungen als Vergleichsachsen |
 | §37 | Bewertungsmodelle DCF/Multiples | `IN PROGRESS` | `analysis/valuation.ts`: DCF, Reverse DCF, Sensitivität, Gewinn- und FCF-Rendite, Peer-Median. 31 Tests, fünf Regressionen gegengeprüft. Offen: Anbindung an die Oberfläche und historische Bewertung |
 | §38 | Szenarien mit Bandbreiten | `VERIFIED` | `forecast-passport.ts`, keine Punktziele |
 | §39 | Forecast-Transparenz | `VERIFIED` | Ledger mit Cutoff, Modellversion, Input-Digest |
