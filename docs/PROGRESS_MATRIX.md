@@ -156,7 +156,7 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §30 | Sentiment | `IN PROGRESS` | Teilweise über News |
 | §31 | SEC-Filings mit Originallink | `DONE` | `sec/edgar.ts` + `GET /api/sec/filings`. EDGAR ist **kostenlos und die Primärquelle**. Gemessen an Apple: 1000 Filings, davon 587 Form 4, 105 8-K, 34 10-Q. 13 Tests |
 | §32 | Insidertransaktionen | `IN PROGRESS` | `sec/form4.ts`: Person, Position, Stückzahl, Preis, Wert — und die von §32 verlangte Unterscheidung echter Käufe von Vergütung, Optionsausübung und 10b5-1-Plänen. 22 Tests. Offen: Anbindung an die Oberfläche |
-| §33 | Analystenurteile | `NOT STARTED` | **Quelle vorhanden**: `price-target-summary`, `grades`, `grades-consensus` antworten alle mit 200 |
+| §33 | Analystenurteile | `IN PROGRESS` | `providers/valuation-data.ts`: Buy/Hold/Sell und Kursziele **nach Zeitraum getrennt**. Live: AAPL 111 Urteile, Ziel 1M 329,55 $ gegen 1J 306,68 $. Offen: Anzeige |
 | §34 | Short Interest | `BLOCKED` | `short-interest` gibt HTTP 404 — nicht im Tarif |
 | §35 | Optionen | `BLOCKED` | `options-chain` gibt HTTP 404 — nicht im Tarif |
 | §36 | Peer-Analyse | `NOT STARTED` | **Quelle vorhanden**: `stock-peers` antwortet mit 200 |
@@ -537,8 +537,19 @@ Nettoverschuldung als `enterpriseValue − marketCap` abgeleitet und erhielt
 707 Mrd. $ Nettoliquidität — um über eine Größenordnung zu hoch. Ursache: der
 Unternehmenswert stammt aus dem Geschäftsjahr 2025, die Marktkapitalisierung
 von heute. Genau das Vermischen von Stichtagen, das §22 verbietet und das die
-Zinsstrukturbewertung bereits verweigert. Die Falle steht jetzt am Feld selbst
-dokumentiert.
+Zinsstrukturbewertung bereits verweigert.
+
+**Behoben und nachgemessen.** Die Nettoverschuldung kommt jetzt aus der Bilanz
+(`balance-sheet-statement.netDebt`). Für AAPL sind das **76,4 Mrd. $ Schulden**
+statt 707 Mrd. $ Liquidität — und das verschiebt die Bewertung erheblich:
+
+| | mit falschem Wert | mit Bilanzwert |
+|---|---|---|
+| DCF-Punktwert | 182,10 $ | **128,77 $** |
+| Spanne | 140–290 $ | **88–240 $** |
+| Implizites Wachstum | 25,3 % | **30,3 %** |
+
+Rund 30 % Unterschied im Ergebnis — aus einem einzigen falsch beschafften Feld.
 
 ## Produkt und Oberfläche
 
