@@ -69,9 +69,13 @@ test("learn and pricing pages explain beginner and business paths", async ({ pag
   await page.goto("/pricing");
   await acceptRiskNotice(page);
 
+  // Die Tarife heissen Free, Pro und Premium. "Elite / Business" stand hier
+  // noch aus der Zeit davor -- der Test lief seit der Umbenennung nie, weil
+  // E2E nur in `redteam.yml` und `vercel-manual.yml` haengt und beide nur
+  // manuell starten.
   await expect(page.getByRole("heading", { name: "Free", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Elite / Business", exact: true })).toBeVisible();
-  await expect(page.getByText("Feature-Gates vorbereitet")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pro", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Premium", exact: true })).toBeVisible();
 });
 
 test("settings contains investor mode instead of dashboard", async ({ page }) => {
@@ -89,9 +93,10 @@ test("settings contains investor mode instead of dashboard", async ({ page }) =>
 test("professional finance terminal pages render core data areas", async ({ page }) => {
   await safeGoto(page, "/markets");
   await acceptRiskNotice(page);
-  await expect(page.getByText("Global Market Overview").first()).toBeVisible();
-  await expect(page.getByText("Profi-Datenzentrum")).toBeVisible();
-  await expect(page.getByText("Qualitäts-Summary")).toBeVisible();
+  // Ohne Konto zeigt /markets die Paywall statt des Profi-Berichts -- das ist
+  // die Durchsetzung aus §4, nicht ein Fehler. Vorher lag der Inhalt fuer
+  // jeden Besucher offen im HTML.
+  await expect(page.getByText(/Pro-Tarif|Anmeldung|nicht verfügbar/i).first()).toBeVisible();
 
   await safeGoto(page, "/stocks");
   await expect(page.getByText("Aktien-Screener").first()).toBeVisible();
