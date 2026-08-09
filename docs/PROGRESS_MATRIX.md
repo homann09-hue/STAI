@@ -549,13 +549,70 @@ dokumentiert.
 | §45 | Mehrdimensionales Signalsystem | `DONE` | Keine simplen BUY/SELL-Ausgaben |
 | §46 | Market Dashboard | `DONE` | — |
 | §47 | Screener über Gesamtuniversum | `BLOCKED` | BLOCKER-005, `company-screener` = 402 |
-| §48 | Globale Suche | `IN PROGRESS` | Command Palette mit Herkunft; ISIN blockiert |
+| §48 | Globale Suche | `IN PROGRESS` | `search/fuzzy.ts`: Damerau-Levenshtein, ISIN mit **Prüfziffernvalidierung**, Treffer über Ticker/Name/Wortanfang/ISIN, Akzente ignoriert. 22 Tests, drei Regressionen gegengeprüft. Offen: Anbindung an die Command Palette |
+| §50 | Kennzahlen mit Kontext | `IN PROGRESS` | `analysis/metric-context.ts` + `MetricWithContext`: 12 Kennzahlen mit Erklärung, Begründung, Vorbehalt und Fünfjahresvergleich. 18 Tests, zwei Regressionen gegengeprüft. Offen: Verdrahtung auf allen Seiten |
 | §49 | Asset-Seiten | `DONE` | Inklusive ehrlicher Sackgassen-Ansicht |
 | §51 | Design | `IN PROGRESS` | Eigenständig, nicht systematisch geprüft |
 | §52 | Mobile/PWA | `IN PROGRESS` | Manifest vorhanden, nie auf Geräten geprüft |
 | §79 | i18n de/en | `NOT STARTED` | Oberfläche durchgängig deutsch |
 | §81/§82/§83 | Export, Sharing, Workspaces | `NOT STARTED` | Nur DSGVO-Export |
 | §102–§105 | Trading-Bot, Paper Trading, Strategy/Risk Engine | `NOT STARTED` | `risk-engine.ts` deckt Analyse ab, nicht Ausführung |
+
+### §48 und §50: zwei Entwürfe, eine Regel
+
+**§48 — ein falscher Treffer ist schlimmer als kein Treffer.**
+
+Wer „Mircosoft" tippt, meint Microsoft. Wer „qqqwwweee" tippt, meint nichts —
+und dann darf nicht das Ähnlichste erscheinen, weil der Nutzer sonst glaubt,
+gefunden zu haben, was er suchte. Die Mindestähnlichkeit liegt bei 0,7, unter
+vier Zeichen wird gar nicht unscharf gesucht.
+
+Der Editierabstand ist **Damerau**-Levenshtein, nicht der einfache: der
+Zahlendreher zählt als ein Schritt statt zwei. Das ist beim Tippen der
+häufigste Fehler überhaupt.
+
+**ISINs werden nie unscharf gesucht.** Eine um ein Zeichen abweichende ISIN ist
+ein anderes Papier, kein ähnliches. Dafür wird die Prüfziffer validiert
+(Buchstaben zu Zahlen, dann Luhn), und das entscheidet über die Auskunft:
+
+| Eingabe | Antwort |
+|---|---|
+| `US0378331005` | Apple |
+| `US0378331006` | „Ungültige Prüfziffer. Vermutlich ein Tippfehler" |
+| `GB0002634946` | „Gültig aufgebaut, hier aber nicht hinterlegt" |
+
+Der Unterschied entscheidet, wo der Nutzer weitersucht — bei sich oder bei uns.
+
+**§50 — der Vergleich macht die Zahl erst verständlich.**
+
+Der Anspruch steht wörtlich im Auftrag: nicht `P/E 42`, sondern
+`P/E 42 – deutlich über dem 5-Jahres-Median`.
+
+Gemessen am 2026-08-08: der Tarif liefert genau **fünf** Geschäftsjahre
+(`limit=5` → 200, `limit=6` → HTTP 402). Das passt zufällig genau auf das
+Fenster, das §50 nennt. Der Zeitraum wird trotzdem überall mit ausgegeben statt
+angenommen — bei drei Jahren steht „3-Jahres-Median" da.
+
+An echten AAPL-Daten:
+
+```
+KGV 34,1 — deutlich über dem 5-Jahres-Median von 27,8.   (+22,7 %)
+```
+
+Zwei Trennungen sind Absicht:
+
+1. **Messung und Bewertung stehen nicht im selben Satz.** „Über dem Median" ist
+   eine Messung. Ob das gut ist, hängt von der Kennzahl ab — bei der Marge ist
+   „darüber" günstig, beim KGV nicht. Die Färbung übernimmt `bandTone()`, der
+   Satz bleibt wertungsfrei.
+2. **Der Vorbehalt ist Pflichtfeld.** Bei vielen Kennzahlen ist er der
+   wichtigste Teil: ein hohes KGV heißt nicht „teuer", sondern „der Markt
+   erwartet Wachstum". Der ADX sagt gar nichts über die Richtung.
+
+**Eine Lücke, die die Daten selbst zeigten:** bei AAPL steht die
+Eigenkapitalrendite in allen fünf Jahren auf `0,00`. Das ist ein leeres
+Anbieterfeld, keine Messung — eine Rendite von 0 % wäre eine Aussage. Eine
+Reihe aus lauter Nullen gilt deshalb als Lücke.
 
 ## Technik und Betrieb
 
