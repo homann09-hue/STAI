@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseFmpDailyHistory, sliceHistoryRanges } from "@/lib/providers/price-history";
+import { limitHistoryByYears } from "@/lib/billing/history-limit";
 
 /**
  * Vor dieser Datei erzeugte `candlesFromQuote` aus einem einzelnen Kurs 32
@@ -64,6 +65,41 @@ describe("Auswertung der Anbieterantwort", () => {
     expect(candle.high).toBe(100);
     expect(candle.low).toBe(100);
     expect(candle.volume).toBe(0);
+  });
+});
+
+describe("Tariflimit auf die Historie", () => {
+  const now = new Date("2026-08-09T12:00:00.000Z");
+  const fiveYears = parseFmpDailyHistory(
+    "AAPL",
+    Array.from({ length: 1255 }, (_, index) => {
+      const date = new Date(now.getTime() - index * 86_400_000);
+      return row(date.toISOString().slice(0, 10), 100 + index);
+    })
+  );
+
+  it("kürzt ein Free-Konto auf ein Jahr", () => {
+    // Der eigentliche Punkt: `price-history.ts` liefert jedem fuenf Jahre. Ohne
+    // Kuerzung sieht ein Free-Konto genau dieselbe Historie wie ein
+    // Premium-Konto -- und §4 nennt dafuer 1 gegen 20 Jahre.
+    const limited = limitHistoryByYears(fiveYears, 1, now);
+
+    expect(fiveYears.length).toBe(1255);
+    expect(limited.candles.length).toBeLessThan(380);
+    expect(limited.truncated).toBe(true);
+  });
+
+  it("lässt Premium die volle Reihe", () => {
+    expect(limitHistoryByYears(fiveYears, 20, now).candles).toHaveLength(1255);
+  });
+
+  it("behält die jüngsten Kerzen", () => {
+    // Sonst bekaeme ein Free-Konto das aelteste Jahr -- dieselbe Menge,
+    // praktisch wertlos.
+    const limited = limitHistoryByYears(fiveYears, 1, now);
+    const newest = limited.candles[limited.candles.length - 1];
+
+    expect(new Date(newest.timestamp).getTime()).toBeGreaterThan(now.getTime() - 2 * 86_400_000);
   });
 });
 

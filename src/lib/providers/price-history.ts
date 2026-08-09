@@ -19,6 +19,7 @@
  * überall: **keine Historie ist keine erfundene Historie.**
  */
 
+import { limitHistoryByYears } from "@/lib/billing/history-limit";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
 import { chartRanges, type Candle, type TimeRange } from "@/lib/types";
 
@@ -144,6 +145,27 @@ export function sliceHistoryRanges(daily: readonly Candle[], now = new Date()): 
   return Object.fromEntries(entries) as Record<TimeRange, Candle[]>;
 }
 
+/**
+ * Wendet das Tariflimit auf eine bereits geholte Reihe an.
+ *
+ * Getrennt vom Abruf, damit der Zwischenspeicher die ungekürzte Reihe halten
+ * kann: die Grenze gehört zum Aufrufer, nicht zum Symbol.
+ */
+function applyPlanLimit(result: HistoryResult, limitYears: number | undefined, now: Date): HistoryResult {
+  if (limitYears === undefined || result.candles.length === 0) return result;
+
+  const limited = limitHistoryByYears(result.candles, limitYears, now);
+  if (!limited.truncated) return result;
+
+  return {
+    ...result,
+    candles: limited.candles,
+    // Der Hinweis wird angehaengt statt ersetzt: die Herkunft bleibt sichtbar,
+    // die Kuerzung kommt dazu.
+    note: `${result.note} ${limited.note}`.trim()
+  };
+}
+
 type CacheEntry = { result: HistoryResult; storedAtMs: number };
 
 const historyCache = new Map<string, CacheEntry>();
@@ -165,12 +187,29 @@ export function clearHistoryCache() {
  * Analysepfad darf an fehlender Historie nicht abbrechen, aber er darf sie
  * eben auch nicht ersetzen.
  */
-export async function fetchDailyHistory(symbol: string, now = new Date()): Promise<HistoryResult> {
+export async function fetchDailyHistory(
+  symbol: string,
+  now = new Date(),
+  /**
+   * Wie viele Jahre der Tarif umfasst (§4 `historicalDataYears`).
+   *
+   * Die Kürzung passiert **hier** und nicht in der Anzeige: sonst läge die
+   * vollständige Reihe im ausgelieferten HTML, und ein Free-Konto käme mit dem
+   * Entwicklerwerkzeug an die Premium-Historie. §4 verlangt, dass der Client
+   * nie über den Tarif entscheidet.
+   */
+  limitYears?: number
+): Promise<HistoryResult> {
   const normalized = symbol.trim().toUpperCase();
   if (!normalized) return NO_HISTORY;
 
+  // Der Zwischenspeicher haelt die **ungekuerzte** Reihe. Die Kuerzung haengt
+  // am Tarif des Aufrufers und darf deshalb nicht mit zwischengespeichert
+  // werden -- sonst bekaeme der naechste Nutzer die Grenze des vorigen.
   const cached = historyCache.get(normalized);
-  if (cached && now.getTime() - cached.storedAtMs < HISTORY_TTL_MS) return cached.result;
+  if (cached && now.getTime() - cached.storedAtMs < HISTORY_TTL_MS) {
+    return applyPlanLimit(cached.result, limitYears, now);
+  }
 
   const token = process.env.FMP_API_KEY;
   if (!token) {
@@ -221,5 +260,5 @@ export async function fetchDailyHistory(symbol: string, now = new Date()): Promi
   }
   historyCache.set(normalized, { result, storedAtMs: now.getTime() });
 
-  return result;
+  return applyPlanLimit(result, limitYears, now);
 }
