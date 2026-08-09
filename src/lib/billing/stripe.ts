@@ -11,8 +11,12 @@ export type StripeCheckoutPlan = PaidPlanId;
  * eine eigene Preis-ID; ein Jahresabo laesst sich nicht aus einem Monatspreis
  * ableiten. Fehlt eine ID, ist der jeweilige Zeitraum schlicht nicht buchbar --
  * ein Knopf ohne hinterlegten Preis waere eine Funktionsattrappe.
+ *
+ * Exportiert, weil der Adminbereich beim Fehlen einer Variablen ihren **Namen**
+ * nennen muss. "Premium jaehrlich ist nicht buchbar" schickt jemanden auf die
+ * Suche; "STRIPE_PREMIUM_YEARLY_PRICE_ID fehlt" ist in einer Minute behoben.
  */
-const priceEnvNames: Record<PaidPlanId, Record<BillingInterval, string>> = {
+export const priceEnvNames: Record<PaidPlanId, Record<BillingInterval, string>> = {
   pro: { month: "STRIPE_PRO_PRICE_ID", year: "STRIPE_PRO_YEARLY_PRICE_ID" },
   premium: { month: "STRIPE_PREMIUM_PRICE_ID", year: "STRIPE_PREMIUM_YEARLY_PRICE_ID" }
 };

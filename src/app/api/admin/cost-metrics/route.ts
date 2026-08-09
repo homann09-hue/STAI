@@ -1,5 +1,6 @@
 import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
 import { hasPrivilegedAccess } from "@/lib/admin-access";
+import { requireAdmin } from "@/lib/billing/admin-guard";
 import { entitledCacheHeaders } from "@/lib/billing/feature-guard";
 import { assessMargin, formatTenthCents, summarizeCost, type ProviderId } from "@/lib/cost/provider-costs";
 import { aggregateByAccount, type UsageRow } from "@/lib/cost/usage-recorder";
@@ -21,7 +22,7 @@ const MAX_ACCOUNTS_REPORTED = 25;
  * Wie viel spart der Cache? Was kostet ein aktives Konto? Und trägt sein Tarif
  * diese Kosten?
  *
- * Bewusst hinter dem Admin-Geheimnis und nicht hinter einem Tarif: das sind
+ * Bewusst hinter der Adminprüfung und nicht hinter einem Tarif: das sind
  * Betriebszahlen des Unternehmens, keine Produktfunktion. Die Antwort enthält
  * Konto-IDs — sie gehört niemandem außer dem Betreiber.
  */
@@ -29,9 +30,21 @@ export async function GET(request: Request) {
   const limited = await rateLimit(request);
   if (limited) return limited;
 
+  // Zwei Wege hierher, und beide werden gebraucht:
+  //
+  //   - das Betriebsgeheimnis, fuer Cronjobs und Ueberwachung ohne Konto
+  //   - ein angemeldetes Adminkonto, fuer den Adminbereich im Browser
+  //
+  // Der Adminbereich kann den zweiten Weg nicht umgehen: ein Geheimnis, das
+  // JavaScript im Browser mitschickt, ist kein Geheimnis mehr. Ohne diese
+  // zweite Tuer haette die Seite entweder keine Kostenzahlen -- oder das
+  // Geheimnis staende im ausgelieferten Code.
+  //
+  // Die Reihenfolge ist Absicht: die Geheimnispruefung ist ein
+  // Zeichenkettenvergleich, die Kontopruefung kostet eine Datenbankabfrage.
   if (!hasPrivilegedAccess(request, "admin")) {
-    // Kein Hinweis darauf, ob das Geheimnis fehlt oder falsch ist.
-    return jsonError("Kein Zugriff.", 403, entitledCacheHeaders);
+    const admin = await requireAdmin(request);
+    if (!admin.ok) return admin.response;
   }
 
   const supabase = createSupabaseServiceClient();

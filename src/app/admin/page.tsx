@@ -1,8 +1,9 @@
 import { AdminAccountsPanel } from "@/components/admin-accounts-view";
+import { AdminCostPanel, AdminPlansPanel } from "@/components/admin-operations-view";
 
 export const metadata = {
   title: "Verwaltung",
-  description: "Konten, Abos und Freischaltungen.",
+  description: "Konten, Abos, Kosten und Tarife.",
   robots: {
     index: false,
     follow: false
@@ -17,12 +18,12 @@ export const metadata = {
  * Eine Seite, die nur die Navigation versteckt, wäre keine Absicherung: wer
  * die Adresse kennt, ruft sie trotzdem auf.
  *
- * Wer hier ohne Rechte landet, sieht deshalb eine leere Ansicht mit der
- * Fehlermeldung der Route — und nicht etwa fremde Kontodaten.
+ * Wer hier ohne Rechte landet, sieht deshalb leere Abschnitte mit der
+ * Fehlermeldung der jeweiligen Route — und keine fremden Kontodaten.
  */
 export default function AdminPage() {
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-8 px-4 py-8">
+    <main className="mx-auto w-full max-w-6xl space-y-10 px-4 py-8">
       <header>
         <h1 className="text-2xl font-semibold">Verwaltung</h1>
         <p className="text-sm text-muted-foreground">
@@ -31,6 +32,8 @@ export default function AdminPage() {
       </header>
 
       <AdminAccountsPanel />
+      <AdminCostPanel />
+      <AdminPlansPanel />
     </main>
   );
 }
