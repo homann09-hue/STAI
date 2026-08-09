@@ -4,7 +4,7 @@ import { analyzePortfolio } from "@/lib/portfolio-analytics";
 import { isMissingRelationError } from "@/lib/supabase/postgrest-errors";
 import { logEvent } from "@/lib/observability";
 import { createSupabaseServiceClient, createSupabaseUserClient } from "@/lib/supabase/server";
-import type { AlertFrequency, AlertNotificationChannel, AlertRule, AlertType, AssetType, PortfolioPosition, PortfolioSummary, PortfolioTradeInput } from "@/lib/types";
+import type { AlertExecutionStatus, AlertFrequency, AlertNotificationChannel, AlertRule, AlertType, AssetType, PortfolioPosition, PortfolioSummary, PortfolioTradeInput } from "@/lib/types";
 
 type SupabaseClient = NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
 
@@ -301,7 +301,38 @@ export async function listUserAlerts(auth: Extract<AuthResult, { ok: true }>) {
     .limit(250);
 
   if (error) throw error;
-  return ((data ?? []) as AlertRuleRow[]).map(alertFromRow);
+
+  const alerts = ((data ?? []) as AlertRuleRow[]);
+  const latestEventByAlert = new Map<string, AlertExecutionStatus>();
+  const alertIds = alerts.map((alert) => alert.id).filter(Boolean);
+
+  if (alertIds.length) {
+    const { data: eventData, error: eventError } = await auth.supabase
+      .from("alert_events")
+      .select("alert_rule_id,triggered_at")
+      .in("alert_rule_id", alertIds)
+      .order("triggered_at", { ascending: false })
+      .limit(250);
+
+    if (!eventError && Array.isArray(eventData)) {
+      for (const item of eventData as Array<{ alert_rule_id: string; triggered_at: string }>) {
+        if (!latestEventByAlert.has(item.alert_rule_id)) {
+          latestEventByAlert.set(item.alert_rule_id, "triggered");
+        }
+      }
+    }
+  }
+
+  return alerts.map((alert) => {
+    const normalized = alertFromRow(alert);
+    if (latestEventByAlert.has(alert.id)) {
+      return { ...normalized, status: "triggered" as const };
+    }
+    if (!alert.enabled) {
+      return { ...normalized, status: "paused" as const };
+    }
+    return { ...normalized, status: "created" as const };
+  });
 }
 
 export async function createUserAlert(

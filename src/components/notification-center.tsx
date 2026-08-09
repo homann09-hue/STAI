@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Bell, CheckCheck, ExternalLink, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
+import { fetchWithSupabaseAuth } from "@/lib/supabase/client-fetch";
 import type { AppNotification, AppNotificationSeverity } from "@/lib/notifications";
 
 const severityTone: Record<AppNotificationSeverity, string> = {
@@ -104,7 +105,7 @@ export function NotificationCenter() {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), NOTIFICATION_TIMEOUT_MS);
 
-    fetch("/api/notifications", {
+    fetchWithSupabaseAuth("/api/notifications", {
       cache: "no-store",
       headers: { accept: "application/json" },
       signal: controller.signal

@@ -226,7 +226,7 @@ Das Projekt ist für ein eigenes GitHub-Repository und ein eigenes Vercel-Projek
 
 Der Vercel-Workflow läuft bewusst nur manuell und nutzt StockPilot-spezifische Secrets mit `STOCKPILOT_`-Präfix.
 
-`STOCKPILOT_CRON_SECRET` schützt `/api/alerts/run`. Auf Vercel Hobby ist der Cron in `vercel.json` bewusst täglich geplant, weil häufigere Cron-Ausführung einen Pro-Plan oder externen Scheduler benötigt. Der Alert-Worker bleibt standardmäßig im Dry-Run und schreibt keine simulierten Events. `STOCKPILOT_ENABLE_SIMULATED_ALERT_WORKER=true` darf nur für kontrollierte Tests gesetzt werden, bis echte serverseitige Providerwerte angebunden sind.
+`STOCKPILOT_CRON_SECRET` schützt `/api/alerts/run`. Auf Vercel Hobby ist der Cron in `vercel.json` bewusst täglich geplant, weil häufigere Cron-Ausführung einen Pro-Plan oder externen Scheduler benötigt. Der Alert-Worker nutzt jetzt echte Providerwerte für unterstützte `price`, `volume` und `rsi` Alarme. Simulierte Events werden nur dann persistiert, wenn `STOCKPILOT_ENABLE_SIMULATED_ALERT_WORKER=true` gesetzt ist. Dieser Schalter darf nur für kontrollierte Tests verwendet werden, bis die gesamte serverseitige Alert-Pipeline mit echten Providerdaten verifiziert ist.
 
 ## Supabase
 

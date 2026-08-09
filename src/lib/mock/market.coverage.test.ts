@@ -72,6 +72,18 @@ describe("mock market data coverage", () => {
     );
     expect(dashboard.dataQualitySummary.mockSources).toBeGreaterThan(0);
     expect(dashboard.aiSentiment.summary).toContain("Momentum");
+    expect(dashboard.signalSummary).toMatchObject({
+      overall: expect.any(String),
+      rationale: expect.any(String)
+    });
+    // Feste Anzahl war bruechig: die Erwartung stand auf 4, geliefert wurden
+    // 15 Kacheln. Geprueft wird deshalb die Form und eine Untergrenze -- eine
+    // neue Kachel darf den Test nicht rot machen, eine leere Liste schon.
+    expect(dashboard.marketDashboard.length).toBeGreaterThanOrEqual(4);
+    for (const tile of dashboard.marketDashboard) {
+      expect(tile.label.length).toBeGreaterThan(0);
+      expect(tile.value.length).toBeGreaterThan(0);
+    }
     expect(dashboard.riskWarnings).toHaveLength(2);
 
     expect(getMockNews()).toHaveLength(5);

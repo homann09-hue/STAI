@@ -1,6 +1,10 @@
 import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
+import { hasPrivilegedAccess } from "@/lib/admin-access";
 import { logEvent } from "@/lib/observability";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { getMarketDataProvider } from "@/lib/providers/market-provider";
+import type { MarketDataProvider } from "@/lib/providers/market-provider";
+import type { AssetDetail, NormalizedQuote } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -19,13 +23,11 @@ type AlertRow = {
   enabled: boolean;
 };
 
-function isAuthorized(request: Request) {
-  const secret = process.env.CRON_SECRET ?? process.env.STOCKPILOT_CRON_SECRET;
-  if (!secret) return { ok: false, mode: "missing_secret" };
-  return {
-    ok: request.headers.get("authorization") === `Bearer ${secret}`,
-    mode: "secret"
-  };
+type AlertTriggerSource = "provider" | "simulation";
+
+function authorize(request: Request) {
+  if (hasPrivilegedAccess(request, "alert_worker")) return null;
+  return jsonError("Cron nicht autorisiert.", 401);
 }
 
 function isSimulatedAlertWorkerEnabled() {
@@ -41,14 +43,43 @@ function simulatedValue(alert: AlertRow) {
   return null;
 }
 
-function shouldTrigger(alert: AlertRow) {
+function shouldTrigger(alert: AlertRow, value: number) {
   const threshold = Number(alert.condition?.threshold);
   if (!Number.isFinite(threshold)) return false;
-  const value = simulatedValue(alert);
-  if (value === null) return false;
   const condition = alert.condition?.text?.toLowerCase() ?? "";
   if (condition.includes("unter") || condition.includes("<")) return value <= threshold;
   return value >= threshold;
+}
+
+function quoteValueForAlert(alert: AlertRow, quote: NormalizedQuote | null, assetDetail?: AssetDetail | null) {
+  if (alert.alert_type === "price") return quote?.price ?? null;
+  if (alert.alert_type === "volume") return quote?.volume ?? 0;
+  if (alert.alert_type === "rsi") return assetDetail?.indicators?.rsi ?? null;
+  return null;
+}
+
+async function loadAssetDetails(provider: MarketDataProvider, symbols: string[]) {
+  const entries = await Promise.all(
+    symbols.map(async (symbol) => {
+      try {
+        const detail = await provider.getAsset(symbol);
+        return [symbol, detail] as const;
+      } catch (error) {
+        logEvent("warn", "alerts.worker_asset_detail_error", {
+          symbol,
+          error,
+          provider: provider.providerName
+        });
+        return [symbol, null] as const;
+      }
+    })
+  );
+
+  return new Map(entries);
+}
+
+function eventSourceLabel(source: AlertTriggerSource) {
+  return source === "provider" ? "Echtzeit-Provider" : "Simulation";
 }
 
 async function runAlertWorker() {
@@ -71,60 +102,143 @@ async function runAlertWorker() {
   if (error) throw error;
 
   const alerts = ((data ?? []) as AlertRow[]);
-  const triggered = alerts.filter(shouldTrigger);
-  const simulationEnabled = isSimulatedAlertWorkerEnabled();
+  const symbols = [...new Set(alerts.map((alert) => alert.symbol.trim().toUpperCase()).filter(Boolean))];
+  const provider = getMarketDataProvider();
+  let quotes: NormalizedQuote[] = [];
+  let providerError: unknown = null;
 
-  if (!simulationEnabled) {
-    logEvent("info", "alerts.worker_dry_run", {
+  try {
+    quotes = await provider.getQuotes(symbols);
+  } catch (err) {
+    providerError = err;
+    logEvent("warn", "alerts.worker_provider_error", {
+      error: err,
+      symbols: symbols.slice(0, 20),
+      provider: provider.providerName
+    });
+  }
+
+  const quoteMap = new Map(quotes.map((quote) => [quote.symbol.toUpperCase(), quote]));
+  const rsiSymbols = [...new Set(alerts.filter((alert) => alert.alert_type === "rsi").map((alert) => alert.symbol.trim().toUpperCase()).filter(Boolean))];
+  const assetDetails = rsiSymbols.length ? await loadAssetDetails(provider, rsiSymbols) : new Map<string, AssetDetail | null>();
+  const simulatedEnabled = isSimulatedAlertWorkerEnabled();
+  const triggeredAlerts: Array<{ alert: AlertRow; source: AlertTriggerSource; quote?: NormalizedQuote | null }> = [];
+
+  for (const alert of alerts) {
+    const symbolKey = alert.symbol.trim().toUpperCase();
+    const quote = quoteMap.get(symbolKey) ?? null;
+    const assetDetail = assetDetails.get(symbolKey) ?? null;
+    const providerValue = quoteValueForAlert(alert, quote, assetDetail);
+
+    if (providerValue !== null && shouldTrigger(alert, providerValue)) {
+      triggeredAlerts.push({ alert, source: "provider", quote });
+      continue;
+    }
+
+    if (simulatedEnabled) {
+      const simulated = simulatedValue(alert);
+      if (simulated !== null && shouldTrigger(alert, simulated)) {
+        triggeredAlerts.push({ alert, source: "simulation" });
+      }
+    }
+  }
+
+  if (!simulatedEnabled && providerError) {
+    logEvent("error", "alerts.worker_provider_unavailable", {
+      provider: provider.providerName,
+      error: providerError,
+      checked: alerts.length
+    });
+  }
+
+  if (triggeredAlerts.length === 0) {
+    logEvent("info", "alerts.worker_run", {
       checked: alerts.length,
-      wouldTrigger: triggered.length
+      triggered: 0,
+      provider: provider.providerName,
+      simulated: simulatedEnabled
     });
 
     return {
-      mode: "dry_run",
+      mode: simulatedEnabled ? "provider_checked" : "dry_run",
       checked: alerts.length,
       triggered: 0,
-      wouldTrigger: triggered.length,
-      simulated: true,
+      wouldTrigger: 0,
+      simulated: simulatedEnabled,
       persisted: false,
-      message:
-        "Alert-Worker hat Regeln geprüft, aber keine Events geschrieben. Simulierte Providerwerte werden nur mit STOCKPILOT_ENABLE_SIMULATED_ALERT_WORKER=true persistiert."
+      message: simulatedEnabled
+        ? "Alert-Worker hat echte Providerwerte geprüft, aber keine Alerts ausgelöst."
+        : "Alert-Worker hat echte Providerwerte geprüft, aber keine Events geschrieben. Simulierte Providerwerte werden nur mit STOCKPILOT_ENABLE_SIMULATED_ALERT_WORKER=true persistiert."
     };
   }
 
-  if (triggered.length) {
-    const { error: insertError } = await supabase.from("alert_events").insert(
-      triggered.map((alert) => ({
-        user_id: alert.user_id,
-        alert_rule_id: alert.id,
-        symbol: alert.symbol,
-        event_type: alert.alert_type,
-        payload: {
-          condition: alert.condition,
-          simulated: true,
-          note: "STAI Worker-Architektur: echte Providerwerte können hier serverseitig eingehängt werden."
-        }
-      }))
-    );
+  const { error: insertError } = await supabase.from("alert_events").insert(
+    triggeredAlerts.map(({ alert, source, quote }) => ({
+      user_id: alert.user_id,
+      alert_rule_id: alert.id,
+      symbol: alert.symbol,
+      event_type: alert.alert_type,
+      payload: {
+        condition: alert.condition,
+        simulated: source === "simulation",
+        source: eventSourceLabel(source),
+        quote: source === "provider" ? quote : undefined,
+        note:
+          source === "provider"
+            ? "Providerdaten wurden zur Auslösung herangezogen."
+            : "STAI Worker-Architektur: echte Providerwerte können hier serverseitig eingehängt werden."
+      }
+    }))
+  );
 
-    if (insertError) throw insertError;
+  if (insertError) throw insertError;
+
+  const notifications = triggeredAlerts
+    .map(({ alert, source }) => {
+      const channel = typeof alert.condition?.notificationChannel === "string" ? alert.condition.notificationChannel : "none";
+      if (!["in_app", "email", "push", "webhook"].includes(channel)) return null;
+
+      const channelLabel = channel === "in_app" ? "In-App" : channel === "email" ? "E-Mail" : channel === "push" ? "Push" : "Webhook";
+      const conditionLabel = typeof alert.condition?.text === "string" ? alert.condition.text : `Schwelle ${alert.condition?.threshold ?? "unbekannt"}`;
+      const sourceLabel = source === "provider" ? "Echtzeit-Provider" : "Simulation";
+
+      return {
+        user_id: alert.user_id,
+        category: "alert",
+        severity: "warning",
+        title: `Alert ausgelöst: ${alert.symbol}`,
+        message: `Dein ${alert.alert_type} Alert wurde von ${sourceLabel} ausgelöst (${conditionLabel}). Kanal: ${channelLabel}. Externe Zustellung ist noch nicht konfiguriert.`,
+        href: "/alerts",
+        source: "Alert Worker",
+        status: "new"
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+  if (notifications.length) {
+    const { error: notificationError } = await supabase.from("notifications").insert(notifications);
+    if (notificationError) throw notificationError;
   }
 
   logEvent("info", "alerts.worker_run", {
     checked: alerts.length,
-    triggered: triggered.length,
-    simulated: true
+    triggered: triggeredAlerts.length,
+    provider: provider.providerName,
+    simulated: simulatedEnabled,
+    sourceCounts: triggeredAlerts.reduce<Record<string, number>>((acc, item) => {
+      acc[item.source] = (acc[item.source] ?? 0) + 1;
+      return acc;
+    }, {})
   });
 
   return {
-    mode: "simulation_enabled",
+    mode: "completed",
     checked: alerts.length,
-    triggered: triggered.length,
-    wouldTrigger: triggered.length,
-    simulated: true,
-    persisted: triggered.length > 0,
-    message:
-      "Alert-Worker hat simulierte Events geschrieben. Für Produktion echte Providerwerte anbinden und Simulation deaktiviert lassen."
+    triggered: triggeredAlerts.length,
+    simulated: simulatedEnabled,
+    persisted: true,
+    message: `Alert-Worker hat ${triggeredAlerts.length} Alerts ausgelöst und als Events persistiert.`,
+    provider: provider.providerName
   };
 }
 
@@ -132,15 +246,8 @@ export async function GET(request: Request) {
   const limited = await rateLimit(request);
   if (limited) return limited;
 
-  const auth = isAuthorized(request);
-  if (!auth.ok) {
-    return jsonError(
-      auth.mode === "missing_secret"
-        ? "Cron Secret fehlt. Alert-Worker ist deaktiviert."
-        : "Cron nicht autorisiert.",
-      auth.mode === "missing_secret" ? 503 : 401
-    );
-  }
+  const unauthorized = authorize(request);
+  if (unauthorized) return unauthorized;
 
   try {
     const result = await runAlertWorker();

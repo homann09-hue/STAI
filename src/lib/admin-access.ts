@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash, timingSafeEqual } from "node:crypto";
 
-type SecretRole = "admin" | "provider_ping" | "intelligence_ingest" | "analysis_reproduction";
+type SecretRole = "admin" | "provider_ping" | "intelligence_ingest" | "analysis_reproduction" | "alert_worker";
 
 const MIN_SECRET_LENGTH = 24;
 
@@ -60,6 +60,10 @@ export function hasPrivilegedAccess(request: Request, role: SecretRole) {
     }
 
     return cronSecrets().some((cron) => matchesSecret(request, cron, "x-stockpilot-intelligence-secret"));
+  }
+
+  if (role === "alert_worker") {
+    return cronSecrets().some((cron) => matchesSecret(request, cron, "x-stockpilot-alert-secret"));
   }
 
   if (role !== "provider_ping") return false;

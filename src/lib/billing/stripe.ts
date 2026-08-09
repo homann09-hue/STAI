@@ -138,3 +138,47 @@ export function getTrustedBillingOrigin(request: Request) {
     safeOrigin(new URL(request.url).origin)
   );
 }
+
+/**
+ * Sucht oder erzeugt den Stripe-Kunden zu einem Nutzer.
+ *
+ * Aus der parallel auf `main` entstandenen Fassung übernommen — dort war die
+ * Reihenfolge sauberer als meine: den Kunden ausdrücklich anlegen und an die
+ * Nutzer-ID binden, statt Stripe aus `customer_email` einen erzeugen zu lassen.
+ * Das macht die Zuordnung später nachvollziehbar, etwa bei Rechnungen.
+ *
+ * Zwei Änderungen gegenüber dem Original:
+ *
+ * 1. Der dortige innere Zweig `if (matching.metadata?.supabase_user_id !== userId)`
+ *    konnte **nie** zutreffen — `matching` war ja gerade daran erkannt worden.
+ *    Toter Code nach §90, deshalb nicht mitkopiert.
+ * 2. Der Metadatenschlüssel heißt `stockpilot_user_id` wie im Checkout. Zwei
+ *    Namen für dieselbe Zuordnung wären eine Fehlerquelle beim Zuordnen von
+ *    Zahlungen.
+ */
+export function isValidEmail(value: unknown): value is string {
+  return typeof value === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+export async function ensureStripeCustomer(stripe: Stripe, userId: string, email: string | null) {
+  if (!isValidEmail(email)) {
+    throw new Error("Ungültige Kunden-E-Mail. Ohne gültige Adresse wird kein Stripe-Kunde angelegt.");
+  }
+
+  const customers = await stripe.customers.list({ email, limit: 10 });
+
+  const byUserId = customers.data.find((customer) => customer.metadata?.stockpilot_user_id === userId);
+  if (byUserId) return byUserId;
+
+  // Gleiche Adresse, aber noch ohne Zuordnung: nachtragen statt einen zweiten
+  // Kunden anlegen -- doppelte Kunden zu derselben Adresse machen jede spaetere
+  // Rechnungszuordnung mehrdeutig.
+  const byEmail = customers.data.find((customer) => customer.email === email);
+  if (byEmail) {
+    return stripe.customers.update(byEmail.id, {
+      metadata: { ...byEmail.metadata, stockpilot_user_id: userId }
+    });
+  }
+
+  return stripe.customers.create({ email, metadata: { stockpilot_user_id: userId } });
+}

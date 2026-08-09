@@ -249,6 +249,67 @@ export function DashboardView({ data, heroAsset }: { data: DashboardData; heroAs
           <AIInsightCard data={data} />
         </div>
 
+        <section className="grid gap-3 xl:grid-cols-[1.4fr_0.6fr]">
+          <div className="rounded-[1.65rem] border border-stroke bg-coal/80 p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan">Signal-System</p>
+                <h2 className="mt-2 text-xl font-semibold text-mist">Mehrdimensionale Bewertung</h2>
+              </div>
+              <span className="rounded-2xl bg-panel2 px-3 py-2 text-sm font-semibold text-muted">
+                {data.signalSummary.overall}
+              </span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {([
+                ["Technical", data.signalSummary.technical],
+                ["Fundamental", data.signalSummary.fundamental],
+                ["Momentum", data.signalSummary.momentum],
+                ["Sentiment", data.signalSummary.sentiment],
+                ["Valuation", data.signalSummary.valuation],
+                ["Macro", data.signalSummary.macro],
+                ["Risk", data.signalSummary.risk]
+              ] as Array<[string, string]>).map(([label, value]) => (
+                <div key={label} className="rounded-2xl border border-stroke bg-panel/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted">{label}</p>
+                  <p className="mt-2 text-lg font-semibold text-mist capitalize">{value}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 rounded-2xl border border-stroke bg-panel/60 p-4">
+              <p className="text-sm font-semibold text-mist">Begründung</p>
+              <p className="mt-2 text-sm leading-6 text-muted">{data.signalSummary.rationale}</p>
+            </div>
+          </div>
+
+          <div className="rounded-[1.65rem] border border-stroke bg-coal/80 p-5">
+            <div className="mb-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan">Market Dashboard</p>
+              <h2 className="mt-2 text-xl font-semibold text-mist">Breite Marktindikatoren</h2>
+            </div>
+            <div className="grid gap-3">
+              {data.marketDashboard.map((tile) => (
+                <div key={tile.label} className="rounded-2xl border border-stroke bg-panel/70 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted">{tile.label}</p>
+                    <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
+                      tile.status === "positive"
+                        ? "bg-profit/10 text-profit"
+                        : tile.status === "negative"
+                        ? "bg-loss/10 text-loss"
+                        : tile.status === "warning"
+                        ? "bg-amber/10 text-amber"
+                        : "bg-slate-800 text-muted"
+                    }`}>{tile.status}</span>
+                  </div>
+                  <p className="mt-3 font-mono text-lg font-semibold text-mist">{tile.value}</p>
+                  <p className="mt-2 text-sm leading-6 text-muted">{tile.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <div className="grid gap-3 xl:grid-cols-[1fr_0.95fr_1fr]">
           <WatchlistTable items={data.watchlist} liveQuotes={stream.quotes} />
           <div className="space-y-3">

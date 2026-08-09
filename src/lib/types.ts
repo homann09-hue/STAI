@@ -466,6 +466,25 @@ export interface MarketOverviewItem {
   status: "open" | "closed" | "volatile";
 }
 
+export interface SignalSummary {
+  fundamental: string;
+  technical: string;
+  momentum: string;
+  sentiment: string;
+  valuation: string;
+  macro: string;
+  risk: string;
+  overall: string;
+  rationale: string;
+}
+
+export interface MarketDashboardTile {
+  label: string;
+  value: string;
+  detail: string;
+  status: "positive" | "neutral" | "negative" | "warning";
+}
+
 export interface RiskWarning {
   id: string;
   symbol: string;
@@ -493,6 +512,8 @@ export interface DashboardData {
     score: number;
     summary: string;
   };
+  signalSummary: SignalSummary;
+  marketDashboard: MarketDashboardTile[];
   riskWarnings: RiskWarning[];
   latestNews: NewsItem[];
 }
