@@ -42,6 +42,9 @@ import { buildAssetReadiness, buildFundamentalMetrics } from "@/lib/asset-readin
 import { buildAssetProvenancePassport, type AssetProvenanceEntry } from "@/lib/asset-provenance";
 import { buildForecastPassport, type ForecastPassport } from "@/lib/forecast-passport";
 import { useMarketStream } from "@/lib/use-market-stream";
+import { AnalystPanel, PeerComparisonPanel, ValuationPanel } from "@/components/valuation-panel";
+import { MetricGrid } from "@/components/metric-with-context";
+import type { ValuationView } from "@/lib/analysis/valuation-view";
 import type { AssetDetail, Candle, Quote, TimeRange } from "@/lib/types";
 import { timeRanges } from "@/lib/types";
 
@@ -281,7 +284,20 @@ function ForecastPassportPanel({ passport }: { passport: ForecastPassport }) {
   );
 }
 
-export function AssetDetailView({ detail }: { detail: AssetDetail }) {
+export function AssetDetailView({
+  detail,
+  valuation = null
+}: {
+  detail: AssetDetail;
+  /**
+   * Bewertung, Kennzahlen mit Einordnung, Peers und Analysten.
+   *
+   * Optional und `null`, wenn der Abruf der Abschlussdaten ausgefallen ist. Die
+   * betreffenden Abschnitte entfallen dann ganz — ein leerer Bewertungsteil
+   * wäre eine Behauptung über fehlende Daten statt einer Auskunft.
+   */
+  valuation?: ValuationView | null;
+}) {
   const [range, setRange] = useState<TimeRange>("1M");
   const [showSma, setShowSma] = useState(true);
   const [showVolume, setShowVolume] = useState(true);
@@ -542,6 +558,39 @@ export function AssetDetailView({ detail }: { detail: AssetDetail }) {
       </section>
 
       <AssetDecisionPanel detail={detail} />
+
+      {/* §49 Platz 4 bis 6: Bewertung, dann Kennzahlen mit historischer
+          Einordnung, dann die Vergleichsgruppe. Alles nur, wenn die
+          Abschlussdaten geladen werden konnten. */}
+      {valuation ? (
+        <>
+          {valuation.sensitivity ? (
+            <ValuationPanel
+              dcf={valuation.dcf}
+              sensitivity={valuation.sensitivity}
+              impliedGrowth={valuation.impliedGrowth}
+              yields={valuation.yields}
+              currency={detail.asset.currency}
+            />
+          ) : null}
+
+          {valuation.metrics.length ? (
+            <section className="rounded-[2rem] border border-stroke bg-panel/82 p-4 shadow-panel sm:p-5">
+              <h2 className="text-lg font-semibold">Kennzahlen im Fünfjahresvergleich</h2>
+              <p className="mt-1 text-xs text-muted">{valuation.note}</p>
+              <div className="mt-3">
+                <MetricGrid results={valuation.metrics} />
+              </div>
+            </section>
+          ) : null}
+
+          {valuation.analysts ? (
+            <AnalystPanel view={valuation.analysts} currency={detail.asset.currency} />
+          ) : null}
+
+          {valuation.peers.length ? <PeerComparisonPanel comparisons={valuation.peers} /> : null}
+        </>
+      ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Metric

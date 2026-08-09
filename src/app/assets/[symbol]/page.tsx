@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { AssetDetailView } from "@/components/asset-detail-view";
 import { AssetUnavailableView } from "@/components/asset-unavailable-view";
+import { buildValuationView, withImpliedGrowth } from "@/lib/analysis/valuation-view";
 import { resolveAssetUnavailability } from "@/lib/asset-availability";
+import { fetchFundamentals } from "@/lib/providers/valuation-data";
 import { findInstrumentIdentityBySymbol } from "@/lib/instrument-master-store";
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
 import { absoluteUrl, siteConfig } from "@/lib/seo";
@@ -109,5 +111,25 @@ export default async function AssetPage({ params }: PageProps) {
     return <AssetUnavailableView symbol={parsedSymbol.data} unavailability={unavailability} />;
   }
 
-  return <AssetDetailView detail={detail} />;
+  // Bewertung, Kennzahlen mit Einordnung, Peers und Analysten.
+  //
+  // Bewusst hier auf dem Server und nicht im Client: die Abschlussdaten sind
+  // sieben Abrufe beim Anbieter, und der Nutzer soll die fertige Seite sehen
+  // statt sieben nachladende Kacheln. Faellt der Abruf aus, bleibt `valuation`
+  // schlicht `null` -- die Seite zeigt dann keinen Bewertungsteil, statt einen
+  // leeren.
+  const bundle = await fetchFundamentals(parsedSymbol.data, {
+    marketCap: detail.fundamentals.marketCap || null,
+    price: detail.quote.price
+  });
+
+  const valuation = bundle
+    ? withImpliedGrowth(
+        buildValuationView(bundle, { currency: detail.asset.currency }),
+        bundle,
+        detail.quote.price
+      )
+    : null;
+
+  return <AssetDetailView detail={detail} valuation={valuation} />;
 }

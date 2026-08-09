@@ -118,6 +118,82 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+/**
+ * Analystenurteile und Kursziele (§33).
+ *
+ * Die Zeiträume stehen **nebeneinander** statt zu einem Wert verrechnet. Die
+ * Bewegung ist die Information: bei Apple lag das Durchschnittsziel des letzten
+ * Monats bei 329,55 $, das des letzten Jahres bei 306,68 $. Ein Mittelwert
+ * hätte genau das gelöscht.
+ */
+export function AnalystPanel({
+  view,
+  currency
+}: {
+  view: {
+    strongBuy: number;
+    buy: number;
+    hold: number;
+    sell: number;
+    strongSell: number;
+    consensus: string | null;
+    targets: { lastMonth: number | null; lastQuarter: number | null; lastYear: number | null };
+    counts: { lastMonth: number; lastQuarter: number; lastYear: number };
+    note: string;
+  };
+  currency: string;
+}) {
+  const ratings: Array<[string, number, string]> = [
+    ["Strong Buy", view.strongBuy, "text-profit"],
+    ["Buy", view.buy, "text-profit"],
+    ["Hold", view.hold, "text-amber"],
+    ["Sell", view.sell, "text-loss"],
+    ["Strong Sell", view.strongSell, "text-loss"]
+  ];
+  const total = ratings.reduce((sum, [, count]) => sum + count, 0);
+
+  const targets: Array<[string, number | null, number]> = [
+    ["Letzter Monat", view.targets.lastMonth, view.counts.lastMonth],
+    ["Letztes Quartal", view.targets.lastQuarter, view.counts.lastQuarter],
+    ["Letztes Jahr", view.targets.lastYear, view.counts.lastYear]
+  ];
+
+  return (
+    <section className="rounded-[2rem] border border-stroke bg-panel/82 p-4 shadow-panel sm:p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold">Analystenurteile</h2>
+        {view.consensus ? <span className="text-sm text-muted">Konsens: {view.consensus}</span> : null}
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-5">
+        {ratings.map(([label, count, tone]) => (
+          <div key={label} className="rounded-2xl border border-stroke bg-coal/55 p-3">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-muted">{label}</p>
+            <p className={`mt-1 font-mono text-lg font-semibold ${count > 0 ? tone : "text-muted"}`}>{count}</p>
+            <p className="mt-1 text-[11px] text-muted">
+              {total > 0 ? `${Math.round((count / total) * 100)} %` : "—"}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        {targets.map(([label, value, count]) => (
+          <div key={label} className="rounded-2xl border border-stroke bg-coal/55 p-3">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-muted">{label}</p>
+            <p className="mt-1 font-mono text-lg font-semibold text-mist">
+              {value === null ? "—" : `${value.toFixed(2)} ${currency}`}
+            </p>
+            <p className="mt-1 text-[11px] text-muted">{count} Häuser</p>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-3 text-[11px] leading-4 text-muted">{view.note}</p>
+    </section>
+  );
+}
+
 export function PeerComparisonPanel({ comparisons }: { comparisons: PeerComparison[] }) {
   return (
     <section className="rounded-[2rem] border border-stroke bg-panel/82 p-4 shadow-panel sm:p-5">
