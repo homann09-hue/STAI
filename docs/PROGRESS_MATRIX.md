@@ -356,6 +356,73 @@ Kursanbieter: Gold (4399,70), Brent (83,55), Silber, VIX (14,90), S&P 500.
 Ein falscher Schlüsselversuch für die Arbeitslosenquote antwortete mit 404 und
 steht **nicht** im Katalog — aufgenommen wird nur, was nachweislich liefert.
 
+### §44/§90: Backtesting war ein Zinseszinsrechner (2026-08-09)
+
+`/backtesting` hieß so und rechnete: `value = value * (1 + monthlyReturn) + monthly`.
+Die Rendite gab **der Nutzer selbst ein**, das Bär/Bull-Band war
+`vol × √Jahr × 0,62`, der Drawdown `vol × 1,8`. Kein historischer Kurs berührte
+die Seite. Der Name versprach eine Prüfung an der Vergangenheit; geliefert wurde
+die eigene Annahme, fortgeschrieben.
+
+**Jetzt gemessen.** `runBacktest` rechnet einen Sparplan über echte
+Tagesschlusskurse durch: gekauft wird am ersten Handelstag jedes Monats zum
+Schlusskurs.
+
+Live gegen AAPL (1254 Kerzen, 2021-08-10 bis 2026-08-07):
+
+| | Einmalanlage 10.000 | Sparplan 500/Monat |
+|---|---|---|
+| Eingezahlt | 10.000 | 40.000 |
+| Endwert | 21.520 | 70.846 |
+| Zeitgewichtet p.a. | 16,60 % | 16,60 % |
+| Geldgewichtet p.a. | 16,60 % | **18,73 %** |
+| Größter Rückgang | −33,4 % (2024-12-26 → 2025-04-08) | dito |
+| Bestes / schlechtestes Jahr | 2023 +53,9 % / 2022 −28,6 % | dito |
+
+Der Unterschied in der letzten Renditezeile ist der Grund, warum **beide**
+dastehen: der Sparplan kaufte während des Rückgangs weiter und liegt deshalb
+über der Strategie. Nur eine der beiden auszugeben und sie „Rendite" zu nennen
+wäre Scheingenauigkeit nach §38.
+
+**Drei Stellen, an denen ein Backtest plausibel falsch wird:**
+
+*Der Drawdown.* Am Depotwert gemessen hätte ein Sparplan, der im Absturz weiter
+kauft, den Absturz optisch verkleinert — Einzahlungen heben die Kurve. Er wird
+deshalb am Kursverlauf gemessen.
+
+*Die Mindesthistorie.* Unter 500 Tageskursen wird **verweigert**. Ein Free-Konto
+hat nach §4 ein Jahr Historie; daraus eine Jahresrendite zu bilden wäre eine
+Hochrechnung mit dem Aussehen einer Messung.
+
+*Der interne Zinsfuß.* Die Untergrenze der Suche lag zuerst bei −99 % — damit
+fiel ausgerechnet der Totalverlust aus dem Intervall und wurde als „keine
+Lösung" gemeldet. Von einem Test gefunden.
+
+**Kommerziell:** `backtesting` ist aus `plannedFeatures` heraus und in Pro als
+Leistung eingetragen. `/api/backtest` prüft Anmeldung und Tarif und kürzt die
+Historie serverseitig.
+
+### §4: vier verkaufte Funktionen ohne Route
+
+Beim Umzug von `backtesting` auf `included` blieben alle 799 Tests grün — eine
+Tarifzeile von „geplant" auf „Leistung" zu ziehen war bis dahin folgenlos.
+
+`feature-gates.sellable.test.ts` schließt das: **was verkauft wird, braucht eine
+Route.** Beim ersten Lauf fand der Test vier Funktionen, die als `included`
+gelten und von keiner Route durchgesetzt werden:
+
+| Funktion | Route, an der sie hängen müsste |
+|---|---|
+| `screener` | `/api/instruments/search` |
+| `risk_analysis` | `/api/intelligence/events` |
+| `scenario_analysis` | `/api/forecasts/*` |
+| `portfolio_risk` | `/api/portfolio/*` |
+
+Sie stehen als Sperrklinke im Test: die Liste darf schrumpfen, nicht wachsen.
+Nicht sofort geschlossen, weil an allen vier Routen auch Funktion hängt, die ein
+kostenloses Konto behalten soll — wo die Grenze verläuft, ist eine
+Produktentscheidung.
+
 ### §61: Demodaten kamen bis in die Anzeige (2026-08-09)
 
 Gemessen beim Abgleich des Architekturbilds. `getAsset()` **begann** bei
@@ -637,7 +704,7 @@ Rund 30 % Unterschied im Ergebnis — aus einem einzigen falsch beschafften Feld
 | § | Anforderung | Status | Beleg / offener Rest |
 |---|---|---|---|
 | §41–§43 | Watchlist, Alerts, Portfolio | `DONE` | Cloud-Sync mit lokalem Rückfall |
-| §44 | Backtesting | `IN PROGRESS` | Oberfläche vorhanden, ohne Point-in-Time nicht belastbar |
+| §44 | Backtesting | `DONE` | **Echte Rechnung** auf Tagesschlusskursen: `analysis/backtest.ts`, 18 Tests. Live gegen AAPL über 1254 Kerzen geprüft. Verweigert unter 500 Kursen, statt hochzurechnen. `/api/backtest` prüft Tarif und kürzt die Historie serverseitig. Ohne Point-in-Time-Daten weiterhin mit Survivorship-Bias — steht als Vorbehalt in der Ansicht |
 | §45 | Mehrdimensionales Signalsystem | `DONE` | Keine simplen BUY/SELL-Ausgaben |
 | §46 | Market Dashboard | `DONE` | — |
 | §47 | Screener über Gesamtuniversum | `BLOCKED` | BLOCKER-005, `company-screener` = 402 |

@@ -244,8 +244,7 @@ const plannedFeatures: FeatureId[] = [
   "short_interest",
   "advanced_alerts",
   "exports",
-  "paper_trading",
-  "backtesting"
+  "paper_trading"
 ];
 
 function statusMap(included: FeatureId[], locked: FeatureId[]): Record<FeatureId, FeatureGateStatus> {
@@ -277,7 +276,12 @@ const proFeatures: FeatureId[] = [
   "pro_terminal",
   "screener",
   "risk_analysis",
-  "scenario_analysis"
+  "scenario_analysis",
+  // Seit dem 2026-08-09 gebaut und serverseitig durchgesetzt: `runBacktest`
+  // rechnet auf echten Tageskursen. Vorher stand es in `plannedFeatures`, weil
+  // die Seite nur ein Zinseszinsrechner war -- und ein Tarifmerkmal fuer eine
+  // Funktion, die es nicht gibt, waere nach §90 eine Fassade.
+  "backtesting"
 ];
 
 const premiumFeatures: FeatureId[] = [...proFeatures, "portfolio_risk"];
@@ -321,8 +325,7 @@ export const pricingTiers: PricingTier[] = [
       "short_interest",
       "advanced_alerts",
       "exports",
-      "paper_trading",
-      "backtesting"
+      "paper_trading"
     ]),
     limits: {
       maxWatchlistItems: 250,
