@@ -1,5 +1,7 @@
 import { NO_INDICATORS, buildTechnicalIndicators } from "@/lib/analysis/technical";
 
+import { buildRiskReport } from "@/lib/risk-engine";
+
 import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
 import { logEvent } from "@/lib/observability";
 import { resolveQuoteChain } from "@/lib/providers/quote-chain";
@@ -747,23 +749,38 @@ function detailFromProviderQuote(quote: NormalizedQuote, history: HistoryResult 
       source: "StockPilot Analysis Guard"
     }
   ];
-  const riskReport = {
-    level: "hoch" as const,
-    score: 82,
-    summary: "Analyse eingeschränkt: Nur Kursdaten sind verfügbar, wesentliche Quellen fehlen.",
-    blockedAnalysis: true,
-    findings: [
-      {
-        id: `${quote.symbol}-provider-only`,
-        category: "data-quality" as const,
-        title: "Unvollständige Datenabdeckung",
-        severity: "hoch" as const,
-        detail: "STAI kann dieses Symbol anzeigen, leitet daraus aber keine belastbare Investment-Analyse ab.",
-        evidence: `${quote.provider}, ${quote.quality}, ${quote.timestamp}`,
-        action: "Fundamentals, News, historische Kerzen und Lizenzstatus anbinden oder manuell prüfen."
-      }
-    ]
-  };
+  /**
+   * Der Risikobericht kommt aus der Engine, nicht aus einer Konstante.
+   *
+   * Hier stand ein fest verdrahteter Bericht: Score 82, Level „hoch", eine
+   * einzige Feststellung — für **jedes** Symbol dieselbe. Ein Risiko-Score, der
+   * sich nie ändert, sieht aus wie eine Messung und ist eine Konstante.
+   *
+   * Aufgefallen ist das erst durch einen Nebeneffekt meiner eigenen Änderung:
+   * `buildRiskReport` wurde ausschließlich aus `mock/market.ts` aufgerufen. Als
+   * das Mock-Gerüst aus `getAsset` verschwand, fiel damit auch die Risiko-Engine
+   * aus der Anwendung — 278 Zeilen geprüfter Rechnung, die niemand mehr
+   * erreichte.
+   *
+   * Die Engine kommt mit dünner Datenlage zurecht; genau dafür ist sie gebaut.
+   * Fehlt die Historie, meldet sie „Keine belastbare Kurshistorie" als eigenen
+   * Befund — statt zu schweigen und damit ein Instrument ohne Daten wie eines
+   * ohne Risiken aussehen zu lassen.
+   */
+  const riskReport = buildRiskReport(
+    {
+      asset: summary.asset,
+      quote: summary.quote,
+      candles,
+      indicators,
+      news,
+      earningsDate: null,
+      professionalScores,
+      analysisLayers,
+      macroFactors
+    },
+    dataQuality
+  );
   const aiAnalysis: AiAnalysis = {
     summary:
       "Für dieses Symbol liegt ein Provider-Quote vor. Für eine belastbare Einschätzung fehlen noch verifizierte Fundamentaldaten, News, historische Kerzen und Ereignisdaten.",

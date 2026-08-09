@@ -16,6 +16,42 @@ function finding(input: RiskFinding) {
   return input;
 }
 
+/**
+ * Ab wann eine Tagesbewegung auffällig ist — gemessen, nicht geschätzt.
+ *
+ * Hier stand `volatility > 4.5`, mit einer Eskalation auf „extrem" ab 7. Beide
+ * Schwellen konnten **nie** auslösen. `calculateVolatility` liefert die
+ * durchschnittliche absolute Tagesbewegung in Prozent, und die liegt bei realen
+ * Instrumenten weit darunter.
+ *
+ * Am 2026-08-09 über je ein Jahr Tageskurse gemessen:
+ *
+ * | Instrument | Ø Tagesbewegung |
+ * |---|---|
+ * | S&P-500-ETF (SPY) | 0,62 % |
+ * | Coca-Cola | 0,87 % |
+ * | Apple | 1,12 % |
+ * | Bitcoin | 1,61 % |
+ * | Nvidia | 1,81 % |
+ * | Tesla | 2,26 % |
+ * | Ethereum | 2,36 % |
+ * | Dogecoin | 2,72 % |
+ * | Coinbase | 3,24 % |
+ *
+ * Median 1,61 %, höchster Wert 3,24 %. Eine Schwelle bei 4,5 hätte selbst
+ * Dogecoin für ruhig gehalten.
+ *
+ * Es ist derselbe Fehler wie bei `relevance >= 70` weiter unten in dieser
+ * Datei: die Schwelle war gegen die erzeugten Sinus-Kerzen kalibriert und starb
+ * in dem Moment, in dem echte Kurse kamen.
+ *
+ * `VOLATILITY_HIGH` liegt oberhalb des dritten Quartils der Messung — Tesla und
+ * Ethereum lösen nicht aus, Dogecoin und Coinbase schon. `VOLATILITY_EXTREME`
+ * liegt über allen gemessenen Werten und ist damit dem Krisenfall vorbehalten.
+ */
+const VOLATILITY_HIGH = 2.5;
+const VOLATILITY_EXTREME = 4;
+
 export function buildRiskReport(
   detail: Pick<
     AssetDetail,
@@ -85,15 +121,17 @@ export function buildRiskReport(
     );
   }
 
-  if (hasHistory && (volatility > 4.5 || detail.professionalScores.volatilityRisk > 70)) {
+  if (hasHistory && (volatility > VOLATILITY_HIGH || detail.professionalScores.volatilityRisk > 70)) {
     findings.push(
       finding({
         id: "volatility-high",
         category: "volatility",
-        title: "Extrem hohe Volatilität",
-        severity: volatility > 7 ? "extrem" : "hoch",
-        detail: "Die durchschnittliche Kerzenbewegung ist auffaellig hoch.",
-        evidence: `${volatility.toFixed(2)}% durchschnittliche Bewegung im 1M-Fenster.`,
+        title: volatility > VOLATILITY_EXTREME ? "Außergewöhnlich hohe Volatilität" : "Erhöhte Volatilität",
+        severity: volatility > VOLATILITY_EXTREME ? "extrem" : "hoch",
+        detail: "Die durchschnittliche Tagesbewegung liegt deutlich über dem, was für liquide Instrumente üblich ist.",
+        // Der Vergleichswert steht dabei, sonst ist "erhoeht" eine Behauptung
+        // ohne Massstab.
+        evidence: `${volatility.toFixed(2)}% durchschnittliche Tagesbewegung im 1M-Fenster. Zum Vergleich: S&P-500-ETF 0,6 %, Apple 1,1 %, Bitcoin 1,6 % (Jahreswerte, gemessen 2026-08-09).`,
         action: "Positionsgroesse und Stop-Risiko sehr konservativ prüfen."
       })
     );

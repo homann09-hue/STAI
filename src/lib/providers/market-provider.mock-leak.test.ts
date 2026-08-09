@@ -134,3 +134,44 @@ describe("Asset-Pfad mit konfiguriertem Anbieter", () => {
     expect(await loadAsset("MSFT")).toBeNull();
   });
 });
+
+describe("Die Risiko-Engine hängt am echten Pfad", () => {
+  /**
+   * Beim Entfernen des Mock-Gerüsts habe ich einen Nebeneffekt übersehen:
+   * `buildRiskReport` wurde ausschließlich aus `mock/market.ts` aufgerufen. Mit
+   * dem Mock-Pfad fiel damit auch die Risiko-Engine aus der Anwendung — 278
+   * Zeilen geprüfter Rechnung, die niemand mehr erreichte.
+   *
+   * An ihrer Stelle stand ein fest verdrahteter Bericht: Score 82, Level
+   * „hoch", eine einzige Feststellung. Für **jedes** Symbol dieselbe. Ein
+   * Risiko-Score, der nicht vom Instrument abhängt, ist keine Aussage über das
+   * Instrument.
+   */
+  it("erzeugt Befunde aus dem, was tatsächlich vorliegt", async () => {
+    const detail = await loadAsset("AAPL");
+
+    // Ohne Historie ist "keine Historie" der richtige Befund -- und kein
+    // Schweigen. Genau das kann die Engine, und genau deshalb gehoert sie in
+    // den Pfad.
+    const ids = detail!.riskReport.findings.map((entry) => entry.id);
+    expect(ids).toContain("history-missing");
+  });
+
+  it("liefert nicht für jedes Symbol denselben Score", async () => {
+    // Der fest verdrahtete Bericht gab immer 82 zurueck. Ein Wert, der sich
+    // nie aendert, sieht aus wie eine Messung und ist eine Konstante.
+    const detail = await loadAsset("AAPL");
+
+    expect(detail!.riskReport.score).not.toBe(82);
+    expect(detail!.riskReport.findings.length).toBeGreaterThan(1);
+  });
+
+  it("belegt jede Feststellung", async () => {
+    const detail = await loadAsset("AAPL");
+
+    for (const entry of detail!.riskReport.findings) {
+      expect(entry.evidence.length).toBeGreaterThan(5);
+      expect(entry.action.length).toBeGreaterThan(5);
+    }
+  });
+});

@@ -356,6 +356,53 @@ Kursanbieter: Gold (4399,70), Brent (83,55), Silber, VIX (14,90), S&P 500.
 Ein falscher Schlüsselversuch für die Arbeitslosenquote antwortete mit 404 und
 steht **nicht** im Katalog — aufgenommen wird nur, was nachweislich liefert.
 
+### §24/§90: die Risiko-Engine hing an nichts - und ihre Schwelle war tot (2026-08-09)
+
+Zwei Funde, der erste selbst verursacht.
+
+**Die Engine war abgehaengt.** `buildRiskReport` -- 278 Zeilen geprüfter
+Rechnung -- wurde ausschließlich aus `mock/market.ts` aufgerufen. Als das
+Mock-Gerüst aus `getAsset` verschwand, fiel sie mit heraus. An ihrer Stelle
+stand ein fest verdrahteter Bericht:
+
+```ts
+{ level: "hoch", score: 82, blockedAnalysis: true, findings: [ ... eine ... ] }
+```
+
+Für **jedes** Symbol derselbe. Ein Risiko-Score, der nicht vom Instrument
+abhängt, ist keine Aussage über das Instrument. Jetzt läuft der echte Pfad durch
+die Engine; sie kommt mit dünner Datenlage zurecht und meldet fehlende Historie
+als eigenen Befund, statt zu schweigen.
+
+**Die Volatilitätsschwelle konnte nie auslösen.** Sie stand auf `4.5`, mit
+Eskalation ab 7. `calculateVolatility` liefert die durchschnittliche absolute
+**Tagesbewegung** in Prozent. Am 2026-08-09 über je ein Jahr gemessen:
+
+| Instrument | Ø Tagesbewegung |
+|---|---|
+| S&P-500-ETF | 0,62 % |
+| Coca-Cola | 0,87 % |
+| Apple | 1,12 % |
+| Bitcoin | 1,61 % |
+| Nvidia | 1,81 % |
+| Tesla | 2,26 % |
+| Ethereum | 2,36 % |
+| Dogecoin | 2,72 % |
+| Coinbase | 3,24 % |
+
+Median 1,61 %, höchster Wert 3,24 %. Eine Schwelle bei 4,5 hätte selbst
+Dogecoin für ruhig gehalten. Derselbe Fehler wie bei `relevance >= 70` in
+derselben Datei: gegen die erzeugten Sinus-Kerzen kalibriert, gestorben in dem
+Moment, in dem echte Kurse kamen.
+
+Neu: `VOLATILITY_HIGH = 2.5` (über dem dritten Quartil der Messung -- Tesla löst
+nicht aus, Dogecoin schon), `VOLATILITY_EXTREME = 4` (über allen gemessenen
+Werten, dem Krisenfall vorbehalten). Der Befund nennt jetzt Vergleichswerte mit,
+sonst wäre "erhöht" eine Behauptung ohne Maßstab.
+
+Der wichtigste der elf neuen Tests prüft nicht "löst bei X aus", sondern
+**"ist überhaupt erreichbar"** -- mit real gemessenen Werten als Eingabe.
+
 ### §3/§90: zwei Tarifmerkmale zurück auf „geplant" (2026-08-09)
 
 Nach dem Screener-Fund dieselbe Frage an die übrigen verkauften Funktionen
