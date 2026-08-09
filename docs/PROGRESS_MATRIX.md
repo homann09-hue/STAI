@@ -356,6 +356,36 @@ Kursanbieter: Gold (4399,70), Brent (83,55), Silber, VIX (14,90), S&P 500.
 Ein falscher Schlüsselversuch für die Arbeitslosenquote antwortete mit 404 und
 steht **nicht** im Katalog — aufgenommen wird nur, was nachweislich liefert.
 
+### §47/§90: zwei Screener-Filter hießen nach etwas, das sie nicht taten (2026-08-09)
+
+Gefunden bei der Frage, ob `screener` als Pro-Leistung überhaupt trägt.
+
+| Filter | Beschriftung | Was er tatsächlich tat |
+|---|---|---|
+| `momentum` | „Momentum" | Ließ **jede** Aktie, Kryptowährung und jeden Index durch |
+| `income` | „Income/ETF" | Ließ **jeden** ETF und Fonds durch |
+
+Gemessen wurde nichts. Wer „Momentum" anklickte und das gesamte
+Aktienuniversum bekam, hielt das Ergebnis für eine Auswahl — in einem
+Finanzprodukt ist ein Filtername eine Aussage über die Zeilen, die er übrig
+lässt.
+
+Dazu bewarb die Seite elf Filter: Marktkapitalisierung, Volumen, Performance,
+Dividende, KGV, Volatilität, Risiko. **Keiner davon existiert.** Gefiltert wird
+nach Assetklasse, Datenabdeckung und Freitext.
+
+**Behoben durch Umbenennen, nicht durch Entfernen:** die Einschränkung nach
+Assetklasse ist nützlich, nur die Beschriftung war falsch. Die Filter heißen
+jetzt „Aktien, Krypto & Indizes" und „ETFs & Fonds" und sagen dazu, was sie
+nicht prüfen. Die Werbekarte nennt die vorhandenen Kriterien; eine zweite Karte
+benennt die fehlenden als fehlend, mit Grund.
+
+Echtes Momentum bräuchte je Instrument eine Kurshistorie — für ein Universum
+dieser Größe im aktuellen Anbietertarif nicht abrufbar.
+
+Sieben Tests lesen die Quelltexte: nicht „die Komponente rendert", sondern „im
+Code steht kein Versprechen, das der Code nicht hält".
+
 ### §44/§90: Backtesting war ein Zinseszinsrechner (2026-08-09)
 
 `/backtesting` hieß so und rechnete: `value = value * (1 + monthlyReturn) + monthly`.

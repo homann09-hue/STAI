@@ -17,11 +17,18 @@ export default async function ScreenerPage() {
       <TerminalSectionView
         eyebrow="Screener"
         title="Ein Screener für Aktien, ETFs, Krypto, Indizes und weitere Börseninstrumente"
-        description="STAI wird als globales Marktuniversum aufgebaut: Suche, Filter, Providerstatus und Datenqualität sind getrennt von echter Realtime-Lizenzierung."
+        description="Suche über das vorbereitete Marktuniversum mit sichtbarer Datenabdeckung. Was ein Filter tut, steht an ihm dran — auch dann, wenn er weniger tut, als sein Name vermuten ließe."
         ctaHref="/stocks"
         ctaLabel="Aktien-Screener öffnen"
         cards={[
-          { title: "Filter", text: "Assetklasse, Land, Branche, Marktkapitalisierung, Volumen, Performance, Dividende, KGV, Volatilität, Risiko und Datenanbieter.", badge: "Live-ready" },
+          // Hier stand eine Liste aus elf Filtern -- Marktkapitalisierung,
+          // Volumen, Performance, Dividende, KGV, Volatilitaet, Risiko. Keiner
+          // davon existiert. Gefiltert wird nach Assetklasse, Abdeckung und
+          // Text. Nach §90 war die Karte eine Zusage, die das Produkt nicht
+          // einloest -- und auf einer Seite, die im Pro-Tarif verkauft wird,
+          // ist das mehr als ein Schoenheitsfehler.
+          { title: "Filter", text: "Assetklasse, Datenabdeckung, Anbieterstatus und Freitextsuche über Symbol, Name, Börse, Land und Kennungen (ISIN, WKN).", badge: "Verfügbar" },
+          { title: "Noch nicht da", text: "Filter nach Marktkapitalisierung, KGV, Dividende, Volumen und Volatilität setzen Kennzahlen je Instrument voraus. Der Anbietertarif deckt sie für ein Universum dieser Größe nicht ab.", badge: "Offen" },
           { title: "Volluniversum", text: "Nicht alle Instrumente liegen lokal im Client. Nach Anbieteranbindung werden Provider-Suchendpunkte serverseitig angebunden." },
           { title: "Keine Fake-Abdeckung", text: "Lizenzpflichtige Börsen, Indizes, Optionen und Futures werden klar als vorbereitet oder lizenzpflichtig markiert.", badge: "Trust" }
         ]}

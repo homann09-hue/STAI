@@ -26,11 +26,37 @@ type PresetKey = "all" | "live" | "momentum" | "income" | "license";
 const momentumAssetClasses: MarketUniverseAssetClass[] = ["stock", "crypto", "index"];
 const incomeAssetClasses: MarketUniverseAssetClass[] = ["etf", "fund"];
 
+/**
+ * Die Schnellfilter — benannt nach dem, was sie tun.
+ *
+ * Zwei hießen vorher „Momentum" und „Income/ETF". Gefiltert haben sie nach der
+ * **Assetklasse**: `momentum` ließ jede Aktie, jede Kryptowährung und jeden
+ * Index durch, `income` jeden ETF und jeden Fonds. Kein Momentum wurde
+ * gemessen, keine Ausschüttung geprüft.
+ *
+ * Wer „Momentum" anklickt und das gesamte Aktienuniversum bekommt, hält das
+ * Ergebnis für eine Auswahl. In einem Finanzprodukt ist ein Filtername eine
+ * Aussage über die Zeilen, die er übrig lässt — nach §90 also eine Fassade.
+ *
+ * Echtes Momentum bräuchte je Instrument eine Kurshistorie. Die liegt für ein
+ * Universum dieser Größe nicht vor und wäre im aktuellen Anbietertarif auch
+ * nicht abrufbar. Deshalb tragen die Filter jetzt den Namen ihrer tatsächlichen
+ * Bedingung, statt zu verschwinden: die Einschränkung ist nützlich, nur die
+ * Beschriftung war falsch.
+ */
 const screenerPresets: Array<{ key: PresetKey; label: string; description: string }> = [
   { key: "all", label: "Alle", description: "Komplettes vorbereitetes Marktuniversum." },
   { key: "live", label: "Live-fähig", description: "Nur wirklich streambare Anbieter, keine vorbereiteten Public-Provider." },
-  { key: "momentum", label: "Momentum", description: "Aktien, Krypto und Indizes für Trendprüfung." },
-  { key: "income", label: "Income/ETF", description: "ETFs und Fonds für Kosten/Dividenden-Prüfung." },
+  {
+    key: "momentum",
+    label: "Aktien, Krypto & Indizes",
+    description: "Filtert nach Assetklasse — nicht nach gemessenem Momentum."
+  },
+  {
+    key: "income",
+    label: "ETFs & Fonds",
+    description: "Filtert nach Assetklasse — Ausschüttungen und Kosten werden hier nicht geprüft."
+  },
   { key: "license", label: "Lizenz nötig", description: "Professionelle Feeds, die nicht live gefaked werden." }
 ];
 
