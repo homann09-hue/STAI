@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, Clock, ExternalLink } from "lucide-react";
 import type { MacroFreshness, MacroOverview, MacroReading, MacroTrend } from "@/lib/macro/analysis";
 
@@ -34,24 +34,47 @@ const trendIcon: Record<MacroTrend, typeof ArrowRight> = {
   unknown: ArrowRight
 };
 
+/**
+ * Wie viele Nachkommastellen eine Einheit verträgt.
+ *
+ * Vier Stellen hinter einer Beschäftigungszahl in Tausend wären Scheingenauigkeit
+ * (§38): die Quelle meldet dort ganze Tausend. Vier Stellen hinter einem
+ * Wechselkurs sind dagegen die eigentliche Information.
+ */
+function digitsFor(unit: MacroReading["unit"]) {
+  if (unit === "percent" || unit === "usd") return 2;
+  if (unit === "thousands") return 0;
+  return 4;
+}
+
+/** Der Zusatz hinter dem Wert — „%", „Mio. $" oder was die Reihe mitbringt. */
+function suffixFor(reading: MacroReading) {
+  if (reading.valueSuffix) return ` ${reading.valueSuffix}`;
+  return reading.unit === "percent" ? " %" : "";
+}
+
 function formatValue(reading: MacroReading) {
-  const digits = reading.unit === "percent" ? 2 : 4;
+  const digits = digitsFor(reading.unit);
   const formatted = reading.value.toLocaleString("de-DE", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits
   });
-  return reading.unit === "percent" ? `${formatted} %` : formatted;
+  return `${formatted}${suffixFor(reading)}`;
 }
 
 function formatChange(reading: MacroReading) {
   if (reading.change === null) return null;
-  const digits = reading.unit === "percent" ? 2 : 4;
+  const digits = digitsFor(reading.unit);
   const sign = reading.change > 0 ? "+" : "";
   const value = reading.change.toLocaleString("de-DE", {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits
   });
-  return reading.unit === "percent" ? `${sign}${value} Prozentpunkte` : `${sign}${value}`;
+  // Bei Prozentreihen ist die Differenz zweier Prozentwerte kein Prozentwert,
+  // sondern ein Prozent**punkt**. Die Verwechslung ist der Klassiker.
+  return reading.unit === "percent"
+    ? `${sign}${value} Prozentpunkte`
+    : `${sign}${value}${reading.valueSuffix ? ` ${reading.valueSuffix}` : ""}`;
 }
 
 function ReadingCard({ reading }: { reading: MacroReading }) {
@@ -100,66 +123,54 @@ function ReadingCard({ reading }: { reading: MacroReading }) {
   );
 }
 
-export function MacroOverviewView() {
-  const [state, setState] = useState<LoadState>({ status: "loading" });
+/**
+ * Die beiden Wirtschaftsräume.
+ *
+ * Bewusst getrennt und nicht in einer gemeinsamen Liste: eine Inflationsrate
+ * von 2,1 neben einer von 2,8, ohne dass danebensteht, welche wo gilt, ist
+ * schlimmer als gar keine. §22 verlangt, dass unterschiedliche Bezugsräume
+ * nicht unbemerkt vermischt werden — und ein Wirtschaftsraum ist ein
+ * Bezugsraum.
+ */
+type Region = "euro_area" | "us";
 
-  useEffect(() => {
-    let disposed = false;
-
-    fetch("/api/macro", { cache: "no-store" })
-      .then(async (response) => {
-        const payload = (await response.json().catch(() => null)) as MacroOverview | null;
-        if (disposed) return;
-
-        if (!response.ok || !payload || !Array.isArray(payload.readings)) {
-          setState({
-            status: "failed",
-            message: "Die Makrodaten sind gerade nicht erreichbar. Es werden bewusst keine Ersatzwerte gezeigt."
-          });
-          return;
-        }
-
-        setState({ status: "ready", overview: payload });
-      })
-      .catch(() => {
-        if (!disposed) {
-          setState({
-            status: "failed",
-            message: "Die Makrodaten sind gerade nicht erreichbar. Es werden bewusst keine Ersatzwerte gezeigt."
-          });
-        }
-      });
-
-    return () => {
-      disposed = true;
-    };
-  }, []);
-
-  if (state.status === "loading") {
-    return (
-      <section className="rounded-3xl border border-stroke bg-panel p-5" aria-busy="true">
-        <p className="text-sm text-muted">Makrodaten werden geladen …</p>
-      </section>
-    );
+const regionConfig: Record<Region, {
+  tab: string;
+  eyebrow: string;
+  headline: string;
+  centralBank: string;
+  sourceLabel: string;
+  sourceUrl: string;
+}> = {
+  euro_area: {
+    tab: "Euroraum",
+    eyebrow: "Makrolage Euroraum",
+    headline: "Zinsen, Inflation und Wechselkurs mit Stichtag",
+    centralBank: "der EZB",
+    sourceLabel: "Quelle: Europäische Zentralbank, EZB Data Portal",
+    sourceUrl: "https://data.ecb.europa.eu"
+  },
+  us: {
+    tab: "USA",
+    eyebrow: "Makrolage USA",
+    headline: "Leitzins, Preise, Arbeitsmarkt und Zinsstruktur mit Stichtag",
+    centralBank: "der US-Notenbank",
+    // FRED verlangt die Quellenangabe. Sie ist deshalb fester Bestandteil der
+    // Ansicht und nicht abschaltbares Kleingedrucktes.
+    sourceLabel: "Quelle: FRED, Federal Reserve Bank of St. Louis",
+    sourceUrl: "https://fred.stlouisfed.org"
   }
+};
 
-  if (state.status === "failed") {
-    return (
-      <section className="rounded-3xl border border-loss/25 bg-loss/10 p-5">
-        <h2 className="text-lg font-semibold text-mist">Makrodaten nicht verfügbar</h2>
-        <p className="mt-1 text-sm text-loss">{state.message}</p>
-      </section>
-    );
-  }
-
-  const { overview } = state;
+function RegionPanel({ overview, region }: { overview: MacroOverview; region: Region }) {
+  const config = regionConfig[region];
   const curve = overview.yieldCurve;
 
   return (
     <div className="space-y-5">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">Makrolage Euroraum</p>
-        <h1 className="mt-1 text-lg font-semibold text-mist">Zinsen, Inflation und Wechselkurs mit Stichtag</h1>
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">{config.eyebrow}</p>
+        <h1 className="mt-1 text-lg font-semibold text-mist">{config.headline}</h1>
         <p className="mt-1 text-sm text-muted">
           Jede Zahl trägt ihren eigenen Stand. Ein Wert von gestern und einer von vor einem halben Jahr
           stehen hier nicht nebeneinander, als wären sie gleich aktuell.
@@ -209,7 +220,7 @@ export function MacroOverviewView() {
 
       {overview.policyRate ? (
         <section className="rounded-3xl border border-stroke bg-panel p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Zinsentscheidungen der EZB</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Zinsentscheidungen {config.centralBank}</h2>
           <p className="mt-2 text-sm leading-relaxed text-mist">{overview.policyRate.summary}</p>
 
           {overview.policyRate.changes.length > 0 ? (
@@ -270,15 +281,103 @@ export function MacroOverviewView() {
       <footer className="rounded-3xl border border-stroke bg-coal p-5">
         <p className="text-xs leading-relaxed text-muted">{overview.disclaimer}</p>
         <a
-          href="https://data.ecb.europa.eu"
+          href={config.sourceUrl}
           target="_blank"
           rel="noreferrer noopener"
           className="mt-2 inline-flex items-center gap-1.5 text-xs text-cyan underline-offset-2 hover:underline"
         >
-          Quelle: Europäische Zentralbank, EZB Data Portal
+          {config.sourceLabel}
           <ExternalLink className="h-3 w-3" aria-hidden="true" />
         </a>
       </footer>
+    </div>
+  );
+}
+
+const FAILURE_MESSAGE =
+  "Die Makrodaten sind gerade nicht erreichbar. Es werden bewusst keine Ersatzwerte gezeigt.";
+
+export function MacroOverviewView() {
+  const [region, setRegion] = useState<Region>("euro_area");
+  // Je Raum ein eigener Zustand. Ein gemeinsamer haette beim Umschalten kurz
+  // die Zahlen des anderen Raums unter der neuen Ueberschrift stehen lassen --
+  // genau die Vermischung, die diese Trennung verhindern soll.
+  const [states, setStates] = useState<Partial<Record<Region, LoadState>>>({});
+  /**
+   * Welche Räume schon angefragt wurden.
+   *
+   * Bewusst ein Ref und **nicht** `states` in den Abhängigkeiten: mit `states`
+   * lief der Effekt nach dem ersten `setStates` erneut, räumte dabei die noch
+   * laufende Anfrage ab (`disposed = true`) — und die Ansicht blieb für immer
+   * auf „wird geladen" stehen. Der Fehler kostete sechs rote Tests und ist der
+   * Grund, warum hier ein Kommentar steht.
+   */
+  const requested = useRef(new Set<Region>());
+
+  useEffect(() => {
+    if (requested.current.has(region)) return;
+    requested.current.add(region);
+
+    let disposed = false;
+    setStates((current) => ({ ...current, [region]: { status: "loading" } }));
+
+    const settle = (next: LoadState) => {
+      if (!disposed) setStates((current) => ({ ...current, [region]: next }));
+    };
+
+    fetch(`/api/macro?region=${region}`, { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as MacroOverview | null;
+
+        if (!response.ok || !payload || !Array.isArray(payload.readings)) {
+          settle({ status: "failed", message: FAILURE_MESSAGE });
+          return;
+        }
+
+        settle({ status: "ready", overview: payload });
+      })
+      .catch(() => settle({ status: "failed", message: FAILURE_MESSAGE }));
+
+    return () => {
+      disposed = true;
+    };
+  }, [region]);
+
+  const state = states[region] ?? { status: "loading" as const };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-2" role="tablist" aria-label="Wirtschaftsraum">
+        {(Object.keys(regionConfig) as Region[]).map((entry) => (
+          <button
+            key={entry}
+            type="button"
+            role="tab"
+            aria-selected={entry === region}
+            onClick={() => setRegion(entry)}
+            className={`rounded-2xl border px-4 py-2 text-sm font-semibold transition ${
+              entry === region
+                ? "border-cyan/40 bg-cyan/10 text-cyan"
+                : "border-stroke bg-panel text-muted hover:text-mist"
+            }`}
+          >
+            {regionConfig[entry].tab}
+          </button>
+        ))}
+      </div>
+
+      {state.status === "loading" ? (
+        <section className="rounded-3xl border border-stroke bg-panel p-5" aria-busy="true">
+          <p className="text-sm text-muted">Makrodaten werden geladen …</p>
+        </section>
+      ) : state.status === "failed" ? (
+        <section className="rounded-3xl border border-loss/25 bg-loss/10 p-5">
+          <h2 className="text-lg font-semibold text-mist">Makrodaten nicht verfügbar</h2>
+          <p className="mt-1 text-sm text-loss">{state.message}</p>
+        </section>
+      ) : (
+        <RegionPanel overview={state.overview} region={region} />
+      )}
     </div>
   );
 }

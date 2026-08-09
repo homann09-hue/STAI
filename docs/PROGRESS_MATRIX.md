@@ -150,9 +150,9 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §25 | Erklärbare Teilnoten | `DONE` | `analysis/quality-scores.ts`: 7 Dimensionen, 18 Einzelkennzahlen, **keine Gesamtnote**. Fehlende Werte werden benannt statt geschätzt. 15 Tests. Ohne Branchenkalibrierung |
 | §26 | Technische Analyse | `DONE` | **Vollständig.** 19 Indikatoren inklusive ADX, Trendkanal und Ausbruch, dazu Analyse über drei Zeitrahmen. Alle drei Erfindungsquellen ersetzt (siehe unten). 56 Tests, neun Regressionen gegengeprüft. Einschränkung: alles auf Tagesbasis — Intraday-Zeitrahmen gibt es nicht, weil der Anbietertarif keine Intraday-Historie enthält |
 | §27 | News und Events | `IN PROGRESS` | **Klassifikation und Entdopplung gebaut** (siehe unten): 18 Ereignisarten mit Beleg, Bezug nach Unternehmen/Branche/Land/Index/Rohstoff/Währung/Krypto, Duplikate zusammengeführt. 32 Tests, fünf Regressionen gegengeprüft. Offen: nur eine Quelle liefert Entitäten, NewsAPI keine |
-| §28 | Makro | `IN PROGRESS` | **22 Reihen** live gemessen: 11 EZB (Euroraum), 11 FRED (USA, **ohne Schlüssel**), dazu 5 Marktindikatoren. Alles aus §28 abgedeckt außer **PMI**. Offen ist keine Datenlücke, sondern eine Lizenzfrage — siehe unten |
+| §28 | Makro | `DONE` | **24 Reihen** live: 11 EZB (Euroraum), 13 FRED (USA, **ohne Schlüssel**), dazu 5 Marktindikatoren. Alles aus §28 außer **PMI**. Die US-Reihen hängen seit dem 2026-08-09 an Route und Ansicht — vorher war `fred.ts` gebaut, aber von keiner Zeile importiert. Offen ist keine Datenlücke, sondern eine Lizenzfrage |
 | §28 | Economic Calendar | `BLOCKED` | Keine Quelle im Tarif. FMP `/stable/economic-calendar` antwortet mit **HTTP 402**. Eine freie Alternative bräuchte einen FRED-Schlüssel — Nutzerentscheidung nach §95 |
-| §29 | Zentralbanken: Zinsentscheidungen | `DONE` | Aus dem Leitzinspfad abgeleitet, 2-Jahres-Fenster. Live: 9 Entscheidungen seit 2024-09. `policy-rate-history.ts`, 13 Tests |
+| §29 | Zentralbanken: Zinsentscheidungen | `DONE` | **Beide Notenbanken.** EZB aus dem Leitzinspfad, Fed aus `DFEDTARU` (Obergrenze des Zielkorridors, **nicht** `DFF`: der effektive Satz hätte in 800 Beobachtungen 798 „Zinsschritte" erzeugt statt 6). Live: Fed zuletzt am 2025-12-11 um 0,25 Pp gesenkt, seither unverändert |
 | §29 | Zentralbanken: Sitzungstermine, Statements, Protokolle | `NOT STARTED` | Aus einem Zinspfad nicht ableitbar, braucht eine Terminquelle |
 | §30 | Sentiment | `IN PROGRESS` | `analysis/sentiment.ts`: Nachrichtenstimmung, Krypto-Angst-und-Gier (frei), VIX — **jeder Wert mit Quelle, Zeitraum, Datenmenge und begründeter Konfidenz**, im Typ erzwungen. Keine Gesamtnote. 19 Tests, vier Regressionen. Nicht möglich: Put/Call, Reddit, CNN-Index |
 | §31 | SEC-Filings mit Originallink | `DONE` | `sec/edgar.ts` + `GET /api/sec/filings`. EDGAR ist **kostenlos und die Primärquelle**. Gemessen an Apple: 1000 Filings, davon 587 Form 4, 105 8-K, 34 10-Q. 13 Tests |
@@ -355,6 +355,42 @@ Kursanbieter: Gold (4399,70), Brent (83,55), Silber, VIX (14,90), S&P 500.
 
 Ein falscher Schlüsselversuch für die Arbeitslosenquote antwortete mit 404 und
 steht **nicht** im Katalog — aufgenommen wird nur, was nachweislich liefert.
+
+### §28: die US-Reihen hingen an nichts (2026-08-09)
+
+`fred.ts` war vollständig — Katalog, Parser, Abruf, Lizenzstand je Reihe, eigene
+Tests — und wurde von **keiner Zeile** außerhalb dieser Tests importiert. Die
+Fortschrittsmatrix wies elf US-Reihen aus; in der Anwendung gab es null. Nach
+§90 ist das dieselbe Sorte Fassade wie ein Limit, das nichts begrenzt.
+
+Geschlossen mit `fred-reading.ts` (Übersetzung), `us-macro-provider.ts` (Abruf)
+und einem zweiten Reiter auf `/macro`. Zwei Reihen kamen dabei dazu, weil erst
+sie den Block nützlich machen:
+
+| Reihe | Warum |
+|---|---|
+| `DGS3MO` | Kurzes Ende. Ohne sie gibt es keine US-Zinsstruktur — live am 2026-08-09: normal, 0,79 Pp zwischen 3 Monaten und 10 Jahren |
+| `DFEDTARU` | Fed-Leitzins. Bewusst die Obergrenze des Zielkorridors statt `DFF`: der effektive Satz schwankt täglich, aus ihm abgeleitet wären es 798 „Zinsschritte" statt 6 |
+
+**Drei Stellen, an denen die Übersetzung eine Zahl still verfälscht hätte:**
+
+*Die Größenordnung.* `RSAFS` liefert Einzelhandelsumsätze in **Millionen**
+Dollar. Als „768.553,00 $" angezeigt wäre der Wert um den Faktor eine Million
+daneben — und hätte dabei völlig plausibel ausgesehen. Jede Reihe trägt jetzt
+ihren eigenen Zusatz.
+
+*Die Trendschwelle.* Sie war fest auf 0,5 Indexpunkte gesetzt. Bei einem
+Ölpreis von 64 sind das ein Prozent, bei Einzelhandelsumsätzen von 768.553 ist
+es Rauschen. Für `usd` und `thousands` wird jetzt relativ zum Ausgangswert
+gemessen.
+
+*Die Frequenz.* FRED nennt seine Tagesreihen „daily", liefert aber nur
+Handelstage — `DGS3MO` hat seit 1982 rund 11.700 Beobachtungen statt 16.000.
+Als echte Kalendertagsreihe geführt wäre eine Rendite vom Freitag am Montag
+„verspätet" gewesen, obwohl sie die jüngste ist, die es gibt.
+
+**Live am 2026-08-09:** 13 von 13 Reihen geladen, keine fehlend. Der CPI ist 69
+Tage alt und wird als „verzögert" ausgewiesen statt als aktuell.
 
 ### §28: FRED schließt die US-Lücke — ohne Schlüssel
 

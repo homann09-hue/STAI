@@ -41,7 +41,15 @@ export const FRED_HOST = "fred.stlouisfed.org";
 
 export type FredCopyright = "public_domain" | "citation_required";
 
-export type FredCategory = "inflation" | "labour" | "growth" | "consumption" | "yield" | "exchange_rate" | "commodity";
+export type FredCategory =
+  | "policy_rate"
+  | "inflation"
+  | "labour"
+  | "growth"
+  | "consumption"
+  | "yield"
+  | "exchange_rate"
+  | "commodity";
 
 export type FredFrequency = "daily" | "monthly" | "quarterly";
 
@@ -66,6 +74,15 @@ export type FredSeriesDefinition = {
    * Veränderung. Sie wird abgeleitet und als abgeleitet gekennzeichnet.
    */
   reportAsChange?: boolean;
+  /**
+   * Was hinter dem Wert stehen muss, damit er stimmt.
+   *
+   * FRED liefert nackte Zahlen in der Einheit der Reihe, und die steht nur in
+   * der Beschreibung. Die Einzelhandelsumsätze kommen **in Millionen** Dollar:
+   * „700.000,00 $" wäre um den Faktor eine Million daneben und sähe dabei
+   * völlig plausibel aus. Prozent- und Indexreihen brauchen nichts.
+   */
+  valueSuffix?: string;
 };
 
 /**
@@ -77,6 +94,35 @@ export type FredSeriesDefinition = {
  * anderes und steht deshalb nicht als Ersatz darin.
  */
 export const fredSeriesCatalog: FredSeriesDefinition[] = [
+  {
+    id: "us_policy_rate",
+    // Bewusst die **Obergrenze des Zielkorridors**, nicht `DFF`. Der effektive
+    // Satz schwankt taeglich um ein paar Basispunkte; aus ihm eine
+    // Entscheidungshistorie abzuleiten haette hunderte "Zinsschritte" erzeugt,
+    // wo es sechs gab. Am 2026-08-09 gemessen: DFEDTARU macht in 800
+    // Beobachtungen genau 6 saubere Stufen, DFF 798 Bewegungen.
+    seriesId: "DFEDTARU",
+    label: "US-Leitzins (Obergrenze)",
+    explanation:
+      "Obergrenze des Zielkorridors der US-Notenbank. Die Fed nennt keinen einzelnen Satz, sondern eine Spanne von 25 Basispunkten.",
+    category: "policy_rate",
+    frequency: "daily",
+    unit: "percent",
+    copyright: "public_domain",
+    originalSource: "Board of Governors of the Federal Reserve System"
+  },
+  {
+    id: "us_yield_3m",
+    seriesId: "DGS3MO",
+    label: "US-Rendite 3 Monate",
+    explanation:
+      "Verzinsung dreimonatiger US-Staatsanleihen. Zusammen mit der zehnjährigen Rendite ergibt sie die Zinsstruktur.",
+    category: "yield",
+    frequency: "daily",
+    unit: "percent",
+    copyright: "public_domain",
+    originalSource: "Board of Governors of the Federal Reserve System"
+  },
   {
     id: "us_cpi",
     seriesId: "CPIAUCSL",
@@ -133,6 +179,7 @@ export const fredSeriesCatalog: FredSeriesDefinition[] = [
     category: "labour",
     frequency: "monthly",
     unit: "thousands",
+    valueSuffix: "Tsd. Stellen",
     copyright: "public_domain",
     originalSource: "U.S. Bureau of Labor Statistics",
     reportAsChange: true
@@ -157,6 +204,7 @@ export const fredSeriesCatalog: FredSeriesDefinition[] = [
     category: "consumption",
     frequency: "monthly",
     unit: "usd",
+    valueSuffix: "Mio. $",
     copyright: "public_domain",
     originalSource: "U.S. Census Bureau"
   },
@@ -207,6 +255,7 @@ export const fredSeriesCatalog: FredSeriesDefinition[] = [
     category: "commodity",
     frequency: "daily",
     unit: "usd",
+    valueSuffix: "$ je Barrel",
     copyright: "public_domain",
     originalSource: "U.S. Energy Information Administration"
   }

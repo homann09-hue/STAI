@@ -1,6 +1,6 @@
 import { periodToDate, type MacroObservation } from "@/lib/macro/sdmx";
 import { describePolicyStance, type PolicyRatePath } from "@/lib/macro/policy-rate-history";
-import type { MacroFrequency, MacroSeriesDefinition } from "@/lib/macro/series";
+import type { MacroFrequency } from "@/lib/macro/series";
 
 /**
  * Auswertung der Makro-Zeitreihen.
@@ -18,11 +18,20 @@ export type MacroFreshness = "current" | "delayed" | "outdated";
 
 export type MacroTrend = "rising" | "falling" | "flat" | "unknown";
 
+/**
+ * Einheiten, die eine Reihe haben kann.
+ *
+ * `usd` und `thousands` kamen mit FRED dazu. Sie unter `index` zu führen wäre
+ * bequem gewesen und falsch: ein Ölpreis von 64 und ein Indexstand von 64 sind
+ * verschiedene Aussagen, und die Anzeige formatiert nach dieser Angabe.
+ */
+export type MacroUnit = "percent" | "ratio" | "index" | "usd" | "thousands";
+
 export type MacroReading = {
   id: string;
   label: string;
   explanation: string;
-  unit: "percent" | "ratio" | "index";
+  unit: MacroUnit;
   value: number;
   period: string;
   /** Zeitpunkt der Beobachtung als ISO-Datum, nicht der Abrufzeitpunkt. */
@@ -34,6 +43,15 @@ export type MacroReading = {
   change: number | null;
   trend: MacroTrend;
   observationCount: number;
+  /**
+   * Was hinter dem Wert stehen muss, damit er stimmt.
+   *
+   * Nötig geworden mit FRED: die Einzelhandelsumsätze kommen **in Millionen**
+   * Dollar. „700.000,00 $" wäre um den Faktor eine Million daneben — und zwar
+   * unauffällig, weil die Zahl plausibel aussieht. Prozent- und Indexreihen
+   * brauchen das nicht und führen hier `null`.
+   */
+  valueSuffix: string | null;
   source: string;
   sourceUrl: string;
   /** Warum ein Wert mit Vorsicht zu lesen ist. Leer, wenn nichts dagegen spricht. */
@@ -69,6 +87,19 @@ const trendThreshold = {
   index: 0.5
 } as const;
 
+/**
+ * Für `usd` und `thousands` gibt es keine feste Schwelle.
+ *
+ * Beide Einheiten treten auf völlig verschiedenen Größenordnungen auf: WTI
+ * notiert bei rund 64 Dollar, die Einzelhandelsumsätze bei rund 700 000
+ * Millionen. Eine absolute Schwelle wäre bei der einen Reihe blind und bei der
+ * anderen überempfindlich — 0,5 Punkte Ölpreis sind ein Prozent, 0,5 Punkte
+ * Einzelhandel sind Rauschen.
+ *
+ * Deshalb wird hier relativ zum Ausgangswert gemessen.
+ */
+const RELATIVE_TREND_THRESHOLD = 0.002;
+
 function daysBetween(from: Date, to: Date) {
   return Math.floor((to.getTime() - from.getTime()) / 86_400_000);
 }
@@ -80,12 +111,40 @@ function classifyFreshness(ageDays: number, frequency: MacroFrequency): MacroFre
   return "outdated";
 }
 
-function classifyTrend(change: number | null, unit: keyof typeof trendThreshold): MacroTrend {
+function classifyTrend(change: number | null, unit: MacroUnit, reference: number | null): MacroTrend {
   if (change === null) return "unknown";
-  const threshold = trendThreshold[unit];
+
+  const threshold =
+    unit === "usd" || unit === "thousands"
+      ? // Ohne brauchbaren Bezugswert bleibt nur der Rohbetrag. Das ist selten
+        // -- und besser, als eine Schwelle zu erfinden.
+        Math.abs(reference ?? 0) * RELATIVE_TREND_THRESHOLD
+      : trendThreshold[unit];
+
   if (Math.abs(change) < threshold) return "flat";
   return change > 0 ? "rising" : "falling";
 }
+
+/**
+ * Was eine Reihe mitbringen muss, damit sie ausgewertet werden kann.
+ *
+ * Bewusst strukturell statt an `MacroSeriesDefinition` gebunden: die
+ * EZB-Definition erfüllt sie, die FRED-Definition nach der Übersetzung
+ * ebenfalls. Ohne diese Trennung hätte die US-Anbindung entweder eine zweite
+ * Auswertung gebraucht oder eine EZB-Definition vortäuschen müssen — und dann
+ * stünde „ECB Data Portal" unter einem Wert des US-Arbeitsministeriums.
+ */
+export type MacroReadingSource = {
+  id: string;
+  label: string;
+  explanation: string;
+  unit: MacroUnit;
+  frequency: MacroFrequency;
+  /** Siehe `MacroReading.valueSuffix`. Ohne Angabe steht nichts hinter dem Wert. */
+  valueSuffix?: string | null;
+  source: string;
+  sourceUrl: string;
+};
 
 /**
  * Wertet eine einzelne Reihe aus.
@@ -95,7 +154,7 @@ function classifyTrend(change: number | null, unit: keyof typeof trendThreshold)
  * niemand hinterfragt, weil sie plausibel aussieht.
  */
 export function buildMacroReading(
-  series: MacroSeriesDefinition,
+  series: MacroReadingSource,
   observations: MacroObservation[],
   now: Date = new Date()
 ): MacroReading | null {
@@ -136,8 +195,9 @@ export function buildMacroReading(
     freshness,
     previousValue: previous?.value ?? null,
     change,
-    trend: classifyTrend(change, series.unit),
+    trend: classifyTrend(change, series.unit, previous?.value ?? null),
     observationCount: observations.length,
+    valueSuffix: series.valueSuffix ?? null,
     source: series.source,
     sourceUrl: series.sourceUrl,
     caveats
@@ -231,22 +291,45 @@ export type MacroOverview = {
   disclaimer: string;
 };
 
+/**
+ * Woraus sich eine Makrolage zusammensetzt.
+ *
+ * Die Kennungen der Zinsstruktur und der Haftungshinweis waren fest verdrahtet
+ * auf den Euroraum. Für die USA hätte das entweder eine Kopie der Funktion
+ * bedeutet oder eine Zinskurve, die stumm leer bleibt, weil sie nach
+ * `ea_yield_3m` sucht.
+ */
+export type MacroOverviewShape = {
+  /** Kurzes Ende der Zinsstruktur. */
+  shortEndId: string;
+  /** Langes Ende. */
+  longEndId: string;
+  disclaimer: string;
+};
+
+const euroAreaShape: MacroOverviewShape = {
+  shortEndId: "ea_yield_3m",
+  longEndId: "ea_yield_10y",
+  disclaimer:
+    "Makrodaten stammen vom EZB Data Portal und beschreiben den jeweils genannten Stichtag, nicht den heutigen Tag. Keine Anlageberatung."
+};
+
 export function buildMacroOverview(
   readings: MacroReading[],
   unavailableSeries: string[],
-  policyRatePath: PolicyRatePath | null = null
+  policyRatePath: PolicyRatePath | null = null,
+  shape: MacroOverviewShape = euroAreaShape
 ): MacroOverview {
   const byId = new Map(readings.map((reading) => [reading.id, reading]));
 
   return {
     readings,
-    yieldCurve: assessYieldCurve(byId.get("ea_yield_3m") ?? null, byId.get("ea_yield_10y") ?? null),
+    yieldCurve: assessYieldCurve(byId.get(shape.shortEndId) ?? null, byId.get(shape.longEndId) ?? null),
     policyRate: policyRatePath ? { ...policyRatePath, summary: describePolicyStance(policyRatePath) } : null,
     unavailableSeries,
     // Eine einzelne Reihe ist keine Makrolage. Ohne mindestens zwei Werte wird
     // nichts als Gesamtbild ausgegeben.
     reportable: readings.length >= 2,
-    disclaimer:
-      "Makrodaten stammen vom EZB Data Portal und beschreiben den jeweils genannten Stichtag, nicht den heutigen Tag. Keine Anlageberatung."
+    disclaimer: shape.disclaimer
   };
 }

@@ -16,7 +16,15 @@ import { getPricingTier, type PlanId } from "@/lib/feature-gates";
  * auf, wenn er groß genug ist, um wehzutun.
  */
 
-export type ProviderId = "fmp" | "finnhub" | "alpha_vantage" | "twelve_data" | "marketaux" | "ecb" | "ai_model";
+export type ProviderId =
+  | "fmp"
+  | "finnhub"
+  | "alpha_vantage"
+  | "twelve_data"
+  | "marketaux"
+  | "ecb"
+  | "fred"
+  | "ai_model";
 
 export type ProviderCostModel = {
   id: ProviderId;
@@ -74,6 +82,13 @@ export const providerCostModels: Record<ProviderId, ProviderCostModel> = {
     label: "ECB Data Portal",
     costPerCallTenthCents: 0,
     basis: "Kostenlos und ohne Schlüssel. Verursacht keine Datenkosten."
+  },
+  fred: {
+    id: "fred",
+    label: "FRED (Federal Reserve Bank of St. Louis)",
+    costPerCallTenthCents: 0,
+    basis:
+      "Der CSV-Export ist kostenlos und ohne Schlüssel erreichbar. Verursacht keine Datenkosten — die Zwischenspeicherung ist hier Rücksicht auf eine öffentliche Quelle, nicht Kostensenkung."
   },
   ai_model: {
     id: "ai_model",
