@@ -1,5 +1,5 @@
 begin;
-select plan(9);
+select plan(11);
 
 -- Die Adminrolle lebt an `profiles`, und der Schutz liegt auf der Spalte, nicht
 -- in einer Policy. Diese Tests prüfen genau die Verwechslung, die hier nahelag:
@@ -83,6 +83,22 @@ select ok(
 select ok(
   has_column_privilege('service_role', 'public.profiles', 'is_admin', 'UPDATE'),
   'service role may grant and revoke admin rights'
+);
+
+-- Der Grund, warum die Zeile oben ueberhaupt existiert: `admin-guard.ts` liest
+-- die Rolle mit dem Service-Client. Ohne Leserecht scheitert die Pruefung, sie
+-- schliesst -- und der Adminbereich funktioniert nie, mit einer Fehlermeldung,
+-- die nach fehlender Konfiguration aussieht statt nach fehlendem Recht.
+select ok(
+  has_table_privilege('service_role', 'public.profiles', 'SELECT'),
+  'service role may read profiles for the admin check'
+);
+
+-- Und die Gegenprobe: ein nicht angemeldeter Besucher hat mit Profilen nichts
+-- zu tun.
+select ok(
+  not has_table_privilege('anon', 'public.profiles', 'SELECT'),
+  'anonymous visitors cannot read profiles'
 );
 
 select * from finish();
