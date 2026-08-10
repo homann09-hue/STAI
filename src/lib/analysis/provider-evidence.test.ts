@@ -69,6 +69,7 @@ describe("assessProviderEvidence", () => {
       quote,
       history: { candles: [], provider: null, note: "nicht geliefert", integrity: null },
       news: [],
+      fundamentals: undefined,
       base: baseReport()
     });
 
@@ -101,6 +102,7 @@ describe("assessProviderEvidence", () => {
           relevance: 90,
         }
       ] as unknown as AssetDetail["news"],
+      fundamentals: undefined,
       base: baseReport()
     });
 
@@ -121,6 +123,39 @@ describe("assessProviderEvidence", () => {
     expect(report.issues).toEqual(["Keine verifizierten Fundamentaldaten im aktiven Analysepfad."]);
   });
 
+  it("weist verifizierte Fundamentals feldweise als eigene Evidenz aus", () => {
+    const historyCandles = candles(90);
+    const report = assessProviderEvidence({
+      quote,
+      history: {
+        candles: historyCandles,
+        provider: "FMP Historical",
+        note: "Daily history",
+        integrity: assessHistoricalDataIntegrity(historyCandles)
+      },
+      news: [],
+      fundamentals: {
+        provider: "FMP Fundamentals",
+        quality: "delayed",
+        fetchedAt: "2026-08-10T09:45:00.000Z",
+        fields: { peRatio: "provider", cashflow: "provider" },
+        verifiedFields: ["peRatio", "cashflow"],
+        excludedMockFields: [],
+        unavailableFields: ["revenueGrowth", "earningsGrowth", "debtToEquity", "dividendYield", "marketCap"],
+        verifiedCount: 2,
+        totalFields: 7,
+        coveragePercent: 29,
+        caveat: "Teilabdeckung",
+        warning: null
+      },
+      base: baseReport()
+    });
+
+    expect(report.sourceLabel).toContain("FMP Fundamentals");
+    expect(report.issues).toContain("Fundamentaldaten nur teilweise verifiziert: 2 von 7 Feldern.");
+    expect(report.sources.find((source) => source.name === "FMP Fundamentals")?.note).toContain("2 von 7");
+  });
+
   it("gibt bei veralteter Kursbasis trotz Historie keine Analyse frei", () => {
     const historyCandles = candles(90);
     const base = baseReport();
@@ -135,6 +170,7 @@ describe("assessProviderEvidence", () => {
         integrity: assessHistoricalDataIntegrity(historyCandles)
       },
       news: [],
+      fundamentals: undefined,
       base
     });
 

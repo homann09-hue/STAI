@@ -1,6 +1,6 @@
 import type { AiAnalysis, AssetDetail, Candle } from "@/lib/types";
 
-const MODEL_VERSION = "stockpilot-evidence-analysis-v1";
+const MODEL_VERSION = "stockpilot-evidence-analysis-v2";
 const MINIMUM_CANDLES = 60;
 
 function clamp(value: number, minimum: number, maximum: number) {
@@ -111,6 +111,29 @@ function sourceLabels(detail: AssetDetail) {
   return [...new Set(sources)].slice(0, 8);
 }
 
+function verifiedFundamentalObservations(detail: AssetDetail) {
+  const fields = new Set(detail.fundamentalsEvidence?.verifiedFields ?? []);
+  const positive: string[] = [];
+  const negative: string[] = [];
+
+  if (fields.has("revenueGrowth")) {
+    const value = detail.fundamentals.revenueGrowth;
+    (value >= 0 ? positive : negative).push(`Das verifizierte Umsatzwachstum liegt bei ${value.toFixed(1)} %.`);
+  }
+  if (fields.has("earningsGrowth")) {
+    const value = detail.fundamentals.earningsGrowth;
+    (value >= 0 ? positive : negative).push(`Das verifizierte Gewinnwachstum liegt bei ${value.toFixed(1)} %.`);
+  }
+  if (fields.has("cashflow")) {
+    const value = detail.fundamentals.cashflow;
+    (value >= 0 ? positive : negative).push(
+      `Der verifizierte Cashflow ist ${value >= 0 ? "positiv" : "negativ"}; die absolute Vergleichbarkeit hängt von Währung und Berichtsperiode ab.`
+    );
+  }
+
+  return { positive, negative, count: fields.size };
+}
+
 /**
  * Erstellt eine rein deterministische Erklärung aus verifizierter Evidenz.
  * Das Modul ruft kein Sprachmodell auf und erfindet keine fehlenden Werte.
@@ -137,6 +160,7 @@ export function buildEvidenceBoundAnalysis(detail: AssetDetail): AiAnalysis | nu
   const positiveNews = newsBySentiment(news, "positive");
   const negativeNews = newsBySentiment(news, "negative");
   const risk = riskLevel(volatility, detail.riskReport.level);
+  const fundamentalObservations = verifiedFundamentalObservations(detail);
   const uncertainty: AiAnalysis["uncertainty"] =
     detail.dataQuality.confidence >= 70 && candles.length >= 200
       ? "niedrig"
@@ -152,19 +176,21 @@ export function buildEvidenceBoundAnalysis(detail: AssetDetail): AiAnalysis | nu
     mediumReturn > 0
       ? `Der gemessene 60-Perioden-Trend liegt bei ${mediumReturn.toFixed(1)} %.`
       : "Kein positiver mittelfristiger Preistrend als Treiber bestätigt.",
-    ...positiveNews.slice(0, 2).map((item) => `Positiv klassifizierte Meldung: ${item.title}`)
+    ...positiveNews.slice(0, 2).map((item) => `Positiv klassifizierte Meldung: ${item.title}`),
+    ...fundamentalObservations.positive.slice(0, 2)
   ];
   const downsideDrivers = [
     recentReturn < 0
       ? `Der gemessene 20-Perioden-Trend liegt bei ${recentReturn.toFixed(1)} %.`
       : "Kein negativer kurzfristiger Preistrend als Treiber bestätigt.",
     `Die annualisierte historische Volatilität beträgt modelliert ${volatility.toFixed(1)} %.`,
-    ...negativeNews.slice(0, 2).map((item) => `Negativ klassifizierte Meldung: ${item.title}`)
+    ...negativeNews.slice(0, 2).map((item) => `Negativ klassifizierte Meldung: ${item.title}`),
+    ...fundamentalObservations.negative.slice(0, 2)
   ];
   const direction = recentReturn > 1 ? "positiv" : recentReturn < -1 ? "negativ" : "seitwärts";
 
   return {
-    summary: `Die deterministische Evidenzanalyse bewertet den kurzfristigen Trend als ${direction}. Sie basiert auf ${candles.length} verifizierten Kurskerzen und ${news.length} externen Meldung(en).`,
+    summary: `Die deterministische Evidenzanalyse bewertet den kurzfristigen Trend als ${direction}. Sie basiert auf ${candles.length} verifizierten Kurskerzen, ${news.length} externen Meldung(en) und ${fundamentalObservations.count} verifizierten Fundamentals-Feld(ern).`,
     upsideDrivers,
     downsideDrivers,
     counterArguments: [
@@ -180,7 +206,10 @@ export function buildEvidenceBoundAnalysis(detail: AssetDetail): AiAnalysis | nu
     neutralCase: "Das Neutral-Szenario unterstellt eine Konsolidierung ohne belastbaren Ausbruch und ohne neue kurstreibende Evidenz.",
     shortTerm: `Kurzfristig ergibt das Modell ${estimate.up} % Aufwärts-, ${estimate.down} % Abwärts- und ${estimate.sideways} % Seitwärtswahrscheinlichkeit.`,
     mediumTerm: `Mittelfristig dient die gemessene 60-Perioden-Entwicklung von ${mediumReturn.toFixed(1)} % als Trendindikator, nicht als Kursziel.`,
-    longTerm: "Langfristig wird ohne verifizierte Fundamentaldaten, Bewertung und Point-in-Time-Unternehmenshistorie keine belastbare Aussage erzeugt.",
+    longTerm:
+      fundamentalObservations.count >= 3
+        ? `Langfristig liegen ${fundamentalObservations.count} verifizierte Fundamentals-Felder als aktueller Snapshot vor. Ohne Point-in-Time-Historie, Peer-Benchmark und vollständige Berichtsabdeckung bleibt die Aussage bewusst eingeschränkt.`
+        : "Langfristig wird ohne ausreichende verifizierte Fundamentaldaten, Bewertung und Point-in-Time-Unternehmenshistorie keine belastbare Aussage erzeugt.",
     riskLevel: risk,
     uncertainty,
     probabilities: estimate,
