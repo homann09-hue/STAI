@@ -90,32 +90,18 @@ test("settings contains investor mode instead of dashboard", async ({ page }) =>
   await expect(page.getByRole("button", { name: "Anfänger Einfache Sprache, Ampel, Risiko zuerst." })).toBeVisible();
 });
 
-test("professional finance terminal pages render core data areas", async ({ page }) => {
-  await safeGoto(page, "/markets");
-  await acceptRiskNotice(page);
-  // Ohne Konto zeigt /markets die Paywall statt des Profi-Berichts -- das ist
-  // die Durchsetzung aus §4, nicht ein Fehler. Vorher lag der Inhalt fuer
-  // jeden Besucher offen im HTML.
-  await expect(page.getByText(/Pro-Tarif|Anmeldung|nicht verfügbar/i).first()).toBeVisible();
+test("professional finance terminal pages enforce the account gate", async ({ page }) => {
+  const protectedRoutes = ["/markets", "/stocks", "/etfs", "/crypto", "/news-terminal", "/risk", "/compare"];
 
-  await safeGoto(page, "/stocks");
-  await expect(page.getByText("Aktien-Screener").first()).toBeVisible();
-  await expect(page.getByText("Forward P/E").first()).toBeVisible();
+  for (const route of protectedRoutes) {
+    await safeGoto(page, route);
+    await acceptRiskNotice(page);
 
-  await safeGoto(page, "/etfs");
-  await expect(page.getByText("ETF-Screener").first()).toBeVisible();
-  await expect(page.getByText("Top 10 Holdings").first()).toBeVisible();
-
-  await safeGoto(page, "/crypto");
-  await expect(page.getByText("Krypto-Screener").first()).toBeVisible();
-  await expect(page.getByText("Exchange-Daten").first()).toBeVisible();
-
-  await page.goto("/news-terminal");
-  await expect(page.getByText("News & Events mit Quellenstatus")).toBeVisible();
-
-  await page.goto("/risk");
-  await expect(page.getByText("Risiko-Dashboard").first()).toBeVisible();
-
-  await page.goto("/compare");
-  await expect(page.getByText("Vergleichsseite").first()).toBeVisible();
+    // Ohne verifizierte Sitzung muss jede Profi-Seite fail-closed reagieren.
+    // In CI fehlt absichtlich ein Supabase-Client; deshalb darf der Test nicht
+    // so tun, als waere ein bezahlter Tarif vorhanden. Der eigentliche
+    // Profi-Inhalt wird separat auf Komponenten- und API-Ebene getestet.
+    await expect(page.getByText(/Pro-Tarif|Anmeldung|nicht verfügbar|sicher prüfen/i).first()).toBeVisible();
+    await expect(page.getByTestId("professional-overview")).toHaveCount(0);
+  }
 });

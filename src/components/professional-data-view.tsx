@@ -744,7 +744,10 @@ export function ProfessionalDataView({
   }, [report.newsTerminal]);
 
   return (
-    <div className="space-y-6">
+    // `data-testid` traegt hier eine Zusicherung: der E2E-Test prueft, dass
+    // dieser Bericht **ohne** Konto nicht im HTML steht. Ohne eine stabile
+    // Kennung waere diese Gegenprobe leer und damit wertlos.
+    <div className="space-y-6" data-testid="professional-overview">
       <section className="rounded-[2rem] border border-stroke bg-[radial-gradient(circle_at_top_right,rgba(120,231,255,0.16),transparent_34%),linear-gradient(145deg,rgba(9,14,24,0.98),rgba(4,7,12,0.98))] p-5 shadow-panel sm:p-7">
         <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan">{copy.eyebrow}</p>
         <h1 className="mt-3 max-w-4xl text-3xl font-semibold tracking-tight text-mist sm:text-5xl">{copy.title}</h1>

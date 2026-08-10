@@ -38,11 +38,22 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.STOCKPILOT_VERCEL_TOKEN }}
       VERCEL_CLI_VERSION: ${{ vars.STOCKPILOT_VERCEL_CLI_VERSION || '54.18.6' }}
     steps:
+      - name: Verify required StockPilot Vercel secrets
+        run: |
+          missing=0
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error title=Missing deployment secret::$name is not configured for the selected GitHub environment."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
       - name: Checkout StockPilot AI only
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -95,12 +106,6 @@ jobs:
 
       - name: Browser E2E smoke gate
         run: npm run test:e2e
-
-      - name: Verify required StockPilot Vercel secrets
-        run: |
-          test -n "$VERCEL_TOKEN"
-          test -n "$VERCEL_ORG_ID"
-          test -n "$VERCEL_PROJECT_ID"
 
       - name: Install Vercel CLI
         run: npm install --global vercel@"$VERCEL_CLI_VERSION"

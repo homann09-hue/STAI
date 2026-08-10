@@ -11,8 +11,12 @@ export type StripeCheckoutPlan = PaidPlanId;
  * eine eigene Preis-ID; ein Jahresabo laesst sich nicht aus einem Monatspreis
  * ableiten. Fehlt eine ID, ist der jeweilige Zeitraum schlicht nicht buchbar --
  * ein Knopf ohne hinterlegten Preis waere eine Funktionsattrappe.
+ *
+ * Exportiert, weil der Adminbereich beim Fehlen einer Variablen ihren **Namen**
+ * nennen muss. "Premium jaehrlich ist nicht buchbar" schickt jemanden auf die
+ * Suche; "STRIPE_PREMIUM_YEARLY_PRICE_ID fehlt" ist in einer Minute behoben.
  */
-const priceEnvNames: Record<PaidPlanId, Record<BillingInterval, string>> = {
+export const priceEnvNames: Record<PaidPlanId, Record<BillingInterval, string>> = {
   pro: { month: "STRIPE_PRO_PRICE_ID", year: "STRIPE_PRO_YEARLY_PRICE_ID" },
   premium: { month: "STRIPE_PREMIUM_PRICE_ID", year: "STRIPE_PREMIUM_YEARLY_PRICE_ID" }
 };
@@ -111,6 +115,26 @@ export function getPlanForStripePriceId(priceId: string): PaidPlanId | null {
   const prices = getStripeBillingConfiguration().priceIds;
   for (const plan of Object.keys(prices) as PaidPlanId[]) {
     if (prices[plan].month === priceId || prices[plan].year === priceId) return plan;
+  }
+  return null;
+}
+
+/**
+ * Von der Preis-ID zum Abrechnungsintervall.
+ *
+ * Der Adminbereich braucht das, um MRR zu rechnen: ein Jahresabo traegt ein
+ * Zwoelftel bei, kein volles Monatsentgelt.
+ *
+ * `null` heisst „nicht zuzuordnen" — etwa weil die Preis-ID aus einem alten
+ * Preis stammt, den keine Umgebungsvariable mehr nennt. Solche Abos duerfen
+ * nicht stillschweigend als Monatsabo gezaehlt werden; sie gehoeren als
+ * ungeklaert ausgewiesen.
+ */
+export function getIntervalForStripePriceId(priceId: string): BillingInterval | null {
+  const prices = getStripeBillingConfiguration().priceIds;
+  for (const plan of Object.keys(prices) as PaidPlanId[]) {
+    if (prices[plan].month === priceId) return "month";
+    if (prices[plan].year === priceId) return "year";
   }
   return null;
 }
