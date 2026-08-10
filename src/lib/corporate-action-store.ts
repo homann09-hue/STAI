@@ -10,6 +10,99 @@ export interface CorporateActionPersistResult {
   reason?: string;
 }
 
+export interface CorporateActionCalendarResult {
+  available: boolean;
+  events: CorporateAction[];
+  retrievedAt: string;
+  complete: false;
+  source: "corporate_actions_ledger" | null;
+  note: string;
+}
+
+function numberOrNull(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export async function listCorporateActionsByDateRange(
+  from: string,
+  to: string,
+  limit = 500
+): Promise<CorporateActionCalendarResult> {
+  const retrievedAt = new Date().toISOString();
+  const supabase = createSupabaseServiceClient();
+  if (!supabase) {
+    return {
+      available: false,
+      events: [],
+      retrievedAt,
+      complete: false,
+      source: null,
+      note: "Corporate-Action-Ledger ist serverseitig nicht konfiguriert."
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("corporate_actions")
+    .select("canonical_action_id,symbol,action_type,effective_date,announcement_date,record_date,payment_date,old_symbol,new_symbol,cash_amount,adjusted_cash_amount,currency,ratio_from,ratio_to,lifecycle_status,provider,source_reference,data_quality,as_of,received_at")
+    .gte("effective_date", from)
+    .lte("effective_date", to)
+    .order("effective_date", { ascending: true })
+    .order("symbol", { ascending: true })
+    .limit(Math.min(Math.max(limit, 1), 1_000));
+
+  if (error) {
+    logEvent("warn", "corporate_actions.calendar_read_failed", {
+      code: error.code,
+      message: error.message
+    });
+    return {
+      available: false,
+      events: [],
+      retrievedAt,
+      complete: false,
+      source: null,
+      note: "Corporate-Action-Ledger konnte nicht gelesen werden."
+    };
+  }
+
+  const events = (data ?? []).map((row) => ({
+    canonicalActionId: String(row.canonical_action_id),
+    symbol: String(row.symbol),
+    type: row.action_type as CorporateAction["type"],
+    effectiveDate: String(row.effective_date),
+    announcementDate: row.announcement_date ? String(row.announcement_date) : null,
+    recordDate: row.record_date ? String(row.record_date) : null,
+    paymentDate: row.payment_date ? String(row.payment_date) : null,
+    oldSymbol: row.old_symbol ? String(row.old_symbol) : null,
+    newSymbol: row.new_symbol ? String(row.new_symbol) : null,
+    cashAmount: numberOrNull(row.cash_amount),
+    adjustedCashAmount: numberOrNull(row.adjusted_cash_amount),
+    currency: row.currency ? String(row.currency) : null,
+    ratioFrom: numberOrNull(row.ratio_from),
+    ratioTo: numberOrNull(row.ratio_to),
+    lifecycle: row.lifecycle_status as CorporateAction["lifecycle"],
+    provider: String(row.provider),
+    sourceUrl: String(row.source_reference),
+    quality: row.data_quality as CorporateAction["quality"],
+    asOf: String(row.as_of),
+    receivedAt: String(row.received_at)
+  }));
+
+  return {
+    available: true,
+    events,
+    retrievedAt,
+    complete: false,
+    source: "corporate_actions_ledger",
+    note: events.length
+      ? `${events.length} belegte Ledger-Ereignisse im Zeitraum. Das Universum ist suchgetrieben und nicht vollständig.`
+      : "Keine Ledger-Ereignisse im Zeitraum. Das ist kein Beleg dafür, dass weltweit keine Ereignisse stattfinden."
+  };
+}
+
 /**
  * Persistiert provider-gemeldete Referenzdaten idempotent.
  *

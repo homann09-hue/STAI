@@ -19,6 +19,16 @@ known, latency. Provider payloads are not exposed directly.
 ## Corporate-action ledger
 
 `corporate_actions` stores idempotent provider or regulatory events separately
+and supplies the production market calendar. Calendar queries expose
+`complete: false`, because the ledger grows through verified symbol lookups and
+is not a licensed global event directory.
+
+## Exchange calendar
+
+Exchange schedules are normalized at request time and are not persisted. A
+session status requires provider-reported timezone, regular trading days,
+opening/closing times and successful holiday coverage. Missing evidence yields
+`unknown`, never a weekday-based guess.
 from prices. The canonical event identity prevents duplicate dividends and
 splits. Type-specific constraints require amounts for cash distributions,
 ratios for splits and old/new symbols for symbol changes. `as_of` is the

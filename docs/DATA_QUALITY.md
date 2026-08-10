@@ -42,6 +42,11 @@ possible.
 ## Corporate actions
 
 Corporate actions are events, not ticks. They therefore use evidence labels
+
+The calendar page contains no static production events. It combines only
+provider-backed ledger rows with clearly labelled local user dates. The ledger
+is explicitly incomplete. Exchange status stays `unknown` unless hours,
+timezone and holiday coverage are all available and parseable.
 `provider_reported`, `issuer_confirmed` and `regulatory_filing` instead of a
 false realtime claim. The current FMP adapter covers dividends and splits
 separately and exposes partial endpoint coverage. It never infers an action

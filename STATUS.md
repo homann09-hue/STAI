@@ -75,6 +75,16 @@ ohne externe Marktdaten- oder Lizenzgrenzen zu kaschieren.
 
 # Milestone 2026-08-10: corporate-action ledger
 
+# Milestone 2026-08-10: belegter Markt- und Ereigniskalender
+
+- Statische Demo-Termine vollständig aus dem Produktionskalender entfernt.
+- Corporate-Action-Ledger als einzige serverseitige Ereignisquelle integriert;
+  die suchgetriebene, unvollständige Abdeckung bleibt sichtbar.
+- Börsenzeiten und Feiertage über eine gecachte, rate-limit-geschützte
+  Provider-Schicht normalisiert. Der Sitzungsstatus wird nur bei vollständiger
+  Evidenz berechnet und fällt sonst auf `unknown` zurück.
+- API-Routen, mobile Kalenderansicht sowie Domain-, API- und UI-Tests ergänzt.
+
 - Dokumentierte FMP-Endpunkte für Dividenden und Splits sind hinter einem
   normalisierten, serverseitigen Provider-Adapter angebunden.
 - Ereignisse tragen kanonische ID, Typ, Termine, Betrag/Verhältnis, Quelle,
