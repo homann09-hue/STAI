@@ -118,7 +118,11 @@ test.describe("mobile review", () => {
     await acceptRiskNotice(page);
     await page.getByRole("link", { name: "Märkte", exact: true }).click();
     await expect(page).toHaveURL(/\/markets$/);
-    await expect(page.getByText("Global Market Overview").first()).toBeVisible();
+    // Der anonyme Mobile-Lauf muss die Navigation, aber nicht einen
+    // nicht verifizierten Pro-Tarif vortaeuschen. Die Zielseite ist erreicht,
+    // wenn sie fail-closed den Konto-/Tarifstatus erklaert.
+    await expect(page.getByText(/Pro-Tarif|Anmeldung|nicht verfügbar|sicher prüfen/i).first()).toBeVisible();
+    await expect(page.getByTestId("professional-overview")).toHaveCount(0);
 
     await page.getByRole("link", { name: "Portfolio", exact: true }).click();
     await expect(page).toHaveURL(/\/portfolio$/);
@@ -126,7 +130,7 @@ test.describe("mobile review", () => {
 
     notes.push("## Navigation");
     notes.push("");
-    notes.push("- Bottom navigation successfully opened Märkte and Portfolio on mobile.");
+    notes.push("- Bottom navigation successfully opened the protected Märkte route and Portfolio on mobile.");
     notes.push("");
 
     await fs.writeFile(path.join(auditDir, "mobile-review.md"), notes.join("\n"), "utf8");
