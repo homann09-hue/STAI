@@ -3,6 +3,7 @@
 import { AlertTriangle, Loader2, RefreshCw, Search, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { formatEuroCents } from "@/lib/billing/revenue";
+import { formatGermanDate } from "@/lib/date-time";
 import { fetchWithSupabaseAuth } from "@/lib/supabase/client-fetch";
 import type { AdminAccount, AdminAccountsView } from "@/lib/billing/admin-accounts";
 
@@ -31,9 +32,7 @@ const statusLabels: Record<string, string> = {
 };
 
 function formatDate(value: string | null) {
-  if (!value) return "—";
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? new Date(parsed).toLocaleDateString("de-DE") : "—";
+  return formatGermanDate(value);
 }
 
 export function AdminAccountsPanel() {

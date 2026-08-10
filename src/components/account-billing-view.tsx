@@ -12,6 +12,7 @@ import {
 import { formatInvoiceAmount, type BillingInvoice, type PaymentMethodSummary } from "@/lib/billing/invoices";
 import { getPlanPrice, getPricingTier, paidPlanIds, type BillingInterval, type PaidPlanId } from "@/lib/feature-gates";
 import { getSupabaseAccessToken, fetchWithSupabaseAuth } from "@/lib/supabase/client-fetch";
+import { formatGermanDate } from "@/lib/date-time";
 
 /**
  * Account → Billing.
@@ -63,9 +64,7 @@ const statusTone: Record<string, string> = {
 };
 
 function formatDate(value: string | null) {
-  if (!value) return "—";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString("de-DE");
+  return formatGermanDate(value);
 }
 
 function Field({ label, value }: { label: string; value: string }) {

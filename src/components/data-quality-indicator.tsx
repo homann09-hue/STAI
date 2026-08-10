@@ -1,5 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { getDataQualityDisplay } from "@/lib/data-quality";
+import { formatGermanDateTime } from "@/lib/date-time";
 import type { MarketDataQuality, MarketStatus } from "@/lib/types";
 
 type DataQualityProps = {
@@ -12,11 +13,7 @@ type DataQualityProps = {
 };
 
 function formatUpdatedAt(updatedAt?: string) {
-  if (!updatedAt) return "nicht verfügbar";
-  const date = new Date(updatedAt);
-  return Number.isFinite(date.getTime())
-    ? new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "medium" }).format(date)
-    : "nicht verfügbar";
+  return formatGermanDateTime(updatedAt);
 }
 
 function safeProvider(provider?: string) {

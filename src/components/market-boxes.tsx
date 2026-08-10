@@ -4,6 +4,7 @@ import { Brain, Briefcase, Flame, Newspaper, Star, TrendingDown, TrendingUp } fr
 import { DataQualityNotice } from "@/components/data-quality-indicator";
 import { DataQualityBadge, MiniSparkline, PriceChangeLabel, RealtimePrice, quoteFromSummary } from "@/components/live-market-widgets";
 import { formatCompact, formatCurrency, formatPercent, riskTone } from "@/lib/scoring";
+import { formatGermanDateTime } from "@/lib/date-time";
 import type { AssetSummary, DashboardData, NewsItem, NormalizedQuote } from "@/lib/types";
 
 function tinyCandles(item: AssetSummary, liveQuote?: NormalizedQuote) {
@@ -145,7 +146,7 @@ export function MarketNewsCard({ news }: { news: NewsItem[] }) {
                   {item.sentiment}
                 </span>
               </div>
-              <p className="mt-2 text-xs leading-5 text-muted">{item.source} · {new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "short" }).format(new Date(item.publishedAt))} · Relevanz {item.relevance}/100</p>
+              <p className="mt-2 text-xs leading-5 text-muted">{item.source} · {formatGermanDateTime(item.publishedAt, { dateStyle: "short", timeStyle: "short" })} · Relevanz {item.relevance}/100</p>
               <p className="mt-2 text-xs leading-5 text-muted">{item.summary}</p>
               {isMock ? (
                 <p className="mt-2 rounded-xl border border-amber/25 bg-amber/10 px-2 py-1 text-[11px] text-amber">
