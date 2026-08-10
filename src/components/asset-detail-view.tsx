@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import Link from "next/link";
 import {
   AnalysisLayersPanel,
   DataQualityPanel,
@@ -52,6 +53,8 @@ import { MetricGrid } from "@/components/metric-with-context";
 import type { ValuationView } from "@/lib/analysis/valuation-view";
 import type { AssetDetail, Candle, Quote, TimeRange } from "@/lib/types";
 import { timeRanges } from "@/lib/types";
+import { getInvestorModePolicy, investorModeProfiles } from "@/lib/investor-mode";
+import { useInvestorMode } from "@/lib/use-investor-mode";
 
 const CHART_PREFS_KEY = "stockpilot:chart-preferences";
 
@@ -311,6 +314,8 @@ export function AssetDetailView({
   /** Provider-gemeldete Dividenden/Splits mit expliziter Teilabdeckung. */
   corporateActions: CorporateActionsResult;
 }) {
+  const [investorMode] = useInvestorMode();
+  const investorModePolicy = getInvestorModePolicy(investorMode);
   const [range, setRange] = useState<TimeRange>("1M");
   const [showSma, setShowSma] = useState(true);
   const [showVolume, setShowVolume] = useState(true);
@@ -470,6 +475,26 @@ export function AssetDetailView({
         </div>
       </section>
 
+      <section
+        data-testid="investor-mode-context"
+        className="flex flex-col gap-3 rounded-2xl border border-cyan/20 bg-cyan/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan">
+            Analyse-Tiefe: {investorModeProfiles[investorMode].label}
+          </p>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            {investorModeProfiles[investorMode].description}
+          </p>
+        </div>
+        <Link
+          href="/settings"
+          className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-cyan/30 px-4 text-sm font-semibold text-cyan transition hover:bg-cyan/10"
+        >
+          Modus anpassen
+        </Link>
+      </section>
+
       <section className={`space-y-3 ${chartFullscreen ? "fixed inset-0 z-[80] overflow-y-auto bg-[#050b14] p-3 sm:p-6" : ""}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -560,8 +585,8 @@ export function AssetDetailView({
       {/* §49 Platz 4 bis 6: Bewertung, dann Kennzahlen mit historischer
           Einordnung, dann die Vergleichsgruppe. Alles nur, wenn die
           Abschlussdaten geladen werden konnten. */}
-      {valuation ? (
-        <>
+      {investorModePolicy.showValuation && valuation ? (
+        <div data-testid="advanced-analysis-depth" className="contents">
           {valuation.sensitivity ? (
             <ValuationPanel
               dcf={valuation.dcf}
@@ -587,7 +612,17 @@ export function AssetDetailView({
           ) : null}
 
           {valuation.peers.length ? <PeerComparisonPanel comparisons={valuation.peers} /> : null}
-        </>
+        </div>
+      ) : null}
+
+      {!investorModePolicy.showValuation && valuation ? (
+        <section className="rounded-2xl border border-stroke bg-panel/70 p-4">
+          <p className="text-sm font-semibold text-mist">Bewertungsdetails bewusst reduziert</p>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            DCF-Szenarien, Kennzahlenhistorie, Analysten und Vergleichsgruppen stehen in den Modi
+            Fortgeschritten und Profi bereit. Risiko- und Datenqualitätswarnungen bleiben immer sichtbar.
+          </p>
+        </section>
       ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -614,15 +649,17 @@ export function AssetDetailView({
         />
       </section>
 
-      <section>
-        <h2 className="mb-3 text-lg font-semibold">Transparentes Score-Modell</h2>
-        <ProfessionalScoresPanel scores={detail.professionalScores} />
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <ScoreMeter score={detail.scores.trend} label="Legacy Trend Score" />
-          <ScoreMeter score={detail.scores.news} label="Legacy News Score" />
-          <ScoreMeter score={detail.scores.risk} label="Legacy Risk Score" />
-        </div>
-      </section>
+      {investorModePolicy.showProfessionalScores ? (
+        <section>
+          <h2 className="mb-3 text-lg font-semibold">Transparentes Score-Modell</h2>
+          <ProfessionalScoresPanel scores={detail.professionalScores} />
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <ScoreMeter score={detail.scores.trend} label="Legacy Trend Score" />
+            <ScoreMeter score={detail.scores.news} label="Legacy News Score" />
+            <ScoreMeter score={detail.scores.risk} label="Legacy Risk Score" />
+          </div>
+        </section>
+      ) : null}
 
       <section className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
         <div>
@@ -826,7 +863,7 @@ export function AssetDetailView({
 
       {/* §49 Platz 11 und 12: Insider, dann Filings -- beide nur bei
           US-Emittenten, weil die SEC nur diese erfasst. */}
-      {insider && insider.transactions.length ? (
+      {investorModePolicy.showRegulatoryResearch && insider && insider.transactions.length ? (
         <InsiderPanel
           transactions={insider.transactions}
           summary={insider.summary}
@@ -834,7 +871,7 @@ export function AssetDetailView({
         />
       ) : null}
 
-      {filings && filings.filings.length ? (
+      {investorModePolicy.showRegulatoryResearch && filings && filings.filings.length ? (
         <FilingsPanel filings={filings.filings} companyName={filings.companyName} />
       ) : null}
 
@@ -893,18 +930,23 @@ export function AssetDetailView({
         </div>
       </section>
 
-      <AssetProvenancePanel passport={provenancePassport} />
-
       <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
         <DataQualityPanel quality={detail.dataQuality} />
-        <RiskEnginePanel report={detail.riskReport} />
+        {investorModePolicy.showModelGovernance ? <RiskEnginePanel report={detail.riskReport} /> : null}
       </section>
 
-      <section>
-        <AnalysisLayersPanel layers={detail.analysisLayers} macroFactors={detail.macroFactors} />
-      </section>
+      {investorModePolicy.showAnalysisLayers ? (
+        <section>
+          <AnalysisLayersPanel layers={detail.analysisLayers} macroFactors={detail.macroFactors} />
+        </section>
+      ) : null}
 
-      <ForecastPassportPanel passport={forecastPassport} />
+      {investorModePolicy.showModelGovernance ? (
+        <div data-testid="pro-analysis-depth" className="space-y-7">
+          <AssetProvenancePanel passport={provenancePassport} />
+          <ForecastPassportPanel passport={forecastPassport} />
+        </div>
+      ) : null}
     </div>
   );
 }

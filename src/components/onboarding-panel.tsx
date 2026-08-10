@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Rocket, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
+import { investorModeFromExperienceLevel } from "@/lib/investor-mode";
+import { setInvestorMode } from "@/lib/use-investor-mode";
 
 type OnboardingProfile = {
   level: "anfänger" | "fortgeschritten" | "profi";
@@ -53,6 +55,7 @@ export function OnboardingPanel() {
 
   function save() {
     saveOfflineValue(OFFLINE_KEYS.onboardingProfile, profile);
+    setInvestorMode(investorModeFromExperienceLevel(profile.level));
     setSavedAt(new Date().toISOString());
   }
 

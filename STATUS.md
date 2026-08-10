@@ -105,3 +105,14 @@ ohne externe Marktdaten- oder Lizenzgrenzen zu kaschieren.
   beschreibbar; Assetseiten zeigen Abdeckung und Ausfälle ohne Ersatzwerte.
 - Symboländerungen, Fusionen und Delistings bleiben sichtbar offen, bis eine
   belastbare und lizenzierte Quelle angebunden ist.
+
+# Milestone 2026-08-10: wirksame Analyse-Tiefe
+
+- Die Zielgruppen-Auswahl in den Einstellungen ist jetzt eine zentrale,
+  browserweit synchronisierte Präferenz statt eines isolierten Schalters.
+- Onboarding und Zielgruppen-Auswahl verwenden dieselbe Modus-Quelle und können
+  sich nicht mehr widersprechen.
+- Asset-Seiten staffeln Bewertungsmodelle, Vergleichsdaten, regulatorische
+  Quellen und Modell-Governance für Anfänger, Fortgeschrittene und Profis.
+- Risiko-, Datenqualitäts- und Abdeckungshinweise bleiben unabhängig vom Modus
+  sichtbar; der Modus ist eine Darstellungspräferenz, kein Tarif-Gate.
