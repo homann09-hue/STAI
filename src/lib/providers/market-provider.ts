@@ -9,6 +9,8 @@ import { resolveQuoteChain } from "@/lib/providers/quote-chain";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
 import { NO_HISTORY, fetchDailyHistory, sliceHistoryRanges, type HistoryResult } from "@/lib/providers/price-history";
 import { getServerCacheAdapter } from "@/lib/server-cache";
+import { buildVerifiedProviderDashboard } from "@/lib/provider-dashboard";
+import { developmentFixturesAllowed } from "@/lib/runtime-data-policy";
 import { safeDecodeURIComponent } from "@/lib/validation";
 import type {
   Asset,
@@ -26,7 +28,6 @@ import type {
   NewsItem,
   NormalizedQuote,
   ProfessionalScores,
-  Quote,
   TechnicalIndicators,
   TimeRange
 } from "@/lib/types";
@@ -861,31 +862,6 @@ function detailFromProviderQuote(
   };
 }
 
-function quoteFromNormalized(base: Quote, normalized: NormalizedQuote): Quote {
-  return {
-    ...base,
-    price: normalized.price,
-    change: normalized.change,
-    changePercent: normalized.changePercent,
-    dayHigh: normalized.high ?? base.dayHigh,
-    dayLow: normalized.low ?? base.dayLow,
-    volume: normalized.volume ?? base.volume,
-    delayedByMinutes: normalized.quality === "delayed" ? Math.max(base.delayedByMinutes, 15) : 0,
-    asOf: normalized.timestamp,
-    bid: normalized.bid,
-    ask: normalized.ask,
-    spread: normalized.spread,
-    open: normalized.open ?? base.open,
-    previousClose: normalized.previousClose ?? base.previousClose,
-    fiftyTwoWeekHigh: normalized.fiftyTwoWeekHigh ?? base.fiftyTwoWeekHigh,
-    fiftyTwoWeekLow: normalized.fiftyTwoWeekLow ?? base.fiftyTwoWeekLow,
-    provider: normalized.provider,
-    quality: normalized.quality,
-    latencyMs: normalized.latencyMs,
-    marketStatus: normalized.marketStatus
-  };
-}
-
 /*
  * Hier stand `enrichAssetWithQuote`. Die Funktion nahm ein Mock-Asset, ersetzte
  * darin `quote` und `dataQuality` -- und lieferte alles Uebrige unveraendert
@@ -894,13 +870,6 @@ function quoteFromNormalized(base: Quote, normalized: NormalizedQuote): Quote {
  * Sie ist ersatzlos entfernt. Es gibt kein Geruest mehr, das angereichert
  * werden koennte: `getAsset` baut die Ansicht vollstaendig aus Anbieterdaten.
  */
-
-function enrichSummaryWithQuote(summary: AssetSummary, normalized: NormalizedQuote): AssetSummary {
-  return {
-    ...summary,
-    quote: quoteFromNormalized(summary.quote, normalized)
-  };
-}
 
 function uniqueSymbols(symbols: string[]) {
   return [...new Set(symbols.map((symbol) => safeDecodeURIComponent(symbol).trim().toUpperCase()).filter(Boolean))].slice(0, MAX_BATCH_SIZE);
@@ -986,6 +955,41 @@ class MockMarketDataProvider implements MarketDataProvider {
 
   streamQuotes(symbols: string[], options?: MarketStreamOptions) {
     return pollQuotes(this, symbols, options);
+  }
+}
+
+class UnavailableMarketDataProvider implements MarketDataProvider {
+  readonly providerName = "Kein verifizierter Marktdatenanbieter";
+  readonly providerId = "unavailable" as const;
+  readonly quality = "unavailable" as const;
+  readonly streamMode = "rest_polling" as const;
+
+  async getDashboard() {
+    return buildVerifiedProviderDashboard([], this.providerName, []);
+  }
+
+  async getAsset() {
+    return null;
+  }
+
+  async getQuote() {
+    return null;
+  }
+
+  async getQuotes() {
+    return [];
+  }
+
+  async getDelayedQuote() {
+    return null;
+  }
+
+  async getCandles() {
+    return [];
+  }
+
+  async *streamQuotes() {
+    yield* [] as NormalizedQuote[][];
   }
 }
 
@@ -1464,7 +1468,6 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
   readonly providerId: MarketProviderId;
   readonly quality: MarketDataQuality;
   readonly streamMode: StreamMode;
-  private readonly fallback = new MockMarketDataProvider();
   private readonly cryptoProvider = getCryptoQuoteProvider();
 
   constructor(private readonly quoteProvider: QuoteProvider) {
@@ -1475,65 +1478,14 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
   }
 
   async getDashboard() {
-    const dashboard = await this.fallback.getDashboard();
-    const symbols = uniqueSymbols([
-      ...DEFAULT_DASHBOARD_SYMBOLS,
-      ...dashboard.watchlist.map((item) => item.asset.symbol),
-      ...dashboard.gainers.map((item) => item.asset.symbol),
-      ...dashboard.losers.map((item) => item.asset.symbol),
-      ...dashboard.mostActive.map((item) => item.asset.symbol),
-      ...dashboard.trendingAssets.map((item) => item.asset.symbol)
-    ]);
+    const symbols = uniqueSymbols(DEFAULT_DASHBOARD_SYMBOLS);
     const quotes = await withDeadline(this.getQuotes(symbols), DEFAULT_DASHBOARD_QUOTE_TIMEOUT_MS, []);
-    const quoteMap = new Map(quotes.map((quote) => [quote.symbol, quote]));
-    const enrichList = (items: AssetSummary[]) =>
-      items.map((item) => {
-        const quote = quoteMap.get(item.asset.symbol);
-        return quote ? enrichSummaryWithQuote(item, quote) : item;
-      });
-    const knownSymbols = new Set([
-      ...dashboard.watchlist.map((item) => item.asset.symbol),
-      ...dashboard.gainers.map((item) => item.asset.symbol),
-      ...dashboard.losers.map((item) => item.asset.symbol),
-      ...dashboard.mostActive.map((item) => item.asset.symbol),
-      ...dashboard.trendingAssets.map((item) => item.asset.symbol)
-    ]);
-    const providerSummaries = quotes
-      .filter((quote) => !knownSymbols.has(quote.symbol))
+    const summaries = quotes
+      .filter((quote) => quote.quality !== "mock" && quote.quality !== "unavailable")
       .map(summaryFromNormalizedQuote);
-    const combine = (items: AssetSummary[]) => {
-      const bySymbol = new Map<string, AssetSummary>();
-      [...items, ...providerSummaries].forEach((item) => bySymbol.set(item.asset.symbol, item));
-      return [...bySymbol.values()];
-    };
-    const mockSources = quotes.filter((quote) => quote.quality === "mock").length;
-    const enrichedWatchlist = combine(enrichList(dashboard.watchlist)).slice(0, 12);
-    const enrichedMostActive = combine(enrichList(dashboard.mostActive))
-      .sort((a, b) => b.quote.volume - a.quote.volume)
-      .slice(0, 10);
-    const enrichedTrending = combine(enrichList(dashboard.trendingAssets))
-      .sort((a, b) => (b.professionalScores?.momentum ?? b.scores.trend) - (a.professionalScores?.momentum ?? a.scores.trend))
-      .slice(0, 10);
-    const enrichedGainers = combine(enrichList(dashboard.gainers))
-      .sort((a, b) => b.quote.changePercent - a.quote.changePercent)
-      .slice(0, 10);
-    const enrichedLosers = combine(enrichList(dashboard.losers))
-      .sort((a, b) => a.quote.changePercent - b.quote.changePercent)
-      .slice(0, 10);
+    const news = await realNewsFor("");
 
-    return {
-      ...dashboard,
-      watchlist: enrichedWatchlist,
-      gainers: enrichedGainers,
-      losers: enrichedLosers,
-      mostActive: enrichedMostActive,
-      trendingAssets: enrichedTrending,
-      dataQualitySummary: {
-        ...dashboard.dataQualitySummary,
-        label: quotes.length > 0 && mockSources === quotes.length ? "Mock-Fallback aktiv" : `${this.providerName} + Fallback`,
-        mockSources
-      }
-    };
+    return buildVerifiedProviderDashboard(summaries, this.providerName, news);
   }
 
   /**
@@ -1799,7 +1751,9 @@ export function getMarketDataProvider(): MarketDataProvider {
     .map((id) => createQuoteProvider(id))
     .filter((provider): provider is QuoteProvider => provider !== null);
 
-  if (providers.length === 0) return new MockMarketDataProvider();
+  if (providers.length === 0) {
+    return developmentFixturesAllowed() ? new MockMarketDataProvider() : new UnavailableMarketDataProvider();
+  }
   if (providers.length === 1) return new ProviderBackedMarketDataProvider(providers[0]);
 
   return new ProviderBackedMarketDataProvider(new ChainedQuoteProvider(providers));

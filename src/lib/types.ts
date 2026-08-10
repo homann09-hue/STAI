@@ -156,6 +156,10 @@ export interface MarketUniverseInstrument {
   subscribable: boolean;
   lastUpdatedAt: string;
   note: string;
+  origin?: "instrument_master" | "provider_search";
+  quoteStatus?: "unknown" | "available" | "restricted" | "error";
+  quoteCheckedAt?: string | null;
+  discoveredAt?: string;
 }
 
 export interface MarketUniverseCoverage {

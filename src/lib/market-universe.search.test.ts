@@ -1,59 +1,78 @@
-import { describe, expect, it } from "vitest";
-import { getMarketUniverse } from "@/lib/market-universe";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { InstrumentCatalogHit } from "@/lib/instrument-catalog";
 
-/**
- * §48 an der Stelle, an der die Suche tatsächlich stattfindet.
- *
- * Vorher stand hier ein wörtlicher `includes()`-Vergleich: er fand „Apple",
- * aber nicht „Aplpe". Diese Tests prüfen die Verdrahtung, nicht den
- * Algorithmus — der hat seine eigenen in `search/fuzzy.test.ts`.
- */
+const searchInstrumentCatalog = vi.fn();
 
-type AssetClass = Parameters<typeof getMarketUniverse>[0] extends infer T
-  ? T extends { assetClass?: infer A }
-    ? A
-    : never
-  : never;
+vi.mock("@/lib/instrument-catalog-service", () => ({
+  searchInstrumentCatalog: (input: unknown) => searchInstrumentCatalog(input)
+}));
 
-async function symbols(query: string, assetClass?: AssetClass) {
-  // `getMarketUniverse` liefert die Liste direkt, nicht in einer Huelle.
-  const instruments = await getMarketUniverse({ query, assetClass, limit: 20 });
-  return instruments.map((instrument) => instrument.symbol);
-}
+const providerHit: InstrumentCatalogHit = {
+  canonicalId: "stock:nasdaq:acme:usd",
+  symbol: "ACME",
+  name: "Acme Corporation",
+  assetClass: "stock",
+  exchange: "NASDAQ",
+  exchangeFullName: "Nasdaq Global Market",
+  country: "US",
+  currency: "USD",
+  provider: "FMP",
+  identifiers: [{ type: "ticker", value: "ACME" }],
+  identityConfidence: 88,
+  resolutionStatus: "resolved",
+  resolutionWarnings: [],
+  origin: "provider_search",
+  quoteStatus: "unknown",
+  quoteQuality: "unavailable",
+  quoteCheckedAt: null,
+  discoveredAt: "2026-08-10T00:00:00.000Z",
+  confirmationCount: 1,
+  matchedVia: "symbol"
+};
 
-describe("Suche im vorbereiteten Universum", () => {
-  it("findet weiterhin wörtlich", async () => {
-    expect(await symbols("AAPL")).toContain("AAPL");
-    expect(await symbols("Bitcoin")).toContain("BTC-USD");
+beforeEach(() => {
+  searchInstrumentCatalog.mockReset();
+  searchInstrumentCatalog.mockResolvedValue({
+    results: [providerHit],
+    coverage: {
+      complete: false,
+      mode: "search_driven",
+      directorySyncAvailable: false,
+      note: "search only",
+      consequence: "incomplete",
+      verifiedAt: "2026-08-10"
+    },
+    provider: "FMP + StockPilot Instrument Master",
+    receivedAt: "2026-08-10T00:00:01.000Z"
+  });
+});
+
+describe("dynamisches Marktuniversum", () => {
+  it("liefert ausschliesslich Treffer des Instrumentkatalogs", async () => {
+    const { getMarketUniverse } = await import("@/lib/market-universe");
+    const instruments = await getMarketUniverse({ query: "ACME", limit: 20 });
+
+    expect(instruments.map((item) => item.symbol)).toEqual(["ACME"]);
+    expect(instruments.some((item) => ["AAPL", "MSFT", "BTC-USD"].includes(item.symbol))).toBe(false);
   });
 
-  it("findet jetzt auch mit Tippfehler", async () => {
-    // Der eigentliche Gewinn: vorher fand das nichts.
-    expect(await symbols("Mircosoft")).toContain("MSFT");
-    expect(await symbols("Amazn")).toContain("AMZN");
+  it("reicht Filter und Limit an den zentralen Katalog weiter", async () => {
+    const { getMarketUniverse } = await import("@/lib/market-universe");
+    await getMarketUniverse({ query: "Acme", assetClass: "stock", limit: 17 });
+
+    expect(searchInstrumentCatalog).toHaveBeenCalledWith({
+      query: "Acme",
+      assetClass: "stock",
+      limit: 17
+    });
   });
 
-  it("sucht weiterhin über Börse, Land und Anlageklasse", async () => {
-    // Das konnte die alte Suche, und es darf nicht verlorengehen.
-    expect((await symbols("NASDAQ")).length).toBeGreaterThan(2);
-    expect((await symbols("crypto")).length).toBeGreaterThan(0);
-  });
+  it("kennzeichnet einen noch ungeprueften Providertreffer als eingeschraenkt", async () => {
+    const { getMarketUniverse } = await import("@/lib/market-universe");
+    const [instrument] = await getMarketUniverse({ query: "ACME" });
 
-  it("hält die Einschränkung auf eine Anlageklasse durch", async () => {
-    // Wer ETFs sucht, will keine aehnlich geschriebene Aktie. Eine unscharfe
-    // Suche darf eine ausdrueckliche Einschraenkung nicht aufweichen.
-    const etfs = await symbols("Vanguard", "etf");
-
-    expect(etfs).toContain("VOO");
-    expect(etfs).not.toContain("AAPL");
-  });
-
-  it("gibt bei Unsinn nichts aus", async () => {
-    // Das Aehnlichste auszugeben waere schlimmer als nichts.
-    expect(await symbols("qqqwwweeerrr")).toHaveLength(0);
-  });
-
-  it("liefert ohne Eingabe die Liste", async () => {
-    expect((await symbols("")).length).toBeGreaterThan(5);
+    expect(instrument.coverage).toBe("prepared");
+    expect(instrument.quoteQuality).toBe("unavailable");
+    expect(instrument.analysisReadiness).toBe("limited");
   });
 });

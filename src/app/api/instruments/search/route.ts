@@ -1,193 +1,49 @@
 import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
 import {
-  instrumentDirectoryCapabilityReport,
-  searchProviderInstruments
-} from "@/lib/providers/instrument-directory-provider";
-import {
-  buildCanonicalInstrumentId,
-  instrumentRecordFromHit,
-  persistInstrumentHits,
-  searchStoredInstruments
-} from "@/lib/instrument-master-store";
-import { logEvent } from "@/lib/observability";
-import type { InstrumentResolutionStatus } from "@/lib/types";
+  instrumentCatalogAssetClasses,
+  searchInstrumentCatalog
+} from "@/lib/instrument-catalog-service";
+import type { MarketUniverseAssetClass } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_QUERY_LENGTH = 64;
 
-interface InstrumentSearchResult {
-  canonicalId: string;
-  symbol: string;
-  name: string;
-  assetClass: string;
-  exchange: string;
-  exchangeFullName: string | null;
-  currency: string;
-  provider: string;
-  identityConfidence: number;
-  resolutionStatus: InstrumentResolutionStatus;
-  resolutionWarnings: string[];
-  /** Woher der Treffer stammt. Teil der sichtbaren Provenance. */
-  origin: "instrument_master" | "provider_search";
-  /**
-   * Gemessene Kursverfuegbarkeit im aktiven Tarif. `unknown` bedeutet noch nicht
-   * geprueft und wird niemals als "verfuegbar" dargestellt.
-   */
-  quoteStatus: "unknown" | "available" | "restricted" | "error";
-  quoteCheckedAt: string | null;
-  lastSeenAt: string;
-  confirmationCount: number;
-}
-
-const QUOTE_STATUSES = new Set(["unknown", "available", "restricted", "error"]);
-
-function safeQuoteStatus(value: unknown): InstrumentSearchResult["quoteStatus"] {
-  return QUOTE_STATUSES.has(String(value)) ? (value as InstrumentSearchResult["quoteStatus"]) : "unknown";
-}
-
-/**
- * Universelle Instrumentsuche.
- *
- * Zwei Pfade, in dieser Reihenfolge:
- *   1. Persistierter Instrument Master  — bereits entdeckte Instrumente, kein Quota-Verbrauch.
- *   2. Provider-Suche                    — erweitert das Universum und persistiert die Treffer.
- *
- * Die Antwort macht immer sichtbar, woher ein Treffer stammt und dass das
- * Universum wegen der Tarifgrenzen nicht vollstaendig ist. Es werden unter
- * keinen Umstaenden Mock-Instrumente ergaenzt.
- */
 export async function GET(request: Request) {
   const limited = await rateLimit(request);
   if (limited) return limited;
 
   const { searchParams } = new URL(request.url);
-  const rawQuery = (searchParams.get("q") ?? "").trim();
+  const query = (searchParams.get("q") ?? "").trim();
+  const requestedAssetClass = (searchParams.get("assetClass") ?? "all").trim().toLowerCase();
+  const requestedLimit = Number(searchParams.get("limit") ?? 40);
 
-  if (!rawQuery) {
-    return jsonError("Suchbegriff fehlt.", 400);
+  if (query.length > MAX_QUERY_LENGTH) return jsonError("Suchbegriff ist zu lang.", 400);
+  if (query && !/^[\p{L}\p{N}\s._:/^&+\-()]{1,64}$/u.test(query)) {
+    return jsonError("Suchbegriff enthaelt ungueltige Zeichen.", 400);
+  }
+  if (
+    requestedAssetClass !== "all" &&
+    !instrumentCatalogAssetClasses.includes(requestedAssetClass as MarketUniverseAssetClass)
+  ) {
+    return jsonError("Ungueltige Assetklasse.", 400);
+  }
+  if (!Number.isFinite(requestedLimit) || requestedLimit < 1) {
+    return jsonError("Limit muss eine positive Zahl sein.", 400);
   }
 
-  if (rawQuery.length > MAX_QUERY_LENGTH) {
-    return jsonError("Suchbegriff ist zu lang.", 400);
-  }
+  const result = await searchInstrumentCatalog({
+    query,
+    assetClass: requestedAssetClass as MarketUniverseAssetClass | "all",
+    limit: Math.min(200, Math.floor(requestedLimit))
+  });
 
-  if (!/^[\p{L}\p{N}\s._:/^&+\-()]{1,64}$/u.test(rawQuery)) {
-    return jsonError("Suchbegriff enthält ungültige Zeichen.", 400);
-  }
-
-  const capability = instrumentDirectoryCapabilityReport();
-  const storedRows = await searchStoredInstruments(rawQuery, 20);
-
-  const storedResults: InstrumentSearchResult[] = storedRows.map((row) => ({
-    canonicalId: String(row.canonical_id),
-    symbol: String(row.symbol),
-    name: String(row.name),
-    assetClass: String(row.asset_class),
-    exchange: String(row.exchange),
-    exchangeFullName: row.exchange_full_name === null ? null : String(row.exchange_full_name),
-    currency: String(row.currency),
-    provider: String(row.provider),
-    identityConfidence: Number(row.identity_confidence ?? 0),
-    resolutionStatus: row.resolution_status as InstrumentResolutionStatus,
-    resolutionWarnings: Array.isArray(row.resolution_warnings) ? row.resolution_warnings.map(String) : [],
-    origin: "instrument_master",
-    quoteStatus: safeQuoteStatus(row.quote_status),
-    quoteCheckedAt: row.quote_checked_at === null ? null : String(row.quote_checked_at),
-    lastSeenAt: String(row.last_seen_at),
-    confirmationCount: Number(row.confirmation_count ?? 0)
-  }));
-
-  let providerResults: InstrumentSearchResult[] = [];
-  let providerNote = capability.searchAvailable
-    ? "Provider-Suche nicht ausgeführt."
-    : "Provider-Suche deaktiviert: kein API-Schlüssel konfiguriert.";
-  let degraded = false;
-  let persistence: Awaited<ReturnType<typeof persistInstrumentHits>> | null = null;
-
-  // Provider nur befragen, wenn der Master zu wenig liefert. Das schont Quota und
-  // haelt haeufige Suchen schnell.
-  const needsProviderLookup = capability.searchAvailable && storedResults.length < 5;
-
-  if (needsProviderLookup) {
-    try {
-      const directory = await searchProviderInstruments(rawQuery);
-      degraded = directory.degraded;
-      providerNote = directory.capabilityNote;
-
-      const knownCanonicalIds = new Set(storedResults.map((item) => item.canonicalId));
-
-      persistence = await persistInstrumentHits(directory.hits, rawQuery);
-
-      providerResults = directory.hits
-        .map((hit): InstrumentSearchResult => {
-          // Dieselbe Bewertung wie beim Persistieren, damit die Antwort nicht von
-          // dem abweicht, was in der Datenbank landet.
-          const record = instrumentRecordFromHit(hit);
-
-          return {
-            canonicalId: buildCanonicalInstrumentId({
-              assetClass: hit.assetClass,
-              exchange: hit.exchange,
-              symbol: hit.symbol,
-              currency: hit.currency
-            }),
-            symbol: record.symbol,
-            name: record.name,
-            assetClass: record.assetClass,
-            exchange: record.exchange,
-            exchangeFullName: record.exchangeFullName,
-            currency: record.currency,
-            provider: record.provider,
-            identityConfidence: record.identityConfidence,
-            resolutionStatus: record.resolutionStatus,
-            resolutionWarnings: record.resolutionWarnings,
-            origin: "provider_search",
-            // Frisch entdeckt: Kursverfuegbarkeit ist noch ungeprueft.
-            quoteStatus: "unknown",
-            quoteCheckedAt: null,
-            lastSeenAt: hit.fetchedAt,
-            confirmationCount: 1
-          };
-        })
-        .filter((item) => !knownCanonicalIds.has(item.canonicalId));
-    } catch (error) {
-      degraded = true;
-      providerNote = "Provider-Suche fehlgeschlagen. Es werden nur bereits bekannte Instrumente angezeigt.";
-      logEvent("warn", "instruments.search_provider_failed", {
-        message: error instanceof Error ? error.message : "unknown"
-      });
+  return jsonOk(result, {
+    headers: {
+      "Cache-Control": "no-store",
+      "X-StockPilot-Universe-Complete": "false",
+      "X-StockPilot-Universe-Mode": "search-driven"
     }
-  }
-
-  const results = [...storedResults, ...providerResults];
-
-  return jsonOk(
-    {
-      query: rawQuery,
-      results,
-      counts: {
-        total: results.length,
-        fromInstrumentMaster: storedResults.length,
-        fromProviderSearch: providerResults.length
-      },
-      persistence,
-      coverage: {
-        // Bewusst explizit: die Suche deckt kein vollstaendiges Universum ab.
-        complete: false,
-        directorySyncAvailable: capability.directorySyncAvailable,
-        note: providerNote,
-        consequence: capability.consequence,
-        verifiedAt: capability.verifiedAt
-      },
-      degraded
-    },
-    {
-      headers: {
-        "Cache-Control": "no-store",
-        "X-StockPilot-Universe-Complete": "false"
-      }
-    }
-  );
+  });
 }

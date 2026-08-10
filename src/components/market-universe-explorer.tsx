@@ -45,7 +45,7 @@ const incomeAssetClasses: MarketUniverseAssetClass[] = ["etf", "fund"];
  * Beschriftung war falsch.
  */
 const screenerPresets: Array<{ key: PresetKey; label: string; description: string }> = [
-  { key: "all", label: "Alle", description: "Komplettes vorbereitetes Marktuniversum." },
+  { key: "all", label: "Alle", description: "Alle aktuell im Instrument Master oder Provider-Suchergebnis belegten Instrumente." },
   { key: "live", label: "Live-fähig", description: "Nur wirklich streambare Anbieter, keine vorbereiteten Public-Provider." },
   {
     key: "momentum",
@@ -184,7 +184,7 @@ export function MarketUniverseExplorer({
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [remoteInstruments, setRemoteInstruments] = useState<MarketUniverseInstrument[]>(instruments);
-  const [remoteProvider, setRemoteProvider] = useState(provider ?? "StockPilot Prepared Universe");
+  const [remoteProvider, setRemoteProvider] = useState(provider ?? "StockPilot Instrument Master");
   const [remoteDisclaimer, setRemoteDisclaimer] = useState(disclaimer ?? "");
   const [searchStatus, setSearchStatus] = useState<"idle" | "loading" | "error">("idle");
 
@@ -200,7 +200,7 @@ export function MarketUniverseExplorer({
     const normalizedQuery = query.trim();
     if (normalizedQuery.length < 2) {
       setRemoteInstruments(instruments);
-      setRemoteProvider(provider ?? "StockPilot Prepared Universe");
+      setRemoteProvider(provider ?? "StockPilot Instrument Master");
       setRemoteDisclaimer(disclaimer ?? "");
       setSearchStatus("idle");
       return;
@@ -241,8 +241,8 @@ export function MarketUniverseExplorer({
       } catch {
         if (controller.signal.aborted) return;
         setRemoteInstruments(instruments);
-        setRemoteProvider(provider ?? "StockPilot Prepared Universe");
-        setRemoteDisclaimer("Provider-Suche konnte gerade nicht geladen werden. Lokale Startabdeckung wird weiter angezeigt.");
+        setRemoteProvider(provider ?? "StockPilot Instrument Master");
+        setRemoteDisclaimer("Provider-Suche konnte gerade nicht geladen werden. Es werden nur bereits verifizierte Eintraege des Instrument Masters angezeigt.");
         setSearchStatus("error");
       }
     }, 260);
@@ -685,7 +685,7 @@ export function MarketUniverseExplorer({
               <p className="font-semibold text-mist">Keine passenden Instrumente gefunden.</p>
               <p className="mt-2 text-sm leading-6 text-muted">
                 Prüfe Symbol, Name oder Assetklasse. Wenn ein Wert fehlt, ist der Provider noch nicht angebunden,
-                die Lizenz fehlt oder das Instrument ist im aktuellen Demo-Universum nicht enthalten.
+                die Lizenz fehlt oder das Instrument vom aktiven Provider noch nicht entdeckt wurde. Es werden keine Demo-Treffer erzeugt.
               </p>
             </div>
           )}

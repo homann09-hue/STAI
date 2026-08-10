@@ -107,7 +107,8 @@ async function startServer() {
       STOCKPILOT_MARKET_PROVIDER: "mock",
       STOCKPILOT_NEWS_PROVIDER: "mock",
       STOCKPILOT_FUNDAMENTALS_PROVIDER: "mock",
-      STOCKPILOT_AI_PROVIDER: "mock"
+      STOCKPILOT_AI_PROVIDER: "mock",
+      STOCKPILOT_ALLOW_TEST_FIXTURES: "true"
     },
     stdio: "ignore",
     shell: false

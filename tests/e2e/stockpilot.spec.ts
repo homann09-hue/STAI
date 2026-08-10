@@ -1,13 +1,5 @@
 import { expect, test } from "@playwright/test";
-
-async function acceptRiskNotice(page: import("@playwright/test").Page) {
-  const button = page.getByRole("button", { name: "Verstanden" });
-  if (await button.isVisible().catch(() => false)) {
-    await button.evaluate((element) => {
-      if (element instanceof HTMLButtonElement) element.click();
-    });
-  }
-}
+import { acceptRiskNotice } from "./risk-notice";
 
 async function safeGoto(page: import("@playwright/test").Page, route: string) {
   for (let attempt = 0; attempt < 3; attempt += 1) {

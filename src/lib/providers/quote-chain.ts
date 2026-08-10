@@ -6,6 +6,7 @@
  */
 export type MarketProviderId =
   | "mock"
+  | "unavailable"
   | "finnhub"
   | "twelve_data"
   | "eodhd"
@@ -90,7 +91,7 @@ export function resolveQuoteChain(env: QuoteChainEnv = process.env): QuoteChain 
     return {
       providers: [],
       hasFailover: false,
-      note: "Mock ausdrücklich gewählt. Es werden keine echten Quellen abgefragt."
+      note: "Mock ausdrücklich gewählt: keine echten Quellen. Das ist nur in Entwicklung und Tests zulässig; Produktion fällt geschlossen aus."
     };
   }
 
@@ -112,7 +113,7 @@ export function resolveQuoteChain(env: QuoteChainEnv = process.env): QuoteChain 
     return {
       providers: [],
       hasFailover: false,
-      note: "Keine Kursquelle konfiguriert. Es werden ausschließlich Demodaten angezeigt."
+      note: "Keine Kursquelle konfiguriert. Produktion zeigt keine Ersatzkurse; Entwicklungs-Fixtures sind nur ausserhalb von Vercel Production erlaubt."
     };
   }
 
@@ -122,14 +123,14 @@ export function resolveQuoteChain(env: QuoteChainEnv = process.env): QuoteChain 
       hasFailover: false,
       // Ehrlich benannt: eine Rangfolge zwischen einer Quelle und sich selbst
       // ist keine. Faellt sie aus, gibt es keinen echten Ersatz.
-      note: `Nur eine Kursquelle konfiguriert (${ordered[0]}). Bei einem Ausfall gibt es keinen echten Ersatz, sondern nur Demodaten.`
+      note: `Nur eine Kursquelle konfiguriert (${ordered[0]}). Bei einem Ausfall gibt es keinen echten Ersatz; Produktion zeigt dann einen Datenfehler.`
     };
   }
 
   return {
     providers: ordered,
     hasFailover: true,
-    note: `Rangfolge: ${ordered.join(" → ")}. Bei Ausfall wird die nächste Quelle versucht, bevor auf Demodaten zurückgefallen wird.`
+    note: `Rangfolge: ${ordered.join(" → ")}. Bei Ausfall wird die nächste Quelle versucht; Produktion erzeugt keine Ersatzkurse.`
   };
 }
 

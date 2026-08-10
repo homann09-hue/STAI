@@ -16,12 +16,13 @@ function identity(overrides: Partial<KnownInstrumentIdentity> = {}): KnownInstru
 }
 
 describe("resolveAssetUnavailability", () => {
-  it("meldet ein wirklich unbekanntes Instrument als 404", () => {
+  it("behauptet bei unvollständigem Katalog nicht, ein Instrument existiere nicht", () => {
     const result = resolveAssetUnavailability({ symbol: "GIBTESNICHT", known: null });
 
-    expect(result.reason).toBe("unknown_instrument");
-    expect(result.httpStatus).toBe(404);
+    expect(result.reason).toBe("identity_unverified");
+    expect(result.httpStatus).toBe(503);
     expect(result.identity).toBeNull();
+    expect(result.message).not.toMatch(/nicht gefunden/i);
   });
 
   it("meldet ein bekanntes, aber gesperrtes Instrument nicht als nicht gefunden", () => {

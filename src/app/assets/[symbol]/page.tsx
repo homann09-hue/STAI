@@ -40,7 +40,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!detail) {
     return {
-      title: "Asset nicht gefunden",
+      title: `${normalizedSymbol}: Daten derzeit nicht verfügbar`,
+      description:
+        "Das Instrument konnte im unvollständigen Katalog oder beim aktiven Datenanbieter derzeit nicht verifiziert werden.",
       robots: {
         index: false,
         follow: false
@@ -102,13 +104,11 @@ export default async function AssetPage({ params }: PageProps) {
   const detail = await getAssetDetail(parsedSymbol.data);
 
   if (!detail) {
-    // Nur ein wirklich unbekanntes Instrument rechtfertigt notFound(). Existiert
-    // es im Instrument Master und ist lediglich der Tarif die Ursache, bekommt
-    // der Nutzer die bekannten Stammdaten und den echten Grund zu sehen.
+    // Der Katalog ist suchgetrieben und nachweislich unvollstaendig. Deshalb
+    // waere selbst ohne Master-Treffer ein 404 eine unbelegte Behauptung. Die
+    // Ansicht zeigt stattdessen den bekannten Status und die Datenluecke.
     const known = await findInstrumentIdentityBySymbol(parsedSymbol.data);
     const unavailability = resolveAssetUnavailability({ symbol: parsedSymbol.data, known });
-
-    if (unavailability.reason === "unknown_instrument") notFound();
 
     return <AssetUnavailableView symbol={parsedSymbol.data} unavailability={unavailability} />;
   }

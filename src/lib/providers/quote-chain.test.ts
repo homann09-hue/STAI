@@ -67,11 +67,11 @@ describe("resolveQuoteChain", () => {
     expect(chain.note).toMatch(/keine echten Quellen/);
   });
 
-  it("sagt bei fehlender Konfiguration deutlich, dass nur Demodaten kommen", () => {
+  it("sagt bei fehlender Konfiguration deutlich, dass Produktion geschlossen ausfaellt", () => {
     const chain = resolveQuoteChain(env({}));
 
     expect(chain.providers).toEqual([]);
-    expect(chain.note).toMatch(/ausschließlich Demodaten/);
+    expect(chain.note).toMatch(/keine Ersatzkurse/);
   });
 
   it("behandelt „auto“ wie keine Angabe", () => {

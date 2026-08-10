@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { acceptRiskNotice } from "./risk-notice";
 
 const routes = ["/", "/markets", "/stocks", "/etfs", "/crypto", "/indices", "/screener", "/watchlist", "/news-terminal", "/intelligence", "/calendar", "/analyses", "/backtesting", "/risk", "/compare", "/assets/NVDA", "/assets/AAPL", "/assets/MSFT", "/assets/VOO", "/assets/BTC-USD", "/assets/ETH-USD", "/learn", "/portfolio", "/alerts", "/pricing", "/settings", "/offline"];
 /**
@@ -29,15 +30,6 @@ const apiRoutes = [
  * eigene Zusicherung steht weiter unten.
  */
 const gatedRoutes = ["/api/professional/overview", "/api/ai/analysis?symbol=NVDA"];
-
-async function acceptRiskNotice(page: import("@playwright/test").Page) {
-  const button = page.getByRole("button", { name: "Verstanden" });
-  await button.waitFor({ state: "visible", timeout: 2000 }).catch(() => undefined);
-  if (await button.isVisible().catch(() => false)) {
-    await button.click({ force: true });
-    await expect(page.getByRole("dialog", { name: "Wichtiger Risiko-Hinweis" })).toHaveCount(0, { timeout: 3000 });
-  }
-}
 
 async function safeGoto(page: import("@playwright/test").Page, route: string, waitUntil: "domcontentloaded" | "load" = "domcontentloaded") {
   for (let attempt = 0; attempt < 3; attempt += 1) {

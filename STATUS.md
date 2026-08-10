@@ -50,3 +50,14 @@ ohne externe Marktdaten- oder Lizenzgrenzen zu kaschieren.
 3. PR #25 nur bei gruenen Pflichtchecks mergen.
 4. Produktionsdeployment aus dem verifizierten Artefakt ausloesen.
 5. Live-Monitoring und Kernseiten nach dem Deployment pruefen.
+# Milestone 2026-08-10: dynamic catalog and production data integrity
+
+- Static mini-universe removed from universal search and screener data paths.
+- Provider search and Instrument Master now form one catalog service.
+- Production dashboards no longer overlay verified quotes onto mock content.
+- Missing provider data fails closed and an incomplete catalog no longer emits
+  an unproven "instrument not found" response.
+- Typecheck, lint, 906 tests, build, E2E, 2,000-user load, chaos, 10,000-session
+  capacity, enterprise controls and iOS sync passed.
+- External restrictions and complete evidence: `docs/RELEASE_REPORT.md` and
+  `docs/GITHUB_GOAL_AUDIT_2026-08-10.md`.

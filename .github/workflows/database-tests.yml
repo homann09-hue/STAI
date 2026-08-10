@@ -1,19 +1,16 @@
 name: Database Tests
 
-# Auch bei Push: ein direkter Commit auf main wuerde sonst an den
-# Datenbankkontrollen vorbeilaufen.
+# Pull Requests werden vor dem Merge geprueft, main nach jedem Push. Damit gibt
+# es pro Commit nur einen Pflichtcheck statt eines spaeter abgebrochenen
+# Push-Duplikats mit demselben Namen.
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
-# Der Gruppenschluessel nutzt bewusst `ref_name` bzw. den Head-Branch des Pull
-# Requests statt `github.ref`. Beide Ereignisse -- Push und
-# `pull_request: synchronize` -- ergeben damit denselben Schluessel, und der
-# zweite Lauf bricht den ersten ab. Ohne diese Normalisierung liefe jeder Push
-# mit offenem Pull Request doppelt: einmal fuer den Push, einmal fuer den PR.
 concurrency:
-  group: stockpilot-db-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: stockpilot-db-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

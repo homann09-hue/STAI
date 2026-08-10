@@ -24,16 +24,27 @@ const basePaths = [
   "/api/assets/NVDA",
   "/api/assets/BTC-USD",
   "/api/news?symbol=NVDA",
-  "/api/ai/analysis?symbol=NVDA",
+  "/api/health",
   "/assets/NVDA",
   "/assets/BTC-USD",
   "/manifest.webmanifest"
 ];
+const providerDependentPaths = new Set([
+  "/api/market/overview",
+  "/api/market/quotes?symbols=NVDA,AAPL,MSFT,BTC-USD,ETH-USD",
+  "/api/assets/NVDA",
+  "/api/assets/BTC-USD",
+  "/api/news?symbol=NVDA",
+  "/assets/NVDA",
+  "/assets/BTC-USD"
+]);
 
 const guardrailPaths = [
   { path: "/api/assets/%3Cscript%3E", allowed: [400] },
   { path: "/api/market/quotes?symbols=%3Cscript%3E", allowed: [400] },
-  { path: "/api/market/stream", allowed: [400] }
+  { path: "/api/market/stream", allowed: [400] },
+  { path: "/api/portfolio", allowed: [200, 401, 403] },
+  { path: "/api/ai/analysis?symbol=NVDA", allowed: [401, 403, 503] }
 ];
 
 const scenarios = [
@@ -43,7 +54,8 @@ const scenarios = [
       MARKET_DATA_PROVIDER: "mock",
       STOCKPILOT_CRYPTO_PROVIDER: "none"
     },
-    expectMockOrFallback: true
+    expectMockOrFallback: true,
+    allowProviderUnavailable: false
   },
   {
     name: "missing-primary-provider-key",
@@ -52,7 +64,8 @@ const scenarios = [
       FINNHUB_API_KEY: "",
       STOCKPILOT_CRYPTO_PROVIDER: "none"
     },
-    expectMockOrFallback: true
+    expectMockOrFallback: true,
+    allowProviderUnavailable: true
   },
   {
     name: "slow-provider-deadline",
@@ -64,7 +77,8 @@ const scenarios = [
       STOCKPILOT_ASSET_QUOTE_TIMEOUT_MS: "225",
       STOCKPILOT_QUOTE_CACHE_TTL_MS: "1000"
     },
-    expectMockOrFallback: true
+    expectMockOrFallback: true,
+    allowProviderUnavailable: true
   },
   {
     name: "crypto-provider-disabled",
@@ -72,7 +86,8 @@ const scenarios = [
       MARKET_DATA_PROVIDER: "mock",
       STOCKPILOT_CRYPTO_PROVIDER: "none"
     },
-    expectMockOrFallback: true
+    expectMockOrFallback: true,
+    allowProviderUnavailable: false
   }
 ];
 
@@ -153,6 +168,7 @@ async function startServer(port, env) {
     env: {
       ...process.env,
       ...env,
+      STOCKPILOT_ALLOW_TEST_FIXTURES: "true",
       PORT: String(port)
     },
     stdio: "ignore",
@@ -174,16 +190,20 @@ async function runScenario(scenario, index) {
   const { baseUrl, child } = await startServer(port, scenario.env);
 
   try {
-    const wave = Array.from({ length: concurrency }, (_, requestIndex) =>
-      requestOnce(baseUrl, basePaths[requestIndex % basePaths.length], requestIndex + 1)
-    );
+    const wave = Array.from({ length: concurrency }, (_, requestIndex) => {
+      const path = basePaths[requestIndex % basePaths.length];
+      const allowed = scenario.allowProviderUnavailable && providerDependentPaths.has(path)
+        ? [200, 403, 503]
+        : null;
+      return requestOnce(baseUrl, path, requestIndex + 1, allowed);
+    });
     const guardrails = guardrailPaths.map((item, requestIndex) =>
       requestOnce(baseUrl, item.path, concurrency + requestIndex + 1, item.allowed)
     );
     const results = await Promise.allSettled([...wave, ...guardrails]);
     const fulfilled = results.filter((result) => result.status === "fulfilled").map((result) => result.value);
     const rejected = results.filter((result) => result.status === "rejected");
-    const unexpected = fulfilled.filter((result) => !result.ok || result.status >= 500);
+    const unexpected = fulfilled.filter((result) => !result.ok);
     const durations = fulfilled.map((result) => result.duration);
     const combinedBody = fulfilled.map((result) => result.body).join("\n");
     const fallbackSeen = /Mock|Mock-Daten|Fallback|Server-Cache|algorithmische|Keine Anlageberatung/i.test(combinedBody);
@@ -193,6 +213,7 @@ async function runScenario(scenario, index) {
       requests: results.length,
       rejected: rejected.length,
       unexpected: unexpected.length,
+      unexpectedDetails: unexpected.map((result) => `${result.path}:${result.status}`),
       fallbackSeen: scenario.expectMockOrFallback ? fallbackSeen : true,
       p50: Math.round(percentile(durations, 50)),
       p95: Math.round(percentile(durations, 95)),
@@ -287,6 +308,11 @@ httpAgent.destroy();
 httpsAgent.destroy();
 
 console.table(report);
+for (const row of report) {
+  if (Array.isArray(row.unexpectedDetails) && row.unexpectedDetails.length > 0) {
+    console.log(`${row.scenario} unexpected: ${row.unexpectedDetails.join(", ")}`);
+  }
+}
 console.log(`Chaos test runtime: ${Math.round(performance.now() - started)}ms`);
 
 const failed = report.some(

@@ -3,13 +3,13 @@ import type { QuoteStatus } from "@/lib/quote-entitlement";
 /**
  * Warum eine Instrumentdetailseite keine Daten zeigen kann.
  *
- * Der Unterschied ist fuer den Nutzer wesentlich: „gibt es nicht" und „gibt es,
- * aber dein Tarif deckt es nicht ab" sind grundverschiedene Aussagen. Vorher
- * lieferten beide Faelle ein pauschales 404 „Asset nicht gefunden", was bei
- * einem real existierenden Instrument schlicht falsch war.
+ * Der Unterschied ist fuer den Nutzer wesentlich: „nicht verifiziert" und
+ * „existiert, aber dein Tarif deckt es nicht ab" sind grundverschiedene
+ * Aussagen. Solange der Katalog unvollstaendig ist, waere ein 404 ohne
+ * Providerbeleg eine falsche Sicherheit.
  */
 export type AssetUnavailabilityReason =
-  | "unknown_instrument"
+  | "identity_unverified"
   | "quote_not_entitled"
   | "provider_error";
 
@@ -48,11 +48,12 @@ export function resolveAssetUnavailability(input: {
 
   if (!known) {
     return {
-      reason: "unknown_instrument",
-      httpStatus: 404,
-      message: "Instrument nicht gefunden.",
+      reason: "identity_unverified",
+      httpStatus: 503,
+      message: `${input.symbol} konnte im unvollständigen Instrumentkatalog derzeit nicht verifiziert werden.`,
       identity: null,
-      remediation: "Prüfe die Schreibweise oder suche nach dem vollständigen Namen."
+      remediation:
+        "Prüfe die Schreibweise oder suche nach dem vollständigen Namen. Ohne vollständigen Verzeichnis-Sync behauptet StockPilot nicht, dass das Instrument nicht existiert."
     };
   }
 
