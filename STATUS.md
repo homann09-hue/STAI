@@ -177,3 +177,6 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
   andere fehlende Unternehmenskennzahlen vorzutäuschen.
 - Datenqualitätsquellen, Abdeckungsquote, Langfristhinweis und KI-Treiber
   unterscheiden jetzt vollständige, teilweise und fehlende Fundamentals.
+- Anbieterquoten für Wachstum und Dividendenrendite werden einheitlich auf die
+  sichtbare Prozent-Skala normalisiert; Dezimalquoten erscheinen nicht mehr um
+  den Faktor 100 zu klein.

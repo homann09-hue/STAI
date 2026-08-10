@@ -38,6 +38,13 @@ function parseNumber(value: unknown) {
   return Number.isFinite(numberValue) ? numberValue : undefined;
 }
 
+/** Normalisiert Providerquoten auf die in StockPilot verwendete Prozent-Skala. */
+export function normalizeProviderPercentage(value: unknown) {
+  const parsed = parseNumber(value);
+  if (parsed === undefined) return undefined;
+  return Math.abs(parsed) <= 1 ? Number((parsed * 100).toFixed(6)) : parsed;
+}
+
 function growth(latest?: number, previous?: number) {
   if (latest === undefined || previous === undefined || previous === 0) return undefined;
   return Number((((latest - previous) / Math.abs(previous)) * 100).toFixed(2));
@@ -188,6 +195,7 @@ class FmpFundamentalsProvider implements FundamentalsProvider {
       const marketCap = parseNumber(profile.marketCap ?? profile.mktCap);
       const price = parseNumber(profile.price);
       const lastDividend = parseNumber(profile.lastDividend ?? profile.lastDiv);
+      const dividendYield = normalizeProviderPercentage(ratios.dividendYieldTTM);
       const totalDebt = parseNumber(balance.totalDebt ?? balance.shortTermDebt);
       const equity = parseNumber(balance.totalStockholdersEquity ?? balance.totalEquity);
       const fallback = await this.fallback.getFundamentals(symbol);
@@ -213,7 +221,7 @@ class FmpFundamentalsProvider implements FundamentalsProvider {
           fallback?.cashflow ??
           0,
         dividendYield:
-          parseNumber(ratios.dividendYieldTTM) ??
+          dividendYield ??
           (lastDividend !== undefined && price ? Number(((lastDividend / price) * 100).toFixed(2)) : undefined) ??
           fallback?.dividendYield ??
           null,
@@ -240,9 +248,9 @@ class AlphaVantageFundamentalsProvider implements FundamentalsProvider {
 
       const data = await fetchJson<Record<string, unknown>>(url, "Alpha Vantage overview", 8000);
       const fallback = await this.fallback.getFundamentals(symbol);
-      const revenueGrowth = parseNumber(data.QuarterlyRevenueGrowthYOY);
-      const earningsGrowth = parseNumber(data.QuarterlyEarningsGrowthYOY);
-      const dividendYield = parseNumber(data.DividendYield);
+      const revenueGrowth = normalizeProviderPercentage(data.QuarterlyRevenueGrowthYOY);
+      const earningsGrowth = normalizeProviderPercentage(data.QuarterlyEarningsGrowthYOY);
+      const dividendYield = normalizeProviderPercentage(data.DividendYield);
       const providerHasData =
         parseNumber(data.PERatio) !== undefined ||
         revenueGrowth !== undefined ||
@@ -255,11 +263,11 @@ class AlphaVantageFundamentalsProvider implements FundamentalsProvider {
 
       return {
         peRatio: parseNumber(data.PERatio) ?? fallback?.peRatio ?? null,
-        revenueGrowth: revenueGrowth !== undefined ? Number((revenueGrowth * 100).toFixed(2)) : fallback?.revenueGrowth ?? 0,
-        earningsGrowth: earningsGrowth !== undefined ? Number((earningsGrowth * 100).toFixed(2)) : fallback?.earningsGrowth ?? 0,
+        revenueGrowth: revenueGrowth ?? fallback?.revenueGrowth ?? 0,
+        earningsGrowth: earningsGrowth ?? fallback?.earningsGrowth ?? 0,
         debtToEquity: fallback?.debtToEquity ?? 0,
         cashflow: parseNumber(data.OperatingCashflowTTM) ?? fallback?.cashflow ?? 0,
-        dividendYield: dividendYield !== undefined ? Number((dividendYield * 100).toFixed(2)) : fallback?.dividendYield ?? null,
+        dividendYield: dividendYield ?? fallback?.dividendYield ?? null,
         marketCap: parseNumber(data.MarketCapitalization) ?? fallback?.marketCap ?? 0
       };
     } catch {
