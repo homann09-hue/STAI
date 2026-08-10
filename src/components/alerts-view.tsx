@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
 import { fetchWithSupabaseAuth } from "@/lib/supabase/client-fetch";
 import { alertInputSchema, normalizeSymbolInput } from "@/lib/validation";
+import { formatGermanDateTime } from "@/lib/date-time";
 import type { AlertRule, AlertType } from "@/lib/types";
 
 const alertTypes: { value: AlertType; label: string }[] = [
@@ -943,7 +944,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
           <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold">Aktive Regeln</h2>
-              <p className="text-xs text-muted">{lastCheck ? `Letzte lokale Prüfung: ${new Date(lastCheck).toLocaleString("de-DE")}` : "Noch keine lokale Prüfung ausgeführt."}</p>
+              <p className="text-xs text-muted">{lastCheck ? `Letzte lokale Prüfung: ${formatGermanDateTime(lastCheck)}` : "Noch keine lokale Prüfung ausgeführt."}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={runLocalCheck} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-cyan/30 bg-cyan/10 px-4 font-semibold text-cyan">
@@ -1010,7 +1011,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
                         {item.status}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-muted">{new Date(item.checkedAt).toLocaleString("de-DE")} · {item.type}</p>
+                    <p className="mt-1 text-xs text-muted">{formatGermanDateTime(item.checkedAt)} · {item.type}</p>
                     <p className="mt-2 text-xs leading-5 text-muted">{item.message}</p>
                   </article>
                 ))}

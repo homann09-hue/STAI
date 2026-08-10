@@ -5,6 +5,7 @@ import { Rocket, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
 import { investorModeFromExperienceLevel } from "@/lib/investor-mode";
 import { setInvestorMode } from "@/lib/use-investor-mode";
+import { formatGermanDateTime } from "@/lib/date-time";
 
 type OnboardingProfile = {
   level: "anfänger" | "fortgeschritten" | "profi";
@@ -127,7 +128,7 @@ export function OnboardingPanel() {
         <div className="rounded-2xl border border-amber/25 bg-amber/10 p-3">
           <Rocket className="h-4 w-4 text-amber" />
           <p className="mt-2 text-sm font-semibold text-mist">Status</p>
-          <p className="mt-1 text-xs leading-5 text-muted">{savedAt ? `Gespeichert ${new Date(savedAt).toLocaleString("de-DE")}` : "Lokal bereit, noch nicht gespeichert."}</p>
+          <p className="mt-1 text-xs leading-5 text-muted">{savedAt ? `Gespeichert ${formatGermanDateTime(savedAt)}` : "Lokal bereit, noch nicht gespeichert."}</p>
         </div>
       </div>
     </section>

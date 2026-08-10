@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Activity, AlertTriangle, BarChart3, BriefcaseBusiness, Building2, Coins, Gauge, Layers3, Newspaper, Scale, Search, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { formatCompact, formatCurrency, formatPercent, riskTone } from "@/lib/scoring";
+import { formatGermanDateTime } from "@/lib/date-time";
 import type { ProviderOperationalStatus, PublicProviderCapabilityReport } from "@/lib/provider-health";
 import type {
   CryptoProfessionalProfile,
@@ -127,8 +128,7 @@ function formatOptionalCompact(value: number | undefined) {
 }
 
 function formatReportTimestamp(value: string) {
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date.toLocaleString("de-DE") : "nicht verfügbar";
+  return formatGermanDateTime(value);
 }
 
 function formatValue(point: ProfessionalDataPoint) {

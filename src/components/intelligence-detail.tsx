@@ -1,6 +1,7 @@
 import { AlertTriangle, ArrowLeft, ExternalLink, Scale, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { DataQualityBadge } from "@/components/data-quality-indicator";
+import { formatGermanDateTime } from "@/lib/date-time";
 import type { IntelligenceFeedItem } from "@/lib/intelligence/types";
 
 function safeSourceUrl(value: string) {
@@ -54,7 +55,7 @@ export function IntelligenceDetail({ event }: { event: IntelligenceFeedItem }) {
           <p className="rounded-xl bg-panel2 p-3 text-muted">Pipeline / Normalisierung<br /><span className="font-mono text-mist">{event.processingVersion} / {event.normalizationVersion}</span></p>
           <p className="rounded-xl bg-panel2 p-3 text-muted">Input-Hash<br /><span className="font-mono text-mist">{event.inputHash ? event.inputHash.slice(0, 16) + "…" : "legacy_unverified"}</span></p>
           <p className="rounded-xl bg-panel2 p-3 text-muted">Validierung<br /><span className="font-mono text-mist">{event.validationStatus}</span></p>
-          <p className="rounded-xl bg-panel2 p-3 text-muted">Analysiert<br /><span className="font-mono text-mist">{new Date(event.analyzedAt).toLocaleString("de-DE")}</span></p>
+          <p className="rounded-xl bg-panel2 p-3 text-muted">Analysiert<br /><span className="font-mono text-mist">{formatGermanDateTime(event.analyzedAt)}</span></p>
           <p className="rounded-xl bg-panel2 p-3 text-muted">Reproduzierbarkeit<br /><span className="text-mist">{event.inputHash ? "Snapshot und Versionen vorhanden" : "Legacy, nicht verifizierbar"}</span></p>
         </div>
       </section>
