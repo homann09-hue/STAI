@@ -5,6 +5,7 @@ import { Bell, CheckCheck, ExternalLink, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
 import { fetchWithSupabaseAuth } from "@/lib/supabase/client-fetch";
+import { formatGermanDateTime } from "@/lib/date-time";
 import type { AppNotification, AppNotificationSeverity } from "@/lib/notifications";
 
 const severityTone: Record<AppNotificationSeverity, string> = {
@@ -203,7 +204,7 @@ export function NotificationCenter() {
                         <p className="font-semibold text-mist">{item.title}</p>
                         <p className="mt-2 text-sm leading-6 text-muted">{item.message}</p>
                         <p className="mt-2 text-xs text-muted">
-                          {item.source} · {new Date(item.createdAt).toLocaleString("de-DE")}
+                          {item.source} · {formatGermanDateTime(item.createdAt)}
                         </p>
                       </div>
                       <button type="button" onClick={() => markRead(item.id)} className="shrink-0 rounded-xl border border-stroke bg-coal px-2 py-1 text-xs text-muted">

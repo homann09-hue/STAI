@@ -1,4 +1,5 @@
 import { CalendarClock, CircleDollarSign, ExternalLink, GitBranch } from "lucide-react";
+import { formatGermanDateTime } from "@/lib/date-time";
 import type { CorporateAction, CorporateActionsResult } from "@/lib/corporate-actions";
 
 const actionLabels: Record<CorporateAction["type"], string> = {
@@ -63,7 +64,7 @@ export function CorporateActionsPanel({ result }: { result: CorporateActionsResu
       <div className="mt-3 rounded-2xl border border-stroke bg-coal/55 p-3 text-xs leading-5 text-muted">
         <p>{result.note}</p>
         <p className="mt-1">
-          Quelle: {result.provider ?? "keine"} · Abruf: {new Date(result.retrievedAt).toLocaleString("de-DE")}
+          Quelle: {result.provider ?? "keine"} · Abruf: {formatGermanDateTime(result.retrievedAt)}
         </p>
         <p className="mt-1">
           Abdeckung: Dividenden {result.coverage.dividends === "available" ? "verfügbar" : "nicht verfügbar"} · Splits {result.coverage.splits === "available" ? "verfügbar" : "nicht verfügbar"}

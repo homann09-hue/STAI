@@ -6,6 +6,7 @@ import { ScenarioTable } from "@/components/analysis-panels";
 import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
 import { analyzePortfolio, applyPortfolioTrade } from "@/lib/portfolio-analytics";
 import { formatCurrency, formatPercent, legalDisclaimer, riskTone } from "@/lib/scoring";
+import { formatGermanDateTime } from "@/lib/date-time";
 import { fetchWithSupabaseAuth } from "@/lib/supabase/client-fetch";
 import { normalizeSymbolInput, portfolioTradeInputSchema } from "@/lib/validation";
 import type { AssetType, PortfolioPosition, PortfolioSummary, PortfolioTradeInput } from "@/lib/types";
@@ -989,7 +990,7 @@ export function PortfolioView({ initialPortfolio }: { initialPortfolio: Portfoli
               <span className={trade.side === "buy" ? "font-semibold text-profit" : "font-semibold text-loss"}>{trade.side === "buy" ? "Kauf" : "Verkauf"}</span>
               <span className="font-mono text-mist">{trade.symbol}</span>
               <span className="text-muted">{trade.quantity} Stück zu {formatCurrency(trade.price, trade.currency)}</span>
-              <span className="text-muted">{new Date(trade.createdAt).toLocaleString("de-DE")}</span>
+              <span className="text-muted">{formatGermanDateTime(trade.createdAt)}</span>
               <span className={trade.status === "supabase" ? "text-profit" : "text-amber"}>{trade.status === "supabase" ? "Cloud" : "Lokal"}</span>
             </div>
           )) : (

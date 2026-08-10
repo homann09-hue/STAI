@@ -123,3 +123,6 @@ ohne externe Marktdaten- oder Lizenzgrenzen zu kaschieren.
   explizite Produkt-Zeitzone statt die lokale Zeitzone des Renderers.
 - Vercel-SSR und Browser erzeugen dadurch denselben Text; ein im Live-Smoke-Test
   gefundener React-Hydration-Fehler ist mit einem Regressionstest abgesichert.
+- Direkte Restformatierungen in Corporate Actions, Notifications, Portfolio,
+  Alerts, Intelligence und Profi-Ansichten wurden ebenfalls auf den zentralen
+  Formatter umgestellt.
