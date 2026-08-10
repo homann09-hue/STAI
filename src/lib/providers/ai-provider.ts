@@ -1,4 +1,9 @@
+import "server-only";
+
+import { buildEvidenceBoundAnalysis } from "@/lib/analysis/evidence-analysis";
 import { getMockAsset } from "@/lib/mock/market";
+import { getMarketDataProvider } from "@/lib/providers/market-provider";
+import { developmentFixturesAllowed } from "@/lib/runtime-data-policy";
 import type { AiAnalysis, MarketDataQuality } from "@/lib/types";
 
 export type AiAnalysisProviderMetadata = {
@@ -8,6 +13,11 @@ export type AiAnalysisProviderMetadata = {
   generatedFrom: "mock" | "provider" | "cache";
   isModelEstimate: true;
   warning: string | null;
+  analysisStatus: "available" | "blocked" | "not_found";
+  asOf: string | null;
+  dataQualityScore: number | null;
+  confidence: number | null;
+  evidenceSources: string[];
 };
 
 export type AiAnalysisProviderResult = {
@@ -142,20 +152,68 @@ class MockAiAnalysisProvider implements AiAnalysisProvider {
         generatedFrom: "mock",
         isModelEstimate: true,
         warning:
-          "Demo-Analyse aus Mock-Daten. Nicht als Live-Signal, Anlageberatung oder echte Anbieteranalyse verwenden."
+          "Demo-Analyse aus Mock-Daten. Nicht als Live-Signal, Anlageberatung oder echte Anbieteranalyse verwenden.",
+        analysisStatus: "available",
+        asOf: null,
+        dataQualityScore: 0,
+        confidence: 0,
+        evidenceSources: ["StockPilot Development Fixture"]
+      }
+    } satisfies AiAnalysisProviderResult;
+  }
+}
+
+class EvidenceBoundAiAnalysisProvider implements AiAnalysisProvider {
+  readonly providerId = "stockpilot-evidence-analysis-v1";
+  readonly providerName = "StockPilot Deterministic Evidence Engine";
+  readonly quality = "unavailable";
+
+  async getAnalysis(symbol: string) {
+    return (await this.getAnalysisWithMetadata(symbol)).analysis;
+  }
+
+  async getAnalysisWithMetadata(symbol: string) {
+    const detail = await getMarketDataProvider().getAsset(symbol);
+    const analysis = detail ? buildEvidenceBoundAnalysis(detail) : null;
+    const analysisStatus = detail ? (analysis ? "available" : "blocked") : "not_found";
+
+    return {
+      analysis: normalizeAiAnalysis(analysis),
+      metadata: {
+        providerId: this.providerId,
+        providerName: this.providerName,
+        quality: detail?.quote.quality ?? "unavailable",
+        generatedFrom: "provider",
+        isModelEstimate: true,
+        warning:
+          analysisStatus === "blocked"
+            ? "Für eine belastbare Einschätzung liegen derzeit nicht genügend verifizierte Daten vor."
+            : analysisStatus === "not_found"
+              ? "Instrument oder verifizierte Kursbasis nicht gefunden."
+              : detail?.dataQuality.warnings[0] ?? null,
+        analysisStatus,
+        asOf: detail?.quote.asOf ?? null,
+        dataQualityScore: detail?.dataQuality.score ?? null,
+        confidence: detail?.dataQuality.confidence ?? null,
+        evidenceSources:
+          detail?.dataQuality.sources.map((source) => source.name) ?? []
       }
     } satisfies AiAnalysisProviderResult;
   }
 }
 
 export function getAiAnalysisProvider(): AiAnalysisProvider {
-  const provider = process.env.STOCKPILOT_AI_PROVIDER ?? "mock";
+  const provider = process.env.STOCKPILOT_AI_PROVIDER ?? "evidence";
 
   switch (provider) {
     case "mock":
-      return new MockAiAnalysisProvider();
+      return developmentFixturesAllowed()
+        ? new MockAiAnalysisProvider()
+        : new EvidenceBoundAiAnalysisProvider();
+    case "evidence":
+      return new EvidenceBoundAiAnalysisProvider();
     default:
-      return new MockAiAnalysisProvider();
+      return new EvidenceBoundAiAnalysisProvider();
   }
 }
 
