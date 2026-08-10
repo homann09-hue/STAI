@@ -1,5 +1,14 @@
 # StockPilot AI Status
 
+## Provider-Evidenz statt pauschaler Datenlücke
+
+- Echte historische Kursreihen und externe News werden im realen Provider-Pfad jetzt als eigene Evidenzquellen bewertet.
+- Eine begrenzte technische Analyse wird nur bei mindestens 60 verwertbaren Kerzen, einer nutzbaren Historienintegrität und einer nicht veralteten, nicht simulierten Kursbasis freigegeben.
+- Fehlende verifizierte Fundamentaldaten bleiben ausdrücklich sichtbar; technische Evidenz wird nicht zu einer vollständigen Unternehmensanalyse hochgestuft.
+- Delayed-Kurse, fehlende Corporate-Action-Nachweise und fehlende externe News erzeugen transparente Einschränkungen statt falscher Vollständigkeit.
+- Die neue Bewertungslogik ist I/O-frei und mit Negativ-, Positiv- und Stale-Fällen getestet.
+- Verifiziert am 2026-08-10: Formatprüfung, Typecheck, Lint, 113 Testdateien mit 955 Tests und der Next.js-Produktionsbuild sind erfolgreich.
+
 Letzte Aktualisierung: 2026-08-10
 
 ## Aktueller Meilenstein
