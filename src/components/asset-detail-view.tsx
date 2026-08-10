@@ -44,6 +44,8 @@ import { buildForecastPassport, type ForecastPassport } from "@/lib/forecast-pas
 import { useMarketStream } from "@/lib/use-market-stream";
 import { AnalystPanel, PeerComparisonPanel, ValuationPanel } from "@/components/valuation-panel";
 import { FilingsPanel, InsiderPanel } from "@/components/insider-panel";
+import { CorporateActionsPanel } from "@/components/corporate-actions-panel";
+import type { CorporateActionsResult } from "@/lib/corporate-actions";
 import type { CompanyFilings } from "@/lib/sec/edgar";
 import type { InsiderSummary, InsiderTransaction } from "@/lib/sec/form4";
 import { MetricGrid } from "@/components/metric-with-context";
@@ -291,7 +293,8 @@ export function AssetDetailView({
   detail,
   valuation = null,
   filings = null,
-  insider = null
+  insider = null,
+  corporateActions
 }: {
   detail: AssetDetail;
   /**
@@ -306,6 +309,8 @@ export function AssetDetailView({
   filings?: CompanyFilings | null;
   /** Insidertransaktionen aus Formular 4. */
   insider?: { transactions: InsiderTransaction[]; summary: InsiderSummary } | null;
+  /** Provider-gemeldete Dividenden/Splits mit expliziter Teilabdeckung. */
+  corporateActions: CorporateActionsResult;
 }) {
   const [range, setRange] = useState<TimeRange>("1M");
   const [showSma, setShowSma] = useState(true);
@@ -827,6 +832,8 @@ export function AssetDetailView({
       </section>
 
       <TechnicalTrendPanel detail={{ ...detail, quote: displayedQuote }} />
+
+      <CorporateActionsPanel result={corporateActions} />
 
       <section>
         <h2 className="mb-3 text-lg font-semibold">Unternehmensnachrichten</h2>

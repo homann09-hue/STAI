@@ -9,6 +9,7 @@ Stand: 2026-08-10
 - `GET /api/market/quotes?symbols=`: normalized quote batch.
 - `GET /api/market/stream`: bounded streaming transport.
 - `GET /api/assets/:symbol`: detail or explicit unavailability reason.
+- `GET /api/corporate-actions/:symbol`: provider-reported dividends/splits with per-endpoint coverage and provenance.
 - `GET /api/news?symbol=`: source-backed news with cache metadata.
 - `GET /api/health`: deployment health without secrets.
 
@@ -26,4 +27,3 @@ Mutations validate body size/schema and same origin.
 - `503`: provider/configuration unavailable or identity not verifiable.
 
 Every JSON error is normalized and does not expose stack traces or secrets.
-

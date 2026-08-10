@@ -72,3 +72,14 @@ ohne externe Marktdaten- oder Lizenzgrenzen zu kaschieren.
   missing point-in-time vintages are machine-readable and visible in the UI.
 - Survivorship, selection, look-ahead and corporate-action limitations remain
   explicit; no historical data is invented or silently repaired.
+
+# Milestone 2026-08-10: corporate-action ledger
+
+- Dokumentierte FMP-Endpunkte für Dividenden und Splits sind hinter einem
+  normalisierten, serverseitigen Provider-Adapter angebunden.
+- Ereignisse tragen kanonische ID, Typ, Termine, Betrag/Verhältnis, Quelle,
+  Qualitätsstatus, fachlichen Datenstand und Eingangszeitpunkt.
+- Der neue Supabase-Ledger ist idempotent, RLS-geschützt und nur serverseitig
+  beschreibbar; Assetseiten zeigen Abdeckung und Ausfälle ohne Ersatzwerte.
+- Symboländerungen, Fusionen und Delistings bleiben sichtbar offen, bis eine
+  belastbare und lizenzierte Quelle angebunden ist.
