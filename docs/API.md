@@ -10,6 +10,8 @@ Stand: 2026-08-10
 - `GET /api/market/stream`: bounded streaming transport.
 - `GET /api/assets/:symbol`: detail or explicit unavailability reason.
 - `GET /api/corporate-actions/:symbol`: provider-reported dividends/splits with per-endpoint coverage and provenance.
+- `GET /api/calendar/events?from=YYYY-MM-DD&to=YYYY-MM-DD`: dated, provider-backed events from the incomplete corporate-action ledger; never a claim of global completeness.
+- `GET /api/market/calendar?exchange=NASDAQ`: normalized exchange hours, holidays, coverage and a session status that fails closed to `unknown` when evidence is incomplete.
 - `GET /api/news?symbol=`: source-backed news with cache metadata.
 - `GET /api/health`: deployment health without secrets.
 

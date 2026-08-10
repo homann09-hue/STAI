@@ -26,6 +26,7 @@ geprüft am 2026-08-07:
 | `v3/symbol/available-indexes` | 403 | Legacy-Endpunkt, abgeschaltet |
 | `stable/company-screener` | 402 | Nicht im aktiven Tarif |
 | `stable/available-exchanges` | 402 | Nicht im aktiven Tarif |
+| `stable/exchange-market-hours`, `stable/holidays-by-exchange` | 429 bei Verifikation am 2026-08-10 | Provider-Limit verhindert derzeit eine produktive Schema-/Coverage-Verifikation; UI und API bleiben bis zu einem erfolgreichen Abruf ehrlich `unknown`/`unavailable` |
 | `stable/search-isin` | 402 | Nicht im aktiven Tarif |
 | `stable/search-symbol` | **200** | nutzbar |
 | `stable/search-name` | **200** | nutzbar |

@@ -20,6 +20,8 @@ Stand: 2026-08-10
 | `lifecycle` | `scheduled`, `effective`, `cancelled` or `unknown` |
 | `CorporateActionQuality` | `provider_reported`, `issuer_confirmed` or `regulatory_filing`; never `realtime` |
 | `CorporateActionCoverage` | Separate availability of dividend and split endpoints; partial coverage remains visible |
+| `ExchangeCalendarCoverage` | Independent availability of trading hours and holidays; both are required for a current session status |
+| `ExchangeSessionSnapshot.status` | `open`, `closed` or `unknown`; pre-/after-market is only allowed when a provider explicitly supplies those windows |
 
 Missing numeric values are `null`/absent. Zero is never used to represent an
 unknown fundamental, price or ratio.
