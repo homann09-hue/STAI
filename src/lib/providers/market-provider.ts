@@ -1,9 +1,11 @@
 import { NO_INDICATORS, buildTechnicalIndicators } from "@/lib/analysis/technical";
+import { selectVerifiedFundamentals } from "@/lib/analysis/verified-fundamentals";
 
 import { buildRiskReport } from "@/lib/risk-engine";
 
 import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
 import { getNewsWithMetadata } from "@/lib/providers/news-provider";
+import { getFundamentalsWithMetadata, type FundamentalsProviderMetadata } from "@/lib/providers/fundamentals-provider";
 import { logEvent } from "@/lib/observability";
 import { resolveQuoteChain } from "@/lib/providers/quote-chain";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
@@ -21,7 +23,6 @@ import type {
   Candle,
   DashboardData,
   DataQualityReport,
-  Fundamentals,
   MarketDataQuality,
   MarketStatus,
   MacroFactor,
@@ -734,7 +735,11 @@ async function realNewsFor(symbol: string): Promise<NewsItem[]> {
 function detailFromProviderQuote(
   quote: NormalizedQuote,
   history: HistoryResult = NO_HISTORY,
-  news: NewsItem[] = []
+  news: NewsItem[] = [],
+  fundamentalsResult: {
+    fundamentals: AssetDetail["fundamentals"] | null;
+    metadata: FundamentalsProviderMetadata;
+  } | null = null
 ): AssetDetail {
   const summary = summaryFromNormalizedQuote(quote);
   const candles = history.candles.length ? sliceHistoryRanges(history.candles) : emptyCandleRanges();
@@ -743,20 +748,21 @@ function detailFromProviderQuote(
   const indicators = history.candles.length
     ? buildTechnicalIndicators(history.candles)
     : indicatorsFromQuote(quote);
-  const fundamentals: Fundamentals = {
-    peRatio: null,
-    revenueGrowth: 0,
-    earningsGrowth: 0,
-    debtToEquity: 0,
-    cashflow: 0,
-    dividendYield: null,
-    marketCap: quote.marketCap ?? 0
-  };
+  const { fundamentals, evidence: fundamentalsEvidence } = selectVerifiedFundamentals(
+    fundamentalsResult,
+    {
+      value: quote.marketCap,
+      provider: quote.provider,
+      quality: quote.quality,
+      fetchedAt: quote.timestamp
+    }
+  );
   const professionalScores = providerOnlyProfessionalScores(summary);
   const dataQuality = assessProviderEvidence({
     quote,
     history,
     news,
+    fundamentals: fundamentalsEvidence,
     base: providerOnlyDataQuality(quote)
   });
   const historyConfirmed =
@@ -793,11 +799,22 @@ function detailFromProviderQuote(
     },
     {
       label: "Fundamentaldaten",
-      value: "nicht verifiziert",
-      status: "risk",
-      detail: "Im aktiven Asset-Analysepfad liegen keine verifizierten Fundamentaldaten vor; es werden keine Ersatzwerte erfunden.",
-      source: "StockPilot Analysis Guard",
-      updatedAt: quote.timestamp
+      value:
+        fundamentalsEvidence.verifiedCount > 0
+          ? `${fundamentalsEvidence.verifiedCount}/${fundamentalsEvidence.totalFields} Felder`
+          : "nicht verifiziert",
+      status:
+        fundamentalsEvidence.verifiedCount === fundamentalsEvidence.totalFields
+          ? "positive"
+          : fundamentalsEvidence.verifiedCount > 0
+            ? "neutral"
+            : "risk",
+      detail:
+        fundamentalsEvidence.verifiedCount > 0
+          ? `${fundamentalsEvidence.coveragePercent} % der definierten Fundamentals-Felder sind durch Anbieterwerte belegt. Mock-/Fallback-Felder bleiben ausgeschlossen.`
+          : "Im aktiven Asset-Analysepfad liegen keine verifizierten Fundamentaldaten vor; es werden keine Ersatzwerte erfunden.",
+      source: fundamentalsEvidence.provider,
+      updatedAt: fundamentalsEvidence.fetchedAt
     }
   ];
   const macroFactors: MacroFactor[] = [
@@ -847,7 +864,11 @@ function detailFromProviderQuote(
     downsideDrivers: ["Wesentliche Analysequellen fehlen oder sind nicht verifiziert."],
     counterArguments: ["Ein einzelner Quote reicht nicht für eine robuste Chancen-/Risikoanalyse."],
     dataGaps: [
-      "Fundamentaldaten fehlen.",
+      ...(fundamentalsEvidence.verifiedCount === 0
+        ? ["Fundamentaldaten fehlen."]
+        : fundamentalsEvidence.verifiedCount < fundamentalsEvidence.totalFields
+          ? [`Fundamentaldaten sind nur teilweise belegt (${fundamentalsEvidence.verifiedCount}/${fundamentalsEvidence.totalFields}).`]
+          : []),
       ...(newsConfirmed ? [] : ["Unternehmensnachrichten fehlen."]),
       ...(historyConfirmed ? [] : ["Ausreichende historische Provider-Kerzen fehlen."]),
       "Analysten-, Insider- und Eventdaten fehlen."
@@ -877,6 +898,7 @@ function detailFromProviderQuote(
     candles,
     indicators,
     fundamentals,
+    fundamentalsEvidence,
     news,
     aiAnalysis,
     professionalScores,
@@ -897,7 +919,9 @@ function detailFromProviderQuote(
         probabilitySideways: evidenceAnalysis.probabilities.sideways,
         explanation: [
           "Wahrscheinlichkeiten basieren auf verifizierter Historie, gemessener Rendite und Volatilität.",
-          "Fundamentaldaten fehlen weiterhin; die Einordnung ist auf technische Evidenz begrenzt."
+          fundamentalsEvidence.verifiedCount > 0
+            ? `${fundamentalsEvidence.verifiedCount} Fundamentals-Feld(er) sind belegt; die Wahrscheinlichkeiten bleiben technisch und verwenden sie nicht als Kursprognose.`
+            : "Fundamentaldaten fehlen weiterhin; die Einordnung ist auf technische Evidenz begrenzt."
         ]
       }
     : {
@@ -1578,12 +1602,13 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
     // eine leere Reihe statt einer erzeugten.
     // Historie und Nachrichten parallel. Beide haben ein eigenes Zeitlimit und
     // enden im Fehlerfall leer -- nie in Ersatzdaten.
-    const [history, news] = await Promise.all([
+    const [history, news, fundamentals] = await Promise.all([
       withDeadline(fetchDailyHistory(symbol), 9500, NO_HISTORY),
-      withDeadline(realNewsFor(symbol), 6000, [] as NewsItem[])
+      withDeadline(realNewsFor(symbol), 6000, [] as NewsItem[]),
+      withDeadline(getFundamentalsWithMetadata(symbol), 8500, null)
     ]);
 
-    return detailFromProviderQuote(quote, history, news);
+    return detailFromProviderQuote(quote, history, news, fundamentals);
   }
 
   async getQuote(symbol: string) {

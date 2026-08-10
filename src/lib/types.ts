@@ -267,6 +267,27 @@ export interface Fundamentals {
   marketCap: number;
 }
 
+export type FundamentalsFieldSource = "provider" | "mock" | "unavailable";
+
+/**
+ * Feldweise Herkunft der Fundamentals. Zahlen ohne `provider`-Status dürfen
+ * weder als Unternehmenskennzahl angezeigt noch für Analysen verwendet werden.
+ */
+export interface FundamentalsEvidence {
+  provider: string;
+  quality: MarketDataQuality;
+  fetchedAt: string;
+  fields: Partial<Record<keyof Fundamentals, FundamentalsFieldSource>>;
+  verifiedFields: Array<keyof Fundamentals>;
+  excludedMockFields: Array<keyof Fundamentals>;
+  unavailableFields: Array<keyof Fundamentals>;
+  verifiedCount: number;
+  totalFields: number;
+  coveragePercent: number;
+  caveat: string | null;
+  warning: string | null;
+}
+
 export interface NewsItem {
   id: string;
   symbol: string;
@@ -458,6 +479,7 @@ export interface AssetDetail extends AssetSummary {
   candles: Record<TimeRange, Candle[]>;
   indicators: TechnicalIndicators;
   fundamentals: Fundamentals;
+  fundamentalsEvidence?: FundamentalsEvidence;
   news: NewsItem[];
   aiAnalysis: AiAnalysis;
   professionalScores: ProfessionalScores;

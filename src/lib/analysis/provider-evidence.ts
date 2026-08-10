@@ -3,6 +3,7 @@ import type {
   AssetDetail,
   Candle,
   DataQualityReport,
+  FundamentalsEvidence,
   MarketDataQuality
 } from "@/lib/types";
 
@@ -20,6 +21,7 @@ type ProviderEvidenceInput = {
   };
   history: ProviderHistory;
   news: AssetDetail["news"];
+  fundamentals?: FundamentalsEvidence;
   base: DataQualityReport;
 };
 
@@ -71,6 +73,7 @@ export function assessProviderEvidence({
   quote,
   history,
   news,
+  fundamentals,
   base
 }: ProviderEvidenceInput): DataQualityReport {
   const usableCandles = history.candles.filter(isUsableCandle);
@@ -85,6 +88,8 @@ export function assessProviderEvidence({
     base.sources[0];
   const latestCandle = usableCandles.at(-1)?.timestamp ?? base.updatedAt;
   const latestNews = externalNews[0]?.publishedAt ?? base.updatedAt;
+  const verifiedFundamentals = fundamentals?.verifiedCount ?? 0;
+  const totalFundamentals = fundamentals?.totalFields ?? 7;
   const sources = [
     ...base.sources.filter((source) => source.type === "provider"),
     historyUsable && history.provider
@@ -103,19 +108,31 @@ export function assessProviderEvidence({
           note: `${externalNews.length} externe Meldung(en) mit Quelle und Link.`
         })
       : null,
+    fundamentals && verifiedFundamentals > 0
+      ? evidenceSource(quoteTemplate, {
+          name: fundamentals.provider,
+          type: "provider",
+          fetchedAt: fundamentals.fetchedAt,
+          note: `${verifiedFundamentals} von ${totalFundamentals} Fundamentals-Feldern verifiziert; ${fundamentals.coveragePercent} % Feldabdeckung.`
+        })
+      : null,
     ...base.sources
       .filter((source) => source.type !== "provider")
       .map((source) => ({
         ...source,
         status: sufficientForAnalysis ? ("fresh" as const) : ("missing" as const),
         note: sufficientForAnalysis
-          ? "Verifizierte Kurs- und Historienevidenz erlaubt eine begrenzte technische Analyse; nicht belegte Bereiche bleiben separat ausgewiesen."
+          ? `Verifizierte Kurs- und Historienevidenz erlaubt eine begrenzte technische Analyse; ${verifiedFundamentals} von ${totalFundamentals} Fundamentals-Feldern sind belegt.`
           : "Die verifizierte Evidenz reicht nicht für eine belastbare probabilistische Analyse."
       }))
   ].filter((source): source is DataQualityReport["sources"][number] => source !== null);
 
   const issues = [
-    "Keine verifizierten Fundamentaldaten im aktiven Analysepfad.",
+    verifiedFundamentals === 0
+      ? "Keine verifizierten Fundamentaldaten im aktiven Analysepfad."
+      : verifiedFundamentals < totalFundamentals
+        ? `Fundamentaldaten nur teilweise verifiziert: ${verifiedFundamentals} von ${totalFundamentals} Feldern.`
+        : "",
     !historyUsable
       ? `Historische Kursbasis nicht ausreichend: ${usableCandles.length} von mindestens 60 verwertbaren Kerzen.`
       : ""
@@ -139,13 +156,15 @@ export function assessProviderEvidence({
     (!base.stale ? 10 : 0) +
     (historyUsable ? 35 : Math.min(20, Math.round(usableCandles.length / 3))) +
     (history.integrity && history.integrity.backtestStatus !== "blocked" ? 10 : 0) +
-    (externalNews.length > 0 ? 10 : 0);
+    (externalNews.length > 0 ? 10 : 0) +
+    Math.min(10, Math.round((verifiedFundamentals / totalFundamentals) * 10));
   const qualityCap = quote.quality === "delayed" || quote.quality === "historical" ? 75 : 85;
   const score = Math.min(qualityCap, rawScore);
   const providers = unique([
     quote.provider,
     historyUsable ? history.provider ?? "" : "",
-    ...externalNews.map((item) => item.source)
+    ...externalNews.map((item) => item.source),
+    verifiedFundamentals > 0 ? fundamentals?.provider ?? "" : ""
   ]);
 
   return {

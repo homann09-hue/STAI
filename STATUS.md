@@ -166,3 +166,14 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Direkte Restformatierungen in Corporate Actions, Notifications, Portfolio,
   Alerts, Intelligence und Profi-Ansichten wurden ebenfalls auf den zentralen
   Formatter umgestellt.
+
+# Milestone 2026-08-10: feldweise verifizierte Fundamentaldaten
+
+- Der Asset-Pfad lädt Fundamentals parallel zu Historie und News und führt sie
+  mit expliziter Feldprovenienz bis in Datenqualität und Analyse.
+- Nur Felder mit bestätigtem Providerstatus werden übernommen; Mock- und
+  Fallbackwerte werden vor der produktiven Asset-Ausgabe entfernt.
+- Ein vom Kursanbieter belegter Market Cap darf separat genutzt werden, ohne
+  andere fehlende Unternehmenskennzahlen vorzutäuschen.
+- Datenqualitätsquellen, Abdeckungsquote, Langfristhinweis und KI-Treiber
+  unterscheiden jetzt vollständige, teilweise und fehlende Fundamentals.

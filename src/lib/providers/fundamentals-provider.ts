@@ -9,6 +9,7 @@ export interface FundamentalsProvider {
 export type FundamentalsProviderMetadata = {
   provider: string;
   quality: MarketDataQuality;
+  fetchedAt: string;
   fields: Partial<Record<keyof Fundamentals, "provider" | "mock" | "unavailable">>;
   fieldCoverage: {
     provider: number;
@@ -124,6 +125,7 @@ function buildFundamentalsMetadata(symbol: string, fundamentals: Fundamentals | 
   return {
     provider: mockLike || providerIsMock ? "StockPilot Mock Fundamentals" : fundamentalsProviderLabel(provider),
     quality,
+    fetchedAt: new Date().toISOString(),
     fields,
     fieldCoverage,
     caveat: fundamentals && !degraded
