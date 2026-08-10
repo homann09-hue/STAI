@@ -20,6 +20,11 @@
  */
 
 import { limitHistoryByYears } from "@/lib/billing/history-limit";
+import {
+  assessHistoricalDataIntegrity,
+  historicalPriceBasisLabel,
+  type HistoricalDataIntegrity
+} from "@/lib/analysis/history-integrity";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
 import { chartRanges, type Candle, type TimeRange } from "@/lib/types";
 
@@ -29,12 +34,15 @@ export type HistoryResult = {
   note: string;
   /** Der Anbieter, der geantwortet hat — oder null, wenn keiner konnte. */
   provider: string | null;
+  /** Maschinenlesbare Aussage darüber, welche Preisbasis tatsächlich vorliegt. */
+  integrity: HistoricalDataIntegrity | null;
 };
 
 export const NO_HISTORY: HistoryResult = {
   candles: [],
   note: "Keine Kurshistorie verfügbar.",
-  provider: null
+  provider: null,
+  integrity: null
 };
 
 function isNumber(value: unknown): value is number {
@@ -79,6 +87,11 @@ export function parseFmpDailyHistory(symbol: string, raw: unknown): Candle[] {
     const high = parseNumber(entry.high) ?? Math.max(open, close);
     const low = parseNumber(entry.low) ?? Math.min(open, close);
     const volume = parseNumber(entry.volume) ?? 0;
+    const adjustedCloseCandidate = parseNumber(entry.adjClose ?? entry.adjustedClose);
+    const adjustedClose =
+      adjustedCloseCandidate !== null && adjustedCloseCandidate > 0
+        ? adjustedCloseCandidate
+        : undefined;
 
     return [
       {
@@ -90,6 +103,7 @@ export function parseFmpDailyHistory(symbol: string, raw: unknown): Candle[] {
         high: Math.max(high, open, close),
         low: Math.max(0, Math.min(low, open, close)),
         close,
+        ...(adjustedClose === undefined ? {} : { adjustedClose }),
         volume: Math.max(0, volume)
       }
     ];
@@ -233,12 +247,14 @@ export async function fetchDailyHistory(
     });
 
     const candles = parseFmpDailyHistory(normalized, data);
+    const integrity = assessHistoricalDataIntegrity(candles, new Date().toISOString());
 
     result = candles.length
       ? {
           candles,
-          note: `${candles.length} Tageskerzen von Financial Modeling Prep.`,
-          provider: "Financial Modeling Prep"
+          note: `${candles.length} Tageskerzen von Financial Modeling Prep. Preisbasis: ${historicalPriceBasisLabel(integrity.priceBasis)}.`,
+          provider: "Financial Modeling Prep",
+          integrity
         }
       : { ...NO_HISTORY, note: "Der Anbieter lieferte keine verwertbaren Tageskerzen." };
   } catch (error) {

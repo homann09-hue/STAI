@@ -24,3 +24,17 @@ Because the current catalog is incomplete, no missing master record is treated
 as proof of nonexistence. The API returns `identity_unverified` rather than a
 false 404 for a syntactically valid unresolved symbol.
 
+## Historical price integrity
+
+Historical series expose a machine-readable price basis:
+
+- `adjusted_close`: every usable row contains a provider-supplied adjusted close;
+- `unadjusted_close`: no adjustment evidence was supplied;
+- `mixed`: adjusted and raw rows are mixed, so backtesting is blocked;
+- `unknown`: no usable series exists.
+
+Provider-supplied adjusted close is not presented as independently reconciled
+corporate-action coverage. Current historical responses are explicitly marked
+`current_snapshot_only`, not point-in-time vintages. Backtests therefore expose
+survivorship, selection and look-ahead limitations even when calculation is
+possible.

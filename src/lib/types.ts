@@ -180,6 +180,13 @@ export interface Candle {
   high: number;
   low: number;
   close: number;
+  /**
+   * Vom Anbieter gelieferter angepasster Schlusskurs.
+   *
+   * Fehlt der Wert, darf niemand aus `close` ableiten, dass Splits,
+   * Ausschüttungen oder andere Corporate Actions berücksichtigt wurden.
+   */
+  adjustedClose?: number;
   volume: number;
 }
 

@@ -61,3 +61,14 @@ ohne externe Marktdaten- oder Lizenzgrenzen zu kaschieren.
   capacity, enterprise controls and iOS sync passed.
 - External restrictions and complete evidence: `docs/RELEASE_REPORT.md` and
   `docs/GITHUB_GOAL_AUDIT_2026-08-10.md`.
+
+# Milestone 2026-08-10: historical-series integrity
+
+- Backtests distinguish provider-adjusted, raw, mixed and unavailable price
+  bases instead of silently treating every close as corporate-action adjusted.
+- Mixed adjusted/raw histories are blocked; provider-adjusted close is used
+  only at 100 percent row coverage.
+- Data cutoff, received timestamp, UTC basis, adjusted-close coverage and
+  missing point-in-time vintages are machine-readable and visible in the UI.
+- Survivorship, selection, look-ahead and corporate-action limitations remain
+  explicit; no historical data is invented or silently repaired.

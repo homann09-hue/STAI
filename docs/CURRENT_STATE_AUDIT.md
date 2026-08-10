@@ -51,8 +51,9 @@ zurückgelassenen Merkzettel.
   Marktstruktur fehlen.
 - **Fundamentalanalyse.** Basiskennzahlen ja, Segmente, Guidance und
   Schätzungsrevisionen nein.
-- **Backtesting.** Oberfläche vorhanden, ohne Point-in-Time-Daten nicht
-  belastbar.
+- **Backtesting.** Echte Historie und ein Preisbasis-Gate sind vorhanden.
+  Provider-Adjusted-Close wird nur bei vollständiger Abdeckung genutzt,
+  gemischte Reihen werden verweigert. Point-in-Time-Vintages fehlen weiterhin.
 - **Suche.** Command Palette mit Herkunft; ISIN-Suche am Tarif blockiert.
 - **Observability.** Strukturiertes Logging ja, Dashboards und Alarme nein.
 
@@ -153,7 +154,9 @@ Analysten, Insider, Short Interest, US-Makro (bis ein FRED-Schlüssel vorliegt).
 
 ## 14. Was ist eher Show als Mehrwert
 
-- **Backtesting.** Läuft, ist ohne Point-in-Time-Daten aber nicht belastbar.
+- **Backtesting.** Läuft auf echter Historie und zeigt Preisbasis, Daten-Cutoff
+  und Bias-Risiken. Ohne Point-in-Time-Vintages bleibt es bewusst als
+  eingeschränkt belastbar gekennzeichnet.
 - **Screener-Seite.** Zeigt das suchgetriebene Universum, nicht den Markt.
 - **Intelligence-Bereich.** Ingest-Pfad existiert, im Betrieb nie gemessen.
 - **`institutional`-Modul.** 6 Dateien, 3 Tests, erzeugt Reifegrade und
