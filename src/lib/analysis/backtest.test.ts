@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MIN_CANDLES, internalRateOfReturn, runBacktest, type BacktestCandle } from "@/lib/analysis/backtest";
+import { assessHistoricalDataIntegrity } from "@/lib/analysis/history-integrity";
 
 /**
  * Die Tests prüfen vor allem die Stellen, an denen ein Backtest plausibel
@@ -252,5 +253,54 @@ describe("Vorbehalte", () => {
     if (!result.ok) throw new Error("sollte rechnen");
 
     expect(result.caveats.join(" ")).toMatch(/sagt nichts darüber, was sein wird/);
+  });
+
+  it("weist fehlende Corporate-Action- und Point-in-Time-Evidenz aus", () => {
+    const result = runBacktest({ candles: series(600), initialCapital: 1_000, monthlyContribution: 0 });
+    if (!result.ok) throw new Error("sollte mit Einschränkungen rechnen");
+
+    expect(result.dataIntegrity.priceBasis).toBe("unadjusted_close");
+    expect(result.dataIntegrity.pointInTime).toBe(false);
+    expect(result.caveats.join(" ")).toMatch(/Corporate Actions/);
+    expect(result.caveats.join(" ")).toMatch(/Point-in-Time/);
+  });
+});
+
+describe("Preisbasis", () => {
+  it("verwendet eine vollständig gelieferte Adjusted-Close-Reihe", () => {
+    const candles = series(600).map((candle, index) => ({
+      ...candle,
+      close: index < 300 ? 100 : 50,
+      adjustedClose: 50
+    }));
+    const integrity = assessHistoricalDataIntegrity(candles);
+    const result = runBacktest({
+      candles,
+      initialCapital: 1_000,
+      monthlyContribution: 0,
+      integrity
+    });
+
+    if (!result.ok) throw new Error("sollte mit Adjusted Close rechnen");
+    expect(result.dataIntegrity.priceBasis).toBe("adjusted_close");
+    expect(result.finalValue).toBeCloseTo(1_000, 6);
+    expect(result.timeWeightedCagr).toBeCloseTo(0, 6);
+  });
+
+  it("verweigert eine gemischte Preisbasis", () => {
+    const candles = series(600).map((candle, index) => ({
+      ...candle,
+      ...(index < 300 ? { adjustedClose: candle.close } : {})
+    }));
+    const result = runBacktest({
+      candles,
+      initialCapital: 1_000,
+      monthlyContribution: 0,
+      integrity: assessHistoricalDataIntegrity(candles)
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("hätte verweigern müssen");
+    expect(result.reason).toContain("methodisch inkonsistent");
   });
 });

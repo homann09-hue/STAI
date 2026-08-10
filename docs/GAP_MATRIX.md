@@ -36,7 +36,7 @@ Legende: ✅ vorhanden und verifiziert · 🟡 teilweise · ❌ fehlt ·
 | Provider-Health, Failover, Circuit Breaker | ✅ | `provider-health.ts`, Backoff in `market-provider.ts` |
 | Kursverfügbarkeit pro Instrument | ✅ | Gemessen, nicht geraten. `quote_status` |
 | Datenqualitätsprüfungen (Ausreißer, Einheiten, Währung) | 🟡 | Basisprüfungen vorhanden; Bilanzgleichungen, Look-ahead ❌ |
-| Point-in-Time-Daten | ❌ | Kein Revisionsmodell. Blockiert seriöses Backtesting |
+| Point-in-Time-Daten | 🟡 | Historienvertrag, Cutoff und Bias-Gate vorhanden; echte Vintages und Revisionsmodell fehlen 🔒 |
 | Realtime-Lizenz | 🔒 | BLOCKER-002 |
 
 ## 3. Analyse
@@ -136,7 +136,7 @@ ohne PR gibt es damit keine Prüfung.
 | Screener über Gesamtuniversum | 🔒 | `company-screener` = 402 |
 | Watchlists, Alerts, Portfolio | ✅ | Mit Cloud-Sync und lokalem Fallback |
 | Paper Trading, Journal | ❌ | Nicht implementiert |
-| Backtesting | 🟡 | UI vorhanden; ohne Point-in-Time-Daten nicht belastbar |
+| Backtesting | 🟡 | Echte Historie, Adjusted-Close-Erkennung und Mischreihen-Sperre; Point-in-Time-Vintages fehlen |
 | Drei Informationsstufen (Einfach/Fortgeschritten/Pro) | ❌ | Nicht implementiert |
 | Berichte exportierbar | 🟡 | Nur DSGVO-Export |
 | Accessibility | ❌ | Nie geprüft |

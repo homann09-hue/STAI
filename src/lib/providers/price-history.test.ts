@@ -66,6 +66,14 @@ describe("Auswertung der Anbieterantwort", () => {
     expect(candle.low).toBe(100);
     expect(candle.volume).toBe(0);
   });
+
+  it("übernimmt Adjusted Close nur, wenn der Anbieter einen positiven Wert liefert", () => {
+    const [adjusted] = parseFmpDailyHistory("AAPL", [row("2026-08-07", 100, { adjClose: 94.25 })]);
+    const [invalid] = parseFmpDailyHistory("AAPL", [row("2026-08-06", 99, { adjClose: 0 })]);
+
+    expect(adjusted.adjustedClose).toBe(94.25);
+    expect(invalid.adjustedClose).toBeUndefined();
+  });
 });
 
 describe("Tariflimit auf die Historie", () => {

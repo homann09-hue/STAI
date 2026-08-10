@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { AlertTriangle, BarChart3, Search } from "lucide-react";
 import type { BacktestRefusal, BacktestResult } from "@/lib/analysis/backtest";
+import {
+  historicalPriceBasisLabel,
+  type HistoricalDataIntegrity
+} from "@/lib/analysis/history-integrity";
 import { formatCurrency } from "@/lib/scoring";
 
 /**
@@ -16,7 +20,13 @@ import { formatCurrency } from "@/lib/scoring";
 type Response = {
   symbol: string;
   result: BacktestResult | BacktestRefusal;
-  metadata: { provider: string | null; historyNote: string; planYears: number; plan: string };
+  metadata: {
+    provider: string | null;
+    historyNote: string;
+    dataIntegrity: HistoricalDataIntegrity | null;
+    planYears: number;
+    plan: string;
+  };
 };
 
 type State =
@@ -167,6 +177,8 @@ export function BacktestRunner() {
 }
 
 function BacktestReport({ data, result }: { data: Response; result: BacktestResult }) {
+  const integrity = result.dataIntegrity;
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
@@ -219,6 +231,37 @@ function BacktestReport({ data, result }: { data: Response; result: BacktestResu
           />
         </div>
       ) : null}
+
+      <div className="rounded-[1.5rem] border border-amber/30 bg-amber/8 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber">Historische Datenintegrität</p>
+          <span className="rounded-full border border-amber/30 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber">
+            eingeschränkt belastbar
+          </span>
+        </div>
+        <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-3">
+          <div>
+            <dt className="text-muted">Preisbasis</dt>
+            <dd className="mt-1 font-medium text-mist">{historicalPriceBasisLabel(integrity.priceBasis)}</dd>
+          </div>
+          <div>
+            <dt className="text-muted">Daten-Cutoff</dt>
+            <dd className="mt-1 font-mono text-mist">{integrity.dataCutoff?.slice(0, 10) ?? "nicht verfügbar"}</dd>
+          </div>
+          <div>
+            <dt className="text-muted">Point-in-Time</dt>
+            <dd className="mt-1 font-medium text-loss">Nein · aktueller Snapshot</dd>
+          </div>
+        </dl>
+        <div className="mt-3 space-y-2">
+          {integrity.issues.map((issue) => (
+            <p key={issue} className="flex gap-2 text-xs leading-5 text-amber">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>{issue}</span>
+            </p>
+          ))}
+        </div>
+      </div>
 
       <div className="rounded-[1.5rem] border border-stroke bg-coal/70 p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">Was hier nicht drinsteckt</p>

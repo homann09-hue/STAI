@@ -26,7 +26,13 @@ export type BacktestCandle = {
   /** ISO-Zeitpunkt der Kerze. */
   timestamp: string;
   close: number;
+  adjustedClose?: number;
 };
+
+import {
+  assessHistoricalDataIntegrity,
+  type HistoricalDataIntegrity
+} from "@/lib/analysis/history-integrity";
 
 export type BacktestInput = {
   candles: readonly BacktestCandle[];
@@ -34,6 +40,8 @@ export type BacktestInput = {
   initialCapital: number;
   /** Zusätzliche Einzahlung, jeweils am ersten Handelstag eines Monats. */
   monthlyContribution: number;
+  /** Vom Providerpfad ermittelte Integrität; wird sonst aus der Reihe abgeleitet. */
+  integrity?: HistoricalDataIntegrity;
 };
 
 export type BacktestCashflow = {
@@ -91,6 +99,8 @@ export type BacktestResult = {
   /** Beste und schlechteste Kalenderjahre im Zeitraum. */
   bestYear: { year: number; changePercent: number } | null;
   worstYear: { year: number; changePercent: number } | null;
+  /** Preisbasis, Cutoff und bekannte Bias-Risiken dieser konkreten Rechnung. */
+  dataIntegrity: HistoricalDataIntegrity;
   /** Was an dieser Rechnung nicht enthalten ist. Gehört in die Anzeige. */
   caveats: string[];
 };
@@ -182,8 +192,27 @@ export function internalRateOfReturn(
  * Richtungen deutlich verschiebt.
  */
 export function runBacktest(input: BacktestInput): BacktestResult | BacktestRefusal {
+  const integrity = input.integrity ?? assessHistoricalDataIntegrity(input.candles);
+
+  if (integrity.backtestStatus === "blocked") {
+    return {
+      ok: false,
+      reason: `Die historische Reihe ist für einen Backtest gesperrt. ${integrity.issues.join(" ")}`
+    };
+  }
+
   const candles = [...input.candles]
     .filter((candle) => Number.isFinite(candle.close) && candle.close > 0)
+    .map((candle) => ({
+      ...candle,
+      close:
+        integrity.priceBasis === "adjusted_close" &&
+        typeof candle.adjustedClose === "number" &&
+        Number.isFinite(candle.adjustedClose) &&
+        candle.adjustedClose > 0
+          ? candle.adjustedClose
+          : candle.close
+    }))
     .sort((left, right) => new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime());
 
   if (candles.length < MIN_CANDLES) {
@@ -264,9 +293,22 @@ export function runBacktest(input: BacktestInput): BacktestResult | BacktestRefu
 
   const caveats = [
     "Ohne Gebühren, Spreads und Steuern gerechnet. Beides verschiebt das Ergebnis nach unten.",
-    "Ohne Dividenden und Ausschüttungen. Bei ausschüttenden Werten fällt die tatsächliche Rendite höher aus.",
     "Ein Backtest zeigt, was gewesen wäre. Er sagt nichts darüber, was sein wird."
   ];
+
+  if (integrity.priceBasis === "adjusted_close") {
+    caveats.push(
+      "Berechnet mit dem Adjusted Close des Anbieters. Welche Corporate Actions vollständig enthalten sind, wurde nicht gegen einen unabhängigen Ereignis-Ledger abgeglichen."
+    );
+  } else {
+    caveats.push(
+      "Ohne nachweisliche Bereinigung um Splits, Dividenden, Ausschüttungen und andere Corporate Actions. Rendite und Drawdown können dadurch verzerrt sein."
+    );
+  }
+
+  caveats.push(
+    "Keine Point-in-Time-Vintages und kein historisches Gesamtuniversum. Survivorship-, Selection- und Look-ahead-Bias sind nicht ausgeschlossen."
+  );
 
   if (years < 5) {
     caveats.push(
@@ -291,6 +333,7 @@ export function runBacktest(input: BacktestInput): BacktestResult | BacktestRefu
     maxDrawdownTo: maxDrawdownTo.slice(0, 10),
     volatility: annualisedFromDaily(dailyReturns),
     ...calendarYearExtremes(candles),
+    dataIntegrity: integrity,
     caveats
   };
 }

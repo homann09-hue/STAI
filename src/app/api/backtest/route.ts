@@ -63,7 +63,12 @@ export async function GET(request: Request) {
     );
   }
 
-  const result = runBacktest({ candles: history.candles, initialCapital, monthlyContribution });
+  const result = runBacktest({
+    candles: history.candles,
+    initialCapital,
+    monthlyContribution,
+    ...(history.integrity ? { integrity: history.integrity } : {})
+  });
 
   logEvent("info", "backtest.run", {
     userId: access.auth.userId,
@@ -71,7 +76,9 @@ export async function GET(request: Request) {
     symbol,
     candles: history.candles.length,
     limitYears,
-    refused: !result.ok
+    refused: !result.ok,
+    priceBasis: history.integrity?.priceBasis ?? "unknown",
+    pointInTime: history.integrity?.pointInTime ?? false
   });
 
   return jsonOk(
@@ -84,6 +91,7 @@ export async function GET(request: Request) {
         // soll sehen, *warum* der Zeitraum kurz ist -- nicht nur, dass er es
         // ist.
         historyNote: history.note,
+        dataIntegrity: history.integrity,
         planYears: limitYears,
         plan: access.entitlements.plan,
         disclaimer:
