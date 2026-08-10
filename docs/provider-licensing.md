@@ -33,6 +33,7 @@ If a provider is missing, rate-limited, delayed or using mock fallback, the UI m
 | --- | --- | --- |
 | SEC EDGAR | Offizielle Filings, maximal 10 Requests/s, deklarierter User-Agent | Fair-Access-Regeln und Retention regelmäßig prüfen |
 | FMP | Quotes/Fundamentals je Tarif | Schriftliche Mehrnutzer-, Anzeige-, Cache- und kommerzielle Rechte erforderlich |
+| FMP Corporate Actions | Symbolbezogene Dividenden und Splits; serverseitig gecacht, nie als realtime bezeichnet | Endpunktfreigabe und Redistributierungs-/Speicherrechte im gebuchten Tarif schriftlich bestätigen |
 | Coinbase | Krypto-Marktdaten-Fallback | Market-Data-Terms beschränken Drittanzeige; schriftliche Freigabe erforderlich |
 | Binance | Öffentliche Krypto-Marktdaten | Nutzungsbedingungen, regionale Verfügbarkeit und Redistributierung juristisch prüfen |
 | Finnhub, Alpha Vantage, NewsAPI, Marketaux | Tarifabhängige Daten | Tarif, Attribution, Speicherung, News-Rechte und Nutzerzahl vertraglich bestätigen |

@@ -22,7 +22,7 @@ Legende: ✅ vorhanden und verifiziert · 🟡 teilweise · ❌ fehlt ·
 | Kanonische ID, Mehrfachlisting getrennt | ✅ | Live: AAPL/NASDAQ, AAPL.DE/XETRA, APC.F/FSX |
 | Entity Resolution mit Konfidenz | 🟡 | Symbol + Börse ja; ISIN/FIGI 🔒 nicht im Tarif |
 | Identifikatoren ISIN, FIGI, CUSIP, SEDOL, LEI | 🔒 | `stable/search-isin` = 402 |
-| Corporate Actions, Symboländerungen, Delistings | ❌ | Kein Datenmodell, keine Quelle |
+| Corporate Actions, Symboländerungen, Delistings | 🟡 | Provider-gemeldete Dividenden/Splits mit Ledger, RLS, API und Asset-Timeline; Symboländerungen, Fusionen und Delistings bleiben ohne belastbare Quelle offen |
 | Assetklassen Aktie/ETF/Krypto/Forex/Index/Rohstoff | 🟡 | Erkannt und klassifiziert; Anleihen, Optionen, Futures, Zertifikate ❌ |
 | Handelskalender, Sessions, Feiertage | ❌ | Nicht implementiert |
 

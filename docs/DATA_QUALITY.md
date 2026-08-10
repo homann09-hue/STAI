@@ -38,3 +38,12 @@ corporate-action coverage. Current historical responses are explicitly marked
 `current_snapshot_only`, not point-in-time vintages. Backtests therefore expose
 survivorship, selection and look-ahead limitations even when calculation is
 possible.
+
+## Corporate actions
+
+Corporate actions are events, not ticks. They therefore use evidence labels
+`provider_reported`, `issuer_confirmed` and `regulatory_filing` instead of a
+false realtime claim. The current FMP adapter covers dividends and splits
+separately and exposes partial endpoint coverage. It never infers an action
+from a price gap. Provider-adjusted history remains unverified against the
+ledger until reconciliation logic and complete event coverage exist.

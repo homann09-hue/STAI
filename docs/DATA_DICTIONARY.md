@@ -15,7 +15,11 @@ Stand: 2026-08-10
 | `resolutionStatus` | `resolved`, `ambiguous`, `provider_only` or `invalid` |
 | `sufficientForAnalysis` | Guard indicating whether current inputs support scores/narratives |
 | `coverage.complete` | Whether the catalog is proven complete; currently false |
+| `canonicalActionId` | Idempotent provider/type/symbol/date/value identity for a corporate action |
+| `effectiveDate` | Ex-date or legal/economic effective date of a corporate action |
+| `lifecycle` | `scheduled`, `effective`, `cancelled` or `unknown` |
+| `CorporateActionQuality` | `provider_reported`, `issuer_confirmed` or `regulatory_filing`; never `realtime` |
+| `CorporateActionCoverage` | Separate availability of dividend and split endpoints; partial coverage remains visible |
 
 Missing numeric values are `null`/absent. Zero is never used to represent an
 unknown fundamental, price or ratio.
-

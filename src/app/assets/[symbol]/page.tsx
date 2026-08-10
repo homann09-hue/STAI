@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { AssetDetailView } from "@/components/asset-detail-view";
 import { AssetUnavailableView } from "@/components/asset-unavailable-view";
+import { persistCorporateActions } from "@/lib/corporate-action-store";
 import { buildValuationView, withImpliedGrowth } from "@/lib/analysis/valuation-view";
 import { resolveAssetUnavailability } from "@/lib/asset-availability";
 import { fetchFundamentals } from "@/lib/providers/valuation-data";
@@ -10,6 +11,7 @@ import { fetchCompanyFilings, fetchInsiderTransactions } from "@/lib/sec/edgar";
 import { summarizeInsiderActivity } from "@/lib/sec/form4";
 import { findInstrumentIdentityBySymbol } from "@/lib/instrument-master-store";
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
+import { fetchCorporateActions } from "@/lib/providers/corporate-actions-provider";
 import { absoluteUrl, siteConfig } from "@/lib/seo";
 import { validateSymbol } from "@/lib/validation";
 
@@ -120,10 +122,19 @@ export default async function AssetPage({ params }: PageProps) {
   // statt sieben nachladende Kacheln. Faellt der Abruf aus, bleibt `valuation`
   // schlicht `null` -- die Seite zeigt dann keinen Bewertungsteil, statt einen
   // leeren.
-  const bundle = await fetchFundamentals(parsedSymbol.data, {
-    marketCap: detail.fundamentals.marketCap || null,
-    price: detail.quote.price
-  });
+  const [bundle, filings, insider, corporateActions] = await Promise.all([
+    fetchFundamentals(parsedSymbol.data, {
+      marketCap: detail.fundamentals.marketCap || null,
+      price: detail.quote.price
+    }),
+    fetchCompanyFilings(parsedSymbol.data, { forms: ["10-K", "10-Q", "8-K"], limit: 12 }),
+    fetchInsiderTransactions(parsedSymbol.data, 6),
+    fetchCorporateActions(parsedSymbol.data, new Date(), detail.asset.type)
+  ]);
+
+  // Der Ledger ist Referenzdatenbestand. Ein Persistenzfehler darf die
+  // sichtbare Providerantwort nicht vernichten; der Store protokolliert ihn.
+  await persistCorporateActions(corporateActions.actions);
 
   const valuation = bundle
     ? withImpliedGrowth(
@@ -133,22 +144,12 @@ export default async function AssetPage({ params }: PageProps) {
       )
     : null;
 
-  // Filings und Insidertransaktionen (§31/§32).
-  //
-  // Getrennt vom Bewertungsabruf und mit eigenem Fehlerpfad: die SEC kennt nur
-  // US-Emittenten, und für ein europäisches Papier gibt es schlicht keine CIK.
-  // Das ist kein Fehler, sondern der Geltungsbereich der Behörde — die
-  // Abschnitte entfallen dann.
-  const [filings, insider] = await Promise.all([
-    fetchCompanyFilings(parsedSymbol.data, { forms: ["10-K", "10-Q", "8-K"], limit: 12 }),
-    fetchInsiderTransactions(parsedSymbol.data, 6)
-  ]);
-
   return (
     <AssetDetailView
       detail={detail}
       valuation={valuation}
       filings={filings}
+      corporateActions={corporateActions}
       insider={
         insider
           ? { transactions: insider.transactions, summary: summarizeInsiderActivity(insider.transactions) }
