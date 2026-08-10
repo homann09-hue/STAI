@@ -110,39 +110,6 @@ type InstrumentSearchCoverage = {
   note: string;
 };
 
-function safeInstrumentHit(value: InstrumentSearchHit): InstrumentSearchHit | null {
-  const symbol = safeSymbol(value.symbol);
-  if (!symbol) return null;
-
-  return {
-    canonicalId: safeText(value.canonicalId, symbol, 200),
-    symbol,
-    name: safeText(value.name, symbol, 140),
-    assetClass: safeText(value.assetClass, "asset", 24),
-    exchange: safeText(value.exchange, "Handelsplatz offen", 60),
-    currency: safeText(value.currency, "", 12),
-    provider: safeText(value.provider, "Provider offen", 40),
-    identityConfidence:
-      typeof value.identityConfidence === "number" && Number.isFinite(value.identityConfidence)
-        ? Math.max(0, Math.min(100, Math.round(value.identityConfidence)))
-        : 0,
-    resolutionStatus:
-      value.resolutionStatus === "resolved" ||
-      value.resolutionStatus === "ambiguous" ||
-      value.resolutionStatus === "invalid"
-        ? value.resolutionStatus
-        : "provider_only",
-    resolutionWarnings: Array.isArray(value.resolutionWarnings)
-      ? value.resolutionWarnings.map((item) => safeText(item, "", 160)).filter(Boolean).slice(0, 3)
-      : [],
-    origin: value.origin === "instrument_master" ? "instrument_master" : "provider_search",
-    quoteStatus:
-      value.quoteStatus === "available" || value.quoteStatus === "restricted" || value.quoteStatus === "error"
-        ? value.quoteStatus
-        : "unknown"
-  };
-}
-
 /**
  * Kursverfuegbarkeit im aktiven Tarif. `unknown` wird bewusst als "ungeprüft"
  * dargestellt und nie als verfuegbar, damit die Suche nichts verspricht, was
@@ -231,17 +198,6 @@ export function GlobalCommandPalette() {
         setInstrumentCoverage(null);
         setQuotes({});
 
-        // Instrument Master parallel abfragen. Der Aufruf darf die Suche nicht
-        // zum Scheitern bringen, deshalb bewusst ohne throw.
-        const instrumentRequest = normalized
-          ? fetch(`/api/instruments/search?q=${encodeURIComponent(normalized)}`, {
-              cache: "no-store",
-              signal: controller.signal
-            })
-              .then((res) => (res.ok ? res.json() : null))
-              .catch(() => null)
-          : Promise.resolve(null);
-
         const response = await fetch(`/api/market/universe?${params.toString()}`, {
           cache: "no-store",
           signal: controller.signal
@@ -251,7 +207,11 @@ export function GlobalCommandPalette() {
 
         const payload = (await response.json()) as {
           instruments?: MarketUniverseInstrument[];
-          data?: { instruments?: MarketUniverseInstrument[] };
+          catalogCoverage?: InstrumentSearchCoverage;
+          data?: {
+            instruments?: MarketUniverseInstrument[];
+            catalogCoverage?: InstrumentSearchCoverage;
+          };
         };
         if (controller.signal.aborted) return;
 
@@ -260,27 +220,8 @@ export function GlobalCommandPalette() {
           .filter((item): item is MarketUniverseInstrument => Boolean(item))
           .slice(0, 8);
         setAssetResults(instruments);
-
-        const instrumentPayload = (await instrumentRequest) as {
-          data?: { results?: InstrumentSearchHit[]; coverage?: InstrumentSearchCoverage };
-          results?: InstrumentSearchHit[];
-          coverage?: InstrumentSearchCoverage;
-        } | null;
-
-        if (controller.signal.aborted) return;
-
-        if (instrumentPayload) {
-          const seedSymbols = new Set(instruments.map((item) => item.symbol));
-          const hits = (instrumentPayload.data?.results ?? instrumentPayload.results ?? [])
-            .map(safeInstrumentHit)
-            .filter((item): item is InstrumentSearchHit => Boolean(item))
-            // Was das Seed-Universum ohnehin zeigt, nicht doppelt auflisten.
-            .filter((item) => !seedSymbols.has(item.symbol))
-            .slice(0, 8);
-
-          setInstrumentHits(hits);
-          setInstrumentCoverage(instrumentPayload.data?.coverage ?? instrumentPayload.coverage ?? null);
-        }
+        setInstrumentHits([]);
+        setInstrumentCoverage(payload.data?.catalogCoverage ?? payload.catalogCoverage ?? null);
 
         const symbols = instruments
           .map((item) => item.symbol)

@@ -22,7 +22,7 @@ export function AssetUnavailableView({
   const tone =
     reason === "quote_not_entitled"
       ? { border: "border-amber/25", bg: "bg-amber/10", text: "text-amber", Icon: Lock }
-      : reason === "provider_error"
+      : reason === "provider_error" || reason === "identity_unverified"
         ? { border: "border-loss/25", bg: "bg-loss/10", text: "text-loss", Icon: ServerCrash }
         : { border: "border-stroke", bg: "bg-coal", text: "text-muted", Icon: AlertTriangle };
 
@@ -31,7 +31,7 @@ export function AssetUnavailableView({
       ? "Instrument bekannt, Daten nicht freigeschaltet"
       : reason === "provider_error"
         ? "Instrument bekannt, Abruf gerade nicht möglich"
-        : "Instrument nicht gefunden";
+        : "Instrument derzeit nicht verifizierbar";
 
   return (
     <div className="space-y-5">

@@ -17,7 +17,7 @@ export default async function ScreenerPage() {
       <TerminalSectionView
         eyebrow="Screener"
         title="Ein Screener für Aktien, ETFs, Krypto, Indizes und weitere Börseninstrumente"
-        description="Suche über das vorbereitete Marktuniversum mit sichtbarer Datenabdeckung. Was ein Filter tut, steht an ihm dran — auch dann, wenn er weniger tut, als sein Name vermuten ließe."
+        description="Suche im persistenten Instrument Master und erweitere ihn mit echten Provider-Treffern. Herkunft, Kursberechtigung und Datenlücken bleiben bei jedem Treffer sichtbar."
         ctaHref="/stocks"
         ctaLabel="Aktien-Screener öffnen"
         cards={[
@@ -29,7 +29,7 @@ export default async function ScreenerPage() {
           // ist das mehr als ein Schoenheitsfehler.
           { title: "Filter", text: "Assetklasse, Datenabdeckung, Anbieterstatus und Freitextsuche über Symbol, Name, Börse, Land und Kennungen (ISIN, WKN).", badge: "Verfügbar" },
           { title: "Noch nicht da", text: "Filter nach Marktkapitalisierung, KGV, Dividende, Volumen und Volatilität setzen Kennzahlen je Instrument voraus. Der Anbietertarif deckt sie für ein Universum dieser Größe nicht ab.", badge: "Offen" },
-          { title: "Volluniversum", text: "Nicht alle Instrumente liegen lokal im Client. Nach Anbieteranbindung werden Provider-Suchendpunkte serverseitig angebunden." },
+          { title: "Dynamisches Universum", text: "Keine Seed-Liste: Treffer stammen aus dem Instrument Master oder der serverseitigen Provider-Suche. Der aktuelle Tarif erlaubt noch keinen Vollabzug." },
           { title: "Keine Fake-Abdeckung", text: "Lizenzpflichtige Börsen, Indizes, Optionen und Futures werden klar als vorbereitet oder lizenzpflichtig markiert.", badge: "Trust" }
         ]}
       />

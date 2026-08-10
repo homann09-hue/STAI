@@ -45,10 +45,9 @@ export async function GET(request: Request, { params }: RouteContext) {
   }
 
   if (!detail) {
-    // Vorher pauschal 404 "Asset nicht gefunden". Das war bei einem real
-    // existierenden Instrument schlicht falsch: QQQ gibt es, der Tarif deckt es
-    // nur nicht ab. Die Auskunft wird deshalb aus dem Instrument Master
-    // differenziert.
+    // Ein pauschales 404 waere bei einem unvollstaendigen, suchgetriebenen
+    // Instrument Master unbelegt. Die Antwort trennt Tarifsperre,
+    // Providerfehler und noch nicht verifizierte Identitaet.
     const known = await findInstrumentIdentityBySymbol(parsed.data);
     const unavailability = resolveAssetUnavailability({ symbol: parsed.data, known });
 

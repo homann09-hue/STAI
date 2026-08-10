@@ -286,29 +286,122 @@ export async function findInstrumentIdentityBySymbol(
  * Liest aus dem persistierten Universum. Das ist der erste Suchpfad: bereits
  * entdeckte Instrumente sollen ohne erneuten Provider-Aufruf auffindbar sein.
  */
-export async function searchStoredInstruments(query: string, limit = 20) {
+export async function searchStoredInstruments(
+  query: string,
+  limit = 20,
+  assetClass: MarketUniverseAssetClass | "all" = "all"
+) {
   const supabase = createSupabaseServiceClient();
   if (!supabase) return [];
 
   const normalized = query.trim().slice(0, 64);
-  if (!normalized) return [];
+  const escaped = normalized
+    .replace(/[^\p{L}\p{N} .:/^&+-]/gu, " ")
+    .replace(/[%_,()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (normalized && !escaped) return [];
 
-  const escaped = normalized.replace(/[%_,]/g, " ").trim();
-  if (!escaped) return [];
-
-  const { data, error } = await supabase
+  const selectColumns =
+    "id,canonical_id,symbol,name,asset_class,exchange,exchange_full_name,country,currency,provider,identity_confidence,resolution_status,resolution_warnings,last_seen_at,confirmation_count,quote_status,quote_checked_at";
+  let directQuery = supabase
     .from("instruments")
-    .select(
-      "canonical_id,symbol,name,asset_class,exchange,exchange_full_name,currency,provider,identity_confidence,resolution_status,resolution_warnings,last_seen_at,confirmation_count,quote_status,quote_checked_at"
-    )
-    .or(`symbol.ilike.${escaped}%,name.ilike.%${escaped}%`)
-    .order("confirmation_count", { ascending: false })
-    .limit(Math.min(50, Math.max(1, limit)));
+    .select(selectColumns)
+    .order("confirmation_count", { ascending: false });
+
+  if (assetClass !== "all") directQuery = directQuery.eq("asset_class", assetClass);
+  if (escaped) directQuery = directQuery.or(`symbol.ilike.${escaped}%,name.ilike.%${escaped}%`);
+
+  const boundedLimit = Math.min(200, Math.max(1, limit));
+  const { data, error } = await directQuery.limit(boundedLimit);
 
   if (error) {
     logEvent("warn", "instrument_master.search_failed", { code: error.code, message: error.message });
     return [];
   }
 
-  return data ?? [];
+  const byId = new Map((data ?? []).map((row) => [String(row.id), row]));
+  let matchedIdentifierRows: Array<Record<string, unknown>> = [];
+
+  if (escaped) {
+    const { data: identifierRows, error: identifierError } = await supabase
+      .from("instrument_identifiers")
+      .select("instrument_id,identifier_type,value,provider")
+      .ilike("value", `${escaped}%`)
+      .limit(boundedLimit);
+
+    if (identifierError) {
+      logEvent("warn", "instrument_master.identifier_search_failed", {
+        code: identifierError.code,
+        message: identifierError.message
+      });
+    } else {
+      matchedIdentifierRows = (identifierRows ?? []) as Array<Record<string, unknown>>;
+      const missingIds = [
+        ...new Set(
+          matchedIdentifierRows
+            .map((row) => String(row.instrument_id ?? ""))
+            .filter((id) => id && !byId.has(id))
+        )
+      ];
+
+      if (missingIds.length) {
+        let identifierInstrumentQuery = supabase.from("instruments").select(selectColumns).in("id", missingIds);
+        if (assetClass !== "all") {
+          identifierInstrumentQuery = identifierInstrumentQuery.eq("asset_class", assetClass);
+        }
+        const { data: identifierInstruments, error: identifierInstrumentError } =
+          await identifierInstrumentQuery.limit(boundedLimit);
+
+        if (identifierInstrumentError) {
+          logEvent("warn", "instrument_master.identifier_instrument_lookup_failed", {
+            code: identifierInstrumentError.code,
+            message: identifierInstrumentError.message
+          });
+        } else {
+          (identifierInstruments ?? []).forEach((row) => byId.set(String(row.id), row));
+        }
+      }
+    }
+  }
+
+  const rows = [...byId.values()].slice(0, boundedLimit);
+  const ids = rows.map((row) => String(row.id));
+  const identifiersByInstrument = new Map<string, Array<Record<string, unknown>>>();
+
+  if (ids.length) {
+    const { data: identifiers, error: identifiersError } = await supabase
+      .from("instrument_identifiers")
+      .select("instrument_id,identifier_type,value,provider")
+      .in("instrument_id", ids)
+      .limit(Math.min(3200, ids.length * 16));
+
+    if (identifiersError) {
+      logEvent("warn", "instrument_master.identifiers_load_failed", {
+        code: identifiersError.code,
+        message: identifiersError.message
+      });
+    } else {
+      (identifiers ?? []).forEach((identifier) => {
+        const id = String(identifier.instrument_id);
+        const current = identifiersByInstrument.get(id) ?? [];
+        current.push(identifier as Record<string, unknown>);
+        identifiersByInstrument.set(id, current);
+      });
+    }
+  }
+
+  const matchedByInstrument = new Map<string, Array<Record<string, unknown>>>();
+  matchedIdentifierRows.forEach((identifier) => {
+    const id = String(identifier.instrument_id ?? "");
+    const current = matchedByInstrument.get(id) ?? [];
+    current.push(identifier);
+    matchedByInstrument.set(id, current);
+  });
+
+  return rows.map((row) => ({
+    ...row,
+    identifiers: identifiersByInstrument.get(String(row.id)) ?? [],
+    matched_identifiers: matchedByInstrument.get(String(row.id)) ?? []
+  }));
 }

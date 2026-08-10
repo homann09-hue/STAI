@@ -81,12 +81,13 @@ describe("AssetUnavailableView", () => {
     expect(visibleText(container)).toMatch(/Vorübergehendes Providerproblem/i);
   });
 
-  it("erklaert bei unbekanntem Instrument das suchgetriebene Universum", () => {
+  it("erklaert bei nicht verifizierbarer Identitaet das suchgetriebene Universum", () => {
     const { container } = renderFor("GIBTESNICHT", null);
     const text = visibleText(container);
 
     expect(text).toMatch(/kein Eintrag im Instrument\s*Master/i);
     expect(text).toMatch(/wächst suchgetrieben/i);
+    expect(text).not.toMatch(/Instrument nicht gefunden/i);
   });
 
   it("bietet immer einen Rueckweg an", () => {

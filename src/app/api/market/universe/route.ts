@@ -55,8 +55,9 @@ export async function GET(request: Request) {
     result,
     {
       headers: {
-        "Cache-Control": "s-maxage=60, stale-while-revalidate=300",
-        "X-StockPilot-Universe": "prepared",
+        "Cache-Control": query ? "no-store" : "s-maxage=60, stale-while-revalidate=300",
+        "X-StockPilot-Universe": "search-driven",
+        "X-StockPilot-Universe-Complete": "false",
         "X-StockPilot-Universe-Provider": provider.providerName
       }
     }
