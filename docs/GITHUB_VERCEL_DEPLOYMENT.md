@@ -48,7 +48,7 @@ Für den Mock-Start reichen diese Werte:
 STOCKPILOT_MARKET_PROVIDER=mock
 STOCKPILOT_NEWS_PROVIDER=mock
 STOCKPILOT_FUNDAMENTALS_PROVIDER=mock
-STOCKPILOT_AI_PROVIDER=mock
+STOCKPILOT_AI_PROVIDER=evidence
 ```
 
 Für Supabase später in Vercel setzen:

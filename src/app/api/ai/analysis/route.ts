@@ -56,7 +56,12 @@ export async function GET(request: Request) {
   const { analysis, metadata } = result.value;
 
   if (!analysis) {
-    return jsonError("KI-Analyse nicht gefunden.", 404);
+    return jsonError(
+      metadata.analysisStatus === "blocked"
+        ? "Für eine belastbare Einschätzung liegen derzeit nicht genügend verifizierte Daten vor."
+        : "KI-Analyse nicht gefunden.",
+      metadata.analysisStatus === "blocked" ? 422 : 404
+    );
   }
 
   return jsonOk({

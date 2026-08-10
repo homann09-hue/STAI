@@ -3,7 +3,7 @@
 | Modell | Version | Zweck | Input | Output | Fallback | Kill Switch | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | deterministic-intelligence-rules | 1.0.0 | konservative Eventklassifikation | normalisiertes Event | strukturierte Analyse | nicht erforderlich | Intelligence Ingest deaktivieren | getestet, Pilot |
-| OpenAI-compatible intelligence | ENV/Provider | strukturierte Eventanalyse | begrenzter Quelltext | Zod-validiertes JSON | deterministic rules | `STOCKPILOT_AI_PROVIDER=mock` | vorbereitet/providerabhängig |
+| StockPilot Evidence Analysis | stockpilot-evidence-analysis-v1 | deterministische Asset-Einordnung | verifizierte OHLCV-Historie, externe News und Datenqualität | Chancen, Risiken, Szenarien und konservative Wahrscheinlichkeiten | Analyse blockiert | `STOCKPILOT_AI_PROVIDER=evidence` | getestet, produktiver Standard |
 | Market scoring | impact-score/1.0.0 | Impact und Richtung | Fakten/Confidence | 0-100 Komponenten | kein Alert | Alertworker deaktivieren | getestet, intern |
 | Asset AI summary | providerabhängig | Chancen/Risiken | Quotes, News, Fundamentals | Schätzung | deterministische Mockanalyse | Provider auf mock/none | Demo/degraded |
 

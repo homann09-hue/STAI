@@ -1,5 +1,14 @@
 # StockPilot AI Status
 
+## Quellengebundene Analyse statt produktivem Mock-Provider
+
+- Die produktive `/api/ai/analysis`-Route nutzt standardmäßig eine deterministische Evidenzanalyse aus der realen Asset-Pipeline.
+- Mock-Analysen sind nur noch erlaubt, wenn Entwicklungs-Fixtures ausdrücklich zulässig sind; eine Produktionskonfiguration mit `STOCKPILOT_AI_PROVIDER=mock` fällt sicher auf die Evidenzanalyse zurück.
+- Wahrscheinlichkeiten werden aus mindestens 60 verifizierten Kurskerzen, gemessenen Renditen und historischer Volatilität abgeleitet und bleiben konservativ begrenzt.
+- Bei Mock-, Stale- oder unzureichenden Daten antwortet die API mit einem klaren Blockierstatus statt einer scheinpräzisen Analyse.
+- Quellen, Daten-Cutoff, Qualitätswert, Konfidenz, Modellversion, Unsicherheit und Datenlücken werden im Provider-Ergebnis mitgeführt.
+- Verifiziert am 2026-08-10: Formatprüfung, Typecheck, Lint, 114 Testdateien mit 958 Tests und der Next.js-Produktionsbuild sind erfolgreich.
+
 ## Provider-Evidenz statt pauschaler Datenlücke
 
 - Echte historische Kursreihen und externe News werden im realen Provider-Pfad jetzt als eigene Evidenzquellen bewertet.
