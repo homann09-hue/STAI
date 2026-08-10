@@ -29,6 +29,9 @@ test("dashboard exposes market, data quality and disclaimer", async ({ page }) =
 });
 
 test("asset detail exposes professional risk controls", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("stockpilot:investor-mode", "pro");
+  });
   await page.goto("/assets/NVDA");
   await acceptRiskNotice(page);
 

@@ -185,6 +185,16 @@ test.describe("deep red-team browser checks", () => {
     await page.getByRole("button", { name: "Profi Szenarien, Drawdown, Governance." }).click();
     await expect(page.getByText("Aktiver Modus: Profi").first()).toBeVisible();
 
+    await safeGoto(page, "/assets/NVDA", "load");
+    await expect(page.getByTestId("investor-mode-context")).toContainText("Analyse-Tiefe: Profi");
+    await expect(page.getByTestId("pro-analysis-depth")).toBeVisible();
+
+    await safeGoto(page, "/settings", "load");
+    await page.getByRole("button", { name: "Anfänger Einfache Sprache, Ampel, Risiko zuerst." }).click();
+    await safeGoto(page, "/assets/NVDA", "load");
+    await expect(page.getByTestId("investor-mode-context")).toContainText("Analyse-Tiefe: Anfänger");
+    await expect(page.getByTestId("pro-analysis-depth")).toHaveCount(0);
+
     await safeGoto(page, "/learn", "load");
     await expect(page.getByText("Glossar")).toBeVisible();
 

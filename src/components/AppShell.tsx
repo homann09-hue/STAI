@@ -33,6 +33,7 @@ import { BillingPlanBadge } from "@/components/billing-plan-badge";
 import { NotificationCenter } from "@/components/notification-center";
 import { PwaRegister } from "@/components/PwaRegister";
 import { RiskNoticeDialog } from "@/components/risk-notice-dialog";
+import { useInvestorMode } from "@/lib/use-investor-mode";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home },
@@ -107,6 +108,7 @@ const mobileNavItems = navItems.filter((item) =>
 );
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  useInvestorMode();
   const pathname = usePathname();
   const [online, setOnline] = useState(true);
   const [noticeAccepted, setNoticeAccepted] = useState(true);

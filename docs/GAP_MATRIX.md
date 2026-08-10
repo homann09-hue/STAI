@@ -137,7 +137,7 @@ ohne PR gibt es damit keine Prüfung.
 | Watchlists, Alerts, Portfolio | ✅ | Mit Cloud-Sync und lokalem Fallback |
 | Paper Trading, Journal | ❌ | Nicht implementiert |
 | Backtesting | 🟡 | Echte Historie, Adjusted-Close-Erkennung und Mischreihen-Sperre; Point-in-Time-Vintages fehlen |
-| Drei Informationsstufen (Einfach/Fortgeschritten/Pro) | 🟡 | Auswahl liegt wie gefordert in den Einstellungen und wird lokal gespeichert; eine konsistente Auswirkung auf alle Ansichten ist noch nicht durchgezogen |
+| Drei Informationsstufen (Einfach/Fortgeschritten/Pro) | 🟡 | Zentrale, browserweit synchronisierte Präferenz steuert die Asset-Analyse von verständlicher Basisebene über Bewertung/Peers bis zu regulatorischen Quellen und Modell-Governance; weitere Fachseiten werden schrittweise angebunden |
 | Berichte exportierbar | 🟡 | Nur DSGVO-Export |
 | Accessibility | 🟡 | Mobile Overflow, Navigation und kritische Touch-Ziele automatisiert geprüft; vollständiger WCAG-/Screenreader-/Kontrastaudit bleibt offen |
 
@@ -150,9 +150,9 @@ Nach Nutzen pro Aufwand, unter Berücksichtigung der Tarifgrenzen:
 1. **Lizenz-/Tarifentscheidung für das globale Universum.** Der Code kann einen
    vollständigen Katalog nicht ersetzen; ohne Verzeichnis- und Kursrechte
    bleibt die Kernabdeckung suchgetrieben.
-2. **Zielgruppen-Modus wirklich anwenden.** Auswahl und Speicherung stehen,
-   aber Sprache, Informationsdichte und Standardmodule müssen appweit davon
-   gesteuert werden.
+2. **Zielgruppen-Modus auf weitere Fachseiten ausweiten.** Asset-Analysen sind
+   bereits gestuft; Dashboard, Portfolio und Screener brauchen noch dieselbe
+   konsistente Informationsdichte und Terminologie.
 3. **Komponententests ausbauen.** 9 von 64 Komponenten sind direkt abgedeckt;
    Asset-Detail, Dashboard und komplexe Portfolio-Interaktionen bleiben teuer.
 4. **Bewertungsmodelle vervollständigen.** DDM nur bei belastbarer

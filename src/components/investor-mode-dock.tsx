@@ -1,49 +1,17 @@
 "use client";
 
 import { GraduationCap, LineChart, ShieldCheck } from "lucide-react";
-import { useEffect, useState } from "react";
+import { investorModeProfiles, type InvestorMode } from "@/lib/investor-mode";
+import { useInvestorMode } from "@/lib/use-investor-mode";
 
-type InvestorMode = "beginner" | "advanced" | "pro";
-
-const modes: Record<InvestorMode, { label: string; hint: string; icon: typeof GraduationCap }> = {
-  beginner: {
-    label: "Anfänger",
-    hint: "Einfache Sprache, Ampel, Risiko zuerst.",
-    icon: GraduationCap
-  },
-  advanced: {
-    label: "Fortgeschritten",
-    hint: "Kennzahlen, News, Vergleiche.",
-    icon: LineChart
-  },
-  pro: {
-    label: "Profi",
-    hint: "Szenarien, Drawdown, Governance.",
-    icon: ShieldCheck
-  }
+const icons: Record<InvestorMode, typeof GraduationCap> = {
+  beginner: GraduationCap,
+  advanced: LineChart,
+  pro: ShieldCheck
 };
 
 export function InvestorModeDock() {
-  const [mode, setMode] = useState<InvestorMode>("beginner");
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem("stockpilot:investor-mode") as InvestorMode | null;
-      if (stored && stored in modes) setMode(stored);
-    } catch {
-      setMode("beginner");
-    }
-  }, []);
-
-  function selectMode(nextMode: InvestorMode) {
-    setMode(nextMode);
-    try {
-      window.localStorage.setItem("stockpilot:investor-mode", nextMode);
-    } catch {
-      // Der Modus bleibt in der laufenden Sitzung aktiv, auch wenn localStorage blockiert ist.
-    }
-    window.dispatchEvent(new CustomEvent("stockpilot:investor-mode", { detail: nextMode }));
-  }
+  const [mode, selectMode] = useInvestorMode();
 
   return (
     <section
@@ -64,8 +32,8 @@ export function InvestorModeDock() {
       </div>
 
       <div className="grid gap-2 md:grid-cols-3" role="group" aria-label="Zielgruppen-Modus wählen">
-        {(Object.keys(modes) as InvestorMode[]).map((item) => {
-          const Icon = modes[item].icon;
+        {(Object.keys(investorModeProfiles) as InvestorMode[]).map((item) => {
+          const Icon = icons[item];
           const active = mode === item;
 
           return (
@@ -82,15 +50,15 @@ export function InvestorModeDock() {
             >
               <Icon className="h-4 w-4 shrink-0" />
               <span>
-                <span className="block text-xs font-semibold">{modes[item].label}</span>
-                <span className="block text-[11px] leading-4">{modes[item].hint}</span>
+                <span className="block text-xs font-semibold">{investorModeProfiles[item].label}</span>
+                <span className="block text-[11px] leading-4">{investorModeProfiles[item].hint}</span>
               </span>
             </button>
           );
         })}
       </div>
       <p className="mt-4 rounded-2xl border border-stroke bg-coal/55 px-3 py-2 text-xs leading-5 text-muted">
-        Aktiver Modus: <span className="font-semibold text-cyan">{modes[mode].label}</span>. Die App priorisiert passende Tiefe, Sprache und Risiko-Hinweise.
+        Aktiver Modus: <span className="font-semibold text-cyan">{investorModeProfiles[mode].label}</span>. Die App priorisiert passende Tiefe, Sprache und Risiko-Hinweise.
       </p>
     </section>
   );
