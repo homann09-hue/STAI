@@ -4,9 +4,10 @@ Letzte Aktualisierung: 2026-08-10
 
 ## Aktueller Meilenstein
 
-Der Enterprise-/SaaS-Branch ist mit `main` synchronisiert. Der aktuelle
-Meilenstein schliesst produktionskritische Betriebs- und Datenbankluecken,
-ohne externe Marktdaten- oder Lizenzgrenzen zu kaschieren.
+Der aktuelle Meilenstein stabilisiert den browserseitigen Supabase- und
+Billing-Lebenszyklus. Pro App-Laufzeit wird genau ein Auth-Client verwendet;
+identische parallele Statusabfragen werden zusammengefuehrt, ohne Ergebnisse
+ueber den laufenden Request hinaus zwischenzuspeichern.
 
 ## Aktuell umgesetzt
 
@@ -26,9 +27,9 @@ ohne externe Marktdaten- oder Lizenzgrenzen zu kaschieren.
 ## Produktionsstand
 
 - Produktionsadresse: https://stockpilot-ai-beta.vercel.app
-- Aktueller Entwicklungs-PR: https://github.com/homann09-hue/STAI/pull/25
-- Die Produktion darf erst nach Anwendung aller ausstehenden Migrationen und
-  erfolgreichem PR-/Deployment-Gate aktualisiert werden.
+- Produktionsstand vor diesem Meilenstein: `f505051` auf `main`.
+- Dieser Meilenstein benoetigt keine Datenbankmigration und veraendert weder
+  BauPro noch dessen Deployment.
 - `MOCK`, `DELAYED`, `CACHED`, `OFFLINE` und `UNAVAILABLE` bleiben sichtbar;
   es gibt keinen stillen Mock-as-Live-Fallback.
 
@@ -45,11 +46,23 @@ ohne externe Marktdaten- oder Lizenzgrenzen zu kaschieren.
 
 ## Naechster Freigabeschritt
 
-1. Ausstehende Supabase-Migrationen anwenden und Advisors pruefen.
-2. GitHub- und Vercel-Secrets/Schutzregeln aktivieren.
-3. PR #25 nur bei gruenen Pflichtchecks mergen.
-4. Produktionsdeployment aus dem verifizierten Artefakt ausloesen.
-5. Live-Monitoring und Kernseiten nach dem Deployment pruefen.
+1. Singleton- und Request-Deduplizierungs-Tests ausfuehren.
+2. Typecheck, Lint, Gesamttests und Produktionsbuild pruefen.
+3. Den isolierten StockPilot-Branch ueber GitHub- und Vercel-Gates freigeben.
+4. Produktionsdeployment und Auth-/Billing-Smoke-Test pruefen.
+
+# Milestone 2026-08-10: stabiler Supabase-Browser-Lebenszyklus
+
+- Supabase erzeugt pro Browser-Laufzeit nur noch einen GoTrue-Client fuer die
+  aktive, sichere Public-Konfiguration.
+- Identische parallele Auth-GETs liefern unabhaengig lesbare Responses aus
+  genau einem Netzwerkaufruf; externe Ziele erhalten nie Authorization-Header.
+- Billing-Entitlements werden nur waehrend eines laufenden Requests
+  dedupliziert, nicht veraltet zwischengespeichert.
+- Das Billing-Panel verwendet dieselbe gepruefte Client-Abstraktion fuer
+  Entitlements und sichere Stripe-Portal-Weiterleitungen.
+- Verifiziert: Formatpruefung, Typecheck und Lint gruen; 112 Testdateien mit
+  952 Tests gruen; Next.js-Produktionsbuild mit 35 statischen Seiten gruen.
 # Milestone 2026-08-10: dynamic catalog and production data integrity
 
 - Static mini-universe removed from universal search and screener data paths.

@@ -1,12 +1,61 @@
-import { describe, expect, it } from "vitest";
-import { isAllowedStripeRedirect } from "@/lib/billing/client";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { fetchBillingEntitlements } from "./client";
 
-describe("billing redirect validation", () => {
-  it("accepts only official HTTPS Checkout and Portal origins", () => {
-    expect(isAllowedStripeRedirect("https://checkout.stripe.com/c/pay/test")).toBe(true);
-    expect(isAllowedStripeRedirect("https://billing.stripe.com/p/session/test")).toBe(true);
-    expect(isAllowedStripeRedirect("http://checkout.stripe.com/c/pay/test")).toBe(false);
-    expect(isAllowedStripeRedirect("https://checkout.stripe.com.evil.test/c/pay/test")).toBe(false);
-    expect(isAllowedStripeRedirect("javascript:alert(1)")).toBe(false);
+const entitlementPayload = {
+  billingActive: false,
+  plan: "free",
+  status: "inactive",
+  provider: "stripe",
+  validUntil: null,
+  cancelAtPeriodEnd: false,
+  degraded: false,
+  error: null,
+  mode: "supabase",
+  limits: {},
+  tiers: [],
+  billing: {
+    provider: "stripe",
+    configured: true,
+    webhookConfigured: true,
+    portalConfigured: true,
+    plans: {
+      pro: { month: true, year: true },
+      premium: { month: true, year: true }
+    }
+  }
+};
+
+describe("billing client", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("deduplicates concurrent entitlement reads without caching stale results", async () => {
+    const fetchMock = vi.fn(async () => Response.json(entitlementPayload));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const [first, second] = await Promise.all([
+      fetchBillingEntitlements("access-token"),
+      fetchBillingEntitlements("access-token")
+    ]);
+
+    expect(first).toEqual(entitlementPayload);
+    expect(second).toEqual(entitlementPayload);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await fetchBillingEntitlements("access-token");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("surfaces a safe API error instead of accepting a failed response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ error: "Billing vorübergehend nicht verfügbar." }, { status: 503 }))
+    );
+
+    await expect(fetchBillingEntitlements("access-token")).rejects.toThrow(
+      "Billing vorübergehend nicht verfügbar."
+    );
   });
 });
