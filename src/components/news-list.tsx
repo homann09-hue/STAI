@@ -4,6 +4,7 @@ import { Newspaper } from "lucide-react";
 import Link from "next/link";
 import { DataQualityBadge } from "@/components/data-quality-indicator";
 import { sentimentTone } from "@/lib/scoring";
+import { formatGermanDateTime } from "@/lib/date-time";
 import type { NewsItem } from "@/lib/types";
 
 const sentimentLabels = {
@@ -44,10 +45,10 @@ export function NewsList({ news }: { news: NewsItem[] }) {
                   <DataQualityBadge quality={isMock ? "mock" : "near_realtime"} marketStatus="unknown" compact />
                   <span className="text-xs text-muted">{item.source}</span>
                   <span className="text-xs text-muted">
-                    {new Intl.DateTimeFormat("de-DE", {
+                    {formatGermanDateTime(item.publishedAt, {
                       dateStyle: "short",
                       timeStyle: "short"
-                    }).format(new Date(item.publishedAt))}
+                    })}
                   </span>
                 </div>
                 <h3 className="text-sm font-semibold text-mist">{item.title}</h3>

@@ -4,6 +4,7 @@ import { CreditCard, ShieldCheck } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { formatGermanDate } from "@/lib/date-time";
 
 type EntitlementResponse = {
   billingActive: boolean;
@@ -161,7 +162,7 @@ export function BillingActionsPanel() {
         </div>
         <div className="rounded-2xl border border-stroke bg-coal/70 p-4">
           <p className="text-xs uppercase tracking-[0.24em] text-muted">Gültig bis</p>
-          <p className="mt-2 text-sm text-mist">{billing?.validUntil ? new Date(billing.validUntil).toLocaleDateString("de-DE") : "nicht gesetzt"}</p>
+          <p className="mt-2 text-sm text-mist">{billing?.validUntil ? formatGermanDate(billing.validUntil) : "nicht gesetzt"}</p>
         </div>
         <div className="rounded-2xl border border-stroke bg-coal/70 p-4">
           <p className="text-xs uppercase tracking-[0.24em] text-muted">Letzter Check</p>

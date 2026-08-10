@@ -55,6 +55,7 @@ import type { AssetDetail, Candle, Quote, TimeRange } from "@/lib/types";
 import { timeRanges } from "@/lib/types";
 import { getInvestorModePolicy, investorModeProfiles } from "@/lib/investor-mode";
 import { useInvestorMode } from "@/lib/use-investor-mode";
+import { formatGermanDateTime } from "@/lib/date-time";
 
 const CHART_PREFS_KEY = "stockpilot:chart-preferences";
 
@@ -116,8 +117,7 @@ function formatMaybeNumber(value: number | null | undefined, digits = 2) {
 }
 
 function formatTimestamp(value: string) {
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date.toLocaleString("de-DE") : "nicht verfügbar";
+  return formatGermanDateTime(value);
 }
 
 function AssetProvenancePanel({ passport }: { passport: ReturnType<typeof buildAssetProvenancePassport> }) {

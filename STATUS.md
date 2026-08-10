@@ -116,3 +116,10 @@ ohne externe Marktdaten- oder Lizenzgrenzen zu kaschieren.
   Quellen und Modell-Governance für Anfänger, Fortgeschrittene und Profis.
 - Risiko-, Datenqualitäts- und Abdeckungshinweise bleiben unabhängig vom Modus
   sichtbar; der Modus ist eine Darstellungspräferenz, kein Tarif-Gate.
+
+# Milestone 2026-08-10: deterministische Zeitdarstellung
+
+- Alle betroffenen servergerenderten Datums- und Zeitangaben verwenden eine
+  explizite Produkt-Zeitzone statt die lokale Zeitzone des Renderers.
+- Vercel-SSR und Browser erzeugen dadurch denselben Text; ein im Live-Smoke-Test
+  gefundener React-Hydration-Fehler ist mit einem Regressionstest abgesichert.

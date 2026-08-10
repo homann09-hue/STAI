@@ -1,5 +1,6 @@
 import { Clock3, Database, Radio, ShieldAlert, WifiOff, Zap } from "lucide-react";
 import { getDataQualityDisplay } from "@/lib/data-quality";
+import { formatGermanDateTime } from "@/lib/date-time";
 import type { MarketDataQuality, MarketStatus, NormalizedQuote, Quote } from "@/lib/types";
 
 function qualityIcon(quality: MarketDataQuality, marketStatus: MarketStatus) {
@@ -20,13 +21,7 @@ function delayedBy(quote: Quote | NormalizedQuote) {
 }
 
 function formatStatusTimestamp(timestamp: string) {
-  const date = new Date(timestamp);
-  return Number.isFinite(date.getTime())
-    ? new Intl.DateTimeFormat("de-DE", {
-        dateStyle: "short",
-        timeStyle: "medium"
-      }).format(date)
-    : "nicht verfügbar";
+  return formatGermanDateTime(timestamp);
 }
 
 function formatLatency(latencyMs: number | undefined) {

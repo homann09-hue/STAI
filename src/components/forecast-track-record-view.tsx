@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, HelpCircle, Lock, TrendingDown } from "lucide-react";
 import type { TrackRecordMetric, TrackRecordView } from "@/lib/forecast-track-record";
+import { formatGermanDate } from "@/lib/date-time";
 
 /**
  * Anzeige der Trefferbilanz.
@@ -46,11 +47,6 @@ export function ForecastTrackRecordView({
   model: { key: string; version: string } | null;
   window: { start: string; end: string } | null;
 }) {
-  const formatDate = (value: string) => {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString("de-DE");
-  };
-
   return (
     <div className="space-y-5">
       <header>
@@ -108,7 +104,7 @@ export function ForecastTrackRecordView({
           <div className="rounded-2xl border border-stroke bg-coal px-3 py-2">
             <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted">Zeitfenster</dt>
             <dd className="mt-0.5 text-sm text-mist">
-              {window ? `${formatDate(window.start)} – ${formatDate(window.end)}` : "—"}
+              {window ? `${formatGermanDate(window.start)} – ${formatGermanDate(window.end)}` : "—"}
             </dd>
           </div>
           <div className="rounded-2xl border border-stroke bg-coal px-3 py-2">
