@@ -38,6 +38,14 @@ function baseReport(): DataQualityReport {
         fetchedAt: "2026-08-10T10:00:00.000Z",
         status: "delayed",
         note: "Provider quote"
+      },
+      {
+        name: "StockPilot Analysis Guard",
+        type: "derived",
+        rank: 4,
+        fetchedAt: "2026-08-10T10:00:00.000Z",
+        status: "missing",
+        note: "Historie und News fehlen."
       }
     ]
   };
@@ -102,6 +110,14 @@ describe("assessProviderEvidence", () => {
     expect(report.sourceLabel).toContain("Reuters");
     expect(report.sources.some((source) => source.name === "FMP Historical")).toBe(true);
     expect(report.sources.some((source) => source.name === "Reuters")).toBe(true);
+    expect(
+      report.sources.find((source) => source.name === "StockPilot Analysis Guard")
+        ?.note
+    ).toContain("begrenzte technische Analyse");
+    expect(
+      report.sources.find((source) => source.name === "StockPilot Analysis Guard")
+        ?.status
+    ).toBe("fresh");
     expect(report.issues).toEqual(["Keine verifizierten Fundamentaldaten im aktiven Analysepfad."]);
   });
 

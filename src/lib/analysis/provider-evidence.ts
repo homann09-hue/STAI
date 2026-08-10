@@ -103,7 +103,15 @@ export function assessProviderEvidence({
           note: `${externalNews.length} externe Meldung(en) mit Quelle und Link.`
         })
       : null,
-    ...base.sources.filter((source) => source.type !== "provider")
+    ...base.sources
+      .filter((source) => source.type !== "provider")
+      .map((source) => ({
+        ...source,
+        status: sufficientForAnalysis ? ("fresh" as const) : ("missing" as const),
+        note: sufficientForAnalysis
+          ? "Verifizierte Kurs- und Historienevidenz erlaubt eine begrenzte technische Analyse; nicht belegte Bereiche bleiben separat ausgewiesen."
+          : "Die verifizierte Evidenz reicht nicht für eine belastbare probabilistische Analyse."
+      }))
   ].filter((source): source is DataQualityReport["sources"][number] => source !== null);
 
   const issues = [
