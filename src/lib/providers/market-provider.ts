@@ -753,7 +753,12 @@ function detailFromProviderQuote(
     marketCap: quote.marketCap ?? 0
   };
   const professionalScores = providerOnlyProfessionalScores(summary);
-  const dataQuality = providerOnlyDataQuality(quote);
+  const dataQuality = assessProviderEvidence({
+    quote,
+    history,
+    news,
+    base: providerOnlyDataQuality(quote)
+  });
   const analysisLayers: AnalysisLayer[] = [
     {
       label: "Kursdaten",
@@ -1758,3 +1763,4 @@ export function getMarketDataProvider(): MarketDataProvider {
 
   return new ProviderBackedMarketDataProvider(new ChainedQuoteProvider(providers));
 }
+import { assessProviderEvidence } from "@/lib/analysis/provider-evidence";
