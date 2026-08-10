@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { acceptRiskNotice } from "./risk-notice";
 
 const auditDir = path.join(process.cwd(), "docs", "audits", "mobile-review");
 const auditedRoutes = [
@@ -10,13 +11,6 @@ const auditedRoutes = [
   { name: "portfolio", path: "/portfolio", title: "Portfolio" },
   { name: "settings", path: "/settings", title: "Einstellungen" }
 ];
-
-async function acceptRiskNotice(page: import("@playwright/test").Page) {
-  const button = page.getByRole("button", { name: "Verstanden" });
-  if (await button.isVisible().catch(() => false)) {
-    await button.click();
-  }
-}
 
 test.describe("mobile review", () => {
   test("core mobile surfaces fit, navigate and expose safe touch targets", async ({ page }, testInfo) => {
