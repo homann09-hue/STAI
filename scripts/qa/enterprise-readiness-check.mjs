@@ -499,6 +499,12 @@ async function checkLiveTarget() {
       if (enterprise.json.readiness !== "world_class_ready") {
         warn("live enterprise external controls", "external provider licensing, backup, monitoring, SLA or shared cache controls are not all marked ready");
       }
+    } else if (
+      enterprise.response.ok &&
+      enterprise.json?.status === "protected" &&
+      enterprise.json?.mode === "public"
+    ) {
+      pass("live enterprise status", "public diagnostics are protected as designed");
     } else if (enterprise.response.status === 404) {
       warn("live enterprise status", "endpoint is not deployed yet; push and deploy the latest commit");
     } else {

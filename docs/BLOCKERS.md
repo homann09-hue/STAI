@@ -4,7 +4,7 @@ Dieses Dokument listet ausschließlich Blocker, die **nicht durch Code lösbar**
 Jeder Eintrag nennt den Nachweis, die betroffene Funktion und die konkreten
 Aktivierungsschritte.
 
-Letzte Verifikation: 2026-08-08 (CI Run #20 gruen)
+Letzte Verifikation: 2026-08-10
 
 ---
 
@@ -262,3 +262,46 @@ Pull Request. Die zwei Fallen beim Schreiben neuer Suiten stehen in `AGENTS.md`.
 
 Der Capacitor-/iOS-Build wurde nie auf Apple-Seite gebaut. Ohne
 Developer-Account ist weder Signierung noch Einreichung möglich.
+
+---
+
+## BLOCKER-009 — Vollstaendige Realtime-Abdeckung und Anzeige-Lizenzen
+
+**Schweregrad:** hoch fuer das Ziel einer globalen professionellen Plattform.
+
+Die Provider-Schicht kann technische Realtime-, Near-Realtime-, Delayed- und
+Historical-Daten normalisieren. Ob ein Kurs gespeichert, weitergegeben und in
+einer Endkunden-App angezeigt werden darf, entscheidet jedoch der konkrete
+Provider- und Boersentarif. Diese Rechte koennen nicht durch Code ersetzt
+werden.
+
+**Aktivierungsschritt.** Gewuenschte Handelsplaetze und Assetklassen festlegen,
+Anbieterangebote inklusive Display-, Redistribution- und Derived-Data-Rechten
+rechtlich pruefen und erst danach die jeweilige Produktionskonfiguration
+aktivieren.
+
+---
+
+## BLOCKER-010 — Shared Cache fuer horizontale Skalierung
+
+**Schweregrad:** mittel.
+
+Ohne `UPSTASH_REDIS_REST_URL` und `UPSTASH_REDIS_REST_TOKEN` faellt die App
+bewusst auf einen lokalen Prozesscache zurueck. Das ist funktional, aber bei
+mehreren Vercel-Instanzen weder ein global konsistentes Rate-Limit noch ein
+gemeinsamer Provider-Cache.
+
+**Aktivierungsschritt.** Eine dedizierte Redis-/Upstash-Instanz fuer StockPilot
+bereitstellen, beide Server-Variablen in Preview und Produktion setzen und den
+Health-Status `sharedConfigured: true` pruefen.
+
+---
+
+## BLOCKER-011 — Kommerzielle Rechtsfreigabe
+
+**Schweregrad:** hoch vor dem Verkauf an Verbraucher.
+
+Der technische Disclaimer ersetzt keine rechtlich geprueften AGB,
+Widerrufsbelehrung, Datenschutzpruefung und Datenlizenzmatrix. Inhalte und
+Preise duerfen erst nach Freigabe durch qualifizierte Rechtsberatung als
+kommerziell produktionsbereit bezeichnet werden.
