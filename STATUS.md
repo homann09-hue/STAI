@@ -1,5 +1,14 @@
 # StockPilot AI Status
 
+## Konsistente Asset-Detailanalyse
+
+- Asset-Detailseiten bewerten Kurs, Historie, News und Fundamentaldaten jetzt als getrennte, dynamische Evidenz-Layer.
+- Geladene echte Historien und externe News werden nicht länger durch statische Texte als fehlend bezeichnet.
+- Die sichtbare KI-Analyse und die Wahrscheinlichkeiten der Detailseite nutzen dieselbe deterministische Evidenzanalyse wie die geschützte Analyse-API.
+- Bei unzureichender Evidenz werden Wahrscheinlichkeiten auf der Detailseite zurückgehalten statt aus einem einzelnen Tagesquote abgeleitet.
+- Der Analysis-Guard aktualisiert seinen Quellenstatus dynamisch und hinterlässt bei ausreichender Historie keinen widersprüchlichen „Historie fehlt“-Hinweis.
+- Verifiziert am 2026-08-10: Formatprüfung, Typecheck, Lint, 114 Testdateien mit 958 Tests und der Next.js-Produktionsbuild sind erfolgreich.
+
 ## Quellengebundene Analyse statt produktivem Mock-Provider
 
 - Die produktive `/api/ai/analysis`-Route nutzt standardmäßig eine deterministische Evidenzanalyse aus der realen Asset-Pipeline.

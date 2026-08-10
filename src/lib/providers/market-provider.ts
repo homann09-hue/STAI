@@ -759,20 +759,43 @@ function detailFromProviderQuote(
     news,
     base: providerOnlyDataQuality(quote)
   });
+  const historyConfirmed =
+    history.candles.length >= 60 && history.integrity?.backtestStatus !== "blocked";
+  const newsConfirmed = news.length > 0;
   const analysisLayers: AnalysisLayer[] = [
     {
       label: "Kursdaten",
       value: quote.quality,
       status: quote.changePercent >= 0 ? "positive" : "negative",
-      detail: "Provider-Quote ist verfügbar, aber tiefe Analysefelder sind noch nicht vollständig angebunden.",
+      detail: "Normalisierter Provider-Quote mit ausgewiesenem Qualitäts- und Verzögerungsstatus.",
       source: quote.provider,
       updatedAt: quote.timestamp
     },
     {
-      label: "Datenabdeckung",
-      value: "unvollständig",
+      label: "Historische Evidenz",
+      value: historyConfirmed ? `${history.candles.length} Kerzen` : "nicht ausreichend",
+      status: historyConfirmed ? "positive" : "risk",
+      detail: historyConfirmed
+        ? `${history.candles.length} verwertbare Provider-Kerzen bilden die technische Analysebasis. ${history.note}`
+        : `Für eine belastbare technische Analyse fehlen ausreichend verifizierte Kerzen. ${history.note}`,
+      source: history.provider ?? "StockPilot Analysis Guard",
+      updatedAt: history.integrity?.dataCutoff ?? quote.timestamp
+    },
+    {
+      label: "News-Evidenz",
+      value: newsConfirmed ? `${news.length} Meldung(en)` : "nicht verfügbar",
+      status: newsConfirmed ? "neutral" : "risk",
+      detail: newsConfirmed
+        ? "Externe Meldungen mit Quelle, Link und Veröffentlichungszeitpunkt sind angebunden."
+        : "Keine verifizierten externen Meldungen für diese Analyse verfügbar.",
+      source: newsConfirmed ? news[0].source : "StockPilot Analysis Guard",
+      updatedAt: newsConfirmed ? news[0].publishedAt : quote.timestamp
+    },
+    {
+      label: "Fundamentaldaten",
+      value: "nicht verifiziert",
       status: "risk",
-      detail: "Keine belastbaren Fundamentaldaten, News, Analystenfelder oder historischen Provider-Kerzen für dieses Symbol bestätigt.",
+      detail: "Im aktiven Asset-Analysepfad liegen keine verifizierten Fundamentaldaten vor; es werden keine Ersatzwerte erfunden.",
       source: "StockPilot Analysis Guard",
       updatedAt: quote.timestamp
     }
@@ -819,14 +842,14 @@ function detailFromProviderQuote(
   );
   const aiAnalysis: AiAnalysis = {
     summary:
-      "Für dieses Symbol liegt ein Provider-Quote vor. Für eine belastbare Einschätzung fehlen noch verifizierte Fundamentaldaten, News, historische Kerzen und Ereignisdaten.",
+      "Für dieses Symbol reicht die verifizierte Datenbasis derzeit nicht für eine belastbare probabilistische Einschätzung.",
     upsideDrivers: ["Aktueller Kurs und Tagesbewegung sind verfügbar."],
     downsideDrivers: ["Wesentliche Analysequellen fehlen oder sind nicht verifiziert."],
     counterArguments: ["Ein einzelner Quote reicht nicht für eine robuste Chancen-/Risikoanalyse."],
     dataGaps: [
       "Fundamentaldaten fehlen.",
-      "Unternehmensnachrichten fehlen.",
-      "Historische Provider-Kerzen fehlen.",
+      ...(newsConfirmed ? [] : ["Unternehmensnachrichten fehlen."]),
+      ...(historyConfirmed ? [] : ["Ausreichende historische Provider-Kerzen fehlen."]),
       "Analysten-, Insider- und Eventdaten fehlen."
     ],
     bullCase: "Nicht belastbar ableitbar, bis zusätzliche Quellen verifiziert sind.",
@@ -838,18 +861,18 @@ function detailFromProviderQuote(
     riskLevel: "hoch",
     uncertainty: "hoch",
     probabilities: {
-      up: professionalScores.probabilityUp,
-      down: professionalScores.probabilityDown,
-      sideways: professionalScores.probabilitySideways
+      up: 0,
+      down: 0,
+      sideways: 0
     },
-    sources: [quote.provider, "StockPilot Analysis Guard"],
+    sources: dataQuality.sources.map((source) => source.name),
     weakDataWarning:
       "Für eine belastbare Einschätzung liegen derzeit nicht genügend verifizierte Daten vor.",
     modelNote:
       "Modellbasierte Einordnung aus begrenzten Provider-Kursdaten. Keine Garantie und keine Anlageberatung."
   };
 
-  return {
+  const detail: AssetDetail = {
     ...summary,
     candles,
     indicators,
@@ -864,6 +887,34 @@ function detailFromProviderQuote(
     analystOpinion: null,
     insiderActivity: [],
     earningsDate: null
+  };
+  const evidenceAnalysis = buildEvidenceBoundAnalysis(detail);
+  const evidenceScores: ProfessionalScores = evidenceAnalysis
+    ? {
+        ...professionalScores,
+        probabilityUp: evidenceAnalysis.probabilities.up,
+        probabilityDown: evidenceAnalysis.probabilities.down,
+        probabilitySideways: evidenceAnalysis.probabilities.sideways,
+        explanation: [
+          "Wahrscheinlichkeiten basieren auf verifizierter Historie, gemessener Rendite und Volatilität.",
+          "Fundamentaldaten fehlen weiterhin; die Einordnung ist auf technische Evidenz begrenzt."
+        ]
+      }
+    : {
+        ...professionalScores,
+        probabilityUp: 0,
+        probabilityDown: 0,
+        probabilitySideways: 0,
+        explanation: [
+          "Wahrscheinlichkeiten werden wegen unzureichender verifizierter Evidenz zurückgehalten.",
+          "Keine Garantie und keine Anlageberatung."
+        ]
+      };
+
+  return {
+    ...detail,
+    aiAnalysis: evidenceAnalysis ?? aiAnalysis,
+    professionalScores: evidenceScores
   };
 }
 
@@ -1764,3 +1815,4 @@ export function getMarketDataProvider(): MarketDataProvider {
   return new ProviderBackedMarketDataProvider(new ChainedQuoteProvider(providers));
 }
 import { assessProviderEvidence } from "@/lib/analysis/provider-evidence";
+import { buildEvidenceBoundAnalysis } from "@/lib/analysis/evidence-analysis";
