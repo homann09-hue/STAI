@@ -2,23 +2,19 @@
 
 import { CreditCard, ShieldCheck } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  createPortalSession,
+  fetchBillingEntitlements,
+  type BillingApiResponse
+} from "@/lib/billing/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { formatGermanDate } from "@/lib/date-time";
 
-type EntitlementResponse = {
-  billingActive: boolean;
-  plan: string;
-  status: string;
-  provider: string;
-  validUntil: string | null;
-  error: string | null;
-};
-
 export function BillingActionsPanel() {
-  const supabase = createSupabaseBrowserClient();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [session, setSession] = useState<Session | null>(null);
-  const [billing, setBilling] = useState<EntitlementResponse | null>(null);
+  const [billing, setBilling] = useState<BillingApiResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -65,16 +61,7 @@ export function BillingActionsPanel() {
       }
 
       try {
-        const response = await fetch("/api/billing/entitlements", {
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        });
-
-        const payload = (await response.json()) as EntitlementResponse & { error?: string };
-
-        if (!response.ok || payload.error) {
-          setMessage(payload.error || "Billing-Status konnte nicht abgerufen werden.");
-          return;
-        }
+        const payload = await fetchBillingEntitlements(session.access_token);
 
         if (!disposed) {
           setBilling(payload);
@@ -109,18 +96,8 @@ export function BillingActionsPanel() {
     }
 
     try {
-      const response = await fetch("/api/billing/portal", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` }
-      });
-
-      const payload = await response.json();
-
-      if (!response.ok || !payload.url) {
-        throw new Error(payload.error || "Portal-URL konnte nicht geladen werden.");
-      }
-
-      window.location.assign(payload.url);
+      const url = await createPortalSession(session.access_token);
+      window.location.assign(url);
     } catch (error) {
       setMessage(String(error instanceof Error ? error.message : "Billing-Portal konnte nicht geöffnet werden."));
     } finally {

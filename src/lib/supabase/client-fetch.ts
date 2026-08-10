@@ -2,6 +2,26 @@
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
+const pendingSameOriginGetRequests = new Map<string, Promise<Response>>();
+
+function requestMethod(input: RequestInfo | URL, init: RequestInit) {
+  if (init.method) return init.method.toUpperCase();
+  if (typeof Request !== "undefined" && input instanceof Request) return input.method.toUpperCase();
+  return "GET";
+}
+
+function requestHasAbortSignal(input: RequestInfo | URL, init: RequestInit) {
+  if (init.signal) return true;
+  return typeof Request !== "undefined" && input instanceof Request && input.signal !== undefined;
+}
+
+function stableHeaderKey(headers: Headers) {
+  return Array.from(headers.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([name, value]) => `${name}:${value}`)
+    .join("\n");
+}
+
 export async function getSupabaseAccessToken() {
   const supabase = createSupabaseBrowserClient();
   if (!supabase) return null;
@@ -30,8 +50,28 @@ export async function fetchWithSupabaseAuth(input: RequestInfo | URL, init: Requ
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  return fetch(input, {
+  const requestInit = {
     ...init,
     headers
-  });
+  };
+  const canDedupe = sameOriginApi && requestMethod(input, init) === "GET" && !requestHasAbortSignal(input, init);
+
+  if (!canDedupe) return fetch(input, requestInit);
+
+  const requestKey = `${targetUrl.href}\n${stableHeaderKey(headers)}`;
+  const pendingRequest = pendingSameOriginGetRequests.get(requestKey);
+  if (pendingRequest) return pendingRequest.then((response) => response.clone());
+
+  const request = fetch(input, requestInit);
+  pendingSameOriginGetRequests.set(requestKey, request);
+  request.then(
+    () => {
+      if (pendingSameOriginGetRequests.get(requestKey) === request) pendingSameOriginGetRequests.delete(requestKey);
+    },
+    () => {
+      if (pendingSameOriginGetRequests.get(requestKey) === request) pendingSameOriginGetRequests.delete(requestKey);
+    }
+  );
+
+  return request.then((response) => response.clone());
 }

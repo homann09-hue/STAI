@@ -17,16 +17,39 @@ function authorizationHeaders(accessToken?: string | null): HeadersInit {
   return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 
-export async function fetchBillingEntitlements(accessToken?: string | null) {
+const pendingEntitlementRequests = new Map<string, Promise<BillingApiResponse>>();
+
+async function loadBillingEntitlements(accessToken?: string | null) {
   const response = await fetch("/api/billing/entitlements", {
     cache: "no-store",
     headers: authorizationHeaders(accessToken)
   });
   const payload = (await response.json()) as BillingApiResponse & { error?: string };
+  if (!response.ok) {
+    throw new Error(typeof payload.error === "string" ? payload.error : "Billingstatus konnte nicht geladen werden.");
+  }
   if (!payload || typeof payload.plan !== "string" || !payload.billing) {
     throw new Error("Billingstatus konnte nicht sicher gelesen werden.");
   }
   return payload;
+}
+
+export function fetchBillingEntitlements(accessToken?: string | null) {
+  const requestKey = accessToken ? `authenticated:${accessToken}` : "anonymous";
+  const pendingRequest = pendingEntitlementRequests.get(requestKey);
+  if (pendingRequest) return pendingRequest;
+
+  const request = loadBillingEntitlements(accessToken);
+  pendingEntitlementRequests.set(requestKey, request);
+  request.then(
+    () => {
+      if (pendingEntitlementRequests.get(requestKey) === request) pendingEntitlementRequests.delete(requestKey);
+    },
+    () => {
+      if (pendingEntitlementRequests.get(requestKey) === request) pendingEntitlementRequests.delete(requestKey);
+    }
+  );
+  return request;
 }
 
 export function isAllowedStripeRedirect(value: string) {

@@ -1,4 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+let browserClient: SupabaseClient | null = null;
+let browserClientConfiguration: string | null = null;
 
 function isSafePublicSupabaseKey(value: string | undefined): value is string {
   if (!value) return false;
@@ -24,5 +27,10 @@ export function createSupabaseBrowserClient() {
 
   if (!isSafeSupabaseUrl(url) || !isSafePublicSupabaseKey(anonKey)) return null;
 
-  return createClient(url, anonKey);
+  const configuration = `${url}\u0000${anonKey}`;
+  if (browserClient && browserClientConfiguration === configuration) return browserClient;
+
+  browserClient = createClient(url, anonKey);
+  browserClientConfiguration = configuration;
+  return browserClient;
 }
