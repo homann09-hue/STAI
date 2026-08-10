@@ -73,7 +73,17 @@ ohne externe Marktdaten- oder Lizenzgrenzen zu kaschieren.
 - Survivorship, selection, look-ahead and corporate-action limitations remain
   explicit; no historical data is invented or silently repaired.
 
-# Milestone 2026-08-10: corporate-action ledger
+# Milestone 2026-08-10: keine synthetischen Marktreihen in Produktion
+
+- Sieben im Dashboard fest eingebaute Index-/Kryptokurse entfernt. Die
+  Tickerleiste enthält jetzt ausschließlich Einträge aus den gelieferten
+  Providerlisten und darf bei fehlender Abdeckung leer bleiben.
+- Mathematisch erzeugte Benchmark-Kerzen aus der Asset-Seite entfernt. Der
+  Schalter ist bis zu belastbaren Benchmarkdaten sichtbar deaktiviert.
+- Reine, getestete Auswahlfunktion schützt die Dashboard-Reihenfolge,
+  Deduplizierung und den leeren Providerfall.
+- Gap-Matrix mit aktuellem Code-, Test-, Sicherheits- und Produktstand
+  abgeglichen; widersprüchliche und veraltete Behauptungen korrigiert.
 
 # Milestone 2026-08-10: belegter Markt- und Ereigniskalender
 
@@ -84,6 +94,8 @@ ohne externe Marktdaten- oder Lizenzgrenzen zu kaschieren.
   Provider-Schicht normalisiert. Der Sitzungsstatus wird nur bei vollständiger
   Evidenz berechnet und fällt sonst auf `unknown` zurück.
 - API-Routen, mobile Kalenderansicht sowie Domain-, API- und UI-Tests ergänzt.
+
+# Milestone 2026-08-10: corporate-action ledger
 
 - Dokumentierte FMP-Endpunkte für Dividenden und Splits sind hinter einem
   normalisierten, serverseitigen Provider-Adapter angebunden.

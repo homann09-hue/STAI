@@ -17,6 +17,7 @@ import {
   WatchlistTable
 } from "@/components/market-boxes";
 import { MarketDataStatus } from "@/components/market-data-status";
+import { selectDashboardTickerItems } from "@/lib/dashboard-market-items";
 import { OFFLINE_KEYS, saveOfflineValue } from "@/lib/offline";
 import { mergeLiveQuote } from "@/lib/quotes";
 import {
@@ -117,65 +118,8 @@ function AssetRow({ item, liveQuote }: { item: AssetSummary; liveQuote?: Normali
   );
 }
 
-function uniqueTickerItems(data: DashboardData) {
-  const bySymbol = new Map<string, AssetSummary>();
-  const now = new Date().toISOString();
-  const seedMarketTiles: AssetSummary[] = [
-    ["DAX", "DAX Index", "index", "XETRA", "EUR", 24626.89, -44.35, -0.18],
-    ["SDAX", "SDAX Index", "index", "XETRA", "EUR", 7444.24, 72.44, 0.98],
-    ["PRIME", "Prime All Share", "index", "XETRA", "EUR", 9531.99, -16.27, -0.17],
-    ["CLASSIC", "Classic All Share", "index", "XETRA", "EUR", 12350.41, -8.65, -0.07],
-    ["SPX", "S&P 500", "index", "NYSE", "USD", 5462.48, 16.93, 0.31],
-    ["NDX", "NASDAQ 100", "index", "NASDAQ", "USD", 19133.21, 101.41, 0.53],
-    ["BTC-USD", "Bitcoin", "crypto", "Crypto", "USD", 67254.21, -621.18, -0.92]
-  ].map(([symbol, name, type, exchange, currency, price, change, changePercent]) => ({
-    asset: {
-      symbol: String(symbol),
-      name: String(name),
-      type: type as AssetSummary["asset"]["type"],
-      exchange: String(exchange),
-      currency: String(currency),
-      sector: type === "crypto" ? "Digital Asset" : "Benchmark",
-      description: "Terminal-Kachel für Marktüberblick. Mock klar markiert, bis ein lizenzierter Indexfeed angebunden ist."
-    },
-    quote: {
-      price: Number(price),
-      change: Number(change),
-      changePercent: Number(changePercent),
-      dayHigh: Number(price) * 1.006,
-      dayLow: Number(price) * 0.994,
-      volume: type === "crypto" ? 29800000000 : 0,
-      delayedByMinutes: 15,
-      asOf: now,
-      open: Number(price) - Number(change),
-      previousClose: Number(price) - Number(change),
-      fiftyTwoWeekHigh: Number(price) * 1.18,
-      fiftyTwoWeekLow: Number(price) * 0.82,
-      provider: "StockPilot Mock Index Feed",
-      quality: "mock" as const,
-      latencyMs: 0,
-      marketStatus: "unknown" as const
-    },
-    scores: {
-      trend: Number(changePercent) >= 0 ? 64 : 42,
-      news: 50,
-      fundamental: 50,
-      technical: Number(changePercent) >= 0 ? 62 : 44,
-      risk: 58,
-      total: Number(changePercent) >= 0 ? 62 : 45
-    },
-    aiRisk: "mittel" as const
-  }));
-
-  seedMarketTiles.forEach((item) => bySymbol.set(item.asset.symbol, item));
-  [...data.watchlist, ...data.mostActive, ...data.trendingAssets, ...data.gainers, ...data.losers].forEach((item) => {
-    bySymbol.set(item.asset.symbol, item);
-  });
-  return [...bySymbol.values()].slice(0, 10);
-}
-
 export function DashboardView({ data, heroAsset }: { data: DashboardData; heroAsset?: AssetDetail | null }) {
-  const tickerItems = useMemo(() => uniqueTickerItems(data), [data]);
+  const tickerItems = useMemo(() => selectDashboardTickerItems(data), [data]);
   const visibleSymbols = useMemo(
     () => {
       const symbols = [

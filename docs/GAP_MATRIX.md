@@ -5,7 +5,7 @@ Soll-Zustand aus der Produktspezifikation gegen den **belegten** Ist-Stand.
 Jede Zeile ist am Code oder gegen die Live-API geprüft, nicht geschätzt.
 Was ich nicht geprüft habe, steht als „ungeprüft" da — nicht als „vorhanden".
 
-Stand: 2026-08-08 · Commit `91b0880` · CI vollständig grün
+Stand: 2026-08-10 · Commit `2fe973f` · PR #33 inklusive CI und pgTAP vollständig grün
 
 Legende: ✅ vorhanden und verifiziert · 🟡 teilweise · ❌ fehlt ·
 🔒 extern blockiert (siehe `docs/BLOCKERS.md`)
@@ -25,7 +25,6 @@ Legende: ✅ vorhanden und verifiziert · 🟡 teilweise · ❌ fehlt ·
 | Corporate Actions, Symboländerungen, Delistings | 🟡 | Provider-gemeldete Dividenden/Splits mit Ledger, RLS, API und Asset-Timeline; Symboländerungen, Fusionen und Delistings bleiben ohne belastbare Quelle offen |
 | Börsenkalender und Sitzungsstatus | 🟡 | Provider-Schicht, defensive Normalisierung, Feiertagsprüfung und UI sind integriert; ohne vollständige Handelszeiten-/Feiertagsabdeckung bleibt der Status ausdrücklich unbekannt |
 | Assetklassen Aktie/ETF/Krypto/Forex/Index/Rohstoff | 🟡 | Erkannt und klassifiziert; Anleihen, Optionen, Futures, Zertifikate ❌ |
-| Handelskalender, Sessions, Feiertage | ❌ | Nicht implementiert |
 
 ## 2. Daten und Provenance
 
@@ -49,11 +48,11 @@ Legende: ✅ vorhanden und verifiziert · 🟡 teilweise · ❌ fehlt ·
 | Scoring | ✅ | `scoring.ts`, getestet |
 | Technische Analyse Mehrzeitrahmen | 🟡 | Indikatoren in `market-provider.ts`; Volumenprofil, Marktstruktur ❌ |
 | Fundamentalanalyse | 🟡 | `fundamentals-provider.ts`; Segmente, Guidance, Revisionen ❌ |
-| Bewertungsmodelle DCF, FCFF, DDM, SOTP | ❌ | Nicht implementiert |
+| Bewertungsmodelle DCF, FCFF, DDM, SOTP | 🟡 | Zwei-Phasen-DCF auf freiem Cashflow, Reverse DCF, Sensitivitätsband und Renditevergleich sind deterministisch implementiert; eigenständige FCFF-WACC-, DDM- und SOTP-Modelle fehlen |
 | Sektorspezifische Kennzahlen (Banken, SaaS, REITs …) | ❌ | Nicht implementiert |
 | Optionen, Greeks, IV | ❌ | Keine Daten, kein Modell |
 | Anleihen, Duration, Convexity | ❌ | Keine Daten, kein Modell |
-| Makro- und Regimeanalyse | ❌ | Nicht implementiert |
+| Makro- und Regimeanalyse | 🟡 | FRED-/EZB-Provider, Makroseite und Quellenstatus vorhanden; systematische Regimeklassifikation und Portfolio-Stresstransmission fehlen |
 | Relationship Graph | ❌ | Nicht implementiert |
 
 ## 4. Prognosen
@@ -99,19 +98,19 @@ ausgewertete Prognose" statt Platzhalterwerten.
 | SSRF-Schutz bei Provider-Fetches | ✅ | Allowlist in `http-json.ts` |
 | Stripe-Webhook signaturgeprüft, idempotent | ✅ | Body-Cap, Immutability-Trigger |
 | DSGVO Export und Löschung | ✅ | Robust gegen fehlende Tabellen |
-| RBAC, Adminbereich | ❌ | `admin-access.ts` vorhanden, keine Admin-UI |
+| RBAC, Adminbereich | ✅ | Servergeprüfte Adminrolle, Konten-/Aboverwaltung, Kosten- und Tarifansicht; unberechtigte API-Zugriffe fail-closed |
 | Prompt-Injection-Abwehr getestet | ❌ | KI-Schicht kaum ausgebaut |
 | Lizenzmatrix je Quelle | 🟡 | `docs/provider-licensing.md`; nicht vollständig |
-| Threat Model dokumentiert | ❌ | `docs/SECURITY_THREAT_MODEL.md` fehlt |
+| Threat Model dokumentiert | ✅ | `docs/SECURITY_THREAT_MODEL.md` sowie institutionelle Security-Control-Matrix vorhanden |
 
 ## 6. Betrieb und Qualität
 
 | Anforderung | Status | Beleg / Grund |
 |---|---|---|
 | Typecheck, Lint grün | ✅ | Verifiziert 2026-08-07 |
-| Unit-Tests | 🟡 | 49 Dateien, 275 Tests |
-| Komponententests | 🟡 | Setup steht (happy-dom + Testing Library); 2 von 40 Komponenten abgedeckt, beide zu 100 % |
-| E2E | 🟡 | 5 Playwright-Specs, in dieser Session nicht ausgeführt |
+| Unit-/Integrationstests | ✅ | 106 Testdateien, 936 Tests im PR-#33-Stand grün |
+| Komponententests | 🟡 | 9 von 64 Komponenten mit eigenen Testing-Library-Tests; kritische Datenqualitäts-, Kalender-, Billing- und Track-Record-Aussagen abgedeckt |
+| E2E | ✅ | 5 Playwright-Specs, 35 Prüfungen auf Mobile/Desktop grün; ein bewusstes projektfremdes Duplikat übersprungen |
 | Coverage ehrlich gemessen | ✅ | `all: true`, 26,56 % über 181 Dateien, Schwellen kalibriert |
 | RLS-/pgTAP-Tests ausgeführt | ✅ | Laufen in CI; 5 Suiten, Instrument Master neu abgedeckt |
 | Observability, Logs, Metriken | 🟡 | `observability.ts`; keine Dashboards, keine Alerts |
@@ -138,9 +137,9 @@ ohne PR gibt es damit keine Prüfung.
 | Watchlists, Alerts, Portfolio | ✅ | Mit Cloud-Sync und lokalem Fallback |
 | Paper Trading, Journal | ❌ | Nicht implementiert |
 | Backtesting | 🟡 | Echte Historie, Adjusted-Close-Erkennung und Mischreihen-Sperre; Point-in-Time-Vintages fehlen |
-| Drei Informationsstufen (Einfach/Fortgeschritten/Pro) | ❌ | Nicht implementiert |
+| Drei Informationsstufen (Einfach/Fortgeschritten/Pro) | 🟡 | Auswahl liegt wie gefordert in den Einstellungen und wird lokal gespeichert; eine konsistente Auswirkung auf alle Ansichten ist noch nicht durchgezogen |
 | Berichte exportierbar | 🟡 | Nur DSGVO-Export |
-| Accessibility | ❌ | Nie geprüft |
+| Accessibility | 🟡 | Mobile Overflow, Navigation und kritische Touch-Ziele automatisiert geprüft; vollständiger WCAG-/Screenreader-/Kontrastaudit bleibt offen |
 
 ---
 
@@ -148,15 +147,20 @@ ohne PR gibt es damit keine Prüfung.
 
 Nach Nutzen pro Aufwand, unter Berücksichtigung der Tarifgrenzen:
 
-1. **Forecast-Outcome-Auswertung.** Der Ledger schreibt bereits. Ein Job, der
-   nach Horizontablauf das Ergebnis vergleicht, macht aus vorhandener Infra das
-   einzige echt differenzierende Feature. Kein Tarif nötig.
-2. **Coverage kalibrieren.** Ein Lauf, dann sind die Schwellen ehrlich.
-3. **Komponententests.** 10.700 Zeilen Client-Code ohne einen einzigen Test.
-4. **Tarifentscheidung.** Alles unter Punkt 1 im Universum-Block hängt daran.
-5. **`market-provider.ts` aufteilen.** 1.696 Zeilen, jetzt mit lauffähiger
-   Testsuite vertretbar.
+1. **Lizenz-/Tarifentscheidung für das globale Universum.** Der Code kann einen
+   vollständigen Katalog nicht ersetzen; ohne Verzeichnis- und Kursrechte
+   bleibt die Kernabdeckung suchgetrieben.
+2. **Zielgruppen-Modus wirklich anwenden.** Auswahl und Speicherung stehen,
+   aber Sprache, Informationsdichte und Standardmodule müssen appweit davon
+   gesteuert werden.
+3. **Komponententests ausbauen.** 9 von 64 Komponenten sind direkt abgedeckt;
+   Asset-Detail, Dashboard und komplexe Portfolio-Interaktionen bleiben teuer.
+4. **Bewertungsmodelle vervollständigen.** DDM nur bei belastbarer
+   Dividendenhistorie, SOTP nur bei Segmentdaten und FCFF nur mit sauberem WACC.
+5. **`market-provider.ts` aufteilen.** Das große Modul ist getestet, bleibt aber
+   ein Wartungs- und Änderungsrisiko.
 
-Bewusst **nicht** priorisiert: weitere Analysemodule (Optionen, Anleihen,
-Sektormodelle, Makro). Sie hätten dasselbe schmale Datenfundament und würden die
-Differenz zwischen versprochener und tatsächlicher Abdeckung vergrößern.
+Bewusst **nicht** als scheinbar fertig priorisiert: Optionen, Anleihen,
+Sektormodelle, SOTP und globale Makro-Regime. Ohne lizenzierte Eingabedaten
+würden zusätzliche Formeln nur die Differenz zwischen versprochener und
+tatsächlicher Abdeckung vergrößern.

@@ -59,7 +59,6 @@ type ChartPreferences = {
   range: TimeRange;
   showSma: boolean;
   showVolume: boolean;
-  showBenchmark: boolean;
 };
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: string }) {
@@ -315,7 +314,6 @@ export function AssetDetailView({
   const [range, setRange] = useState<TimeRange>("1M");
   const [showSma, setShowSma] = useState(true);
   const [showVolume, setShowVolume] = useState(true);
-  const [showBenchmark, setShowBenchmark] = useState(false);
   const [chartFullscreen, setChartFullscreen] = useState(false);
   useEffect(() => {
     const stored = readOfflineValue<Partial<ChartPreferences>>(CHART_PREFS_KEY);
@@ -323,15 +321,13 @@ export function AssetDetailView({
     if (stored.range && timeRanges.includes(stored.range)) setRange(stored.range);
     if (typeof stored.showSma === "boolean") setShowSma(stored.showSma);
     if (typeof stored.showVolume === "boolean") setShowVolume(stored.showVolume);
-    if (typeof stored.showBenchmark === "boolean") setShowBenchmark(stored.showBenchmark);
   }, []);
   useEffect(() => {
-    saveOfflineValue(CHART_PREFS_KEY, { range, showSma, showVolume, showBenchmark });
-  }, [range, showBenchmark, showSma, showVolume]);
+    saveOfflineValue(CHART_PREFS_KEY, { range, showSma, showVolume });
+  }, [range, showSma, showVolume]);
   const chartToggles: Array<{ label: string; value: boolean; set: Dispatch<SetStateAction<boolean>> }> = [
     { label: "SMA 20/50/200", value: showSma, set: setShowSma },
-    { label: "Volumen", value: showVolume, set: setShowVolume },
-    { label: "Benchmark", value: showBenchmark, set: setShowBenchmark }
+    { label: "Volumen", value: showVolume, set: setShowVolume }
   ];
   const candles = useMemo(() => (detail.candles[range] ?? []).filter(isUsableCandle), [detail.candles, range]);
   const stream = useMarketStream([detail.asset.symbol]);
@@ -402,27 +398,6 @@ export function AssetDetailView({
       volatilityPercent
     };
   }, [candles]);
-  const benchmarkCandles = useMemo(() => {
-    const base = isFiniteNumber(candles[0]?.close) && candles[0].close > 0
-      ? candles[0].close
-      : isFiniteNumber(displayedQuote.price) && displayedQuote.price > 0
-        ? displayedQuote.price
-        : 1;
-    return candles.map((candle, index) => {
-      const drift = 1 + index * 0.0018;
-      const wave = Math.sin(index / 3) * 0.012;
-      const close = base * (drift + wave);
-
-      return {
-        ...candle,
-        symbol: "SPX",
-        open: close * 0.997,
-        high: close * 1.006,
-        low: close * 0.994,
-        close
-      };
-    });
-  }, [candles, displayedQuote.price]);
   const aiCards = useMemo(
     () => [
       ["Bull Case", detail.aiAnalysis.bullCase],
@@ -503,7 +478,7 @@ export function AssetDetailView({
               <h2 className="text-lg font-semibold">Profi-Chart</h2>
             </div>
             <p className="mt-1 text-xs leading-5 text-muted">
-              Benchmark-Overlay ist modelliert. Echte Benchmark-Daten brauchen einen lizenzierten Index-/ETF-Provider.
+              Echte Benchmark-Daten brauchen einen lizenzierten Index-/ETF-Provider. Bis dahin wird keine Ersatzkurve gezeichnet.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -547,12 +522,21 @@ export function AssetDetailView({
               {item.label}
             </button>
           ))}
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            title="Keine belastbaren Benchmark-Kursdaten verfügbar"
+            className="min-h-10 cursor-not-allowed rounded-xl border border-stroke bg-coal px-3 text-xs font-semibold text-muted opacity-70"
+          >
+            Benchmark · nicht verfügbar
+          </button>
         </div>
         <PriceLineChart
           candles={candles}
-          benchmarkCandles={benchmarkCandles}
+          benchmarkCandles={[]}
           benchmarkLabel="Benchmark"
-          showBenchmark={showBenchmark}
+          showBenchmark={false}
           showSma={showSma}
           showVolume={showVolume}
         />
@@ -564,7 +548,7 @@ export function AssetDetailView({
             <Metric label="Ø Volumen" value={formatCompact(chartStats.averageVolume)} />
             <Metric label="Range-Hoch" value={formatCurrency(chartStats.high, detail.asset.currency)} tone="text-profit" />
             <Metric label="Range-Tief" value={formatCurrency(chartStats.low, detail.asset.currency)} tone="text-loss" />
-            <Metric label="Chart-Modus" value={showBenchmark ? "Benchmark aktiv" : "Asset pur"} tone="text-cyan" />
+            <Metric label="Chart-Modus" value="Asset pur" tone="text-cyan" />
             <Metric label="Präferenzen" value="Offline gespeichert" tone="text-cyan" />
           </div>
         ) : null}
