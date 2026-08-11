@@ -1,15 +1,15 @@
 # StockPilot AI Execution Ledger
 
-Stand: 2026-08-11, 17:17 Uhr MESZ
+Stand: 2026-08-11, 17:31 Uhr MESZ
 
 ## Aktueller Arbeitszustand
 
 | Feld | Tatsächlicher Stand |
 |---|---|
-| Phase | Phase 0: Repository-Bestandsaufnahme und Baseline |
-| Aktive Aufgabe | Projektsteuerung konsolidieren, Phase 0 committen, CI prüfen und kontrolliert deployen |
-| Autoritative Basis | `main` auf `af0227ac3725a4efb14838abda4f4970f7cecdd0` |
-| Arbeitsbranch | `codex/phase-0-market-readiness-baseline` |
+| Phase | Phase 0 abgeschlossen; Phase 1 noch nicht begonnen |
+| Aktive Aufgabe | Phase-0-Ledger schließen; danach ist Phase 1 der nächste zulässige Arbeitspunkt |
+| Letzter funktionaler Commit | `main` auf `8705ea1174847b969dac4ba4a7033dae7614f489`; diese Datei wird durch ihren eigenen Ledger-Commit geschlossen |
+| Arbeitsbranch | `codex/phase-0-ledger-closure`, ausschließlich Dokumentation |
 | Repository | `homann09-hue/STAI` |
 | Produktion | `https://stockpilot-ai-beta.vercel.app` |
 | Vercel-Projekt | ausschließlich `stockpilot-ai`; BauPro bleibt unberührt |
@@ -22,7 +22,7 @@ Stand: 2026-08-11, 17:17 Uhr MESZ
 - Architektur, Providergrenzen, Supabase/RLS, Billing, CI, Vercel-Konfiguration, aktuelle Blocker und historische Zielunterlagen abgeglichen.
 - Alte konkurrierende Zielunterlagen als historisch markiert und auf die einzige neue Autorität verwiesen.
 - Live-Smoke für Startseite, Health, AAPL-Asset und AAPL-News mit HTTP 200 ausgeführt.
-- GitHub-CI, pgTAP-Datenbanktests und die letzten drei Live-Monitoring-Läufe auf `main` als erfolgreich bestätigt.
+- GitHub-CI, pgTAP-Datenbanktests und die letzten drei Live-Monitoring-Läufe auf `main` als erfolgreich bestätigt.\n- PR #49 nach grünen Gates gemergt und das geprüfte StockPilot-Artefakt kontrolliert in Produktion veröffentlicht.\n- Öffentliche Produktion inklusive Startseite, Health, AAPL-Asset, AAPL-News und geschützter Providerdiagnose geprüft; Produktions-Logscan ohne Einträge.
 
 ## Offene Fehler
 
@@ -58,12 +58,12 @@ Vorhandene Secrets werden hier absichtlich nicht aufgelistet. Noch nicht live ve
 | Unit/Integration | 124 Dateien, 988 Tests erfolgreich |
 | E2E | 35 erfolgreich, 1 bewusst übersprungen |
 | Build | erfolgreich, 35 statische Seiten erzeugt |
-| GitHub-CI | Run 31458797771 erfolgreich |
-| Datenbanktests | Run 31458797039 erfolgreich |
+| GitHub-CI | Run 31506840513 auf `main` erfolgreich |
+| Datenbanktests | Run 31506840512 auf `main` erfolgreich |
 | Live-Monitoring | Runs 31505347456, 31498869768 und 31490034785 erfolgreich |
-| Letzter Produktionsstand | Deployment `dpl_HL8CCmpcQY7JzWKuipD7WAUqPQyF`, Status READY |
-| Letzter Produktions-Smoke | 2026-08-11: `/`, `/api/health`, `/api/assets/AAPL`, `/api/news?symbol=AAPL` jeweils HTTP 200 |
+| Letzter funktional geprüfter Produktionsstand | Deployment `dpl_7MPY7GpLg5BmCJDu8veXB8MkeLxo`, Status READY, Projekt `stockpilot-ai` |
+| Letzter Produktions-Smoke | 2026-08-11: `/`, `/api/health`, `/api/assets/AAPL`, `/api/news?symbol=AAPL` und geschützte Providerdiagnose erfolgreich |
 
 ## Nächster zulässiger Schritt
 
-Phase 0 vollständig über Commit, Push, CI, Preview und Produktions-Smoke abschließen. Erst danach mit Phase 1 und der erneuten Suche nach aktuell vorhandenen kritischen Fehlern beginnen.
+Phase 1 mit einer erneuten, eng begrenzten Suche nach aktuell vorhandenen kritischen Fehlern beginnen. Noch keine Provider- oder UI-Folgephase vorziehen.
