@@ -63,3 +63,5 @@ Ziel: Passwort-Reset, App-Regeln und Supabase-Regeln konsistent absichern, ohne 
 Lokaler Stand: implementiert und vollständig grün mit 127 Testdateien, 998 Tests, Produktions-Build sowie 35 bestandenen Browser-Tests.
 
 Externe Abnahmebedingung: gezielte Produktionsaktivierung von Mindestlänge und sicherem Passwortwechsel sowie, bei verfügbarem Pro-Tarif, Leaked-Password-Protection. Bis dahin bleibt BLOCKER-012 offen und dieser Arbeitspunkt wird nicht als produktiv abgeschlossen bezeichnet.
+
+Web-App-Stand: Die UI-Härtung ist als Deployment dpl_6LXiqnVm5rurCwWZfVn95xfkFTAD live und technisch grün. Der Arbeitspunkt bleibt ausschließlich wegen der getrennten Supabase-Produktionskonfiguration offen.
