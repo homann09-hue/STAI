@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchBoundedProviderJson, readBoundedResponseText } from "@/lib/providers/http-json";
+import {
+  fetchBoundedProviderJson,
+  ProviderHttpResponseError,
+  readBoundedResponseText
+} from "@/lib/providers/http-json";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -44,5 +48,26 @@ describe("bounded provider JSON", () => {
     await expect(
       readBoundedResponseText(new Response("not json", { headers: { "content-type": "text/html" } }), "Provider", 64_000)
     ).rejects.toThrow("keine JSON");
+  });
+
+  it("preserves provider status and Retry-After for coordinated backoff", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ error: "rate limited" }), {
+          status: 429,
+          headers: { "content-type": "application/json", "retry-after": "12" }
+        })
+      )
+    );
+
+    const request = fetchBoundedProviderJson(new URL("https://financialmodelingprep.com/stable/quote"), "FMP");
+
+    await expect(request).rejects.toMatchObject({
+      name: "ProviderHttpResponseError",
+      providerName: "FMP",
+      status: 429,
+      retryAfterMs: 12_000
+    } satisfies Partial<ProviderHttpResponseError>);
   });
 });

@@ -339,3 +339,12 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Live-Smoke: `/`, `/api/health`, `/account/billing` und `/settings` HTTP 200; anonymer `/api/account/export` HTTP 401.
 - Betriebsbeobachtung: FMP lieferte beim Startseiten-Smoke HTTP 429 für mehrere Symbole; der vorhandene Provider-Fallback griff. Das ist ein externer Tarif-/Kapazitätspunkt, kein Fehler dieses Sicherheits-Rollouts.
 - BauPro wurde weder geändert noch bereitgestellt.
+
+## Phase 1 - Provider-429-Stabilisierung
+
+- Aktiver Einzelpunkt: die in Produktion beobachtete FMP-429-Anfragewelle im Dashboard beseitigen.
+- Quote-Routing priorisiert dedizierte Quote-Provider; FMP bleibt verzögerter Rückfall und Fundamentals-Quelle.
+- Chained Batches arbeiten providerweise, nutzen den jeweiligen Cache/Backoff und fragen nur ungelöste Symbole beim nächsten Anbieter an.
+- FMP-Quote-Abrufe sind pro Lauf seriell; nach dem ersten 429 wird der gemeinsame Backoff vor weiteren Symbolen geschrieben.
+- `Retry-After` bleibt als strukturierte HTTP-Fehlerinformation erhalten.
+- Abschlussnachweise folgen erst nach lokalen Gates, GitHub-CI, Produktionsdeployment und Live-Prüfung.

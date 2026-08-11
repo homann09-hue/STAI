@@ -23,7 +23,8 @@ export type MarketProviderId =
  *
  * §21 verlangt Primary, Secondary und Fallback. Bisher gab es nur den ersten:
  * `autoProviderId()` waehlte die erste konfigurierte Quelle und der Rueckfall
- * landete beim Mock. Faellt FMP aus, sah der Nutzer Demodaten statt Finnhub.
+ * landete beim Mock. Faellt eine Quote-Quelle aus, versucht die Kette die
+ * naechste echte Quelle statt Demodaten zu zeigen.
  *
  * Diese Datei entscheidet die Reihenfolge — ohne Ein-/Ausgabe, damit sie ohne
  * Netz und ohne Schluessel pruefbar bleibt.
@@ -34,18 +35,19 @@ export type QuoteChainEnv = Record<string, string | undefined>;
 /**
  * Welcher Schluessel welche Quelle freischaltet.
  *
- * Die Reihenfolge ist die Standardrangfolge und nicht willkuerlich: FMP deckt
- * die meisten Assetklassen ab, Finnhub liefert near-realtime, die uebrigen
- * folgen nach abnehmender Abdeckung. Krypto-Boersen stehen bewusst nicht drin
- * — sie beantworten nur Kryptosymbole und waeren als allgemeiner Rueckfall
- * eine Verschlechterung.
+ * Die Reihenfolge folgt der Kursaufgabe: Twelve Data und Finnhub sind die
+ * globalen Entwicklungsquellen fuer Quotes. FMP bleibt fuer Kurse nur ein
+ * verzoegerter Rueckfall; seine eigentliche Rolle sind Fundamentals. So kann
+ * ein knappes, symbolweise gesperrtes FMP-Kontingent nicht das Live-Dashboard
+ * dominieren. Krypto-Boersen stehen bewusst nicht drin -- sie beantworten nur
+ * Kryptosymbole und waeren als allgemeiner Rueckfall eine Verschlechterung.
  */
 const providerKeys: Array<{ id: MarketProviderId; keys: string[] }> = [
-  { id: "fmp", keys: ["FMP_API_KEY"] },
-  { id: "finnhub", keys: ["FINNHUB_API_KEY"] },
   { id: "twelve_data", keys: ["TWELVE_DATA_API_KEY", "TWELVEDATA_API_KEY"] },
-  { id: "eodhd", keys: ["EODHD_API_KEY"] },
+  { id: "finnhub", keys: ["FINNHUB_API_KEY"] },
   { id: "massive", keys: ["MASSIVE_API_KEY", "POLYGON_API_KEY"] },
+  { id: "eodhd", keys: ["EODHD_API_KEY"] },
+  { id: "fmp", keys: ["FMP_API_KEY"] },
   { id: "alpha_vantage", keys: ["ALPHA_VANTAGE_API_KEY"] }
 ];
 

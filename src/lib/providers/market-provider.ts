@@ -15,7 +15,7 @@ import { getNewsWithMetadata } from "@/lib/providers/news-provider";
 import { getFundamentalsWithMetadata, type FundamentalsProviderMetadata } from "@/lib/providers/fundamentals-provider";
 import { logEvent } from "@/lib/observability";
 import { resolveQuoteChain } from "@/lib/providers/quote-chain";
-import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import { fetchBoundedProviderJson, ProviderHttpResponseError } from "@/lib/providers/http-json";
 import { NO_HISTORY, fetchDailyHistory, sliceHistoryRanges, type HistoryResult } from "@/lib/providers/price-history";
 import { getServerCacheAdapter } from "@/lib/server-cache";
 import { buildVerifiedProviderDashboard } from "@/lib/provider-dashboard";
@@ -131,6 +131,12 @@ const DEFAULT_PROVIDER_CONCURRENCY = Math.max(
   1,
   Math.min(10, Number(process.env.STOCKPILOT_PROVIDER_CONCURRENCY) || 6)
 );
+const PROVIDER_QUOTE_CONCURRENCY: Partial<Record<MarketProviderId, number>> = {
+  alpha_vantage: 1,
+  fmp: 1,
+  finnhub: 2,
+  twelve_data: 2
+};
 const DEFAULT_DASHBOARD_QUOTE_TIMEOUT_MS = Math.max(
   150,
   Number(process.env.STOCKPILOT_DASHBOARD_QUOTE_TIMEOUT_MS) || 650
@@ -153,6 +159,20 @@ const inFlightQuoteRequests = new Map<string, Promise<NormalizedQuote | null>>()
 const inFlightPollingBatches = new Map<string, Promise<NormalizedQuote[]>>();
 const providerRateLimitUntil = new Map<MarketProviderId, number>();
 const providerSymbolAccessDeniedUntil = new Map<string, number>();
+
+/** @internal Nur zur Isolation von Unit-Tests; Produktionszustand darf nicht zur Laufzeit geleert werden. */
+export async function resetMarketProviderRuntimeStateForTests() {
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("Provider-Laufzeitstatus darf nur in Tests zurückgesetzt werden.");
+  }
+
+  quoteCache.clear();
+  inFlightQuoteRequests.clear();
+  inFlightPollingBatches.clear();
+  providerRateLimitUntil.clear();
+  providerSymbolAccessDeniedUntil.clear();
+  await quoteSharedCache.clear();
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -278,14 +298,18 @@ function markServerCachedQuote(quote: NormalizedQuote) {
   };
 }
 
-function startProviderBackoff(provider: QuoteProvider, error: unknown) {
+function providerQuoteConcurrency(provider: QuoteProvider) {
+  return Math.max(1, Math.min(DEFAULT_PROVIDER_CONCURRENCY, PROVIDER_QUOTE_CONCURRENCY[provider.providerId] ?? DEFAULT_PROVIDER_CONCURRENCY));
+}
+
+async function startProviderBackoff(provider: QuoteProvider, error: unknown) {
   const retryAfterMs = error instanceof ProviderHttpError ? error.retryAfterMs : undefined;
   const backoffMs = Math.max(10000, retryAfterMs ?? DEFAULT_RATE_LIMIT_BACKOFF_MS);
   const now = Date.now();
   const currentUntil = providerRateLimitUntil.get(provider.providerId) ?? 0;
   const nextUntil = Math.max(currentUntil, now + backoffMs);
   providerRateLimitUntil.set(provider.providerId, nextUntil);
-  void quoteSharedCache.set(providerBackoffCacheKey(provider), nextUntil, Math.max(1, nextUntil - now));
+  await quoteSharedCache.set(providerBackoffCacheKey(provider), nextUntil, Math.max(1, nextUntil - now));
 
   if (currentUntil <= now) {
     logEvent("warn", "market_provider.rate_limit_backoff", {
@@ -351,9 +375,9 @@ async function getCachedProviderQuote(provider: QuoteProvider, symbol: string) {
 
       return quote;
     })
-    .catch((error) => {
+    .catch(async (error) => {
       if (isRateLimitError(error)) {
-        startProviderBackoff(provider, error);
+        await startProviderBackoff(provider, error);
 
         if (cached && now - cached.storedAtMs < cached.staleTtlMs) {
           return markServerCachedQuote(cached.quote);
@@ -408,7 +432,7 @@ async function getCachedProviderQuotes(provider: QuoteProvider, symbols: string[
   }
 
   await Promise.all(
-    Array.from({ length: Math.min(DEFAULT_PROVIDER_CONCURRENCY, normalizedSymbols.length) }, () => worker())
+    Array.from({ length: Math.min(providerQuoteConcurrency(provider), normalizedSymbols.length) }, () => worker())
   );
 
   return results.filter((quote): quote is NormalizedQuote => Boolean(quote));
@@ -421,6 +445,10 @@ async function fetchJson<T>(url: URL, providerName: string, timeoutMs = 4500): P
       userAgent: "StockPilotAI/0.1 market-data-layer"
     });
   } catch (error) {
+    if (error instanceof ProviderHttpResponseError) {
+      throw new ProviderHttpError(providerName, error.status, error.retryAfterMs);
+    }
+
     const message = error instanceof Error ? error.message : "";
     const status = Number(message.match(/\bHTTP\s+(\d{3})\b/)?.[1]);
 
@@ -1784,14 +1812,16 @@ export class ChainedQuoteProvider implements QuoteProvider {
   async getQuote(symbol: string): Promise<NormalizedQuote | null> {
     for (const provider of this.chain) {
       try {
-        const quote = await provider.getQuote(symbol);
+        const quote = await getCachedProviderQuote(provider, symbol);
         if (quote) return quote;
       } catch (error) {
-        logEvent("warn", "market.provider_failed_over", {
-          providerId: provider.providerId,
-          symbol,
-          message: error instanceof Error ? error.message : "unknown"
-        });
+        if (!(error instanceof ProviderRateLimitBackoffError)) {
+          logEvent("warn", "market.provider_failed_over", {
+            providerId: provider.providerId,
+            symbol,
+            message: error instanceof Error ? error.message : "unknown"
+          });
+        }
       }
     }
     // Keine Quelle konnte antworten. Null heisst hier ehrlich "nichts
@@ -1800,7 +1830,26 @@ export class ChainedQuoteProvider implements QuoteProvider {
   }
 
   async getQuotes(symbols: string[]) {
-    return getCachedProviderQuotes(this, symbols);
+    const requested = uniqueSymbols(symbols);
+    const unresolved = new Set(requested);
+    const resolved = new Map<string, NormalizedQuote>();
+
+    for (const provider of this.chain) {
+      if (unresolved.size === 0) break;
+
+      const quotes = await getCachedProviderQuotes(provider, [...unresolved]);
+      for (const quote of quotes) {
+        const normalizedSymbol = uniqueSymbols([quote.symbol])[0];
+        if (!normalizedSymbol || !unresolved.has(normalizedSymbol)) continue;
+        resolved.set(normalizedSymbol, quote);
+        unresolved.delete(normalizedSymbol);
+      }
+    }
+
+    return requested.flatMap((symbol) => {
+      const quote = resolved.get(symbol);
+      return quote ? [quote] : [];
+    });
   }
 }
 

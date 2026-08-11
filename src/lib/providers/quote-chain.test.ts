@@ -14,7 +14,7 @@ describe("resolveQuoteChain", () => {
   it("bildet aus zwei Schlüsseln eine echte Rangfolge", () => {
     const chain = resolveQuoteChain(env({ FMP_API_KEY: "x", FINNHUB_API_KEY: "y" }));
 
-    expect(chain.providers).toEqual(["fmp", "finnhub"]);
+    expect(chain.providers).toEqual(["finnhub", "fmp"]);
     expect(chain.hasFailover).toBe(true);
     expect(chain.note).toMatch(/nächste Quelle versucht/);
   });
@@ -91,13 +91,13 @@ describe("resolveQuoteChain", () => {
       })
     );
 
-    expect(chain.providers).toEqual(["fmp", "finnhub", "eodhd", "alpha_vantage"]);
+    expect(chain.providers).toEqual(["finnhub", "eodhd", "fmp", "alpha_vantage"]);
   });
 });
 
 describe("primaryQuoteProvider", () => {
   it("nennt den bevorzugten Anbieter", () => {
-    expect(primaryQuoteProvider(env({ FMP_API_KEY: "x", FINNHUB_API_KEY: "y" }))).toBe("fmp");
+    expect(primaryQuoteProvider(env({ FMP_API_KEY: "x", FINNHUB_API_KEY: "y" }))).toBe("finnhub");
   });
 
   it("gibt ohne Konfiguration nichts zurück statt einer Vermutung", () => {

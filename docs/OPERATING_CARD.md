@@ -106,3 +106,9 @@ Lokaler Stand: implementiert und grün mit Formatprüfung, Typecheck, Lint, 129 
 - Vercel: `dpl_3eUzVsgZy6tBpLjz3SAgohqTHDo7`, Status READY, Alias `stockpilot-ai-beta.vercel.app`
 - Live: Kernseiten 200; anonymer Export 401; keine Fehler- oder Secret-Ausgabe
 - Abgrenzung: ausschließlich Projekt `stockpilot-ai`; BauPro unverändert
+
+## Aktiver Arbeitspunkt: Provider-429-Stabilisierung
+
+- Produktionsbefund: Dashboard-Smoke löste mehrere parallele FMP-429 aus.
+- Grenze: nur Quote-Routing, providerbezogener Cache/Backoff, FMP-Parallelität und Retry-After.
+- Fertig erst nach vollständigen lokalen Gates, CI, StockPilot-Deployment und erneuter Live-Log-Prüfung.

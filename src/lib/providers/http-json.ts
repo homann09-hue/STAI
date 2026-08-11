@@ -1,4 +1,5 @@
 const DEFAULT_PROVIDER_JSON_MAX_BYTES = 1_500_000;
+const MAX_RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_ALLOWED_PROVIDER_HOSTS = [
   // Bewusst der exakte Host statt "europa.eu": eine Domain-Freigabe wuerde
   // jeden EU-Subdomainserver zum erlaubten Ziel machen.
@@ -25,6 +26,30 @@ const DEFAULT_ALLOWED_PROVIDER_HOSTS = [
   "data.sec.gov",
   "www.sec.gov"
 ];
+
+export class ProviderHttpResponseError extends Error {
+  constructor(
+    readonly providerName: string,
+    readonly status: number,
+    readonly retryAfterMs?: number
+  ) {
+    super(`${providerName} HTTP ${status}`);
+    this.name = "ProviderHttpResponseError";
+  }
+}
+
+function parseRetryAfterMs(value: string | null, nowMs = Date.now()) {
+  if (!value) return undefined;
+
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(MAX_RETRY_AFTER_MS, Math.ceil(seconds * 1000));
+  }
+
+  const retryAtMs = Date.parse(value);
+  if (!Number.isFinite(retryAtMs)) return undefined;
+  return Math.min(MAX_RETRY_AFTER_MS, Math.max(0, retryAtMs - nowMs));
+}
 
 function providerJsonMaxBytes() {
   const configured = Number(process.env.STOCKPILOT_PROVIDER_JSON_MAX_BYTES);
@@ -167,7 +192,11 @@ export async function fetchBoundedProviderJson<T>(
     });
 
     if (!response.ok) {
-      throw new Error(`${providerName} HTTP ${response.status}`);
+      throw new ProviderHttpResponseError(
+        providerName,
+        response.status,
+        parseRetryAfterMs(response.headers.get("retry-after"))
+      );
     }
 
     const text = await readBoundedResponseText(response, providerName, maxBytes);
@@ -230,7 +259,11 @@ export async function fetchBoundedProviderText(
     });
 
     if (!response.ok) {
-      throw new Error(`${providerName} HTTP ${response.status}`);
+      throw new ProviderHttpResponseError(
+        providerName,
+        response.status,
+        parseRetryAfterMs(response.headers.get("retry-after"))
+      );
     }
 
     return {
