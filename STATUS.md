@@ -40,7 +40,6 @@ Stand: 2026-08-11
 - StockPilot-Deployment `dpl_H6FXaQ35nnYeLcw2bbxgJMUm9Cqg` ist READY. Vier Kernziele liefern HTTP 200, der Live-Portfoliofluss ist grün und das Fehlerlog leer.
 - BLOCKER-012 bleibt getrennt als externe Supabase-Produktionskonfiguration offen.
 
-
 ## Aktueller Meilenstein: Phase 0 - Marktreife-Baseline
 
 Stand: 2026-08-11
@@ -50,7 +49,6 @@ Stand: 2026-08-11
 - Baseline belegt: Format, Typecheck, Lint, 124 Testdateien mit 988 Tests, Build mit 35 statischen Seiten sowie 35 erfolgreiche E2E-Tests und 1 bewusster Skip.
 - GitHub-CI, Datenbanktests, Live-Monitoring und vier Produktions-Smokes sind vor der Phase-0-Änderung grün.
 - Alte Statusabschnitte unterhalb dieses Abschnitts bleiben als historische Nachweise erhalten und sind nicht die aktuelle Steuerungsquelle.
-
 
 ## Wahrheitsgetreue News- und Providerherkunft
 
@@ -187,6 +185,7 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
   Entitlements und sichere Stripe-Portal-Weiterleitungen.
 - Verifiziert: Formatpruefung, Typecheck und Lint gruen; 112 Testdateien mit
   952 Tests gruen; Next.js-Produktionsbuild mit 35 statischen Seiten gruen.
+
 # Milestone 2026-08-10: dynamic catalog and production data integrity
 
 - Static mini-universe removed from universal search and screener data paths.
@@ -277,6 +276,7 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Anbieterquoten für Wachstum und Dividendenrendite werden einheitlich auf die
   sichtbare Prozent-Skala normalisiert; Dezimalquoten erscheinen nicht mehr um
   den Faktor 100 zu klein.
+
 ## 2026-08-11 - Evidenzgebundene Scores und ehrliche Verlaufsdarstellung
 
 - Quote-only-, Mock- und nicht belegte Asset-Zeilen liefern keine nutzbaren Analyse-Scores mehr.
@@ -286,6 +286,7 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Synthetische Mini-Charts aus einem einzelnen Kursstand wurden aus Dashboard und Marktterminal entfernt.
 - Detailseite, Dashboard, Profi-Report, Portfolio-Demo und Modellallokation zeigen bei fehlender Evidenz `n/a` oder halten die Auswertung zurück.
 - Komponenten- und Domänentests decken fehlende Evidenz sowie zurückgehaltene Wahrscheinlichkeiten ab.
+
 ## 2026-08-11 - Historische Risiko-Engine und Entfernung synthetischer Profi-Daten
 
 - Neue deterministische Historical-Risk-Engine berechnet Rendite, annualisierte Volatilität, Downside-Volatilität, Maximum Drawdown, Sharpe, Sortino, Calmar sowie historischen VaR und CVaR.
@@ -295,6 +296,7 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Abgeleitete Fake-Fundamentals, Krypto-Supply-Werte, Mock-News, Demo-Portfolio-Kennzahlen, statische Vergleiche und Mock-Indexstände wurden entfernt oder fail-closed auf nicht verfügbar gesetzt.
 - Der Profi-Report bezieht sein Dashboard jetzt aus dem aktiven Marktprovider und besitzt kein eigenes hartcodiertes 15-Symbol-Universum mehr.
 - Gezielte Quant-, Komponenten- und Provider-Tests: 3 Dateien mit 7 Tests erfolgreich; TypeScript und gezielter Lint erfolgreich.
+
 ## Phase 1 - validierter Zwischenstand (2026-08-11)
 
 - Mandantengebundene Feature-Quoten sind im Anwendungscode und in der neuen Migration umgesetzt.
@@ -348,3 +350,17 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - FMP-Quote-Abrufe sind pro Lauf seriell; nach dem ersten 429 wird der gemeinsame Backoff vor weiteren Symbolen geschrieben.
 - `Retry-After` bleibt als strukturierte HTTP-Fehlerinformation erhalten.
 - Abschlussnachweise folgen erst nach lokalen Gates, GitHub-CI, Produktionsdeployment und Live-Prüfung.
+
+## Phase 1 - Provider-429-Stabilisierung abgeschlossen (2026-08-11)
+
+- PR #61 wurde als `fc790088ad59edf1e5da43245ac015d73146e236` gemergt; PR #62 isoliert den pgTAP-Stack und wurde als `4aafd4ea0a3a4abcd190965a75afe0676fdd8428` gemergt.
+- Die zusätzlich live gefundene Sammel-Provenienz wurde in PR #63 korrigiert und als `743497c0cd7810e451e611899f2b80a7254df4e9` gemergt.
+- Lokal bestanden: Format, TypeScript, ESLint, 130 Testdateien mit 1.011 Tests und der Produktions-Build mit 35 statischen Seiten.
+- Lastnachweis: 2.000 aktive Sitzungen, 2.000 HTTP-200-Antworten, 0 abgewiesene oder fehlgeschlagene HTTP-Anfragen, p95 1.155 ms und 52 gleichzeitig laufende Anfragen.
+- Der verpflichtende Stress-Gate bis 500 parallele Anfragen blieb vollständig grün. Die getrennten 1.000-/2.000-Kapazitätsproben hatten jeweils 75 Client-Timeouts und sind als horizontaler Skalierungshinweis dokumentiert, nicht als bestandener Release-Gate.
+- Finale Main-Gates: StockPilot CI `31524154601` und Database Tests `31524154520` erfolgreich; 207 pgTAP-Prüfungen laufen ohne Mailpit-Portkonflikt.
+- Vercel-Produktion: `dpl_87usaNbURyTjfTNwLaqzsPTmZmjx` ist READY und bedient `https://stockpilot-ai-beta.vercel.app`.
+- Live-Smoke: `/`, `/markets`, `/assets/NVDA`, `/api/health` und der Zehn-Symbol-Quote-Batch jeweils HTTP 200.
+- Live-Provenienz: Sammelquelle `Finnhub`; alle zehn Quotes `near_realtime`; kein Mock- oder Unavailable-Fallback.
+- Produktionslog: genau ein gemeinsames FMP-Backoff-Ereignis im Prüfzeitraum, keine parallele symbolweise 429-Welle.
+- BauPro wurde weder geändert noch bereitgestellt.
