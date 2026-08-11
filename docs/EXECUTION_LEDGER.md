@@ -8,8 +8,8 @@ Stand: 2026-08-11
 |---|---|
 | Phase | Phase 1: bestehende kritische Fehler beheben |
 | Aktive Aufgabe | Auth-Privilegiengrenze für normale Nutzeranfragen |
-| Produktionsstand | `main` auf `a07f7016a4128e507683354e38fdf9487ef9ec01` |
-| Arbeitsbranch | `codex/phase-1-auth-privilege-boundary` |
+| Produktionsstand | `main` auf `3ceac72f7d39fe190153c31c34b4622717fedd24` |
+| Abschlussbranch | `codex/phase-1-auth-privilege-boundary` wurde über PR #57 gemergt |
 | Repository | `homann09-hue/STAI` |
 | Produktion | `https://stockpilot-ai-beta.vercel.app` |
 | Vercel-Projekt | ausschließlich `stockpilot-ai`; BauPro blieb unberührt |
@@ -84,6 +84,21 @@ DSGVO-Export und administrative Kontolöschung erzeugen die Service Role erst in
 - Browser/E2E: 35 Tests bestanden, ein reiner Mobile-Test auf Desktop bewusst übersprungen.
 - `npm ci` meldet keine bekannten Dependency-Schwachstellen.
 
+## GitHub- und Produktionsnachweis
+
+| Beleg | Ergebnis |
+|---|---|
+| Pull Request | #57, gemergt als `3ceac72` |
+| PR-CI | vollständig grün einschließlich Vercel-Vorschau und pgTAP |
+| Main-CI | Lauf `31518017780` vollständig grün |
+| Main-Datenbanktests | Lauf `31518017734` vollständig grün |
+| Produktion | `dpl_5a5ih8TAvs1mqcJE8ND8RC8iwAeq`, READY |
+| Live-Alias | `https://stockpilot-ai-beta.vercel.app` |
+| Live-Smokes | `/`, `/api/health`, `/watchlist`, `/portfolio`, `/settings` jeweils HTTP 200 |
+| Session-Fallback | anonymes und ungültiges Token bleiben lokal, `cloudSync: false` |
+| Produktionsfehlerlog | keine Fehler im Prüfzeitraum |
+| BauPro | nicht verändert und nicht deployt |
+
 ## Nächster zulässiger Schritt
 
-Den isolierten Branch committen, per GitHub-CI prüfen und ausschließlich im Vercel-Projekt `stockpilot-ai` ausrollen. Danach Live-Smokes und Fehlerlogs prüfen und den Abschlussnachweis übernehmen. Erst dann den nächsten Phase-1-Befund auswählen; Phase 1 und die Marktreife-Mission bleiben aktiv.
+Den Abschlussnachweis per Dokumentations-PR in `main` übernehmen. Danach genau einen weiteren Phase-1-Befund anhand von tatsächlichem Risiko und Produktwirkung auswählen; Phase 1 und die Marktreife-Mission bleiben aktiv.

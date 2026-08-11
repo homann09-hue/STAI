@@ -85,3 +85,7 @@ Privilegierte Ausnahmen: DSGVO-Export und administrative Kontolöschung erzeugen
 Abnahme: Regressionstest, vollständige Qualitätsgates, GitHub-CI, kontrolliertes StockPilot-Deployment und Live-Smokes. BauPro bleibt vollständig unberührt.
 
 Lokaler Stand: implementiert und grün mit Formatprüfung, Typecheck, Lint, 129 Testdateien und 1.004 Tests, Produktions-Build mit 35 statischen Seiten sowie 35 bestandenen Browserflüssen und einem bewussten Skip.
+
+Produktionsabschluss: PR #57 ist als `3ceac72` gemergt. Main-CI `31518017780` und Datenbanktests `31518017734` sind grün. Das ausschließlich dem Projekt `stockpilot-ai` zugeordnete Deployment `dpl_5a5ih8TAvs1mqcJE8ND8RC8iwAeq` ist READY und bedient die Live-Aliase. Fünf Live-Ziele, lokale Fallbacks für anonyme und ungültige Sessions sowie das Fehlerlog sind geprüft. BauPro blieb unberührt.
+
+Nächster Schritt: den Abschlussnachweis mergen und danach genau einen weiteren Phase-1-Befund anhand von Risiko und Produktwirkung auswählen. Die übergeordnete Marktreife-Mission bleibt aktiv.
