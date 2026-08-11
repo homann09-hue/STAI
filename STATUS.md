@@ -1,6 +1,6 @@
 # StockPilot AI Status
 
-## Aktueller Meilenstein: Phase 1 - Portfolio-Trade-Mandantengrenze
+## Aktueller Meilenstein: Phase 1 - Portfolio-Trade-Mandantengrenze abgeschlossen
 
 Stand: 2026-08-11
 
@@ -10,6 +10,9 @@ Stand: 2026-08-11
 - Mandantentrennung, Atomarität und Eingabegrenzen sind lokal mit 31 Portfolio-pgTAP-Prüfungen belegt; alle 10 Datenbanksuiten bestehen mit 201 Prüfungen.
 - Die vollständigen Gates bestehen mit 128 Testdateien und 1.001 Tests, 35 Browserflüssen, einem bewussten Skip sowie einem Produktions-Build mit 35 Seiten.
 - Ein gefundener Hydration-Race ist behoben: Das lokale Transaktionsformular wird erst nach Initialisierung interaktiv und 5/5 parallele Desktop-Durchläufe bestehen.
+- Pull Request #55 wurde als `6df7f4e` gemergt; Main-CI und Datenbanktests sind auf diesem Stand grün.
+- Produktionsmigration `20260811193000` ist angewendet. Nur die neue `auth.uid()`-gebundene `SECURITY INVOKER`-Signatur existiert; `anon`, `service_role` und `public` besitzen kein Ausführungsrecht.
+- StockPilot-Deployment `dpl_H6FXaQ35nnYeLcw2bbxgJMUm9Cqg` ist READY. Vier Kernziele liefern HTTP 200, der Live-Portfoliofluss ist grün und das Fehlerlog leer.
 - BLOCKER-012 bleibt getrennt als externe Supabase-Produktionskonfiguration offen.
 
 
