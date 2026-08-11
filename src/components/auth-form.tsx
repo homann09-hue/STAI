@@ -10,7 +10,7 @@ import {
   describeAuthError,
   safeRedirectTarget,
   validateEmail,
-  validatePassword,
+  validatePasswordChange,
   validateRegistration,
   type CredentialIssue
 } from "@/lib/auth/credentials";
@@ -76,7 +76,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         : mode === "forgot"
           ? [validateEmail(email)].filter((entry): entry is CredentialIssue => entry !== null)
           : mode === "reset"
-            ? [validatePassword(password)].filter((entry): entry is CredentialIssue => entry !== null)
+            ? validatePasswordChange(password, confirm)
             : [validateEmail(email)].filter((entry): entry is CredentialIssue => entry !== null);
 
     setIssues(found);
@@ -158,77 +158,99 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const text = copy[mode];
   const showEmail = mode !== "reset";
   const showPassword = mode !== "forgot";
+  const showConfirmation = mode === "register" || mode === "reset";
+  const emailIssue = issueFor(issues, "email");
+  const passwordIssue = issueFor(issues, "password");
+  const confirmationIssue = issueFor(issues, "confirm");
 
   return (
     <section className="mx-auto w-full max-w-md">
       <h1 className="text-2xl font-semibold text-mist">{text.title}</h1>
       <p className="mt-2 text-sm leading-6 text-muted">{text.intro}</p>
 
-      <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
+      <form onSubmit={submit} className="mt-6 space-y-4" noValidate aria-busy={busy}>
         {showEmail ? (
-          <label className="block text-sm text-muted">
+          <label htmlFor="auth-email" className="block text-sm text-muted">
             E-Mail-Adresse
             <input
+              id="auth-email"
               type="email"
               value={email}
               autoComplete="email"
               maxLength={254}
+              required
+              aria-invalid={Boolean(emailIssue)}
+              aria-describedby={emailIssue ? "auth-email-error" : undefined}
               onChange={(event) => setEmail(event.target.value)}
               className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan"
             />
-            {issueFor(issues, "email") ? (
-              <span className="mt-1 block text-xs text-loss">{issueFor(issues, "email")}</span>
+            {emailIssue ? (
+              <span id="auth-email-error" className="mt-1 block text-xs text-loss">
+                {emailIssue}
+              </span>
             ) : null}
           </label>
         ) : null}
 
         {showPassword ? (
-          <label className="block text-sm text-muted">
+          <label htmlFor="auth-password" className="block text-sm text-muted">
             Passwort
             <input
+              id="auth-password"
               type="password"
               value={password}
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               maxLength={200}
+              required
+              aria-invalid={Boolean(passwordIssue)}
+              aria-describedby={passwordIssue ? "auth-password-error" : mode !== "login" ? "auth-password-help" : undefined}
               onChange={(event) => setPassword(event.target.value)}
               className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan"
             />
-            {issueFor(issues, "password") ? (
-              <span className="mt-1 block text-xs text-loss">{issueFor(issues, "password")}</span>
+            {passwordIssue ? (
+              <span id="auth-password-error" className="mt-1 block text-xs text-loss">
+                {passwordIssue}
+              </span>
             ) : mode !== "login" ? (
-              <span className="mt-1 block text-xs text-muted">
+              <span id="auth-password-help" className="mt-1 block text-xs text-muted">
                 Mindestens {MIN_PASSWORD_LENGTH} Zeichen. Eine Wortfolge ist sicherer als ein kurzes Kunstwort.
               </span>
             ) : null}
           </label>
         ) : null}
 
-        {mode === "register" ? (
-          <label className="block text-sm text-muted">
-            Passwort wiederholen
+        {showConfirmation ? (
+          <label htmlFor="auth-password-confirm" className="block text-sm text-muted">
+            {mode === "reset" ? "Neues Passwort wiederholen" : "Passwort wiederholen"}
             <input
+              id="auth-password-confirm"
               type="password"
               value={confirm}
               autoComplete="new-password"
               maxLength={200}
+              required
+              aria-invalid={Boolean(confirmationIssue)}
+              aria-describedby={confirmationIssue ? "auth-password-confirm-error" : undefined}
               onChange={(event) => setConfirm(event.target.value)}
               className="mt-2 h-11 w-full rounded-xl border border-stroke bg-coal px-3 text-mist outline-none focus:border-cyan"
             />
-            {issueFor(issues, "confirm") ? (
-              <span className="mt-1 block text-xs text-loss">{issueFor(issues, "confirm")}</span>
+            {confirmationIssue ? (
+              <span id="auth-password-confirm-error" className="mt-1 block text-xs text-loss">
+                {confirmationIssue}
+              </span>
             ) : null}
           </label>
         ) : null}
 
         {formError ? (
-          <p className="flex gap-2 rounded-xl border border-loss/25 bg-loss/10 p-3 text-sm text-loss">
+          <p role="alert" className="flex gap-2 rounded-xl border border-loss/25 bg-loss/10 p-3 text-sm text-loss">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{formError}</span>
           </p>
         ) : null}
 
         {done ? (
-          <p className="flex gap-2 rounded-xl border border-profit/25 bg-profit/10 p-3 text-sm text-profit">
+          <p role="status" className="flex gap-2 rounded-xl border border-profit/25 bg-profit/10 p-3 text-sm text-profit">
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{done}</span>
           </p>
@@ -236,7 +258,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || Boolean(done)}
           className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-cyan font-semibold text-ink disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}

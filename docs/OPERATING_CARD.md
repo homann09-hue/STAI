@@ -55,3 +55,11 @@ Status: abgeschlossen am 2026-08-11.
 Belegt durch PR #51, Merge c2e43c6, grüne Main-CI- und pgTAP-Läufe, angewendete Produktionsmigration, READY-Deployment dpl_9rgmGDqW9BqmW3BkJJBmkryKLMab, 5/5 erfolgreiche Live-Smokes und leeres Vercel-Fehlerlog.
 
 Nächster einzelner Phase-1-Arbeitspunkt: Auth-/Passwort-Härtung gemäß BLOCKER-012. Die übergeordnete Marktreife-Mission bleibt aktiv.
+
+## Aktiver Phase-1-Arbeitspunkt: Auth-/Passwort-Härtung
+
+Ziel: Passwort-Reset, App-Regeln und Supabase-Regeln konsistent absichern, ohne die produktive Auth-Konfiguration breit oder unbelegt zu überschreiben.
+
+Lokaler Stand: implementiert und vollständig grün mit 127 Testdateien, 998 Tests, Produktions-Build sowie 35 bestandenen Browser-Tests.
+
+Externe Abnahmebedingung: gezielte Produktionsaktivierung von Mindestlänge und sicherem Passwortwechsel sowie, bei verfügbarem Pro-Tarif, Leaked-Password-Protection. Bis dahin bleibt BLOCKER-012 offen und dieser Arbeitspunkt wird nicht als produktiv abgeschlossen bezeichnet.

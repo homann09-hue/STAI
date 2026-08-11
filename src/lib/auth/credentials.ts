@@ -63,16 +63,28 @@ export function validatePassword(password: string): CredentialIssue | null {
   return null;
 }
 
-export function validateRegistration(email: string, password: string, confirm: string): CredentialIssue[] {
-  const issues = [validateEmail(email), validatePassword(password)].filter(
-    (issue): issue is CredentialIssue => issue !== null
-  );
-
-  if (password && confirm !== password) {
-    issues.push({ field: "confirm", message: "Die beiden Passwörter stimmen nicht überein." });
+export function validatePasswordConfirmation(password: string, confirm: string): CredentialIssue | null {
+  if (!confirm) {
+    return { field: "confirm", message: "Bitte wiederholen Sie das neue Passwort." };
   }
 
-  return issues;
+  if (confirm !== password) {
+    return { field: "confirm", message: "Die beiden Passwörter stimmen nicht überein." };
+  }
+
+  return null;
+}
+
+export function validatePasswordChange(password: string, confirm: string): CredentialIssue[] {
+  return [validatePassword(password), validatePasswordConfirmation(password, confirm)].filter(
+    (issue): issue is CredentialIssue => issue !== null
+  );
+}
+
+export function validateRegistration(email: string, password: string, confirm: string): CredentialIssue[] {
+  return [validateEmail(email), ...validatePasswordChange(password, confirm)].filter(
+    (issue): issue is CredentialIssue => issue !== null
+  );
 }
 
 /**
