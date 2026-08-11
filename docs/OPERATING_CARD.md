@@ -11,7 +11,7 @@ StockPilot AI wird Phase für Phase zu einem belegbar marktreifen Finanzanalyse-
 
 **Phase 1: Bestehende kritische Fehler beheben.**
 
-Aktiver Arbeitspunkt: Die normale Supabase-Authentifizierung wird vom Service-Role-Schlüssel entkoppelt. Der privilegierte Client darf nur innerhalb von DSGVO-Export und administrativer Kontolöschung entstehen.
+Aktiver Arbeitspunkt: Der DSGVO-Export wird vollständig an den tokengebundenen RLS-Client gebunden. Billing-Ereignisse werden ausschließlich lesbar und strikt auf `auth.uid()` begrenzt; die Service Role bleibt nur für administrative Kontolöschung.
 
 ## Wichtigste Qualitätsregeln
 
@@ -89,3 +89,11 @@ Lokaler Stand: implementiert und grün mit Formatprüfung, Typecheck, Lint, 129 
 Produktionsabschluss: PR #57 ist als `3ceac72` gemergt. Main-CI `31518017780` und Datenbanktests `31518017734` sind grün. Das ausschließlich dem Projekt `stockpilot-ai` zugeordnete Deployment `dpl_5a5ih8TAvs1mqcJE8ND8RC8iwAeq` ist READY und bedient die Live-Aliase. Fünf Live-Ziele, lokale Fallbacks für anonyme und ungültige Sessions sowie das Fehlerlog sind geprüft. BauPro blieb unberührt.
 
 Nächster Schritt: den Abschlussnachweis mergen und danach genau einen weiteren Phase-1-Befund anhand von Risiko und Produktwirkung auswählen. Die übergeordnete Marktreife-Mission bleibt aktiv.
+
+## Aktiver Phase-1-Arbeitspunkt: DSGVO-Export-Mandantengrenze
+
+Ziel: Kein Exportpfad darf RLS pauschal umgehen. Alle persönlichen Tabellen werden über den tokengebundenen Nutzerclient gelesen. `billing_events` erhält nur SELECT für eigene Zeilen; INSERT, UPDATE und DELETE bleiben für `authenticated` verboten.
+
+Abnahme: Code-Regression, pgTAP-Mandantentest, vollständige Qualitätsgates, kontrollierte Produktionsmigration, GitHub-CI, StockPilot-Deployment und reale Export-/Fallback-Prüfung. BauPro bleibt vollständig unberührt.
+
+Lokaler Stand: implementiert und grün mit Formatprüfung, Typecheck, Lint, 129 Testdateien und 1.005 Tests, 10 pgTAP-Suiten und 207 Prüfungen, Produktions-Build mit 35 statischen Seiten sowie 35 bestandenen Browserflüssen und einem bewussten Skip.

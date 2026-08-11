@@ -13,8 +13,8 @@ type SupabaseClient = NonNullable<ReturnType<typeof createSupabaseUserClient>>;
  * alle Nutzerdaten.
  *
  * Ein privilegierter Service-Role-Client ist bewusst kein Teil des
- * Auth-Ergebnisses. Die zwei Operationen, die ihn technisch brauchen, erzeugen
- * ihn erst lokal: DSGVO-Export und administrative Kontolöschung.
+ * Auth-Ergebnisses. Nur die administrative Kontolöschung erzeugt ihn lokal,
+ * weil `auth.admin.*` nicht über den tokengebundenen Nutzerclient verfügbar ist.
  */
 type AuthResult =
   | {
@@ -230,10 +230,12 @@ export async function getSupabaseAuth(request: Request): Promise<AuthResult> {
   };
 }
 
-function requireServiceSupabase(operation: "account_export" | "account_deletion") {
+function requireAccountDeletionServiceClient() {
   const serviceSupabase = createSupabaseServiceClient();
   if (!serviceSupabase) {
-    logEvent("error", "supabase.service_client_unavailable", { operation });
+    logEvent("error", "supabase.service_client_unavailable", {
+      operation: "account_deletion"
+    });
     throw new Error("supabase_service_client_unavailable");
   }
   return serviceSupabase;
@@ -498,15 +500,14 @@ const personalDataTables = [
 
 
 export async function exportUserData(auth: Extract<AuthResult, { ok: true }>) {
-  // DSGVO-Auskunft: bewusst privilegiert, weil Tabellen wie `billing_events`
-  // der Rolle `authenticated` per Policy jeden Zugriff verweigern. Die
-  // Eigentümerbindung erzwingt hier zwingend der `ownerColumn`-Filter.
-  const serviceSupabase = requireServiceSupabase("account_export");
+  // Die gesamte DSGVO-Auskunft bleibt auf dem tokengebundenen Nutzerclient.
+  // RLS ist damit die Mandantengrenze; der ownerColumn-Filter begrenzt die
+  // Abfrage zusätzlich, ersetzt die Datenbankautorisierung aber nicht.
   const unavailableTables: string[] = [];
 
   const entries = await Promise.all(
     personalDataTables.map(async ({ key, table, ownerColumn }) => {
-      const { data, error } = await serviceSupabase
+      const { data, error } = await auth.supabase
         .from(table)
         .select("*")
         .eq(ownerColumn, auth.userId)
@@ -544,7 +545,7 @@ export async function exportUserData(auth: Extract<AuthResult, { ok: true }>) {
 
 export async function deleteUserAccount(auth: Extract<AuthResult, { ok: true }>) {
   // Admin-API: nur mit Service-Role verfügbar.
-  const serviceSupabase = requireServiceSupabase("account_deletion");
+  const serviceSupabase = requireAccountDeletionServiceClient();
   const { error: signOutError } = await serviceSupabase.auth.admin.signOut(auth.accessToken, "global");
   const signOutStatus = (signOutError as { status?: number } | null)?.status;
   if (signOutError && signOutStatus !== 401 && signOutStatus !== 404) throw signOutError;

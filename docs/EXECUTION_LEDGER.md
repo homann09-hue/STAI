@@ -7,9 +7,9 @@ Stand: 2026-08-11
 | Feld | Tatsächlicher Stand |
 |---|---|
 | Phase | Phase 1: bestehende kritische Fehler beheben |
-| Aktive Aufgabe | Auth-Privilegiengrenze für normale Nutzeranfragen |
-| Produktionsstand | `main` auf `3ceac72f7d39fe190153c31c34b4622717fedd24` |
-| Abschlussbranch | `codex/phase-1-auth-privilege-boundary` wurde über PR #57 gemergt |
+| Aktive Aufgabe | DSGVO-Export-Mandantengrenze |
+| Produktionsstand | `main` auf `8bcba2315ecedc1ab2571cb60d5a636dbd40e2b3` |
+| Arbeitsbranch | `codex/phase-1-export-tenant-boundary` |
 | Repository | `homann09-hue/STAI` |
 | Produktion | `https://stockpilot-ai-beta.vercel.app` |
 | Vercel-Projekt | ausschließlich `stockpilot-ai`; BauPro blieb unberührt |
@@ -99,6 +99,21 @@ DSGVO-Export und administrative Kontolöschung erzeugen die Service Role erst in
 | Produktionsfehlerlog | keine Fehler im Prüfzeitraum |
 | BauPro | nicht verändert und nicht deployt |
 
+## Aktiver Befund und Umsetzung
+
+Der DSGVO-Export las bislang alle persönlichen Tabellen über einen Service-Role-Client und umging damit RLS pauschal. Jetzt verwendet jede Exportabfrage den tokengebundenen Nutzerclient. `billing_events` erhält ausschließlich SELECT für eigene Zeilen über eine explizite `auth.uid()`-Policy; `authenticated` besitzt weiterhin weder INSERT-, UPDATE- noch DELETE-Rechte.
+
+In `user-data.ts` entsteht die Service Role damit nur noch innerhalb der administrativen Kontolöschung. Ein Zwei-Mandanten-pgTAP-Test belegt, dass ein Nutzer genau sein eigenes Billing-Ereignis und keine fremde Zeile sieht.
+
+## Lokale Abnahme
+
+- Formatprüfung, Typecheck und Lint bestanden.
+- Sicherheitsregression: 11 gezielte Tests bestanden.
+- Gesamtsuite: 129 Testdateien und 1.005 Tests bestanden.
+- PostgreSQL: 10 pgTAP-Suiten und 207 Prüfungen bestanden; Billing-Suite 21/21.
+- Produktions-Build: 35 statische Seiten erzeugt.
+- Browser/E2E: 35 Tests bestanden, ein reiner Mobile-Test auf Desktop bewusst übersprungen.
+
 ## Nächster zulässiger Schritt
 
-Den Abschlussnachweis per Dokumentations-PR in `main` übernehmen. Danach genau einen weiteren Phase-1-Befund anhand von tatsächlichem Risiko und Produktwirkung auswählen; Phase 1 und die Marktreife-Mission bleiben aktiv.
+Den isolierten Branch committen und über GitHub-CI prüfen. Danach Migration `20260811200000` kontrolliert auf das Produktionsprojekt `STAI` anwenden, Advisor und Mandantengrenze erneut prüfen und ausschließlich StockPilot deployen. Erst nach Live-Smoke und Fehlerlogprüfung folgt der nächste Phase-1-Befund.
