@@ -1,4 +1,15 @@
-export const chartRanges = ["1D", "5D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y", "MAX"] as const;
+export const chartRanges = [
+  "1D",
+  "5D",
+  "1W",
+  "1M",
+  "3M",
+  "6M",
+  "YTD",
+  "1Y",
+  "5Y",
+  "MAX",
+] as const;
 export const timeRanges = chartRanges;
 
 export type ChartRange = (typeof chartRanges)[number];
@@ -11,10 +22,17 @@ export type MarketDataQuality =
   | "historical"
   | "mock"
   | "unavailable";
-export type MarketStatus = "open" | "closed" | "pre_market" | "after_hours" | "unknown";
+export type MarketStatus =
+  "open" | "closed" | "pre_market" | "after_hours" | "unknown";
 export type RefreshMode = "sse" | "websocket" | "polling" | "manual";
 export type RefreshInterval = 1000 | 5000 | 10000 | 30000 | 60000 | 300000;
-export type MarketConnectionStatus = "connected" | "reconnecting" | "polling" | "rate_limited" | "offline" | "error";
+export type MarketConnectionStatus =
+  | "connected"
+  | "reconnecting"
+  | "polling"
+  | "rate_limited"
+  | "offline"
+  | "error";
 export type Sentiment = "positive" | "neutral" | "negative";
 export type RiskLevel = "niedrig" | "mittel" | "hoch" | "extrem";
 export type UncertaintyLevel = "niedrig" | "mittel" | "hoch";
@@ -27,9 +45,11 @@ export type AlertType =
   | "ai-risk"
   | "ai-shift"
   | "portfolio-risk";
-export type AlertExecutionStatus = "demo" | "created" | "paused" | "triggered" | "error" | "unavailable";
+export type AlertExecutionStatus =
+  "demo" | "created" | "paused" | "triggered" | "error" | "unavailable";
 export type AlertFrequency = "manual" | "10s" | "30s" | "60s" | "5min";
-export type AlertNotificationChannel = "none" | "in_app" | "email" | "push" | "webhook";
+export type AlertNotificationChannel =
+  "none" | "in_app" | "email" | "push" | "webhook";
 
 export interface Asset {
   symbol: string;
@@ -102,13 +122,7 @@ export interface MarketDataFreshness {
 }
 
 export type MarketUniverseAssetClass =
-  | AssetType
-  | "commodity"
-  | "bond"
-  | "future"
-  | "option"
-  | "warrant"
-  | "fund";
+  AssetType | "commodity" | "bond" | "future" | "option" | "warrant" | "fund";
 
 export type InstrumentIdentifierType =
   | "ticker"
@@ -127,7 +141,44 @@ export interface InstrumentIdentifier {
   provider?: string;
 }
 
-export type InstrumentResolutionStatus = "resolved" | "ambiguous" | "provider_only" | "invalid";
+export interface ProviderInstrumentMapping {
+  providerId: string;
+  providerSymbol: string;
+  exchangeCode: string | null;
+}
+
+/**
+ * Providerunabhängige Identität eines konkreten Listings.
+ *
+ * `null` bedeutet bewusst: Der aktive Provider hat den Wert nicht verifiziert.
+ * Insbesondere MIC, ISIN, FIGI, Zeitzone und Listingstatus dürfen niemals aus
+ * Symbol oder Börsenname geraten werden.
+ */
+export interface CanonicalInstrument {
+  internalInstrumentId: string | null;
+  canonicalId: string;
+  symbol: string;
+  displaySymbol: string;
+  name: string;
+  assetClass: MarketUniverseAssetClass;
+  instrumentType: MarketUniverseAssetClass;
+  exchangeName: string | null;
+  exchangeCode: string | null;
+  mic: string | null;
+  currency: string;
+  country: string | null;
+  isin: string | null;
+  figi: string | null;
+  providerMappings: ProviderInstrumentMapping[];
+  tradingTimezone: string | null;
+  pricePrecision: number | null;
+  quantityPrecision: number | null;
+  isActive: boolean | null;
+  isDelisted: boolean | null;
+}
+
+export type InstrumentResolutionStatus =
+  "resolved" | "ambiguous" | "provider_only" | "invalid";
 export type InstrumentAnalysisReadiness = "ready" | "limited" | "blocked";
 
 export interface MarketUniverseInstrument {
@@ -135,11 +186,24 @@ export interface MarketUniverseInstrument {
   displaySymbol?: string;
   normalizedSymbol?: string;
   canonicalId?: string;
+  internalInstrumentId?: string | null;
   name: string;
   assetClass: MarketUniverseAssetClass;
+  instrumentType?: MarketUniverseAssetClass;
   exchange: string;
+  exchangeName?: string | null;
+  exchangeCode?: string | null;
+  mic?: string | null;
   country: string;
   currency: string;
+  isin?: string | null;
+  figi?: string | null;
+  providerMappings?: ProviderInstrumentMapping[];
+  tradingTimezone?: string | null;
+  pricePrecision?: number | null;
+  quantityPrecision?: number | null;
+  isActive?: boolean | null;
+  isDelisted?: boolean | null;
   identifiers?: InstrumentIdentifier[];
   identityConfidence?: number;
   resolutionStatus?: InstrumentResolutionStatus;
@@ -323,7 +387,14 @@ export interface NewsEvent {
 }
 
 export interface NewsSubjectRef {
-  type: "company" | "industry" | "country" | "index" | "commodity" | "currency" | "crypto";
+  type:
+    | "company"
+    | "industry"
+    | "country"
+    | "index"
+    | "commodity"
+    | "currency"
+    | "crypto";
   id: string;
   label: string;
   /** `provider` ist belastbar, `symbol` ist abgeleitet. */
@@ -669,8 +740,10 @@ export interface PortfolioSummary {
   warnings: PortfolioWarning[];
 }
 
-export type ProfessionalAvailability = "available" | "provider_missing" | "prepared" | "mock";
-export type PerformanceRange = "1M" | "3M" | "6M" | "YTD" | "1Y" | "3Y" | "5Y" | "10Y" | "MAX";
+export type ProfessionalAvailability =
+  "available" | "provider_missing" | "prepared" | "mock";
+export type PerformanceRange =
+  "1M" | "3M" | "6M" | "YTD" | "1Y" | "3Y" | "5Y" | "10Y" | "MAX";
 
 export interface ProfessionalDataPoint {
   label: string;
@@ -832,7 +905,14 @@ export interface ProfessionalPortfolioAnalytics {
 export interface ProfessionalNewsEvent {
   id: string;
   title: string;
-  category: "company" | "macro" | "earnings" | "dividend" | "split" | "analyst" | "central-bank";
+  category:
+    | "company"
+    | "macro"
+    | "earnings"
+    | "dividend"
+    | "split"
+    | "analyst"
+    | "central-bank";
   symbol?: string;
   source: string;
   publishedAt: string;

@@ -364,3 +364,14 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Live-Provenienz: Sammelquelle `Finnhub`; alle zehn Quotes `near_realtime`; kein Mock- oder Unavailable-Fallback.
 - Produktionslog: genau ein gemeinsames FMP-Backoff-Ereignis im Prüfzeitraum, keine parallele symbolweise 429-Welle.
 - BauPro wurde weder geändert noch bereitgestellt.
+
+## Phase 2 - Kanonisches Instrumentenmodell (2026-08-11)
+
+- Phase 1 enthält nach aktuellem Audit keine weitere bestätigte intern lösbare Critical-Lücke; externe Lizenz-, Tarif- und Shared-Infrastrukturpunkte bleiben als Blocker dokumentiert.
+- Ein zentraler `CanonicalInstrument`-Typ führt interne ID, Listingidentität, Instrumenttyp, Börsenname/-code, MIC, ISIN, FIGI, Provider-Mappings, Zeitzone, Präzision sowie Aktiv-/Delistingstatus.
+- Nicht verifizierte Referenzwerte bleiben `null`. Zu lange oder formal ungültige MIC-, ISIN- und FIGI-Werte werden verworfen; widersprüchliche Aktiv-/Delistingzustände werden weder veröffentlicht noch in PostgreSQL akzeptiert.
+- Instrumentkatalog, Instrument Master und Such-API transportieren die kanonischen Felder; bestehende Aliasfelder bleiben kompatibel.
+- Die Migration erweitert den persistenten Instrument Master, führt Bestandswerte nur aus bereits belegten Feldern fort und ändert die bestehende serverseitige Upsert-Signatur nicht.
+- Lokal bestanden: Format der TypeScript-Dateien, 16 gezielte Tests, TypeScript, ESLint, 131 Testdateien mit 1.015 Tests, Produktions-Build mit 35 Seiten und 35 Browserflüsse; ein Mobile-Duplikatlauf ist bewusst übersprungen.
+- Lokaler pgTAP-Start war wegen eines vorherigen ENOSPC-Abbruchs von Docker Desktop nicht möglich. Die 41 Instrument-Master-Assertions und die vollständige Migration müssen daher vor jedem Produktionsschritt im isolierten GitHub-Datenbankworkflow bestehen.
+- Produktionsmigration, GitHub-CI, Deployment und Live-Abnahme sind noch ausstehend; dieser Arbeitspunkt ist nicht als abgeschlossen markiert.

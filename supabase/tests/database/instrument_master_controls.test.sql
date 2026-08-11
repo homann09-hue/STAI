@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(41);
 
 -- Struktur -------------------------------------------------------------------
 
@@ -44,6 +44,22 @@ select has_index('public', 'instruments', 'instruments_symbol_idx', 'symbol look
 select has_index('public', 'instruments', 'instruments_asset_class_idx', 'asset class lookup is indexed');
 select has_index('public', 'instruments', 'instruments_quote_status_idx', 'quote status queue is indexed');
 select has_index('public', 'instrument_identifiers', 'instrument_identifiers_value_idx', 'identifier lookup is indexed');
+select has_column('public', 'instruments', 'display_symbol', 'canonical display symbol is stored');
+select has_column('public', 'instruments', 'instrument_type', 'instrument type is stored separately');
+select has_column('public', 'instruments', 'exchange_code', 'exchange code is stored separately');
+select has_column('public', 'instruments', 'mic', 'MIC can be stored when verified');
+select has_column('public', 'instruments', 'trading_timezone', 'trading timezone can be stored when verified');
+select has_column('public', 'instruments', 'price_precision', 'price precision can be stored when verified');
+select has_column('public', 'instruments', 'quantity_precision', 'quantity precision can be stored when verified');
+select has_column('public', 'instruments', 'is_active', 'active status can be stored when verified');
+select has_column('public', 'instruments', 'is_delisted', 'delisting status can be stored when verified');
+select has_index('public', 'instruments', 'instruments_mic_idx', 'MIC lookup is indexed');
+select ok(
+  exists (select 1 from pg_constraint
+          where conrelid = 'public.instruments'::regclass
+            and conname = 'instruments_listing_status_check'),
+  'contradictory active and delisted states are constrained'
+);
 
 -- Rechte ---------------------------------------------------------------------
 -- Lesen ja, schreiben nein. Das Universum ist Referenzdatenbestand.
@@ -112,6 +128,44 @@ select is(
   2,
   're-discovery counts as a confirmation'
 );
+
+select is(
+  (select display_symbol from public.instruments where canonical_id = 'stock:pgtap:tst:usd'),
+  'TST',
+  'instrument upsert persists the canonical display symbol'
+);
+
+select is(
+  (select instrument_type from public.instruments where canonical_id = 'stock:pgtap:tst:usd'),
+  'stock',
+  'instrument upsert persists the instrument type'
+);
+
+select is(
+  (select exchange_code from public.instruments where canonical_id = 'stock:pgtap:tst:usd'),
+  'TESTX',
+  'instrument upsert persists the exchange code'
+);
+
+select ok(
+  (select is_active is null from public.instruments where canonical_id = 'stock:pgtap:tst:usd'),
+  'unknown active status remains null'
+);
+
+select ok(
+  (select is_delisted is null from public.instruments where canonical_id = 'stock:pgtap:tst:usd'),
+  'unknown delisting status remains null'
+);
+
+select throws_ok($$
+  insert into public.instruments (
+    canonical_id, symbol, display_symbol, name, asset_class, instrument_type,
+    exchange, exchange_code, currency, provider, is_active, is_delisted
+  ) values (
+    'stock:pgtap:bad:usd', 'BAD', 'BAD', 'Contradictory Listing', 'stock', 'stock',
+    'TESTX', 'TESTX', 'USD', 'FMP', true, true
+  )
+$$, '23514', null, 'an instrument cannot be active and delisted at the same time');
 
 select throws_ok($$
   select public.record_instrument_quote_status('stock:pgtap:tst:usd', 'erfunden')

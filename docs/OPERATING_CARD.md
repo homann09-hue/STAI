@@ -9,9 +9,9 @@ StockPilot AI wird Phase für Phase zu einem belegbar marktreifen Finanzanalyse-
 
 ## Aktuelle Phase
 
-**Phase 1: Bestehende kritische Fehler beheben.**
+**Phase 2: Kanonische Instrument-, Quote- und Bar-Domainmodelle.**
 
-Aktiver Arbeitszustand: Die Provider-429-Stabilisierung ist produktiv abgeschlossen. Der nächste einzelne Phase-1-Befund wird erst nach diesem Abschlussnachweis priorisiert.
+Aktiver Arbeitspunkt: Zuerst das kanonische Instrumentenmodell vollständig durch Domain, Instrument Master, Such-API, Migration und Datenbankkontrollen führen. Unbekannte Referenzdaten bleiben `null`; keine MIC-, ISIN-, FIGI-, Zeitzonen- oder Listingstatus-Heuristiken.
 
 ## Wichtigste Qualitätsregeln
 
@@ -127,3 +127,11 @@ Lokaler Stand: implementiert und grün mit Formatprüfung, Typecheck, Lint, 129 
 - Projektgrenze: ausschließlich `stockpilot-ai`; BauPro blieb unverändert.
 
 Nächster Schritt: Abschlussnachweis mergen und danach genau einen weiteren Phase-1-Befund nach Risiko und Produktwirkung auswählen. Die übergeordnete Marktreife-Mission bleibt aktiv.
+
+## Aktiver Phase-2-Arbeitspunkt: Kanonisches Instrumentenmodell
+
+Ziel: Jedes bekannte Listing besitzt eine providerunabhängige, stark typisierte Identität mit interner ID, Symbol, Anzeigename, Assetklasse, Instrumenttyp, Börse, MIC, Währung, Land, ISIN/FIGI, Provider-Mappings, Handelszeitzone, Präzision und belegtem Aktiv-/Delistingstatus.
+
+Lokaler Stand: Domain, ehrliche Normalisierung, Instrumentkatalog, persistentes Schema, Suchausgabe und 41 pgTAP-Kontrollen sind implementiert. TypeScript, ESLint, 131 Testdateien / 1.015 Tests, Build und 35 Browserflüsse sind grün.
+
+Abnahmegrenze: Docker Desktop startet nach einem lokalen ENOSPC-Abbruch noch nicht. Deshalb bleibt der Punkt offen, bis der isolierte GitHub-Datenbankworkflow die vollständige Migration und alle pgTAP-Suiten belegt, die Produktionsmigration kontrolliert angewendet und StockPilot live geprüft ist.
