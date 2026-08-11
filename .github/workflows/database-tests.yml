@@ -26,8 +26,17 @@ jobs:
         with:
           version: 2.109.1
       - name: Start isolated Supabase stack
-        run: supabase start
+        # pgTAP braucht nur Datenbank, Auth-Gateway und PostgREST. Mailpit
+        # belegte auf einem frischen GitHub-Runner bereits Port 54324 und liess
+        # den Lauf vor der ersten Assertion scheitern. Nicht benoetigte Dienste
+        # werden deshalb gar nicht erst gestartet.
+        run: >-
+          supabase start
+          --exclude edge-runtime,imgproxy,logflare,mailpit,postgres-meta,realtime,storage-api,studio,supavisor,vector
       - name: Reset schema from migrations
         run: supabase db reset --local --no-seed
       - name: Run RLS and integrity tests
         run: supabase test db
+      - name: Stop isolated Supabase stack
+        if: always()
+        run: supabase stop --no-backup || true
