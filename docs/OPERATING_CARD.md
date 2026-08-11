@@ -11,7 +11,7 @@ StockPilot AI wird Phase für Phase zu einem belegbar marktreifen Finanzanalyse-
 
 **Phase 1: Bestehende kritische Fehler beheben.**
 
-Aktiver Arbeitspunkt: Die Tagesquote wird aus dem Service-Role-Pfad in einen an `auth.uid()` gebundenen, atomaren RPC-Pfad verschoben. Erst nach pgTAP, CI, angewendeter Migration und Live-Prüfung folgt der nächste Phase-1-Befund.
+Aktiver Arbeitspunkt: Portfolio-Trades werden aus dem Service-Role-Pfad in einen an `auth.uid()` und RLS gebundenen atomaren RPC-Pfad verschoben. Erst nach pgTAP, CI, angewendeter Migration und Live-Prüfung folgt der nächste Phase-1-Befund.
 
 ## Wichtigste Qualitätsregeln
 
@@ -65,3 +65,11 @@ Lokaler Stand: implementiert und vollständig grün mit 127 Testdateien, 998 Tes
 Externe Abnahmebedingung: gezielte Produktionsaktivierung von Mindestlänge und sicherem Passwortwechsel sowie, bei verfügbarem Pro-Tarif, Leaked-Password-Protection. Bis dahin bleibt BLOCKER-012 offen und dieser Arbeitspunkt wird nicht als produktiv abgeschlossen bezeichnet.
 
 Web-App-Stand: Die UI-Härtung ist als Deployment dpl_6LXiqnVm5rurCwWZfVn95xfkFTAD live und technisch grün. Der Arbeitspunkt bleibt ausschließlich wegen der getrennten Supabase-Produktionskonfiguration offen.
+
+## Aktiver Phase-1-Arbeitspunkt: Portfolio-Trade-Mandantengrenze
+
+Ziel: Die atomare Portfolio-RPC akzeptiert keine Nutzer-ID mehr, leitet den Eigentümer ausschließlich aus `auth.uid()` ab und läuft über den tokengebundenen RLS-Client. Direkte RPC-Aufrufe werden zusätzlich durch Datenbankgrenzen validiert.
+
+Lokaler Stand: implementiert und vollständig grün mit 128 Testdateien, 1.001 Tests, 10 pgTAP-Dateien mit 201 Prüfungen, Produktions-Build, 35 bestandenen Browserflüssen und 5/5 parallelen Hydration-Durchläufen.
+
+Offene Abnahme: GitHub-CI, kontrollierte Produktionsmigration und Live-Prüfung. Bis zu diesem Nachweis bleibt der Punkt in Arbeit.

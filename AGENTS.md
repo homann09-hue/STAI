@@ -46,12 +46,11 @@ Details und Aktivierungsschritte: `docs/BLOCKERS.md`.
   alle Nutzerdaten.**
 - `auth.serviceSupabase` — Service Role, umgeht RLS vollständig.
 
-`serviceSupabase` ist auf genau drei Pfaden erlaubt, alle drei begründet:
+`serviceSupabase` ist auf genau zwei Pfaden erlaubt, beide begründet:
 
-1. `apply_portfolio_trade` — die RPC ist ausschließlich `service_role` gewährt.
-2. DSGVO-Export — liest `billing_events`, das `authenticated` per Policy alles
+1. DSGVO-Export — liest `billing_events`, das `authenticated` per Policy alles
    verweigert.
-3. Admin-Kontolöschung — `auth.admin.*` gibt es nur mit Service Role.
+2. Admin-Kontolöschung — `auth.admin.*` gibt es nur mit Service Role.
 
 → **Erweitere diese Liste nicht ohne zwingenden Grund.** Jeder weitere Pfad
 verlagert Mandantentrennung zurück in den Anwendungscode.

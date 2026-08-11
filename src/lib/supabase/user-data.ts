@@ -12,9 +12,8 @@ type SupabaseClient = NonNullable<ReturnType<typeof createSupabaseServiceClient>
  * `supabase` ist nutzergebunden und unterliegt RLS. Es ist der Standardpfad für
  * alle Nutzerdaten.
  *
- * `serviceSupabase` umgeht RLS und ist bewusst nur für die drei privilegierten
- * Pfade gedacht, die es technisch brauchen: die `apply_portfolio_trade`-RPC
- * (nur `service_role` hat execute), den DSGVO-Export (liest u. a.
+ * `serviceSupabase` umgeht RLS und ist bewusst nur für die zwei privilegierten
+ * Pfade gedacht, die es technisch brauchen: den DSGVO-Export (liest u. a.
  * `billing_events`, das `authenticated` verweigert) und die Admin-API zur
  * Kontolöschung.
  */
@@ -443,10 +442,9 @@ export class PortfolioTradeConflictError extends Error {}
 
 async function applyPortfolioTradeRpc(auth: Extract<AuthResult, { ok: true }>, trade: PortfolioTradeInput) {
   const normalizedTrade = normalizePortfolioTrade(trade);
-  // `apply_portfolio_trade` ist ausschließlich `service_role` gewährt und
-  // erzwingt die Eigentümerprüfung selbst über `p_user_id`.
-  const { error } = await auth.serviceSupabase.rpc("apply_portfolio_trade", {
-    p_user_id: auth.userId,
+  // Die RPC leitet den Eigentümer ausschließlich aus `auth.uid()` ab. Der
+  // tokengebundene Client hält RLS auch innerhalb der atomaren Funktion aktiv.
+  const { error } = await auth.supabase.rpc("apply_portfolio_trade", {
     p_symbol: normalizedTrade.symbol,
     p_name: normalizedTrade.name ?? null,
     p_asset_type: normalizedTrade.assetType,
