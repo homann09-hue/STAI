@@ -1,5 +1,23 @@
 # StockPilot AI Status
 
+## Wahrheitsgetreue News- und Providerherkunft
+
+- Echte News von Marketaux, NewsAPI oder weiteren verlinkten Quellen werden in
+  der zentralen Datenqualitätsprüfung nicht mehr pauschal als Mock-News
+  bezeichnet.
+- Gemischte Provider- und Fixture-News bleiben getrennt nachvollziehbar;
+  Fixture-Anteile sperren eine entscheidungsreife Analyse.
+- Fehlende Marktdaten-, Fundamentals- und News-Provider fallen im
+  Provider-Kontrollzentrum auf `unavailable` statt auf suggerierte
+  Mock-Fallbacks.
+- Die tatsächlich aktive deterministische Evidence Engine wird als solche
+  ausgewiesen; externe KI-Keys werden nicht länger als aktive Funktion
+  behauptet.
+- Regressionstests sichern echte, gemischte und fehlende Quellenzustände ab.
+- Verifiziert: Formatprüfung, Typecheck, vollständiger Lint, 124 Testdateien
+  mit 988 Tests, Next.js-Produktionsbuild mit 35 Seiten sowie 35 bestandene
+  Browser-E2E-Tests; ein plattformabhängiger Test wurde bewusst übersprungen.
+
 ## Echte Nutzerzustände statt Mock-Portfolio und Mock-Alerts
 
 - Portfolio- und Alert-Seiten starten ohne Beispielpositionen oder

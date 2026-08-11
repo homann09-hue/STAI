@@ -138,7 +138,6 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
     (hasEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY") || hasEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"));
   const supabaseSecretConfigured = hasEnv("SUPABASE_SERVICE_ROLE_KEY") || hasEnv("SUPABASE_SECRET_KEY");
   const sharedCacheConfigured = hasEnv("UPSTASH_REDIS_REST_URL") && hasEnv("UPSTASH_REDIS_REST_TOKEN");
-  const aiConfigured = hasEnv("OPENAI_API_KEY") || hasEnv("AI_GATEWAY_API_KEY") || hasEnv("GOOGLE_GENERATIVE_AI_API_KEY");
   const billingConfigured = hasEnv("STRIPE_SECRET_KEY") || hasEnv("LEMONSQUEEZY_API_KEY");
 
   const items: ProviderHealthItem[] = [
@@ -147,13 +146,13 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
       name: "Finnhub",
       category: "market",
       status: finnhubConfigured ? "configured" : "missing_key",
-      quality: qualityFromEnv("FINNHUB_DATA_QUALITY", "near_realtime"),
+      quality: finnhubConfigured ? qualityFromEnv("FINNHUB_DATA_QUALITY", "near_realtime") : "unavailable",
       configured: finnhubConfigured,
       secretEnv: ["FINNHUB_API_KEY"],
       capabilities: ["Aktien-Quotes", "News", "Fundamentals je nach Plan", "WebSocket je nach Plan"],
       limitations: ["Bid/Ask und Realtime hängen vom Plan und Börsenlizenzen ab", "Rate-Limits im Free/Starter-Bereich"],
-      fallback: "FMP, Alpha Vantage oder Mock/Cache mit sichtbarer Kennzeichnung",
-      userImpact: finnhubConfigured ? "Marktdaten können providerbasiert geladen werden." : "Kurse fallen auf andere Anbieter, Cache oder Mock zurück.",
+      fallback: "FMP, Alpha Vantage, letzter bestätigter Cache oder nicht verfügbar",
+      userImpact: finnhubConfigured ? "Marktdaten können providerbasiert geladen werden." : "Andere echte Anbieter dürfen übernehmen; ohne Beleg bleibt der Kurs nicht verfügbar.",
       nextAction: finnhubConfigured ? "Plan/Lizenz prüfen und Datenqualität pro Markt festlegen." : "FINNHUB_API_KEY serverseitig in Vercel setzen."
     }),
     provider({
@@ -161,13 +160,13 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
       name: "Financial Modeling Prep",
       category: "fundamentals",
       status: fmpConfigured ? "degraded" : "missing_key",
-      quality: qualityFromEnv("FMP_DATA_QUALITY", "delayed"),
+      quality: fmpConfigured ? qualityFromEnv("FMP_DATA_QUALITY", "delayed") : "unavailable",
       configured: fmpConfigured,
       secretEnv: ["FMP_API_KEY"],
       capabilities: ["Fundamentaldaten", "Financial Statements", "Profile", "Kursdaten je nach Plan"],
       limitations: ["Free-Pläne können stark limitiert sein", "Backoff greift bei 429 Rate-Limits"],
-      fallback: "Alpha Vantage, Finnhub oder vorbereitete Datenstruktur",
-      userImpact: fmpConfigured ? "Fundamentaldaten sind möglich, aber Rate-Limits werden sichtbar behandelt." : "Tiefe Fundamentaldaten bleiben Demo/vorbereitet.",
+      fallback: "Alpha Vantage oder klar als nicht verfügbar ausweisen",
+      userImpact: fmpConfigured ? "Fundamentaldaten sind möglich, aber Rate-Limits werden sichtbar behandelt." : "Nicht belegte Fundamentaldaten werden nicht angezeigt.",
       nextAction: "Provider-Coverage je Assetklasse messen und Rate-Limit-Budget sichtbar machen."
     }),
     provider({
@@ -175,7 +174,7 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
       name: "Alpha Vantage",
       category: "market",
       status: alphaConfigured ? "degraded" : "missing_key",
-      quality: qualityFromEnv("ALPHA_VANTAGE_DATA_QUALITY", "delayed"),
+      quality: alphaConfigured ? qualityFromEnv("ALPHA_VANTAGE_DATA_QUALITY", "delayed") : "unavailable",
       configured: alphaConfigured,
       secretEnv: ["ALPHA_VANTAGE_API_KEY"],
       capabilities: ["Fallback-Quotes", "Zeitreihen", "Indikatoren je nach Endpoint"],
@@ -194,7 +193,7 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
       secretEnv: [],
       capabilities: ["Krypto-Quotes", "24h Volumen", "nahe Echtzeit je Endpoint", "REST/WebSocket-Struktur vorbereitet"],
       limitations: ["Exchange-Daten sind keine regulierte Börsen-Konsolidierung", "Bid/Ask hängt vom Handelspaar ab"],
-      fallback: "Mock/Cache nur mit sichtbarem Badge",
+      fallback: "Letzten bestätigten Cache anzeigen oder als nicht verfügbar ausweisen",
       userImpact: "Krypto kann deutlich näher an Echtzeit laufen als viele kostenlose Aktienfeeds.",
       nextAction: "Subscriptions auf sichtbare Symbole begrenzen und Orderbook-Felder nur bei echten Daten zeigen."
     }),
@@ -203,13 +202,13 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
       name: "NewsAPI / Marketaux",
       category: "news",
       status: newsApiConfigured || marketauxConfigured ? "configured" : "missing_key",
-      quality: newsApiConfigured || marketauxConfigured ? "near_realtime" : "mock",
+      quality: newsApiConfigured || marketauxConfigured ? "near_realtime" : "unavailable",
       configured: newsApiConfigured || marketauxConfigured,
       secretEnv: ["NEWS_API_KEY", "NEWSAPI_API_KEY", "MARKETAUX_API_KEY"],
       capabilities: ["Unternehmensnachrichten", "Quellen", "Zeitstempel", "Sentiment/Impact vorbereitet"],
       limitations: ["Lizenzbedingungen und Caching-Regeln beachten", "News dürfen nicht ungeprüft als Fakt verkauft werden"],
-      fallback: "Mock-News nur mit klarer Demo-Kennzeichnung",
-      userImpact: newsApiConfigured || marketauxConfigured ? "News können mit Quelle und Datum geladen werden." : "News-Terminal bleibt Demo/vorbereitet.",
+      fallback: "Ohne bestätigte Quelle keine Nachricht anzeigen",
+      userImpact: newsApiConfigured || marketauxConfigured ? "News können mit Quelle und Datum geladen werden." : "Das News-Terminal weist fehlende Nachrichten als nicht verfügbar aus.",
       nextAction: "Provider-spezifische Lizenztexte und Quellenlinks vollständig anzeigen."
     }),
     provider({
@@ -223,7 +222,7 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
       publicEnv: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"],
       capabilities: ["Auth", "Watchlists", "Portfolio", "Alerts", "User-Settings", "RLS pro user_id"],
       limitations: ["Cloud-Sync nur mit Session", "Servermutationen brauchen sichere RLS-Policies"],
-      fallback: "Lokaler Offline-/Demo-Modus",
+      fallback: "Lokaler Gastmodus ohne Cloud-Synchronisierung",
       userImpact: supabaseConfigured ? "Cloud-Userdaten sind technisch vorbereitet." : "Nur lokaler Gastmodus aktiv.",
       nextAction: "User-Settings, mehrere Portfolios und Alert-Regeln an echte Session koppeln."
     }),
@@ -243,18 +242,18 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
       nextAction: sharedCacheConfigured ? "Cache-Hit-Rates messen." : "Upstash/Vercel KV für geteilte Limits aktivieren."
     }),
     provider({
-      id: "ai",
-      name: "AI Analysis Provider",
+      id: "ai-evidence",
+      name: "StockPilot Deterministic Evidence Engine",
       category: "ai",
-      status: aiConfigured ? "configured" : "demo",
-      quality: aiConfigured ? "near_realtime" : "mock",
-      configured: aiConfigured,
-      secretEnv: ["OPENAI_API_KEY", "AI_GATEWAY_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"],
-      capabilities: ["KI-Zusammenfassungen", "Bull/Bear/Neutral Cases", "Unsicherheiten", "Datenqualitäts-Hinweise"],
-      limitations: ["Nur modellbasierte Einschätzung", "Keine Garantie und keine Anlageberatung"],
-      fallback: "Regelbasierte Demo-Analyse mit sichtbarer Kennzeichnung",
-      userImpact: aiConfigured ? "KI-Texte können serverseitig erzeugt werden." : "KI-Analyse bleibt Demo/regelleitend.",
-      nextAction: "AI-Ausgaben strikt an Quellenstatus und Datenfrische koppeln."
+      status: "ready",
+      quality: "not_applicable",
+      configured: true,
+      secretEnv: [],
+      capabilities: ["Evidenzgebundene Zusammenfassungen", "Bull/Bear/Neutral Cases", "Unsicherheiten", "Datenqualitäts-Hinweise"],
+      limitations: ["Nur modellbasierte Einschätzung aus belegten Eingangsdaten", "Keine Garantie und keine Anlageberatung"],
+      fallback: "Bei unzureichender Evidenz wird die Analyse blockiert",
+      userImpact: "Analysen werden deterministisch aus Quellenstatus, Datenfrische und geprüften Kennzahlen aufgebaut.",
+      nextAction: "Trefferbilanz und Quellenabdeckung der Evidence Engine weiter messen."
     }),
     provider({
       id: "billing",
@@ -266,7 +265,7 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
       secretEnv: ["STRIPE_SECRET_KEY", "LEMONSQUEEZY_API_KEY"],
       capabilities: ["Free", "Starter", "Pro", "Elite/Business", "Feature-Gates"],
       limitations: ["Ohne Billing darf kein Pro-Status als aktiv erscheinen"],
-      fallback: "Demo-/nicht freigeschaltet Status",
+      fallback: "Nicht freigeschaltet; keine stillschweigende Pro-Berechtigung",
       userImpact: billingConfigured ? "Entitlements können angebunden werden." : "Preisstruktur ist vorbereitet, aber nicht scharf geschaltet.",
       nextAction: "Webhook, Customer Mapping und Entitlements-Tabelle ergänzen."
     })

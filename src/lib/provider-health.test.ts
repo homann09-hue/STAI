@@ -49,10 +49,21 @@ describe("provider health capability report", () => {
     const publicReport = getPublicProviderCapabilityReport(new Date("2026-08-06T12:00:00.000Z"));
     const market = publicReport.categories.find((item) => item.id === "market");
     const news = publicReport.categories.find((item) => item.id === "news");
+    const newsProvider = detailed.items.find((item) => item.id === "news");
+    const aiProvider = detailed.items.find((item) => item.id === "ai-evidence");
 
     expect(detailed.totals.missing_key).toBeGreaterThan(0);
     expect(market?.liveClaim).not.toBe("allowed");
     expect(news?.status).toBe("missing_key");
+    expect(news?.quality).toBe("unavailable");
+    expect(newsProvider?.fallback).not.toContain("Mock");
+    expect(aiProvider).toMatchObject({
+      name: "StockPilot Deterministic Evidence Engine",
+      status: "ready",
+      quality: "not_applicable",
+      configured: true,
+      secretEnv: []
+    });
     expect(publicReport.criticalLimitations.length).toBeGreaterThan(0);
   });
 });

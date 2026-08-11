@@ -162,6 +162,10 @@ export function assessDataQuality(
   const stale = hasInvalidQuoteTimestamp || quoteAgeMinutes > 60;
   const delayed = quoteAgeMinutes > 20 || quoteQuality === "delayed";
   const missingNews = detail.news.length === 0;
+  const mockNews = detail.news.filter(
+    (item) => item.url === "#" || /\b(mock|demo|fixture)\b/iu.test(item.source)
+  );
+  const providerNews = detail.news.filter((item) => !mockNews.includes(item));
   const cryptoFundamentalGap = detail.asset.type === "crypto" && detail.fundamentals.peRatio === null;
   const isMock = quoteQuality === "mock";
   const providerSourceStatus =
@@ -169,6 +173,43 @@ export function assessDataQuality(
   const contradictions = detail.news.some((item) => item.sentiment === "negative" && detail.quote.changePercent > 3)
     ? ["Kurs steigt stark, obwohl relevante News negativ bewertet werden."]
     : [];
+  const newsSources: DataSource[] = missingNews
+    ? [
+        {
+          name: "News Provider",
+          type: "provider",
+          rank: 4,
+          fetchedAt: detail.quote.asOf,
+          status: "missing",
+          note: "Keine verifizierte Nachricht mit Quelle und Link verfügbar."
+        }
+      ]
+    : [
+        ...(providerNews.length
+          ? [
+              {
+                name: [...new Set(providerNews.map((item) => item.source))].slice(0, 3).join(", "),
+                type: "provider" as const,
+                rank: 4,
+                fetchedAt: providerNews[0]?.publishedAt ?? detail.quote.asOf,
+                status: "fresh" as const,
+                note: "Nachrichten tragen Anbieterquelle, Veröffentlichungszeit und externen Link."
+              }
+            ]
+          : []),
+        ...(mockNews.length
+          ? [
+              {
+                name: "StockPilot Development Fixtures",
+                type: "mock" as const,
+                rank: 1,
+                fetchedAt: mockNews[0]?.publishedAt ?? detail.quote.asOf,
+                status: "fresh" as const,
+                note: "Explizite Entwicklungsdaten. Nicht als echte Nachricht oder Fakt verwenden."
+              }
+            ]
+          : [])
+      ];
   const sources: DataSource[] = [
     {
       name: detail.quote.provider ?? "Unbekannter Kursanbieter",
@@ -178,14 +219,7 @@ export function assessDataQuality(
       status: providerSourceStatus,
       note: `${sourceLabel} inklusive Provider, Timestamp und Latenzstatus.`
     },
-    {
-      name: "StockPilot Mock News Feed",
-      type: "mock",
-      rank: 4,
-      fetchedAt: detail.news[0]?.publishedAt ?? detail.quote.asOf,
-      status: missingNews ? "missing" : "fresh",
-      note: "News sind nach Relevanz sortierte Mock-Daten und keine bestätigten Realnachrichten."
-    },
+    ...newsSources,
     {
       name: "Derived Technical Engine",
       type: "derived",
@@ -202,6 +236,7 @@ export function assessDataQuality(
     ...(stale ? ["Daten sind veraltet und sollten vor Entscheidungen aktualisiert werden."] : []),
     ...(delayed && !stale ? ["Daten sind verzögert und nicht als Live-Kurs geeignet."] : []),
     ...(missingNews ? ["Keine verwertbaren News für dieses Symbol gefunden."] : []),
+    ...(mockNews.length ? ["Mindestens eine Nachricht stammt aus Entwicklungs-Fixtures und bleibt von Analysen ausgeschlossen."] : []),
     ...(cryptoFundamentalGap ? ["Krypto-Fundamentaldaten sind strukturell nicht mit Aktien-Kennzahlen vergleichbar."] : [])
   ];
   const penalty =
@@ -218,7 +253,13 @@ export function assessDataQuality(
     isMock,
     updatedAt: detail.quote.asOf,
     stale,
-    sufficientForAnalysis: quoteQuality !== "unavailable" && quoteQuality !== "mock" && !stale && score >= 58 && validation.valid,
+    sufficientForAnalysis:
+      quoteQuality !== "unavailable" &&
+      quoteQuality !== "mock" &&
+      mockNews.length === 0 &&
+      !stale &&
+      score >= 58 &&
+      validation.valid,
     confidence: Math.max(10, Math.min(95, score - (contradictions.length ? 12 : 0))),
     issues: validation.issues,
     warnings,
