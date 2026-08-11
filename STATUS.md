@@ -327,3 +327,15 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Main-CI und Database Tests sind auf diesem Merge-Stand vollständig grün.
 - Reset-Seite und Health-Endpunkt antworten live mit HTTP 200; das Vercel-Fehlerlog ist leer.
 - Der sichtbare Reset-Flow ist durch Komponenten- und Browser-Gates belegt. Ein HTML-Rohabruf wird nicht als Beleg für clientseitig gerenderten Text verwendet.
+
+## Produktionsnachweis - DSGVO-Export-Mandantengrenze (2026-08-11)
+
+- GitHub: PR #59 gemergt, Merge-Commit `ff9d45529e48df9b7acd268432e9ccf4c7c91c64`.
+- CI auf `main`: StockPilot CI `31520423798` und Database Tests `31520423808` erfolgreich.
+- Supabase-Produktion: Migration `harden_billing_export_tenant_boundary` erfolgreich angewendet.
+- Rechteprüfung: RLS aktiv; `anon` ohne SELECT; `authenticated` nur SELECT; keine INSERT-/UPDATE-/DELETE-Rechte; Service-Role-Schreibpfad erhalten.
+- Policyprüfung: ausschließlich `Users read own billing events`, gebunden an einen nicht-leeren `auth.uid()` und die eigene `user_id`.
+- Vercel-Produktion: Deployment `dpl_3eUzVsgZy6tBpLjz3SAgohqTHDo7` ist READY und bedient `https://stockpilot-ai-beta.vercel.app`.
+- Live-Smoke: `/`, `/api/health`, `/account/billing` und `/settings` HTTP 200; anonymer `/api/account/export` HTTP 401.
+- Betriebsbeobachtung: FMP lieferte beim Startseiten-Smoke HTTP 429 für mehrere Symbole; der vorhandene Provider-Fallback griff. Das ist ein externer Tarif-/Kapazitätspunkt, kein Fehler dieses Sicherheits-Rollouts.
+- BauPro wurde weder geändert noch bereitgestellt.

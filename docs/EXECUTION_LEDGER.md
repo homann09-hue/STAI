@@ -117,3 +117,17 @@ In `user-data.ts` entsteht die Service Role damit nur noch innerhalb der adminis
 ## Nächster zulässiger Schritt
 
 Den isolierten Branch committen und über GitHub-CI prüfen. Danach Migration `20260811200000` kontrolliert auf das Produktionsprojekt `STAI` anwenden, Advisor und Mandantengrenze erneut prüfen und ausschließlich StockPilot deployen. Erst nach Live-Smoke und Fehlerlogprüfung folgt der nächste Phase-1-Befund.
+
+## Abschlussnachweis - Phase 1 DSGVO-Export-Mandantengrenze
+
+- **Datum:** 2026-08-11
+- **Implementierung:** `9ef1eb9` (`security: bind user export to RLS`)
+- **Merge:** PR #59, `ff9d45529e48df9b7acd268432e9ccf4c7c91c64`
+- **Produktionsmigration:** `harden_billing_export_tenant_boundary`, erfolgreich
+- **Produktionsrechte:** RLS aktiv; Eigentümer-SELECT über `auth.uid()`; keine Nutzer-Schreibrechte; anonyme Rolle gesperrt
+- **PR-Gates:** Anwendung, pgTAP und Vercel-Preview erfolgreich
+- **Main-Gates:** StockPilot CI `31520423798` und Database Tests `31520423808` erfolgreich
+- **Deployment:** `dpl_3eUzVsgZy6tBpLjz3SAgohqTHDo7`, READY
+- **Live-Smoke:** Startseite, Health, Billing und Settings 200; Export ohne Session 401
+- **Restbeobachtung:** FMP-429 mit funktionierendem Provider-Fallback; separat als Provider-Kapazitätsrisiko weiterverfolgen
+- **Projektgrenze:** BauPro nicht angefasst
