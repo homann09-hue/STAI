@@ -1,5 +1,16 @@
 # StockPilot AI Status
 
+## Aktueller Meilenstein: Phase 0 - Marktreife-Baseline
+
+Stand: 2026-08-11
+
+- Der verbindliche Projektplan ist `docs/ULTIMATE_MARKET_READINESS_GOAL.md`.
+- Der knappe aktuelle Arbeitsstand ist `docs/EXECUTION_LEDGER.md`.
+- Baseline belegt: Format, Typecheck, Lint, 124 Testdateien mit 988 Tests, Build mit 35 statischen Seiten sowie 35 erfolgreiche E2E-Tests und 1 bewusster Skip.
+- GitHub-CI, Datenbanktests, Live-Monitoring und vier Produktions-Smokes sind vor der Phase-0-Änderung grün.
+- Alte Statusabschnitte unterhalb dieses Abschnitts bleiben als historische Nachweise erhalten und sind nicht die aktuelle Steuerungsquelle.
+
+
 ## Wahrheitsgetreue News- und Providerherkunft
 
 - Echte News von Marketaux, NewsAPI oder weiteren verlinkten Quellen werden in
