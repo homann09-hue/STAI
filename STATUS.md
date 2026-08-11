@@ -290,4 +290,11 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - App und lokale Supabase-Konfiguration erzwingen konsistent mindestens 10 Zeichen; ein Drift-Test sichert die Übereinstimmung.
 - Lokale Supabase-Konfiguration aktiviert secure_password_change.
 - Lokal bestanden: Format, TypeScript, ESLint, 127 Testdateien mit 998 Tests, Build mit 35 Seiten und 35 Browser-Tests; 1 Lauf bewusst übersprungen.
-- Produktion wurde für diesen noch ungeprüften Arbeitspunkt nicht verändert. Supabase-Produktionsschalter und Leaked-Password-Protection bleiben extern offen.
+- Die Web-App ist als Deployment dpl_6LXiqnVm5rurCwWZfVn95xfkFTAD live; Supabase-Produktionsschalter und Leaked-Password-Protection bleiben extern offen.
+
+### Produktionsnachweis Auth-UI
+
+- Pull Request #53 wurde als Merge 3871420 in main übernommen.
+- Main-CI und Database Tests sind auf diesem Merge-Stand vollständig grün.
+- Reset-Seite und Health-Endpunkt antworten live mit HTTP 200; das Vercel-Fehlerlog ist leer.
+- Der sichtbare Reset-Flow ist durch Komponenten- und Browser-Gates belegt. Ein HTML-Rohabruf wird nicht als Beleg für clientseitig gerenderten Text verwendet.

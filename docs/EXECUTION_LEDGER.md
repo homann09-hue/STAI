@@ -113,3 +113,16 @@ Die Quoten-RPC ist absichtlich als eng begrenzte SECURITY-DEFINER-Funktion über
 | Produktions-Build | bestanden, 35 Seiten |
 | Browser/E2E | 35 bestanden, 1 bewusst übersprungen |
 | Produktionskonfiguration | nicht verändert; Management-Zugang fehlt |
+
+### Produktionsnachweis Auth-UI
+
+| Beleg | Ergebnis |
+|---|---|
+| Pull Request | #53, gemergt als 3871420 |
+| GitHub StockPilot CI | bestanden, Lauf 31512740479 |
+| GitHub Database Tests | bestanden, Lauf 31512740426 |
+| Vercel-Produktion | dpl_6LXiqnVm5rurCwWZfVn95xfkFTAD, READY |
+| Reset-Seite | HTTP 200 |
+| Health-Endpunkt | HTTP 200 |
+| Produktionsfehlerlog | keine Fehler im Prüfzeitraum |
+| Supabase Auth-Produktionsschalter | weiterhin extern offen |

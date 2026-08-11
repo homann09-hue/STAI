@@ -66,3 +66,5 @@ Akzeptierter Linter-Hinweis: Supabase warnt allgemein vor einer durch authentica
 - [x] Fehler-, Hilfe- und Erfolgszustände sind barrierefrei verknüpft.
 - [ ] Produktionsprojekt gezielt auf dieselben Auth-Schalter prüfen und aktualisieren.
 - [ ] Leaked-Password-Protection im Supabase-Projekt aktivieren; laut Anbieter erst ab Pro verfügbar.
+
+Web-App-Nachweis: PR #53, Merge 3871420, grüne Main-CI- und Datenbankläufe, READY-Deployment dpl_6LXiqnVm5rurCwWZfVn95xfkFTAD, HTTP 200 für Reset und Health sowie leeres Produktionsfehlerlog. Dieser Nachweis ersetzt nicht die noch offene Aktivierung der Supabase-Auth-Schalter.
