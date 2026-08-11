@@ -1,5 +1,16 @@
 # StockPilot AI Status
 
+## Aktueller Meilenstein: Phase 1 - DSGVO-Export-Mandantengrenze
+
+Stand: 2026-08-11
+
+- Der DSGVO-Export wird vollständig auf den tokengebundenen Supabase-Nutzerclient umgestellt.
+- `billing_events` bleibt unveränderliche, servergeschriebene Evidenz; angemeldete Nutzer erhalten ausschließlich SELECT auf eigene Zeilen über RLS.
+- Die Service Role bleibt in `user-data.ts` nur noch für administrative Kontolöschung.
+- pgTAP und Code-Regressionstests sichern Leserechte, Schreibverbote und Mandantentrennung.
+- Lokal belegt: Format, Typecheck, Lint, 129 Testdateien mit 1.005 Tests, 10 pgTAP-Suiten mit 207 Prüfungen, Produktions-Build mit 35 statischen Seiten sowie 35 bestandene Browserflüsse und ein bewusster Skip.
+- GitHub-, Migrations- und Produktionsnachweise folgen nach den externen Gates.
+
 ## Aktueller Meilenstein: Phase 1 - Auth-Privilegiengrenze abgeschlossen
 
 Stand: 2026-08-11

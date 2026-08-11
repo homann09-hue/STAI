@@ -19,7 +19,7 @@ describe("Supabase privilege boundary", () => {
   it("validates ordinary requests with the token-bound RLS client", () => {
     const auth = section(
       "export async function getSupabaseAuth",
-      "function requireServiceSupabase"
+      "function requireAccountDeletionServiceClient"
     );
 
     expect(auth).toContain("createSupabaseUserClient(token)");
@@ -35,14 +35,22 @@ describe("Supabase privilege boundary", () => {
     expect(result).not.toContain("serviceSupabase");
   });
 
-  it("creates a service client only inside the two privileged account operations", () => {
-    const serviceFactory = section(
-      "function requireServiceSupabase",
-      "function alertFromRow"
-    );
+  it("keeps the GDPR export on the token-bound RLS client", () => {
     const accountExport = section(
       "export async function exportUserData",
       "export async function deleteUserAccount"
+    );
+
+    expect(accountExport).toContain("auth.supabase");
+    expect(accountExport).not.toContain("createSupabaseServiceClient");
+    expect(accountExport).not.toContain("requireAccountDeletionServiceClient");
+    expect(accountExport).not.toContain("serviceSupabase");
+  });
+
+  it("creates a service client only inside administrative account deletion", () => {
+    const serviceFactory = section(
+      "function requireAccountDeletionServiceClient",
+      "function alertFromRow"
     );
     const accountDeletion = section(
       "export async function deleteUserAccount",
@@ -50,9 +58,8 @@ describe("Supabase privilege boundary", () => {
     );
 
     expect(serviceFactory).toContain("createSupabaseServiceClient()");
-    expect(accountExport).toContain('requireServiceSupabase("account_export")');
     expect(accountDeletion).toContain(
-      'requireServiceSupabase("account_deletion")'
+      "requireAccountDeletionServiceClient()"
     );
   });
 });

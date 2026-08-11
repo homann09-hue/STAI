@@ -46,12 +46,14 @@ greift. Auch `auth.getUser(token)` läuft über diesen Publishable-Key-Client.
 Normale Nutzeranfragen hängen deshalb nicht vom Service-Schlüssel ab und tragen
 keinen privilegierten Client durch die Anwendung.
 
-Die Service Role wird in diesem Modul nur lokal für genau zwei begründete
-Operationen erzeugt:
+Die Service Role wird in diesem Modul nur lokal für genau eine begründete
+Operation erzeugt:
 
-1. DSGVO-Export — liest `billing_events`, das `authenticated` per Policy alles
-   verweigert.
-2. Admin-Kontolöschung — `auth.admin.*` gibt es nur mit Service Role.
+1. Admin-Kontolöschung — `auth.admin.*` gibt es nur mit Service Role.
+
+Auch der DSGVO-Export läuft vollständig über `auth.supabase`. `billing_events`
+ist dafür ausschließlich lesbar und durch eine `auth.uid()`-Policy auf eigene
+Zeilen begrenzt; Schreibrechte bleiben ausschließlich serverseitig.
 
 → **Erweitere diese Liste nicht ohne zwingenden Grund.** Jeder weitere Pfad
 verlagert Mandantentrennung zurück in den Anwendungscode.
