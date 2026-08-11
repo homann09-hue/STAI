@@ -1,30 +1,30 @@
 # StockPilot AI Execution Ledger
 
-Stand: 2026-08-11, 19:00 Uhr MESZ
+Stand: 2026-08-11, 19:13 Uhr MESZ
 
 ## Aktueller Arbeitszustand
 
 | Feld | Tatsächlicher Stand |
 |---|---|
 | Phase | Phase 1: bestehende kritische Fehler beheben |
-| Aktive Aufgabe | Portfolio-Trade-Mandantengrenze vollständig ausrollen |
-| Autoritative Basis | `main` auf `ad69d76291338af4592ba255c7300266593dd84c` |
-| Arbeitsbranch | `codex/phase-1-portfolio-tenant-boundary` |
+| Aktive Aufgabe | Abschlussnachweis Portfolio-Trade-Mandantengrenze |
+| Produktionsstand | `main` auf `6df7f4e1078a2c9259a0a35de796571f919436d1` |
+| Dokumentationsbranch | `codex/phase-1-portfolio-evidence` |
 | Repository | `homann09-hue/STAI` |
 | Produktion | `https://stockpilot-ai-beta.vercel.app` |
-| Vercel-Projekt | ausschließlich `stockpilot-ai`; BauPro bleibt unberührt |
+| Vercel-Projekt | ausschließlich `stockpilot-ai`; BauPro blieb unberührt |
 
-## Implementierter Stand
+## Abgeschlossener Arbeitspunkt
 
 - `apply_portfolio_trade` akzeptiert keine Nutzer-ID mehr und leitet den Eigentümer ausschließlich aus `auth.uid()` ab.
 - Der Anwendungspfad nutzt den tokengebundenen Supabase-Client; Service Role ist für Nutzer-Trades entfernt.
-- Die alte UUID-RPC-Signatur wird gelöscht. Nur `authenticated` darf die neue RLS-gebundene Funktion ausführen.
+- Die alte UUID-RPC-Signatur ist gelöscht. Nur `authenticated` darf die neue RLS-gebundene Funktion ausführen.
 - Direkte RPC-Aufrufe validieren Symbol, Name, Assetklasse, Branche, Seite, Menge, Preis, Währung und Risikowert in PostgreSQL.
 - Advisory Lock, Kaufmittelwert, Verkaufskontrolle und transaktionale Seiteneffektfreiheit bleiben erhalten.
 - Das lokale Portfolio sendet ohne bestätigte Supabase-Synchronisierung keinen Cloud-POST.
-- Das gesamte Transaktionsformular bleibt bis zur abgeschlossenen Hydration deaktiviert; schnelle Eingaben können nicht mehr durch React zurückgesetzt werden.
+- Das Transaktionsformular bleibt bis zur abgeschlossenen Hydration deaktiviert; schnelle Eingaben werden nicht mehr zurückgesetzt.
 
-## Belegte lokale Prüfungen
+## Belegte Prüfungen
 
 | Gate | Ergebnis |
 |---|---|
@@ -32,20 +32,31 @@ Stand: 2026-08-11, 19:00 Uhr MESZ
 | TypeScript | bestanden |
 | ESLint | bestanden, 0 Warnungen |
 | Unit/Integration | 128 Dateien, 1.001 Tests bestanden |
-| PostgreSQL/pgTAP | 10 Dateien, 201 Prüfungen bestanden; Portfolio-Suite 31/31 |
+| PostgreSQL/pgTAP lokal | 10 Dateien, 201 Prüfungen bestanden; Portfolio-Suite 31/31 |
 | Produktions-Build | bestanden, 35 statische Seiten erzeugt |
 | Browser/E2E | 35 bestanden, 1 plattformbedingt bewusst übersprungen |
 | Parallel-Hydrationstest | 5/5 Desktop-Durchläufe bestanden |
+| Pull Request | #55, gemergt als `6df7f4e` |
+| Main-CI | Lauf 31515860871 bestanden |
+| Main-Datenbanktests | Lauf 31515860967 bestanden |
 
-## Offene Punkte dieses Arbeitspunkts
+## Produktionsnachweis
 
-- Branch erstellen, committen und zu GitHub pushen.
-- Pull Request durch StockPilot CI, Database Tests und Vercel Preview prüfen.
-- Migration `20260811193000_harden_portfolio_trade_tenant_identity.sql` kontrolliert auf das Produktionsprojekt `STAI` anwenden.
-- Produktionsrechte und RPC-Signaturen gegenprüfen.
-- StockPilot deployen und Portfolio-/Health-Smokes sowie Fehlerlog prüfen.
+| Beleg | Ergebnis |
+|---|---|
+| Migration | `20260811193000_harden_portfolio_trade_tenant_identity` angewendet |
+| Aktive RPC | `apply_portfolio_trade(text,text,text,text,text,numeric,numeric,text,integer)` |
+| Eigentümerbindung | `auth.uid()` aktiv; kein `p_user_id` |
+| Ausführungsmodus | `SECURITY INVOKER`, leerer `search_path` |
+| Rechte | `authenticated`: EXECUTE; `anon`, `service_role`, `public`: kein EXECUTE |
+| Alte Signatur | entfernt |
+| Security Advisor | kein Portfolio-Befund |
+| Vercel | `dpl_H6FXaQ35nnYeLcw2bbxgJMUm9Cqg`, READY |
+| Live-Smoke | `/`, `/api/health`, `/portfolio`, `/assets/AAPL` jeweils HTTP 200 |
+| Live-Portfolio | lokale MSFT-Buchung erfolgreich; nur GET, kein Cloud-POST |
+| Produktionsfehlerlog | keine Fehler im Prüfzeitraum |
 
-## Externe Blocker
+## Offene externe Blocker
 
 - `BLOCKER-001/005`: FMP liefert kein vollständiges Instrumentverzeichnis und sperrt Quotes symbolweise.
 - `BLOCKER-002/009`: Vollständige Realtime- und Display-Rechte benötigen geeignete Datenverträge.
@@ -55,10 +66,8 @@ Stand: 2026-08-11, 19:00 Uhr MESZ
 - `BLOCKER-011`: Kommerzielle Rechts- und Lizenzprüfung ist offen.
 - `BLOCKER-012`: Supabase-Produktionsschalter und Leaked-Password-Protection bleiben extern offen.
 
-## Letzter abgeschlossener Produktionspunkt
-
-Auth-UI-Härtung ist über PR #53 als `3871420` veröffentlicht. Die Abschlussdokumentation wurde über PR #54 als `ad69d76` gemergt; Main-CI und Datenbanktests sind grün. Die produktive Supabase-Passwortkonfiguration bleibt wahrheitsgetreu als externer Blocker offen.
+Der Security Advisor meldet zusätzlich weiterhin den absichtlich begrenzten `consume_feature_quota`-RPC als generische Warnung. Dieser getrennte Pfad ist durch `auth.uid()`, feste Feature- und Grenzwertlisten, leeren `search_path`, atomare Logik und 29 pgTAP-Prüfungen abgesichert.
 
 ## Nächster zulässiger Schritt
 
-Portfolio-Mandantengrenze über GitHub prüfen, danach Migration und Deployment kontrolliert freigeben. Erst nach Live-Nachweis beginnt der nächste Phase-1-Befund.
+Abschlussnachweis per Dokumentations-PR in `main` übernehmen. Danach den nächsten einzelnen Phase-1-Befund anhand von tatsächlichem Risiko und Produktwirkung auswählen; Phase 1 und die Marktreife-Mission bleiben aktiv.

@@ -11,7 +11,7 @@ StockPilot AI wird Phase für Phase zu einem belegbar marktreifen Finanzanalyse-
 
 **Phase 1: Bestehende kritische Fehler beheben.**
 
-Aktiver Arbeitspunkt: Portfolio-Trades werden aus dem Service-Role-Pfad in einen an `auth.uid()` und RLS gebundenen atomaren RPC-Pfad verschoben. Erst nach pgTAP, CI, angewendeter Migration und Live-Prüfung folgt der nächste Phase-1-Befund.
+Aktiver Arbeitspunkt: Die Portfolio-Trade-Mandantengrenze ist technisch und produktiv abgeschlossen. Der Abschlussnachweis wird in `main` übernommen; erst danach folgt der nächste einzelne Phase-1-Befund.
 
 ## Wichtigste Qualitätsregeln
 
@@ -72,4 +72,6 @@ Ziel: Die atomare Portfolio-RPC akzeptiert keine Nutzer-ID mehr, leitet den Eige
 
 Lokaler Stand: implementiert und vollständig grün mit 128 Testdateien, 1.001 Tests, 10 pgTAP-Dateien mit 201 Prüfungen, Produktions-Build, 35 bestandenen Browserflüssen und 5/5 parallelen Hydration-Durchläufen.
 
-Offene Abnahme: GitHub-CI, kontrollierte Produktionsmigration und Live-Prüfung. Bis zu diesem Nachweis bleibt der Punkt in Arbeit.
+Produktionsabschluss: PR #55 ist als `6df7f4e` gemergt. Main-CI und Datenbanktests sind grün, Migration `20260811193000` ist angewendet und die neue RPC ist `auth.uid()`-gebunden. Deployment `dpl_H6FXaQ35nnYeLcw2bbxgJMUm9Cqg` ist READY; vier HTTP-Smokes, der echte lokale Portfoliofluss und das Fehlerlog sind grün.
+
+Nächster Schritt: Abschlussdokumentation mergen, danach den nächsten einzelnen Phase-1-Befund auswählen. Die übergeordnete Marktreife-Mission bleibt aktiv.
