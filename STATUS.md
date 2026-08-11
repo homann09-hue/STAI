@@ -1,15 +1,16 @@
 # StockPilot AI Status
 
-## Aktueller Meilenstein: Phase 1 - Quota-Mandantengrenze
+## Aktueller Meilenstein: Phase 1 - Portfolio-Trade-Mandantengrenze
 
 Stand: 2026-08-11
 
-- `consume_feature_quota` wird vom Service-Role-Pfad auf den tokengebundenen Nutzerclient umgestellt.
+- `apply_portfolio_trade` wird vom Service-Role-Pfad auf den tokengebundenen Nutzerclient umgestellt.
 - Die Datenbank leitet den Eigentümer aus `auth.uid()` ab; die API übergibt keine `user_id` mehr.
-- Neue Migration und 29 pgTAP-Zusicherungen sind vorbereitet.
-- Typecheck, Lint und 2 neue Regressionstests sind lokal erfolgreich.
-- Lokales pgTAP ist mangels laufendem Docker offen; GitHub-CI bleibt der verbindliche Gate.
-- Supabase Advisor meldet getrennt den offenen Schutz gegen geleakte Passwörter.
+- Die alte RPC-Signatur wird entfernt; direkte Aufrufe erhalten dieselben Eingabegrenzen wie die API.
+- Mandantentrennung, Atomarität und Eingabegrenzen sind lokal mit 31 Portfolio-pgTAP-Prüfungen belegt; alle 10 Datenbanksuiten bestehen mit 201 Prüfungen.
+- Die vollständigen Gates bestehen mit 128 Testdateien und 1.001 Tests, 35 Browserflüssen, einem bewussten Skip sowie einem Produktions-Build mit 35 Seiten.
+- Ein gefundener Hydration-Race ist behoben: Das lokale Transaktionsformular wird erst nach Initialisierung interaktiv und 5/5 parallele Desktop-Durchläufe bestehen.
+- BLOCKER-012 bleibt getrennt als externe Supabase-Produktionskonfiguration offen.
 
 
 ## Aktueller Meilenstein: Phase 0 - Marktreife-Baseline
