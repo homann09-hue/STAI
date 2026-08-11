@@ -1,5 +1,17 @@
 # StockPilot AI Status
 
+## Aktueller Meilenstein: Phase 1 - Quota-Mandantengrenze
+
+Stand: 2026-08-11
+
+- `consume_feature_quota` wird vom Service-Role-Pfad auf den tokengebundenen Nutzerclient umgestellt.
+- Die Datenbank leitet den Eigentümer aus `auth.uid()` ab; die API übergibt keine `user_id` mehr.
+- Neue Migration und 29 pgTAP-Zusicherungen sind vorbereitet.
+- Typecheck, Lint und 2 neue Regressionstests sind lokal erfolgreich.
+- Lokales pgTAP ist mangels laufendem Docker offen; GitHub-CI bleibt der verbindliche Gate.
+- Supabase Advisor meldet getrennt den offenen Schutz gegen geleakte Passwörter.
+
+
 ## Aktueller Meilenstein: Phase 0 - Marktreife-Baseline
 
 Stand: 2026-08-11
@@ -254,3 +266,9 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Abgeleitete Fake-Fundamentals, Krypto-Supply-Werte, Mock-News, Demo-Portfolio-Kennzahlen, statische Vergleiche und Mock-Indexstände wurden entfernt oder fail-closed auf nicht verfügbar gesetzt.
 - Der Profi-Report bezieht sein Dashboard jetzt aus dem aktiven Marktprovider und besitzt kein eigenes hartcodiertes 15-Symbol-Universum mehr.
 - Gezielte Quant-, Komponenten- und Provider-Tests: 3 Dateien mit 7 Tests erfolgreich; TypeScript und gezielter Lint erfolgreich.
+## Phase 1 - validierter Zwischenstand (2026-08-11)
+
+- Mandantengebundene Feature-Quoten sind im Anwendungscode und in der neuen Migration umgesetzt.
+- Lokal bestanden: Format, TypeScript, ESLint, 125 Vitest-Dateien mit 990 Tests, Produktions-Build und 35 Playwright-Tests; 1 mobiler Duplikatlauf ist bewusst übersprungen.
+- `npm audit` meldet 0 bekannte Schwachstellen. Enterprise-Check: 99/100 ohne gesetzte Live-URL. Institutional-Check: 28/28.
+- Die neue pgTAP-Suite enthält exakt 29 Assertions. Die Ausführung bleibt bis zum GitHub-Datenbankworkflow offen, weil lokal keine Docker-Supabase-Instanz läuft.

@@ -1,37 +1,45 @@
 # Security Checklist
 
-Status: umgesetzt als technische Basis für das Mock-MVP. Vor Produktion sind Provider-spezifische Audits noetig.
+Stand: 2026-08-11
+
+Status: Technische Kernkontrollen sind implementiert und werden in CI geprüft.
+Verbleibende Risiken und externe Konfigurationen werden nicht als erledigt
+ausgegeben.
 
 ## API und Server
 
-- Eingaben für Symbole, Alerts und Portfolio-Transaktionen werden mit `zod` validiert.
-- Route Handler geben nur sanitizte Fehler mit Request-ID aus.
-- Server-seitige API-Fassade schuetzt zukuenftige Provider-Keys vor Frontend-Leaks.
-- Ein einfaches In-Memory Rate Limit reduziert Missbrauch im lokalen/Serverless-Kontext.
-- API-Antworten setzen `X-Content-Type-Options` und `Referrer-Policy`.
-- Globaler Header-Satz setzt `X-Frame-Options`, `Permissions-Policy` und CSP.
-- Kein Secret liegt in `NEXT_PUBLIC_*`, ausser bewusst oeffentliche Supabase-Anon-Werte.
+- Alle API-Routen nutzen zentrale Rate-Limits; der signaturgeprüfte Stripe-Webhook ist die dokumentierte Ausnahme.
+- Mutierende Browserrouten prüfen Same-Origin und validieren Eingaben mit `zod`.
+- Providerzugriffe laufen ausschließlich serverseitig über HTTPS-Allowlist, Timeout und Body-Limit.
+- Fehlerantworten enthalten keine Stacktraces oder Secrets.
+- Bezahlfunktionen und Kontingente werden serverseitig, fail-closed durchgesetzt.
+- Admin-, Cron-, Provider-Ping- und Reproduction-Routen verlangen getrennte privilegierte Secrets oder verifizierte Adminrechte.
+- Strukturierte Logs dürfen keine Tokens, Provider-Secrets oder Portfoliodetails enthalten.
 
-## Supabase
+## Supabase und Mandantentrennung
 
-- RLS ist für `profiles`, `watchlists`, `alert_rules`, `portfolio_positions` und `analysis_snapshots` aktiv.
-- Policies erlauben Nutzern nur eigene Datensaetze.
-- `analysis_snapshots.user_id` ist nicht mehr nullable, damit keine fremden Analyse-Snapshots public lesbar werden.
-- Indizes für Nutzer/Symbol-Zugriffe sind vorbereitet.
-- Alert- und Asset-Typen sind per Check Constraints begrenzt.
+- RLS ist auf allen exponierten Nutzertabellen aktiv und wird mit pgTAP geprüft.
+- Standardzugriffe auf Nutzerdaten verwenden den tokengebundenen Client.
+- Service Role bleibt auf dokumentierte Server-, Worker-, Webhook- und Adminpfade begrenzt.
+- Die Quotentabelle ist für Nutzer nur lesbar; direkte Inserts, Updates und Deletes sind entzogen.
+- `consume_feature_quota(text, integer)` leitet den Eigentümer aus `auth.uid()` ab und akzeptiert keine Nutzer-ID.
+- Anonyme und Service-Role-Aufrufe der Nutzer-Quota-RPC sind entzogen.
+- SECURITY-DEFINER-Funktionen setzen einen festen `search_path` und besitzen explizite EXECUTE-Rechte.
+- Datenbankmigrationen und Policies werden in GitHub-CI gegen eine echte lokale Supabase-Instanz getestet.
 
-## Frontend und PWA
+## Frontend, Auth und PWA
 
-- Sichtbarer Risiko-Hinweis beim ersten Start.
-- Rechtlicher Hinweis in Header, Detailanalyse, Portfolio und KI-/Wahrscheinlichkeitsbereichen.
-- Service Worker cached nur erfolgreiche GET-Antworten.
-- Offline-Daten liegen lokal im Browser und duerfen nicht als sicherer Langzeitspeicher betrachtet werden.
+- Im Browser liegen nur Supabase-Publishable-Werte; Service-, Stripe- und Provider-Secrets bleiben serverseitig.
+- Auth-Zustände laufen über Supabase-Sessions und verifizierte Bearer-Tokens.
+- React-Escaping, CSP, Frame-Schutz, Referrer-Policy und MIME-Sniffing-Schutz sind aktiv.
+- Der Service Worker cached nur erfolgreiche GET-Antworten.
+- Offline-Daten sind lokaler Komfortspeicher und werden nicht als sicherer Langzeitspeicher dargestellt.
+- Risiko- und Datenqualitätshinweise bleiben sichtbar.
 
-## Noch vor Produktion erforderlich
+## Aktuell offen
 
-- Provider-spezifische Rate Limits und Abuse Detection.
-- Auth-Flows mit Supabase Session Handling und Server Actions.
-- CSRF-Prüfung für Cookie-basierte Mutationen, falls später Cookies genutzt werden.
-- Zentrale strukturierte Logs ohne personenbezogene oder finanzielle Detaildaten.
-- SAST/DAST und Dependency Policy in CI.
-- Moderate `next`/`postcss` Audit-Findings weiter beobachten, bis eine stabile Next-Version mit gepatchter transitiver Abhängigkeit verfuegbar ist.
+- Supabase Security Advisor meldet `auth_leaked_password_protection`: Schutz gegen bekannte geleakte Passwörter ist deaktiviert.
+- Der konfigurierte Mindestwert von sechs Passwortzeichen liegt unter der Supabase-Empfehlung von mindestens acht.
+- Verteilter Rate-Limit- und Provider-Cache fehlt; In-Memory-Schutz ist nicht multi-instanzfest.
+- Vollständige Display-, Realtime- und Redistributionsrechte sind extern nicht abgeschlossen.
+- CAPTCHA, MFA-Produktflow und formale DAST-Abdeckung sind noch nicht vollständig umgesetzt.
