@@ -97,3 +97,12 @@ Ziel: Kein Exportpfad darf RLS pauschal umgehen. Alle persönlichen Tabellen wer
 Abnahme: Code-Regression, pgTAP-Mandantentest, vollständige Qualitätsgates, kontrollierte Produktionsmigration, GitHub-CI, StockPilot-Deployment und reale Export-/Fallback-Prüfung. BauPro bleibt vollständig unberührt.
 
 Lokaler Stand: implementiert und grün mit Formatprüfung, Typecheck, Lint, 129 Testdateien und 1.005 Tests, 10 pgTAP-Suiten und 207 Prüfungen, Produktions-Build mit 35 statischen Seiten sowie 35 bestandenen Browserflüssen und einem bewussten Skip.
+
+## Letzter Produktionsnachweis: DSGVO-Export-RLS (2026-08-11)
+
+- Merge: PR #59 / `ff9d45529e48df9b7acd268432e9ccf4c7c91c64`
+- Supabase: `harden_billing_export_tenant_boundary` angewendet und Rechte direkt gegen Produktion geprüft
+- CI: `31520423798` und `31520423808` erfolgreich
+- Vercel: `dpl_3eUzVsgZy6tBpLjz3SAgohqTHDo7`, Status READY, Alias `stockpilot-ai-beta.vercel.app`
+- Live: Kernseiten 200; anonymer Export 401; keine Fehler- oder Secret-Ausgabe
+- Abgrenzung: ausschließlich Projekt `stockpilot-ai`; BauPro unverändert
