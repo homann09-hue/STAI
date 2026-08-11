@@ -11,7 +11,7 @@ StockPilot AI wird Phase für Phase zu einem belegbar marktreifen Finanzanalyse-
 
 **Phase 1: Bestehende kritische Fehler beheben.**
 
-Aktiver Arbeitspunkt: Der DSGVO-Export wird vollständig an den tokengebundenen RLS-Client gebunden. Billing-Ereignisse werden ausschließlich lesbar und strikt auf `auth.uid()` begrenzt; die Service Role bleibt nur für administrative Kontolöschung.
+Aktiver Arbeitszustand: Die Provider-429-Stabilisierung ist produktiv abgeschlossen. Der nächste einzelne Phase-1-Befund wird erst nach diesem Abschlussnachweis priorisiert.
 
 ## Wichtigste Qualitätsregeln
 
@@ -112,3 +112,18 @@ Lokaler Stand: implementiert und grün mit Formatprüfung, Typecheck, Lint, 129 
 - Produktionsbefund: Dashboard-Smoke löste mehrere parallele FMP-429 aus.
 - Grenze: nur Quote-Routing, providerbezogener Cache/Backoff, FMP-Parallelität und Retry-After.
 - Fertig erst nach vollständigen lokalen Gates, CI, StockPilot-Deployment und erneuter Live-Log-Prüfung.
+
+## Produktionsabschluss: Provider-429-Stabilisierung
+
+- Quote-Batches werden providerweise aufgelöst; nur ungelöste Symbole erreichen den nächsten Anbieter.
+- Provider-Cache, gemeinsamer Backoff, Retry-After und konservative Parallelität greifen auf der tatsächlichen Provider-Ebene.
+- FMP ist kein Standard-Primary für Quotes mehr. Die API nennt die tatsächlich liefernden Quote-Provider in Body und Header.
+- Lokal: 130 Testdateien / 1.011 Tests, TypeScript, ESLint und Build vollständig grün.
+- GitHub: PR #61, #62 und #63 gemergt; finale Main-CI `31524154601` und Database Tests `31524154520` erfolgreich.
+- Last: 2.000/2.000 Sitzungen mit HTTP 200, keine HTTP-Fehler; p95 1.155 ms. 1.000-/2.000-Stressproben zeigen je 75 Client-Timeouts und damit weiteren horizontalen Skalierungsbedarf oberhalb des 500er Release-Gates.
+- Produktion: `dpl_87usaNbURyTjfTNwLaqzsPTmZmjx`, READY, Alias `stockpilot-ai-beta.vercel.app`.
+- Live: fünf Kernziele HTTP 200; zehn Quotes von Finnhub als `near_realtime`; kein Mock-/Unavailable-Fallback.
+- Log: ein gemeinsames FMP-Backoff-Ereignis, keine symbolweise 429-Anfragewelle.
+- Projektgrenze: ausschließlich `stockpilot-ai`; BauPro blieb unverändert.
+
+Nächster Schritt: Abschlussnachweis mergen und danach genau einen weiteren Phase-1-Befund nach Risiko und Produktwirkung auswählen. Die übergeordnete Marktreife-Mission bleibt aktiv.

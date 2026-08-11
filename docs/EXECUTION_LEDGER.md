@@ -4,15 +4,15 @@ Stand: 2026-08-11
 
 ## Aktueller Arbeitszustand
 
-| Feld | Tatsächlicher Stand |
-|---|---|
-| Phase | Phase 1: bestehende kritische Fehler beheben |
-| Aktive Aufgabe | DSGVO-Export-Mandantengrenze |
-| Produktionsstand | `main` auf `8bcba2315ecedc1ab2571cb60d5a636dbd40e2b3` |
-| Arbeitsbranch | `codex/phase-1-export-tenant-boundary` |
-| Repository | `homann09-hue/STAI` |
-| Produktion | `https://stockpilot-ai-beta.vercel.app` |
-| Vercel-Projekt | ausschließlich `stockpilot-ai`; BauPro blieb unberührt |
+| Feld             | Tatsächlicher Stand                                    |
+| ---------------- | ------------------------------------------------------ |
+| Phase            | Phase 1: bestehende kritische Fehler beheben           |
+| Aktive Aufgabe   | Abschlussnachweis Provider-429-Stabilisierung          |
+| Produktionsstand | `main` auf `743497c0cd7810e451e611899f2b80a7254df4e9`  |
+| Arbeitsbranch    | `codex/phase-1-provider-evidence`                      |
+| Repository       | `homann09-hue/STAI`                                    |
+| Produktion       | `https://stockpilot-ai-beta.vercel.app`                |
+| Vercel-Projekt   | ausschließlich `stockpilot-ai`; BauPro blieb unberührt |
 
 ## Abgeschlossener Arbeitspunkt
 
@@ -26,35 +26,35 @@ Stand: 2026-08-11
 
 ## Belegte Prüfungen
 
-| Gate | Ergebnis |
-|---|---|
-| Format | bestanden |
-| TypeScript | bestanden |
-| ESLint | bestanden, 0 Warnungen |
-| Unit/Integration | 128 Dateien, 1.001 Tests bestanden |
-| PostgreSQL/pgTAP lokal | 10 Dateien, 201 Prüfungen bestanden; Portfolio-Suite 31/31 |
-| Produktions-Build | bestanden, 35 statische Seiten erzeugt |
-| Browser/E2E | 35 bestanden, 1 plattformbedingt bewusst übersprungen |
-| Parallel-Hydrationstest | 5/5 Desktop-Durchläufe bestanden |
-| Pull Request | #55, gemergt als `6df7f4e` |
-| Main-CI | Lauf 31515860871 bestanden |
-| Main-Datenbanktests | Lauf 31515860967 bestanden |
+| Gate                    | Ergebnis                                                   |
+| ----------------------- | ---------------------------------------------------------- |
+| Format                  | bestanden                                                  |
+| TypeScript              | bestanden                                                  |
+| ESLint                  | bestanden, 0 Warnungen                                     |
+| Unit/Integration        | 128 Dateien, 1.001 Tests bestanden                         |
+| PostgreSQL/pgTAP lokal  | 10 Dateien, 201 Prüfungen bestanden; Portfolio-Suite 31/31 |
+| Produktions-Build       | bestanden, 35 statische Seiten erzeugt                     |
+| Browser/E2E             | 35 bestanden, 1 plattformbedingt bewusst übersprungen      |
+| Parallel-Hydrationstest | 5/5 Desktop-Durchläufe bestanden                           |
+| Pull Request            | #55, gemergt als `6df7f4e`                                 |
+| Main-CI                 | Lauf 31515860871 bestanden                                 |
+| Main-Datenbanktests     | Lauf 31515860967 bestanden                                 |
 
 ## Produktionsnachweis
 
-| Beleg | Ergebnis |
-|---|---|
-| Migration | `20260811193000_harden_portfolio_trade_tenant_identity` angewendet |
-| Aktive RPC | `apply_portfolio_trade(text,text,text,text,text,numeric,numeric,text,integer)` |
-| Eigentümerbindung | `auth.uid()` aktiv; kein `p_user_id` |
-| Ausführungsmodus | `SECURITY INVOKER`, leerer `search_path` |
-| Rechte | `authenticated`: EXECUTE; `anon`, `service_role`, `public`: kein EXECUTE |
-| Alte Signatur | entfernt |
-| Security Advisor | kein Portfolio-Befund |
-| Vercel | `dpl_H6FXaQ35nnYeLcw2bbxgJMUm9Cqg`, READY |
-| Live-Smoke | `/`, `/api/health`, `/portfolio`, `/assets/AAPL` jeweils HTTP 200 |
-| Live-Portfolio | lokale MSFT-Buchung erfolgreich; nur GET, kein Cloud-POST |
-| Produktionsfehlerlog | keine Fehler im Prüfzeitraum |
+| Beleg                | Ergebnis                                                                       |
+| -------------------- | ------------------------------------------------------------------------------ |
+| Migration            | `20260811193000_harden_portfolio_trade_tenant_identity` angewendet             |
+| Aktive RPC           | `apply_portfolio_trade(text,text,text,text,text,numeric,numeric,text,integer)` |
+| Eigentümerbindung    | `auth.uid()` aktiv; kein `p_user_id`                                           |
+| Ausführungsmodus     | `SECURITY INVOKER`, leerer `search_path`                                       |
+| Rechte               | `authenticated`: EXECUTE; `anon`, `service_role`, `public`: kein EXECUTE       |
+| Alte Signatur        | entfernt                                                                       |
+| Security Advisor     | kein Portfolio-Befund                                                          |
+| Vercel               | `dpl_H6FXaQ35nnYeLcw2bbxgJMUm9Cqg`, READY                                      |
+| Live-Smoke           | `/`, `/api/health`, `/portfolio`, `/assets/AAPL` jeweils HTTP 200              |
+| Live-Portfolio       | lokale MSFT-Buchung erfolgreich; nur GET, kein Cloud-POST                      |
+| Produktionsfehlerlog | keine Fehler im Prüfzeitraum                                                   |
 
 ## Offene externe Blocker
 
@@ -86,18 +86,18 @@ DSGVO-Export und administrative Kontolöschung erzeugen die Service Role erst in
 
 ## GitHub- und Produktionsnachweis
 
-| Beleg | Ergebnis |
-|---|---|
-| Pull Request | #57, gemergt als `3ceac72` |
-| PR-CI | vollständig grün einschließlich Vercel-Vorschau und pgTAP |
-| Main-CI | Lauf `31518017780` vollständig grün |
-| Main-Datenbanktests | Lauf `31518017734` vollständig grün |
-| Produktion | `dpl_5a5ih8TAvs1mqcJE8ND8RC8iwAeq`, READY |
-| Live-Alias | `https://stockpilot-ai-beta.vercel.app` |
-| Live-Smokes | `/`, `/api/health`, `/watchlist`, `/portfolio`, `/settings` jeweils HTTP 200 |
-| Session-Fallback | anonymes und ungültiges Token bleiben lokal, `cloudSync: false` |
-| Produktionsfehlerlog | keine Fehler im Prüfzeitraum |
-| BauPro | nicht verändert und nicht deployt |
+| Beleg                | Ergebnis                                                                     |
+| -------------------- | ---------------------------------------------------------------------------- |
+| Pull Request         | #57, gemergt als `3ceac72`                                                   |
+| PR-CI                | vollständig grün einschließlich Vercel-Vorschau und pgTAP                    |
+| Main-CI              | Lauf `31518017780` vollständig grün                                          |
+| Main-Datenbanktests  | Lauf `31518017734` vollständig grün                                          |
+| Produktion           | `dpl_5a5ih8TAvs1mqcJE8ND8RC8iwAeq`, READY                                    |
+| Live-Alias           | `https://stockpilot-ai-beta.vercel.app`                                      |
+| Live-Smokes          | `/`, `/api/health`, `/watchlist`, `/portfolio`, `/settings` jeweils HTTP 200 |
+| Session-Fallback     | anonymes und ungültiges Token bleiben lokal, `cloudSync: false`              |
+| Produktionsfehlerlog | keine Fehler im Prüfzeitraum                                                 |
+| BauPro               | nicht verändert und nicht deployt                                            |
 
 ## Aktiver Befund und Umsetzung
 
@@ -139,3 +139,29 @@ Den isolierten Branch committen und über GitHub-CI prüfen. Danach Migration `2
 - **Ursache:** Chained Batches verwendeten Cache und Backoff auf Kettenebene statt auf den inneren Providern; FMP war zugleich Standard-Primary.
 - **Umsetzung:** providerweise Batch-Auflösung, konservative FMP-Parallelität, strukturierter Retry-After und Quote-spezifische Providerreihenfolge.
 - **Status:** Implementierung angelegt; lokale und externe Abschlussnachweise ausstehend.
+
+## Abschlussnachweis - Phase 1 Provider-429-Stabilisierung
+
+| Beleg                      | Ergebnis                                                                     |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| Implementierung            | PR #61, Merge `fc790088ad59edf1e5da43245ac015d73146e236`                     |
+| CI-Infrastruktur           | PR #62, Merge `4aafd4ea0a3a4abcd190965a75afe0676fdd8428`                     |
+| Provenienzkorrektur        | PR #63, Merge `743497c0cd7810e451e611899f2b80a7254df4e9`                     |
+| Lokale Gates               | Format, TypeScript, ESLint, 130 Dateien / 1.011 Tests, Build mit 35 Seiten   |
+| Browser                    | 35 bestanden, 1 bewusst übersprungen                                         |
+| Lasttest                   | 2.000 aktive Sitzungen, 2.000 HTTP 200, 0 HTTP-Fehler, p95 1.155 ms, Peak 52 |
+| Stress-Gate                | bis 500 parallel ohne Fehler; 1.000/2.000 separat mit je 75 Client-Timeouts  |
+| Finale Main-CI             | `31524154601`, erfolgreich                                                   |
+| Finale Main-Datenbanktests | `31524154520`, erfolgreich; 207 pgTAP-Prüfungen                              |
+| Produktion                 | `dpl_87usaNbURyTjfTNwLaqzsPTmZmjx`, READY                                    |
+| Live-Alias                 | `https://stockpilot-ai-beta.vercel.app`                                      |
+| Live-Smoke                 | `/`, `/markets`, `/assets/NVDA`, `/api/health`, Quote-Batch: HTTP 200        |
+| Quote-Provenienz           | Sammelquelle Finnhub; 10/10 `near_realtime`; kein Mock/Unavailable           |
+| Produktionslog             | ein gemeinsamer FMP-Backoff, keine symbolweise 429-Welle                     |
+| Projektgrenze              | ausschließlich StockPilot; BauPro nicht geändert oder deployt                |
+
+Die früher beobachtete 429-Welle ist damit technisch und produktiv behoben. Ein einzelner Upstream-Backoff bleibt erwartbares Providerverhalten und wird jetzt gebündelt, zwischengespeichert und ohne falsche Echtzeit- oder Quellenangabe behandelt.
+
+## Nächster zulässiger Schritt
+
+Den Abschlussnachweis über die vollständigen GitHub-Gates mergen. Danach genau einen weiteren Phase-1-Befund anhand messbarer Sicherheits- oder Produktwirkung auswählen; die übergeordnete Marktreife-Mission bleibt aktiv.
