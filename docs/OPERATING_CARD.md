@@ -47,3 +47,11 @@ Implementierung, Typecheck, Lint, Unit- und Integrationstests, relevante E2E-Tes
 - Provider-Provenance und Datenqualität bis in die UI erhalten.
 - BauPro niemals verändern, neu deployen oder mit StockPilot-Artefakten vermischen.
 - `STATUS.md`, `docs/EXECUTION_LEDGER.md` und belegte Blocker nach jedem Meilenstein aktualisieren.
+
+## Abschluss dieses Arbeitspunkts
+
+Status: abgeschlossen am 2026-08-11.
+
+Belegt durch PR #51, Merge c2e43c6, grüne Main-CI- und pgTAP-Läufe, angewendete Produktionsmigration, READY-Deployment dpl_9rgmGDqW9BqmW3BkJJBmkryKLMab, 5/5 erfolgreiche Live-Smokes und leeres Vercel-Fehlerlog.
+
+Nächster einzelner Phase-1-Arbeitspunkt: Auth-/Passwort-Härtung gemäß BLOCKER-012. Die übergeordnete Marktreife-Mission bleibt aktiv.
