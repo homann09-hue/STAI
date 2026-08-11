@@ -10,23 +10,40 @@ import {
 } from "@/lib/scoring";
 import type {
   AnalysisLayer,
+  AssetScoreEvidence,
   DataQualityReport,
   MacroFactor,
   ProfessionalScores,
-  RiskEngineReport
+  RiskEngineReport,
+  ScoreEvidencePoint
 } from "@/lib/types";
 
 function clampScore(value: number) {
   return Number.isFinite(value) ? Math.min(100, Math.max(0, Math.round(value))) : 0;
 }
 
-function SmallMeter({ label, value, danger }: { label: string; value: number; danger?: boolean }) {
-  const safeValue = clampScore(value);
+export function EvidenceScoreMeter({
+  label,
+  value,
+  evidence,
+  danger
+}: {
+  label: string;
+  value: number | null;
+  evidence?: ScoreEvidencePoint;
+  danger?: boolean;
+}) {
+  const available = value !== null && Number.isFinite(value);
+  const safeValue = available ? clampScore(value) : 0;
+  const status = evidence?.availability === "partial" ? "Teilweise belegt" : available ? "Belegt" : "Nicht belegt";
+
   return (
-    <div className="rounded-md border border-stroke bg-panel p-3">
+    <div className="rounded-md border border-stroke bg-panel p-3" title={evidence?.rationale}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-xs text-muted">{label}</p>
-        <p className="font-mono text-lg font-semibold">{safeValue}</p>
+        <p className={available ? "font-mono text-lg font-semibold" : "font-mono text-lg font-semibold text-muted"}>
+          {available ? safeValue : "n/a"}
+        </p>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-stroke">
         <div
@@ -34,33 +51,54 @@ function SmallMeter({ label, value, danger }: { label: string; value: number; da
           style={{ width: `${safeValue}%` }}
         />
       </div>
+      <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-muted">
+        <span>{status}</span>
+        {evidence && evidence.confidence > 0 ? <span>Konfidenz {evidence.confidence}%</span> : null}
+      </div>
     </div>
   );
 }
 
-export function ProfessionalScoresPanel({ scores }: { scores: ProfessionalScores }) {
+export function ProfessionalScoresPanel({
+  evidence
+}: {
+  scores: ProfessionalScores;
+  evidence?: AssetScoreEvidence;
+}) {
   return (
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <SmallMeter label="Technical" value={scores.technical} />
-        <SmallMeter label="Fundamental" value={scores.fundamental} />
-        <SmallMeter label="News" value={scores.news} />
-        <SmallMeter label="Sentiment" value={scores.sentiment} />
-        <SmallMeter label="Momentum" value={scores.momentum} />
-        <SmallMeter label="Volatility Risk" value={scores.volatilityRisk} danger />
-        <SmallMeter label="Liquidity Risk" value={scores.liquidityRisk} danger />
-        <SmallMeter label="Event Risk" value={scores.eventRisk} danger />
+        <EvidenceScoreMeter label="Technical" value={evidence?.dimensions.technical.value ?? null} evidence={evidence?.dimensions.technical} />
+        <EvidenceScoreMeter label="Fundamental" value={evidence?.dimensions.fundamental.value ?? null} evidence={evidence?.dimensions.fundamental} />
+        <EvidenceScoreMeter label="News" value={evidence?.dimensions.news.value ?? null} evidence={evidence?.dimensions.news} />
+        <EvidenceScoreMeter label="Sentiment" value={evidence?.dimensions.news.value ?? null} evidence={evidence?.dimensions.news} />
+        <EvidenceScoreMeter label="Momentum" value={evidence?.dimensions.trend.value ?? null} evidence={evidence?.dimensions.trend} />
+        <EvidenceScoreMeter label="Volatilitätsrisiko" value={evidence?.dimensions.risk.value ?? null} evidence={evidence?.dimensions.risk} danger />
+        <EvidenceScoreMeter label="Liquiditätsrisiko" value={null} danger />
+        <EvidenceScoreMeter label="Ereignisrisiko" value={null} danger />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-md border border-profit/25 bg-profit/10 p-4">
           <p className="text-sm text-muted">Gesamt-Chancen-Score</p>
-          <p className="mt-2 font-mono text-3xl font-semibold text-profit">{scores.opportunityTotal}/100</p>
-          <p className="mt-2 text-xs text-muted">{scoreLabel(scores.opportunityTotal)}</p>
+          <p className="mt-2 font-mono text-3xl font-semibold text-profit">
+            {evidence?.dimensions.total.value === null || evidence?.dimensions.total.value === undefined ? "n/a" : `${evidence.dimensions.total.value}/100`}
+          </p>
+          <p className="mt-2 text-xs text-muted">
+            {evidence?.dimensions.total.value === null || evidence?.dimensions.total.value === undefined
+              ? "Nicht genug verifizierte Dimensionen für einen Gesamtwert."
+              : scoreLabel(evidence.dimensions.total.value)}
+          </p>
         </div>
         <div className="rounded-md border border-loss/25 bg-loss/10 p-4">
           <p className="text-sm text-muted">Gesamt-Risiko-Score</p>
-          <p className="mt-2 font-mono text-3xl font-semibold text-loss">{scores.riskTotal}/100</p>
-          <p className="mt-2 text-xs text-muted">Höherer Wert bedeutet höheres Modellrisiko.</p>
+          <p className="mt-2 font-mono text-3xl font-semibold text-loss">
+            {evidence?.dimensions.risk.value === null || evidence?.dimensions.risk.value === undefined ? "n/a" : `${evidence.dimensions.risk.value}/100`}
+          </p>
+          <p className="mt-2 text-xs text-muted">
+            {evidence?.dimensions.risk.value === null || evidence?.dimensions.risk.value === undefined
+              ? "Kein belegbarer Risikowert verfügbar."
+              : "Höherer Wert bedeutet höheres Modellrisiko."}
+          </p>
         </div>
       </div>
     </div>
@@ -71,6 +109,17 @@ export function ProbabilityPanel({ scores }: { scores: ProfessionalScores }) {
   const up = clampScore(scores.probabilityUp);
   const down = clampScore(scores.probabilityDown);
   const sideways = clampScore(scores.probabilitySideways);
+
+  if (up + down + sideways === 0) {
+    return (
+      <div className="rounded-md border border-amber/30 bg-amber/10 p-4">
+        <p className="text-sm font-semibold text-amber">Modellbasierte Wahrscheinlichkeiten</p>
+        <p className="mt-3 text-sm leading-6 text-muted">
+          Wahrscheinlichkeiten zurückgehalten: Für eine belastbare Schätzung fehlen ausreichend verifizierte Daten.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-md border border-amber/30 bg-amber/10 p-4">

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { riskTone, scoreLabel, scoreTone } from "@/lib/scoring";
+import { scoreValue } from "@/lib/analysis/evidence-scores";
 import type { AssetSummary, DashboardData, RiskLevel } from "@/lib/types";
 
 type CapitalProfile = {
@@ -129,8 +130,10 @@ function compactMoney(value: number) {
 }
 
 function convictionScore(item: AssetSummary) {
-  const base = (item.scores.total + item.scores.trend + item.scores.technical + item.scores.news) / 4;
-  const quality = item.dataQuality?.score ?? 62;
+  const values = (["total", "trend", "technical", "news"] as const).map((dimension) => scoreValue(item, dimension));
+  if (values.some((value) => value === null) || !item.dataQuality) return null;
+  const base = (values as number[]).reduce((sum, value) => sum + value, 0) / values.length;
+  const quality = item.dataQuality.score;
   const riskDrag = riskMultipliers[item.aiRisk];
   const assetStability = item.asset.type === "etf" ? 1.12 : item.asset.type === "crypto" ? 0.72 : 1;
 
@@ -150,8 +153,12 @@ export function CapitalCommandCenter({ data }: { data: DashboardData }) {
     const candidates = data.watchlist
       .map((item) => ({
         item,
-        conviction: convictionScore(item)
+        conviction: convictionScore(item),
+        score: scoreValue(item, "total")
       }))
+      .filter((candidate): candidate is { item: AssetSummary; conviction: number; score: number } =>
+        candidate.conviction !== null && candidate.score !== null
+      )
       .sort((a, b) => b.conviction - a.conviction)
       .slice(0, profile.positions);
     const totalConviction = candidates.reduce((sum, candidate) => sum + candidate.conviction, 0) || 1;
@@ -167,7 +174,7 @@ export function CapitalCommandCenter({ data }: { data: DashboardData }) {
         symbol: candidate.item.asset.symbol,
         name: candidate.item.asset.name,
         type: candidate.item.asset.type,
-        score: candidate.item.scores.total,
+        score: candidate.score,
         risk: candidate.item.aiRisk,
         allocation,
         weight: capital ? (allocation / capital) * 100 : 0,
@@ -328,7 +335,11 @@ export function CapitalCommandCenter({ data }: { data: DashboardData }) {
               </div>
 
               <div className="mt-4 space-y-3">
-                {model.allocations.map((allocation) => (
+                {model.allocations.length === 0 ? (
+                  <p className="rounded-2xl border border-stroke bg-ink/45 p-4 text-sm leading-6 text-muted">
+                    Keine Modellallokation: Es liegen noch keine vollständig belegten Gesamt-Scores vor.
+                  </p>
+                ) : model.allocations.map((allocation) => (
                   <Link
                     key={allocation.symbol}
                     href={`/assets/${encodeURIComponent(allocation.symbol)}`}

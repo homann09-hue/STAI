@@ -398,6 +398,7 @@ function rowFromDetail(detail: AssetDetail, quote: NormalizedQuote): Professiona
     quote,
     marketCore: marketCore(detail, quote),
     scores: detail.scores,
+    scoreEvidence: detail.scoreEvidence,
     aiRisk: detail.aiRisk,
     dataQuality: detail.dataQuality as DataQualityReport | null
   };

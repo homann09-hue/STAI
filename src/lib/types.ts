@@ -441,6 +441,24 @@ export interface Scores {
   total: number;
 }
 
+export type ScoreEvidenceAvailability = "available" | "partial" | "unavailable";
+
+export interface ScoreEvidencePoint {
+  value: number | null;
+  availability: ScoreEvidenceAvailability;
+  confidence: number;
+  sources: string[];
+  asOf: string;
+  rationale: string;
+  sampleSize?: number;
+}
+
+export interface AssetScoreEvidence {
+  version: string;
+  generatedAt: string;
+  dimensions: Record<keyof Scores, ScoreEvidencePoint>;
+}
+
 export interface AiAnalysis {
   summary: string;
   upsideDrivers: string[];
@@ -469,6 +487,7 @@ export interface AssetSummary {
   asset: Asset;
   quote: Quote;
   scores: Scores;
+  scoreEvidence?: AssetScoreEvidence;
   professionalScores?: ProfessionalScores;
   dataQuality?: DataQualityReport;
   riskReport?: RiskEngineReport;
@@ -754,6 +773,7 @@ export interface ProfessionalScreenerRow {
   quote: NormalizedQuote;
   marketCore: ProfessionalDataPoint[];
   scores: Scores;
+  scoreEvidence?: AssetScoreEvidence;
   aiRisk: RiskLevel;
   dataQuality: DataQualityReport | null;
   equityFundamentals?: EquityFundamentalsProfile;

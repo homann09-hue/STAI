@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   AnalysisLayersPanel,
   DataQualityPanel,
+  EvidenceScoreMeter,
   ProbabilityPanel,
   ProfessionalScoresPanel,
   RiskEnginePanel
@@ -24,7 +25,7 @@ import {
   TrendingDown,
   TrendingUp
 } from "lucide-react";
-import { CandlestickChart, PriceLineChart, ScoreMeter } from "@/components/charts";
+import { CandlestickChart, PriceLineChart } from "@/components/charts";
 import { AssetDecisionPanel } from "@/components/asset-decision-panel";
 import { MarketDataStatus } from "@/components/market-data-status";
 import { NewsList } from "@/components/news-list";
@@ -35,10 +36,9 @@ import {
   formatCurrency,
   formatPercent,
   legalDisclaimer,
-  riskTone,
-  scoreLabel,
-  scoreTone
+  riskTone
 } from "@/lib/scoring";
+import { scorePoint, scoreValue } from "@/lib/analysis/evidence-scores";
 import { buildAssetReadiness, buildFundamentalMetrics } from "@/lib/asset-readiness";
 import { buildAssetProvenancePassport, type AssetProvenanceEntry } from "@/lib/asset-provenance";
 import { buildForecastPassport, type ForecastPassport } from "@/lib/forecast-passport";
@@ -465,10 +465,16 @@ export function AssetDetailView({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <ScoreMeter score={detail.scores.total} label="Gesamt-Score" />
+          <EvidenceScoreMeter
+            label="Gesamt-Score"
+            value={scoreValue(detail, "total")}
+            evidence={scorePoint(detail, "total")}
+          />
           <div className="rounded-md border border-stroke bg-panel p-4">
-            <p className={`text-sm ${scoreTone(detail.scores.total)}`}>
-              {scoreLabel(detail.scores.total)}
+            <p className="text-sm text-muted">
+              {scoreValue(detail, "total") === null
+                ? "Gesamtbewertung zurückgehalten, bis genügend verifizierte Dimensionen vorliegen."
+                : "Evidenzgebundene Gesamtbewertung mit Quellen- und Konfidenzstatus."}
             </p>
             <p className="mt-2 text-sm leading-6 text-muted">{detail.asset.description}</p>
           </div>
@@ -652,11 +658,11 @@ export function AssetDetailView({
       {investorModePolicy.showProfessionalScores ? (
         <section>
           <h2 className="mb-3 text-lg font-semibold">Transparentes Score-Modell</h2>
-          <ProfessionalScoresPanel scores={detail.professionalScores} />
+          <ProfessionalScoresPanel scores={detail.professionalScores} evidence={detail.scoreEvidence} />
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <ScoreMeter score={detail.scores.trend} label="Legacy Trend Score" />
-            <ScoreMeter score={detail.scores.news} label="Legacy News Score" />
-            <ScoreMeter score={detail.scores.risk} label="Legacy Risk Score" />
+            <EvidenceScoreMeter label="Trend Score" value={scoreValue(detail, "trend")} evidence={scorePoint(detail, "trend")} />
+            <EvidenceScoreMeter label="News Score" value={scoreValue(detail, "news")} evidence={scorePoint(detail, "news")} />
+            <EvidenceScoreMeter label="Risiko-Score" value={scoreValue(detail, "risk")} evidence={scorePoint(detail, "risk")} danger />
           </div>
         </section>
       ) : null}
