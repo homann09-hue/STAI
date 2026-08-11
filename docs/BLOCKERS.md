@@ -327,3 +327,15 @@ ausführen und den Befund erst bei leerem Ergebnis schließen.
 
 **Unabhängig im Code fortsetzbar:** Mindestlänge und Passwortregeln können
 gehärtet sowie verständliche Fehlerzustände getestet werden.
+
+### Ergänzung zu BLOCKER-012 vom 2026-08-11
+
+Der Anwendungscode und die versionierte lokale Supabase-Konfiguration sind auf mindestens 10 Zeichen, Bestätigung beim Reset und secure_password_change gehärtet. Der lokale Drift-Test ist grün.
+
+Nicht als erledigt gemeldet:
+- Die Supabase-CLI besitzt auf diesem Rechner keinen Management-Zugang.
+- Ein vollständiges config push wäre wegen weiterer lokaler Einstellungen, insbesondere lokaler URLs, zu breit und wurde bewusst nicht ausgeführt.
+- Die produktiven Auth-Schalter müssen gezielt im Supabase-Dashboard oder über einen eng begrenzten Management-API-Zugang gesetzt und danach erneut geprüft werden.
+- Leaked-Password-Protection bleibt tarifabhängig und laut Supabase erst ab Pro verfügbar.
+
+Offizielle Anleitung: https://supabase.com/docs/guides/auth/password-security

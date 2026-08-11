@@ -5,6 +5,7 @@ import {
   safeRedirectTarget,
   validateEmail,
   validatePassword,
+  validatePasswordChange,
   validateRegistration
 } from "@/lib/auth/credentials";
 
@@ -75,6 +76,28 @@ describe("Registrierung", () => {
 
   it("ist zufrieden, wenn alles stimmt", () => {
     expect(validateRegistration("a@b.de", "korrekt pferd batterie", "korrekt pferd batterie")).toEqual([]);
+  });
+});
+
+describe("Passwortwechsel", () => {
+  it("verlangt eine zweite Eingabe", () => {
+    const issues = validatePasswordChange("korrekt pferd batterie", "");
+
+    expect(issues).toEqual([
+      { field: "confirm", message: "Bitte wiederholen Sie das neue Passwort." }
+    ]);
+  });
+
+  it("verhindert Tippfehler beim Zurücksetzen", () => {
+    const issues = validatePasswordChange("korrekt pferd batterie", "korrekt pferd batterei");
+
+    expect(issues).toEqual([
+      { field: "confirm", message: "Die beiden Passwörter stimmen nicht überein." }
+    ]);
+  });
+
+  it("akzeptiert zwei identische sichere Passwörter", () => {
+    expect(validatePasswordChange("korrekt pferd batterie", "korrekt pferd batterie")).toEqual([]);
   });
 });
 

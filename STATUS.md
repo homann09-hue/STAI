@@ -282,3 +282,12 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Produktion dpl_9rgmGDqW9BqmW3BkJJBmkryKLMab ist READY und über https://stockpilot-ai-beta.vercel.app erreichbar.
 - Live-Smoke: Startseite, Health, AAPL, News und Provider-Status jeweils HTTP 200; Vercel-Fehlerlog leer.
 - Phase 1 bleibt aktiv. Nächster einzelne Arbeitspunkt ist die Auth-/Passwort-Härtung aus BLOCKER-012.
+
+## Phase 1 - Auth-/Passwort-Härtung in Prüfung (2026-08-11)
+
+- Passwort-Reset verlangt jetzt zwei identische sichere Eingaben und blockiert Tippfehler vor dem Provider-Aufruf.
+- Formularfelder verknüpfen Hilfen und Fehler über ARIA; Erfolg und Fehler werden assistiven Technologien angekündigt.
+- App und lokale Supabase-Konfiguration erzwingen konsistent mindestens 10 Zeichen; ein Drift-Test sichert die Übereinstimmung.
+- Lokale Supabase-Konfiguration aktiviert secure_password_change.
+- Lokal bestanden: Format, TypeScript, ESLint, 127 Testdateien mit 998 Tests, Build mit 35 Seiten und 35 Browser-Tests; 1 Lauf bewusst übersprungen.
+- Produktion wurde für diesen noch ungeprüften Arbeitspunkt nicht verändert. Supabase-Produktionsschalter und Leaked-Password-Protection bleiben extern offen.

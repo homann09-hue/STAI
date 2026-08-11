@@ -99,3 +99,17 @@ Quota-Fix vollständig validieren, per PR durch pgTAP prüfen, Migration kontrol
 | Produktionsfehlerlog | keine Fehler im Prüfzeitraum |
 
 Die Quoten-RPC ist absichtlich als eng begrenzte SECURITY-DEFINER-Funktion über PostgREST erreichbar. Der Supabase-Linter meldet diese beabsichtigte Erreichbarkeit generisch; die Funktion ist durch auth.uid(), feste Feature-Whitelist, feste Grenzwerte, leeren search_path, atomare Schreiblogik und 29 pgTAP-Assertions abgesichert. Der separate Hinweis zur deaktivierten Leaked-Password-Protection bleibt als BLOCKER-012 offen.
+
+## Phase 1 - Auth-/Passwort-Härtung, lokaler Nachweis (2026-08-11)
+
+| Gate | Ergebnis |
+|---|---|
+| Passwortlogik | Reset-Bestätigung und Tippfehlerblockade implementiert |
+| Konfigurationsdrift | App und Supabase lokal auf 10 Zeichen synchronisiert |
+| Sicherer Passwortwechsel | lokal aktiviert |
+| Gezielte Auth-Tests | 3 Dateien, 24 Tests bestanden |
+| Vollständige Tests | 127 Dateien, 998 Tests bestanden |
+| Format/TypeScript/ESLint | bestanden |
+| Produktions-Build | bestanden, 35 Seiten |
+| Browser/E2E | 35 bestanden, 1 bewusst übersprungen |
+| Produktionskonfiguration | nicht verändert; Management-Zugang fehlt |

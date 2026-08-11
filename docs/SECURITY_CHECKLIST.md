@@ -56,3 +56,13 @@ ausgegeben.
 - [ ] Supabase Leaked-Password-Protection aktivieren; extern und tarifabhängig, siehe BLOCKER-012.
 
 Akzeptierter Linter-Hinweis: Supabase warnt allgemein vor einer durch authenticated ausführbaren SECURITY-DEFINER-Funktion. Für consume_feature_quota ist diese Ausführbarkeit beabsichtigt, weil direkte Tabellen-Schreibrechte die Quotenintegrität schwächen würden. Die RPC besitzt keine wählbare Nutzer-ID, arbeitet nur auf auth.uid(), akzeptiert nur zwei feste Features und ist mit atomaren Tenant-Isolationstests abgesichert.
+
+## Auth-Härtung vom 2026-08-11
+
+- [x] Neue und zurückgesetzte Passwörter werden in der App auf mindestens 10 Zeichen geprüft.
+- [x] Die lokale Supabase-Serverregel entspricht exakt der App-Regel; ein Drift-Test verhindert Abweichungen.
+- [x] Passwort-Reset verlangt eine Bestätigung und sendet bei Abweichung keinen Provider-Aufruf.
+- [x] Sichere Passwortänderung ist in der versionierten Supabase-Konfiguration aktiviert.
+- [x] Fehler-, Hilfe- und Erfolgszustände sind barrierefrei verknüpft.
+- [ ] Produktionsprojekt gezielt auf dieselben Auth-Schalter prüfen und aktualisieren.
+- [ ] Leaked-Password-Protection im Supabase-Projekt aktivieren; laut Anbieter erst ab Pro verfügbar.
