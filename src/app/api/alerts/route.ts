@@ -1,4 +1,3 @@
-import { mockAlerts } from "@/lib/mock/market";
 import { jsonError, jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
 import { createUserAlert, deleteUserAlert, getSupabaseAuth, listUserAlerts, updateUserAlert } from "@/lib/supabase/user-data";
 import { alertInputSchema, alertUpdateInputSchema } from "@/lib/validation";
@@ -35,15 +34,15 @@ export async function GET(request: Request) {
   }
 
   return jsonOk({
-    alerts: mockAlerts,
+    alerts: [],
     mode: "local",
     reason: auth.reason,
     metadata: {
       storage: "client",
-      dataQuality: "mock",
-      demo: true,
-      execution: "demo_only",
-      disclaimer: "Demo-Alerts aus Mock-Daten. Sie wirken nicht als echte Server-Benachrichtigungen."
+      dataQuality: "user_data",
+      demo: false,
+      execution: "unavailable",
+      disclaimer: "Keine Anmeldung aktiv. Es werden nur lokal vom Nutzer erstellte Regeln angezeigt und nicht serverseitig ausgeführt."
     }
   }, { headers: userDataHeaders });
 }

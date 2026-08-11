@@ -1,5 +1,5 @@
 import { PortfolioView } from "@/components/portfolio-view";
-import { getMockPortfolio } from "@/lib/mock/market";
+import { analyzePortfolio } from "@/lib/portfolio-analytics";
 
 export const metadata = {
   title: "Portfolio",
@@ -12,5 +12,5 @@ export const metadata = {
 };
 
 export default function PortfolioPage() {
-  return <PortfolioView initialPortfolio={getMockPortfolio()} />;
+  return <PortfolioView initialPortfolio={analyzePortfolio([])} />;
 }
