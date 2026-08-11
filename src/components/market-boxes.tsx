@@ -2,35 +2,14 @@ import Link from "next/link";
 import { memo, useMemo } from "react";
 import { Brain, Briefcase, Flame, Newspaper, Star, TrendingDown, TrendingUp } from "lucide-react";
 import { DataQualityNotice } from "@/components/data-quality-indicator";
-import { DataQualityBadge, MiniSparkline, PriceChangeLabel, RealtimePrice, quoteFromSummary } from "@/components/live-market-widgets";
+import { DataQualityBadge, PriceChangeLabel, RealtimePrice, quoteFromSummary } from "@/components/live-market-widgets";
+import { scoreValue } from "@/lib/analysis/evidence-scores";
 import { formatCompact, formatCurrency, formatPercent, riskTone } from "@/lib/scoring";
 import { formatGermanDateTime } from "@/lib/date-time";
 import type { AssetSummary, DashboardData, NewsItem, NormalizedQuote } from "@/lib/types";
 
-function tinyCandles(item: AssetSummary, liveQuote?: NormalizedQuote) {
-  const quote = quoteFromSummary(item, liveQuote);
-  const move = Math.max(Math.abs(quote.change), quote.price * 0.004);
-
-  return [0, 1, 2, 3, 4].map((step) => {
-    const close = quote.price - quote.change + (quote.change / 4) * step + Math.cos(step * 1.1) * move * 0.1;
-    return {
-      symbol: item.asset.symbol,
-      range: "1D" as const,
-      timestamp: quote.asOf,
-      time: "",
-      open: close - move * 0.1,
-      high: close + move * 0.18,
-      low: close - move * 0.18,
-      close,
-      volume: quote.volume / 5
-    };
-  });
-}
-
 const RankedRow = memo(function RankedRow({ item, rank, liveQuote }: { item: AssetSummary; rank: number; liveQuote?: NormalizedQuote }) {
   const quote = quoteFromSummary(item, liveQuote);
-  const positive = quote.changePercent >= 0;
-  const sparklineCandles = useMemo(() => tinyCandles(item, liveQuote), [item, liveQuote]);
 
   return (
     <Link href={`/assets/${encodeURIComponent(item.asset.symbol)}`} className="grid grid-cols-[2rem_1fr_auto] items-center gap-3 rounded-2xl border border-stroke bg-panel/68 p-3 transition hover:border-cyan/40 hover:bg-panel2">
@@ -46,9 +25,7 @@ const RankedRow = memo(function RankedRow({ item, rank, liveQuote }: { item: Ass
       <div className="text-right">
         <p className="font-mono text-sm font-semibold">{formatCurrency(quote.price, item.asset.currency)}</p>
         <PriceChangeLabel change={quote.change} changePercent={quote.changePercent} currency={item.asset.currency} />
-        <div className="mt-1 w-20">
-          <MiniSparkline candles={sparklineCandles} positive={positive} />
-        </div>
+        <p className="mt-1 text-[11px] text-muted">Historie n/a</p>
       </div>
     </Link>
   );
@@ -118,7 +95,7 @@ export function TrendingAssetsCard({ items, liveQuotes }: { items: AssetSummary[
                 </div>
                 <p className={quote.changePercent >= 0 ? "font-mono text-profit" : "font-mono text-loss"}>{formatPercent(quote.changePercent)}</p>
               </div>
-              <p className="mt-2 text-xs text-muted">Trendindikator: {item.scores.trend}/100 · Risiko {item.aiRisk}</p>
+              <p className="mt-2 text-xs text-muted">Trendindikator: {scoreValue(item, "trend") ?? "n/a"} · Risiko {item.aiRisk}</p>
             </Link>
           );
         })}
@@ -217,15 +194,16 @@ export function PortfolioSnapshotCard({ data }: { data: DashboardData }) {
         (current, item) => ({
           total: current.total + item.quote.price * 3,
           dayPnl: current.dayPnl + item.quote.change * 3,
-          riskSum: current.riskSum + item.scores.risk
+          riskSum: current.riskSum + (scoreValue(item, "risk") ?? 0),
+          riskCount: current.riskCount + (scoreValue(item, "risk") === null ? 0 : 1)
         }),
-        { total: 0, dayPnl: 0, riskSum: 0 }
+        { total: 0, dayPnl: 0, riskSum: 0, riskCount: 0 }
       ),
     [data.watchlist]
   );
   const total = snapshot.total;
   const dayPnl = snapshot.dayPnl;
-  const risk = Math.round(snapshot.riskSum / Math.max(1, data.watchlist.length));
+  const risk = snapshot.riskCount > 0 ? Math.round(snapshot.riskSum / snapshot.riskCount) : null;
 
   return (
     <section className="rounded-[1.65rem] border border-stroke bg-coal/76 p-4">
@@ -244,7 +222,9 @@ export function PortfolioSnapshotCard({ data }: { data: DashboardData }) {
         </div>
         <div className="rounded-2xl border border-stroke bg-panel/68 p-3">
           <p className="text-xs text-muted">Risiko-Score</p>
-          <p className={`mt-1 font-mono text-lg font-semibold ${riskTone(risk >= 75 ? "niedrig" : risk >= 45 ? "mittel" : "hoch")}`}>{risk}/100</p>
+          <p className={`mt-1 font-mono text-lg font-semibold ${risk === null ? "text-muted" : riskTone(risk >= 75 ? "niedrig" : risk >= 45 ? "mittel" : "hoch")}`}>
+            {risk === null ? "n/a" : `${risk}/100`}
+          </p>
         </div>
       </div>
       <p className="mt-3 text-xs leading-5 text-muted">Snapshot nutzt Watchlist-Positionen als Beispiel, echte Portfolio-Transaktionen bleiben im Portfolio-Modul.</p>

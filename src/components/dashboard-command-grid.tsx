@@ -3,13 +3,17 @@
 import Link from "next/link";
 import { ArrowRight, BarChart3, BookOpen, Building2, CircleDollarSign, LockKeyhole, Radar, ShieldAlert } from "lucide-react";
 import { criticalFunctionRisks, functionReadinessScore, functionStatusSummary } from "@/lib/function-audit";
+import { scoreValue } from "@/lib/analysis/evidence-scores";
 import { formatCompact, formatCurrency, formatPercent, riskTone, scoreLabel, scoreTone } from "@/lib/scoring";
 import type { DashboardData } from "@/lib/types";
 
 export function DashboardCommandGrid({ data }: { data: DashboardData }) {
-  const strongest = [...data.watchlist].sort((a, b) => b.scores.total - a.scores.total).slice(0, 3);
+  const strongest = [...data.watchlist]
+    .filter((item) => scoreValue(item, "total") !== null)
+    .sort((a, b) => (scoreValue(b, "total") ?? 0) - (scoreValue(a, "total") ?? 0))
+    .slice(0, 3);
   const riskiest = [...data.watchlist]
-    .sort((a, b) => (b.riskReport?.score ?? b.scores.risk) - (a.riskReport?.score ?? a.scores.risk))
+    .sort((a, b) => (b.riskReport?.score ?? 0) - (a.riskReport?.score ?? 0))
     .slice(0, 3);
   const productHealthCards = [
     { icon: Radar, label: "Funktionsreife", value: `${functionReadinessScore}/100`, detail: "Live, Demo und vorbereitete Module bewertet" },
@@ -37,7 +41,11 @@ export function DashboardCommandGrid({ data }: { data: DashboardData }) {
         </div>
 
         <div className="mt-5 grid gap-3 lg:grid-cols-3">
-          {strongest.map((item) => (
+          {strongest.length === 0 ? (
+            <p className="rounded-2xl border border-stroke bg-ink/45 p-4 text-sm leading-6 text-muted lg:col-span-3">
+              Noch keine Assets mit vollständig belegtem Gesamt-Score.
+            </p>
+          ) : strongest.map((item) => (
             <Link
               key={item.asset.symbol}
               href={`/assets/${encodeURIComponent(item.asset.symbol)}`}
@@ -50,10 +58,10 @@ export function DashboardCommandGrid({ data }: { data: DashboardData }) {
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted" />
               </div>
-              <p className={`mt-4 font-mono text-3xl font-semibold ${scoreTone(item.scores.total)}`}>
-                {item.scores.total}
+              <p className={`mt-4 font-mono text-3xl font-semibold ${scoreTone(scoreValue(item, "total") ?? 0)}`}>
+                {scoreValue(item, "total")}
               </p>
-              <p className="mt-1 text-xs text-muted">{scoreLabel(item.scores.total)}</p>
+              <p className="mt-1 text-xs text-muted">{scoreLabel(scoreValue(item, "total") ?? 0)}</p>
               <p className="mt-3 text-sm leading-6 text-muted">
                 Kurs {formatCurrency(item.quote.price, item.asset.currency)}, Tagesbewegung {formatPercent(item.quote.changePercent)}.
               </p>

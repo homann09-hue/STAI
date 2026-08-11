@@ -4,10 +4,10 @@ import Link from "next/link";
 import { ArrowDownWideNarrow, Flame, Gauge, Search, TrendingDown, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { MarketDataStatus } from "@/components/market-data-status";
-import { Sparkline } from "@/components/charts";
+import { scoreValue } from "@/lib/analysis/evidence-scores";
 import { mergeLiveQuote } from "@/lib/quotes";
-import { formatCompact, formatCurrency, formatPercent, scoreLabel, scoreTone } from "@/lib/scoring";
-import type { AssetSummary, AssetType, DashboardData, NormalizedQuote, Quote } from "@/lib/types";
+import { formatCompact, formatCurrency, formatPercent } from "@/lib/scoring";
+import type { AssetSummary, AssetType, DashboardData, NormalizedQuote } from "@/lib/types";
 
 type SortKey = "symbol" | "price" | "change" | "volume" | "score";
 type FilterKey = "all" | AssetType | "watchlist";
@@ -21,18 +21,11 @@ function uniqueAssets(data: DashboardData) {
 }
 
 function trendLabel(item: AssetSummary) {
-  const momentum = item.professionalScores?.momentum ?? item.scores.trend;
+  const momentum = scoreValue(item, "trend");
+  if (momentum === null) return "Nicht belegt";
   if (momentum >= 70) return "Aufwärts";
   if (momentum <= 35) return "Abwärts";
   return "Seitwärts";
-}
-
-function assetSparkline(item: AssetSummary, quote: Quote) {
-  return [
-    { symbol: item.asset.symbol, range: "1D" as const, timestamp: quote.asOf, time: "", open: quote.price - quote.change * 1.4, high: quote.price, low: quote.price - Math.abs(quote.change) * 1.8, close: quote.price - quote.change, volume: 1 },
-    { symbol: item.asset.symbol, range: "1D" as const, timestamp: quote.asOf, time: "", open: quote.price - quote.change, high: quote.price + Math.abs(quote.change) * 0.6, low: quote.price - Math.abs(quote.change), close: quote.price - quote.change / 2, volume: 1 },
-    { symbol: item.asset.symbol, range: "1D" as const, timestamp: quote.asOf, time: "", open: quote.price - quote.change / 2, high: quote.price + Math.abs(quote.change) * 0.8, low: quote.price - Math.abs(quote.change) * 0.4, close: quote.price, volume: 1 }
-  ];
 }
 
 export function MarketTerminalDashboard({ data, liveQuotes }: { data: DashboardData; liveQuotes: Record<string, NormalizedQuote> }) {
@@ -59,7 +52,7 @@ export function MarketTerminalDashboard({ data, liveQuotes }: { data: DashboardD
         if (sortKey === "symbol") return a.asset.symbol.localeCompare(b.asset.symbol);
         if (sortKey === "price") return quoteB.price - quoteA.price;
         if (sortKey === "volume") return quoteB.volume - quoteA.volume;
-        if (sortKey === "score") return b.scores.total - a.scores.total;
+        if (sortKey === "score") return (scoreValue(b, "total") ?? -1) - (scoreValue(a, "total") ?? -1);
         return quoteB.changePercent - quoteA.changePercent;
       });
   }, [assets, filter, liveQuotes, query, sortKey, watchlistSymbols]);
@@ -192,12 +185,12 @@ export function MarketTerminalDashboard({ data, liveQuotes }: { data: DashboardD
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-mono text-lg font-semibold text-mist">{item.asset.symbol}</p>
                     <span className="rounded-md bg-coal px-2 py-1 text-[10px] uppercase tracking-wide text-muted">{item.asset.type}</span>
-                    <span className={`rounded-md px-2 py-1 text-[10px] ${scoreTone(item.scores.total)}`}>{scoreLabel(item.scores.total)}</span>
+                    <span className="rounded-md bg-coal px-2 py-1 text-[10px] text-muted">
+                      Score {scoreValue(item, "total") ?? "n/a"}
+                    </span>
                   </div>
                   <p className="mt-1 truncate text-sm text-muted">{item.asset.name}</p>
-                  <div className="mt-2 max-w-[14rem]">
-                    <Sparkline candles={assetSparkline(item, quote)} positive={positive} />
-                  </div>
+                  <p className="mt-2 text-xs text-muted">Kein verifizierter Intraday-Verlauf</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted lg:hidden">Preis</p>
@@ -227,7 +220,7 @@ export function MarketTerminalDashboard({ data, liveQuotes }: { data: DashboardD
                     <Gauge className="h-4 w-4 text-cyan" />
                     <p className="font-semibold">{trendLabel(item)}</p>
                   </div>
-                  <p className="text-xs text-muted">Score {item.scores.total}/100</p>
+                  <p className="text-xs text-muted">Score {scoreValue(item, "total") ?? "n/a"}</p>
                 </div>
                 <MarketDataStatus quote={quote} compact />
               </Link>

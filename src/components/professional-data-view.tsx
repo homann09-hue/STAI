@@ -5,6 +5,7 @@ import { Activity, AlertTriangle, BarChart3, BriefcaseBusiness, Building2, Coins
 import { useMemo, useState } from "react";
 import { formatCompact, formatCurrency, formatPercent, riskTone } from "@/lib/scoring";
 import { formatGermanDateTime } from "@/lib/date-time";
+import { scoreValue } from "@/lib/analysis/evidence-scores";
 import type { ProviderOperationalStatus, PublicProviderCapabilityReport } from "@/lib/provider-health";
 import type {
   CryptoProfessionalProfile,
@@ -227,7 +228,12 @@ function MarketPulsePanel({ report, rows }: { report: ProfessionalMarketReport; 
   const liveLike = rows.filter((row) => row.quote.quality === "realtime" || row.quote.quality === "near_realtime").length;
   const blockedAnalysis = rows.filter((row) => row.dataQuality && !row.dataQuality.sufficientForAnalysis).length;
   const assetClasses = new Set(rows.map((row) => row.asset.type)).size;
-  const averageScore = Math.round(rows.reduce((sum, row) => sum + row.scores.total, 0) / Math.max(1, rows.length));
+  const verifiedScores = rows
+    .map((row) => scoreValue(row, "total"))
+    .filter((value): value is number => value !== null);
+  const averageScore = verifiedScores.length > 0
+    ? Math.round(verifiedScores.reduce((sum, value) => sum + value, 0) / verifiedScores.length)
+    : null;
 
   return (
     <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -260,7 +266,7 @@ function MarketPulsePanel({ report, rows }: { report: ProfessionalMarketReport; 
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">Score- und Qualitätslage</p>
             <p className="mt-2 text-sm leading-6 text-muted">
-              Durchschnittlicher Gesamt-Score {averageScore}/100. Qualität: {report.qualitySummary.realtime} realtime,
+              Durchschnittlicher Gesamt-Score {averageScore === null ? "n/a" : `${averageScore}/100`}. Qualität: {report.qualitySummary.realtime} realtime,
               {" "}{report.qualitySummary.nearRealtime} near-realtime, {report.qualitySummary.delayed} verzögert/historisch,
               {" "}{report.qualitySummary.mock} mock, {report.qualitySummary.unavailable} nicht verfügbar.
             </p>

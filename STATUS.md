@@ -180,3 +180,12 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Anbieterquoten für Wachstum und Dividendenrendite werden einheitlich auf die
   sichtbare Prozent-Skala normalisiert; Dezimalquoten erscheinen nicht mehr um
   den Faktor 100 zu klein.
+## 2026-08-11 - Evidenzgebundene Scores und ehrliche Verlaufsdarstellung
+
+- Quote-only-, Mock- und nicht belegte Asset-Zeilen liefern keine nutzbaren Analyse-Scores mehr.
+- Trend, Technik, News, Fundamentaldaten und Risiko tragen Verfügbarkeit, Konfidenz, Quellen, Zeitpunkt und Begründung.
+- Der Gesamt-Score entsteht nur bei ausreichender Kurs-, Risiko- und Kontextevidenz; fehlende Dimensionen werden nicht neutral aufgefüllt.
+- Risiko misst jetzt tatsächlich historisches Risiko. Ein höherer Risikowert erhöht nicht mehr den Chancen-Gesamtscore.
+- Synthetische Mini-Charts aus einem einzelnen Kursstand wurden aus Dashboard und Marktterminal entfernt.
+- Detailseite, Dashboard, Profi-Report, Portfolio-Demo und Modellallokation zeigen bei fehlender Evidenz `n/a` oder halten die Auswertung zurück.
+- Komponenten- und Domänentests decken fehlende Evidenz sowie zurückgehaltene Wahrscheinlichkeiten ab.

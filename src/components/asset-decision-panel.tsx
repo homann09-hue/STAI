@@ -2,6 +2,7 @@
 
 import { AlertTriangle, ArrowRight, CheckCircle2, Eye, Gauge, ShieldAlert } from "lucide-react";
 import { formatPercent, riskTone, scoreLabel, scoreTone } from "@/lib/scoring";
+import { scoreValue } from "@/lib/analysis/evidence-scores";
 import type { AssetDetail } from "@/lib/types";
 
 function clampScore(value: number) {
@@ -14,7 +15,7 @@ function probabilityPercent(value: number) {
 
 function getDecision(detail: AssetDetail) {
   const riskScore = clampScore(detail.riskReport.score);
-  const totalScore = clampScore(detail.scores.total);
+  const totalScore = scoreValue(detail, "total");
 
   if (detail.aiRisk === "extrem" || riskScore >= 78) {
     return {
@@ -25,7 +26,7 @@ function getDecision(detail: AssetDetail) {
     };
   }
 
-  if (totalScore >= 68 && detail.dataQuality.sufficientForAnalysis && detail.aiRisk !== "hoch") {
+  if (totalScore !== null && totalScore >= 68 && detail.dataQuality.sufficientForAnalysis && detail.aiRisk !== "hoch") {
     return {
       label: "Interessant",
       tone: "border-profit/35 bg-profit/10 text-profit",
@@ -54,12 +55,13 @@ function getDecision(detail: AssetDetail) {
 export function AssetDecisionPanel({ detail }: { detail: AssetDetail }) {
   const decision = getDecision(detail);
   const Icon = decision.icon;
-  const totalScore = clampScore(detail.scores.total);
-  const volatilityRisk = clampScore(detail.professionalScores.volatilityRisk);
+  const totalScore = scoreValue(detail, "total");
+  const volatilityRisk = scoreValue(detail, "risk");
   const dataQualityScore = clampScore(detail.dataQuality.score);
+  const hasProbabilities = Object.values(detail.aiAnalysis.probabilities).some((value) => value > 0);
   const drivers = [
     { label: "Kurzfazit", value: detail.aiAnalysis.summary },
-    { label: "News-Auswirkung", value: detail.news[0]?.summary ?? "Keine aktuelle News im Mock-Modell." },
+    { label: "News-Auswirkung", value: detail.news[0]?.summary ?? "Keine verifizierte aktuelle News verfügbar." },
     { label: "Unsicherheiten", value: detail.aiAnalysis.dataGaps[0] ?? "Keine zentrale Datenlücke gemeldet." }
   ];
 
@@ -79,13 +81,13 @@ export function AssetDecisionPanel({ detail }: { detail: AssetDetail }) {
         <div className="mt-5 grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-current/20 bg-ink/30 p-3">
             <p className="text-xs opacity-70">Gesamt-Score</p>
-            <p className={`mt-1 font-mono text-2xl font-semibold ${scoreTone(totalScore)}`}>
-              {totalScore}
+            <p className={`mt-1 font-mono text-2xl font-semibold ${totalScore === null ? "text-muted" : scoreTone(totalScore)}`}>
+              {totalScore ?? "n/a"}
             </p>
           </div>
           <div className="rounded-2xl border border-current/20 bg-ink/30 p-3">
             <p className="text-xs opacity-70">Volatilitätsrisiko</p>
-            <p className="mt-1 font-mono text-2xl font-semibold">{volatilityRisk}</p>
+            <p className="mt-1 font-mono text-2xl font-semibold">{volatilityRisk ?? "n/a"}</p>
           </div>
         </div>
         <p className="mt-4 text-xs leading-5 opacity-75">
@@ -113,7 +115,7 @@ export function AssetDecisionPanel({ detail }: { detail: AssetDetail }) {
           ))}
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        {hasProbabilities ? <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl bg-panel2 p-3">
             <Gauge className="h-4 w-4 text-profit" />
             <p className="mt-2 text-xs text-muted">Chance steigend</p>
@@ -129,9 +131,13 @@ export function AssetDecisionPanel({ detail }: { detail: AssetDetail }) {
             <p className="mt-2 text-xs text-muted">Seitwärts</p>
             <p className="font-mono text-xl font-semibold">{probabilityPercent(detail.aiAnalysis.probabilities.sideways)}</p>
           </div>
-        </div>
+        </div> : (
+          <p className="mt-5 rounded-2xl border border-amber/25 bg-amber/10 p-4 text-sm text-amber">
+            Szenariowahrscheinlichkeiten werden zurückgehalten, bis genügend verifizierte Daten vorliegen.
+          </p>
+        )}
         <p className="mt-4 text-xs text-muted">
-          Score-Label: {scoreLabel(totalScore)} · Datenqualität {dataQualityScore}/100 ·
+          Score-Label: {totalScore === null ? "Nicht belegt" : scoreLabel(totalScore)} · Datenqualität {dataQualityScore}/100 ·
           Unsicherheit {detail.aiAnalysis.uncertainty}
         </p>
       </div>

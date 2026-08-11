@@ -1,5 +1,11 @@
 import { NO_INDICATORS, buildTechnicalIndicators } from "@/lib/analysis/technical";
 import { selectVerifiedFundamentals } from "@/lib/analysis/verified-fundamentals";
+import {
+  buildEvidenceBoundScores,
+  buildQuoteOnlyScoreEvidence,
+  professionalScoresFromEvidence,
+  scoresFromEvidence
+} from "@/lib/analysis/evidence-scores";
 
 import { buildRiskReport } from "@/lib/risk-engine";
 
@@ -515,10 +521,6 @@ function normalizedFromDetail(detail: AssetDetail | AssetSummary): NormalizedQuo
   });
 }
 
-function clampScore(value: number) {
-  return Math.min(100, Math.max(0, Math.round(value)));
-}
-
 function sectorForQuote(quote: NormalizedQuote) {
   if (quote.assetType === "crypto") return "Digital Asset";
   if (quote.assetType === "etf") return "ETF / Fonds";
@@ -528,19 +530,7 @@ function sectorForQuote(quote: NormalizedQuote) {
 }
 
 function summaryFromNormalizedQuote(quote: NormalizedQuote): AssetSummary {
-  const trend = clampScore(50 + quote.changePercent * 5);
-  const liquidity = quote.volume ? clampScore(Math.log10(Math.max(10, quote.volume)) * 9) : 45;
-  const risk = quote.assetType === "crypto" ? 38 : quote.assetType === "etf" ? 72 : clampScore(66 - Math.abs(quote.changePercent) * 4);
-  const scores = {
-    trend,
-    news: 50,
-    fundamental: quote.assetType === "crypto" ? 42 : quote.assetType === "etf" ? 70 : 56,
-    technical: clampScore(50 + quote.changePercent * 4),
-    risk,
-    total: clampScore(trend * 0.28 + liquidity * 0.16 + risk * 0.22 + 50 * 0.14 + (quote.assetType === "etf" ? 68 : 55) * 0.2)
-  };
-
-  return {
+  const summary = {
     asset: {
       symbol: quote.symbol,
       name: quote.name ?? quote.symbol,
@@ -572,9 +562,11 @@ function summaryFromNormalizedQuote(quote: NormalizedQuote): AssetSummary {
       latencyMs: quote.latencyMs,
       marketStatus: quote.marketStatus
     },
-    scores,
-    aiRisk: quote.assetType === "crypto" ? "hoch" : scores.risk >= 72 ? "niedrig" : scores.risk >= 48 ? "mittel" : "hoch"
+    scores: { trend: 0, news: 0, fundamental: 0, technical: 0, risk: 0, total: 0 },
+    aiRisk: "hoch" as const
   };
+  const scoreEvidence = buildQuoteOnlyScoreEvidence(summary.quote);
+  return { ...summary, scores: scoresFromEvidence(scoreEvidence), scoreEvidence };
 }
 
 /**
@@ -663,41 +655,6 @@ function providerOnlyDataQuality(quote: NormalizedQuote): DataQualityReport {
   };
 }
 
-function providerOnlyProfessionalScores(summary: AssetSummary): ProfessionalScores {
-  const riskTotal = summary.quote.quality === "realtime" || summary.quote.quality === "near_realtime" ? 58 : 72;
-  const opportunityTotal = clampScore(summary.scores.total - 12);
-  let probabilityUp = Math.round(clampScore(30 + summary.quote.changePercent * 2));
-  let probabilityDown = Math.round(clampScore(30 - summary.quote.changePercent * 2));
-
-  if (probabilityUp + probabilityDown > 95) {
-    const scale = 95 / (probabilityUp + probabilityDown);
-    probabilityUp = Math.round(probabilityUp * scale);
-    probabilityDown = 95 - probabilityUp;
-  }
-
-  const probabilitySideways = Math.max(5, 100 - probabilityUp - probabilityDown);
-
-  return {
-    technical: summary.scores.technical,
-    fundamental: 0,
-    news: 0,
-    sentiment: 50,
-    momentum: summary.scores.trend,
-    volatilityRisk: clampScore(Math.abs(summary.quote.changePercent) * 8 + 35),
-    liquidityRisk: summary.quote.volume > 5_000_000 ? 24 : summary.quote.volume > 500_000 ? 46 : 72,
-    eventRisk: 55,
-    opportunityTotal,
-    riskTotal,
-    probabilityUp,
-    probabilityDown,
-    probabilitySideways,
-    explanation: [
-      "Nur Provider-Quote verfügbar; Fundamentals, News und volle Historie fehlen.",
-      "Wahrscheinlichkeiten sind modellbasierte, schwache Einschätzungen und keine Garantie."
-    ]
-  };
-}
-
 /**
  * Detailansicht aus einem Provider-Kurs — jetzt mit echter Historie, wenn es
  * sie gibt.
@@ -757,7 +714,21 @@ function detailFromProviderQuote(
       fetchedAt: quote.timestamp
     }
   );
-  const professionalScores = providerOnlyProfessionalScores(summary);
+  const scoreEvidence = buildEvidenceBoundScores({
+    quote: summary.quote,
+    candles: history.candles,
+    indicators,
+    fundamentals,
+    fundamentalsEvidence,
+    news,
+    historyProvider: history.provider
+  });
+  const scoredSummary: AssetSummary = {
+    ...summary,
+    scores: scoresFromEvidence(scoreEvidence),
+    scoreEvidence
+  };
+  const professionalScores = professionalScoresFromEvidence(scoreEvidence);
   const dataQuality = assessProviderEvidence({
     quote,
     history,
@@ -845,8 +816,8 @@ function detailFromProviderQuote(
    */
   const riskReport = buildRiskReport(
     {
-      asset: summary.asset,
-      quote: summary.quote,
+      asset: scoredSummary.asset,
+      quote: scoredSummary.quote,
       candles,
       indicators,
       news,
@@ -894,7 +865,8 @@ function detailFromProviderQuote(
   };
 
   const detail: AssetDetail = {
-    ...summary,
+    ...scoredSummary,
+    aiRisk: riskReport.level,
     candles,
     indicators,
     fundamentals,

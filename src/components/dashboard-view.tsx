@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Activity, Bell, ChevronRight, Settings2, ShieldAlert, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useMemo } from "react";
-import { Sparkline, ScoreMeter } from "@/components/charts";
+import { ScoreMeter } from "@/components/charts";
 import { ConnectionBadge, LiveMarketTickerBar } from "@/components/live-market-widgets";
 import {
   AIInsightCard,
@@ -20,14 +20,13 @@ import { MarketDataStatus } from "@/components/market-data-status";
 import { selectDashboardTickerItems } from "@/lib/dashboard-market-items";
 import { OFFLINE_KEYS, saveOfflineValue } from "@/lib/offline";
 import { mergeLiveQuote } from "@/lib/quotes";
+import { scoreValue } from "@/lib/analysis/evidence-scores";
 import {
   formatCompact,
   formatCurrency,
   formatPercent,
   mockDataDisclaimer,
-  riskTone,
-  scoreLabel,
-  scoreTone
+  riskTone
 } from "@/lib/scoring";
 import { useMarketStream } from "@/lib/use-market-stream";
 import type { AssetDetail, AssetSummary, DashboardData, NormalizedQuote } from "@/lib/types";
@@ -88,14 +87,7 @@ function AssetRow({ item, liveQuote }: { item: AssetSummary; liveQuote?: Normali
         <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted" />
       </div>
       <div className="mt-4 grid grid-cols-[1fr_auto] items-end gap-3">
-        <Sparkline
-          candles={[
-            { symbol: item.asset.symbol, range: "1D", timestamp: quote.asOf, time: "", open: quote.price - 2, high: quote.price, low: quote.price - 4, close: quote.price - quote.change, volume: 1 },
-            { symbol: item.asset.symbol, range: "1D", timestamp: quote.asOf, time: "", open: quote.price - 1, high: quote.price + 1, low: quote.price - 3, close: quote.price - quote.change / 2, volume: 1 },
-            { symbol: item.asset.symbol, range: "1D", timestamp: quote.asOf, time: "", open: quote.price, high: quote.price + 2, low: quote.price - 2, close: quote.price, volume: 1 }
-          ]}
-          positive={positive}
-        />
+        <p className="max-w-36 text-xs leading-5 text-muted">Kein verifizierter Intraday-Verlauf</p>
         <div className="text-right">
           <p className="font-mono text-xl font-semibold">{formatCurrency(quote.price, item.asset.currency)}</p>
           <p className={`mt-1 text-sm ${positive ? "text-profit" : "text-loss"}`}>
@@ -104,8 +96,8 @@ function AssetRow({ item, liveQuote }: { item: AssetSummary; liveQuote?: Normali
         </div>
       </div>
       <div className="mt-4 flex items-center justify-between gap-3">
-        <span className={`text-xs ${scoreTone(item.scores.total)}`}>
-          Score {item.scores.total}: {scoreLabel(item.scores.total)}
+        <span className="text-xs text-muted">
+          Score {scoreValue(item, "total") ?? "n/a"}
         </span>
         <span className={`rounded-md border px-2 py-1 text-[11px] ${riskTone(item.aiRisk)}`}>
           Risiko {item.aiRisk}
