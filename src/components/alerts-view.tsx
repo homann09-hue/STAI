@@ -89,7 +89,7 @@ const alertPresets: AlertPreset[] = [
   },
   {
     label: "Volumenanstieg",
-    description: "Erkennt ungewöhnliche Aktivität im Demo-Modell.",
+    description: "Vorlage für eine spätere Prüfung durch einen echten Alert-Worker.",
     symbol: "TSLA",
     type: "volume",
     condition: "über 2x Durchschnitt",
@@ -158,8 +158,8 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
   const [alertFilter, setAlertFilter] = useState<AlertFilter>("all");
   const [alertSearch, setAlertSearch] = useState("");
   const [alertSort, setAlertSort] = useState<AlertSort>("symbol");
-  const [syncMode, setSyncMode] = useState<"demo" | "supabase">("demo");
-  const [syncStatus, setSyncStatus] = useState("Lokaler Demo-Modus aktiv. Alerts werden nicht serverseitig ausgeführt.");
+  const [syncMode, setSyncMode] = useState<"local" | "supabase">("local");
+  const [syncStatus, setSyncStatus] = useState("Lokaler Modus aktiv. Regeln werden ohne Alert-Worker nicht ausgeführt.");
   const [formError, setFormError] = useState("");
   const alertStats = {
     enabled: alerts.filter((alert) => alert.enabled).length,
@@ -203,7 +203,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
   const canCreateAlert = rawSymbolPreview.length > 0 && rawSymbolPreview === sanitizedSymbolPreview && hasNumericThresholdPreview;
   const blockingFormPreviewIssues = formPreviewIssues.filter((issue) => issue !== "Kein externer Benachrichtigungskanal aktiv.");
   const createAlertHint = canCreateAlert
-    ? "Bereit zum Speichern als lokale Demo-Regel. Echte Ausführung hängt vom Alert-Worker ab."
+    ? "Bereit zum lokalen Speichern. Ohne Alert-Worker bleibt die Regel nicht ausgeführt."
     : blockingFormPreviewIssues.join(" ");
   const visibleAlerts = useMemo(() => {
     const query = alertSearch.trim().toLowerCase();
@@ -291,15 +291,15 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
     fetchWithSupabaseAuth("/api/alerts")
       .then((response) => response.json())
       .then((data: { alerts?: AlertRule[]; mode?: string }) => {
-        if (cancelled || !data.alerts?.length) return;
-        setAlerts(data.alerts);
-        setSyncMode(data.mode === "supabase" ? "supabase" : "demo");
-        setSyncStatus(data.mode === "supabase" ? "Supabase-Sync aktiv. Ausführung hängt vom Alert-Worker ab." : "Lokaler Demo-Modus aktiv.");
+        if (cancelled) return;
+        setSyncMode(data.mode === "supabase" ? "supabase" : "local");
+        setSyncStatus(data.mode === "supabase" ? "Supabase-Sync aktiv. Ausführung hängt vom Alert-Worker ab." : "Lokaler Modus aktiv. Regeln werden nicht serverseitig ausgeführt.");
+        if (data.alerts?.length) setAlerts(data.alerts);
       })
       .catch(() => {
         if (!cancelled) {
-          setSyncMode("demo");
-          setSyncStatus("Supabase nicht erreichbar. Lokaler Demo-Modus aktiv.");
+          setSyncMode("local");
+          setSyncStatus("Supabase nicht erreichbar. Lokale Regeln bleiben gespeichert, aber nicht ausgeführt.");
         }
       });
 
@@ -311,24 +311,6 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
   useEffect(() => {
     saveOfflineValue(ALERT_HISTORY_KEY, history.slice(0, 50));
   }, [history]);
-
-  function demoValueFor(alert: AlertRule) {
-    if (alert.type === "price") return 150;
-    if (alert.type === "rsi") return 72;
-    if (alert.type === "volume") return 2.4;
-    if (alert.type === "portfolio-risk") return 68;
-    if (alert.type === "ai-risk") return 74;
-    return null;
-  }
-
-  function shouldTrigger(alert: AlertRule) {
-    if (!alert.enabled) return false;
-    const value = demoValueFor(alert);
-    if (value === null || alert.threshold === undefined) return false;
-    const lowerCondition = alert.condition.toLowerCase();
-    if (lowerCondition.includes("unter") || lowerCondition.includes("<")) return value <= alert.threshold;
-    return value >= alert.threshold;
-  }
 
   function runLocalCheck() {
     const checkedAt = new Date().toISOString();
@@ -349,24 +331,8 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
         return { ...alert, status: "paused" as const };
       }
 
-      const demoValue = demoValueFor(alert);
-      if (demoValue === null) {
-        nextLog[alert.id] = "Regel gespeichert. Echte Auslösung braucht News-, Earnings- oder KI-Worker.";
-        nextHistory.push({
-          id: `${alert.id}-${checkedAt}`,
-          alertId: alert.id,
-          symbol: alert.symbol,
-          type: alert.type,
-          status: "unavailable",
-          checkedAt,
-          message: nextLog[alert.id]
-        });
-        return { ...alert, status: "unavailable" as const };
-      }
-
-      const triggered = shouldTrigger(alert);
-      const status: AlertRule["status"] = triggered ? "triggered" : "created";
-      nextLog[alert.id] = `Lokale Prüfung: Modellwert ${demoValue}, Schwelle ${alert.threshold ?? "n/a"} -> ${triggered ? "ausgelöst" : "nicht ausgelöst"}.`;
+      const status: AlertRule["status"] = "unavailable";
+      nextLog[alert.id] = "Nicht ausgeführt: Für diese lokale Regel ist kein verifizierter Alert-Worker aktiv.";
       nextHistory.push({
         id: `${alert.id}-${checkedAt}`,
         alertId: alert.id,
@@ -383,7 +349,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
     setEvaluationLog(nextLog);
     setHistory((current) => [...nextHistory, ...current].slice(0, 50));
     setLastCheck(checkedAt);
-    setSyncStatus("Lokale Alert-Prüfung ausgeführt. Push/E-Mail/Webhook brauchen weiterhin Backend-Worker.");
+    setSyncStatus("Lokale Regeln geprüft: Ohne verifizierten Alert-Worker wurden keine Marktwerte ausgewertet und keine Alerts ausgelöst.");
   }
 
   async function addAlert() {
@@ -403,7 +369,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
       label: selected?.label ?? "Alarm",
       condition,
       enabled: true,
-      status: "demo" as const,
+      status: "unavailable" as const,
       threshold: Number(threshold.replace(",", ".")) || undefined,
       frequency,
       notificationChannel
@@ -426,11 +392,11 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
       if (!response.ok) throw new Error("alert mutation not authenticated");
       const data = await response.json() as { alert?: AlertRule; mode?: string };
       setAlerts((current) => [data.alert ?? fallbackAlert, ...current]);
-      setSyncMode(data.mode === "supabase" ? "supabase" : "demo");
+      setSyncMode(data.mode === "supabase" ? "supabase" : "local");
       setSyncStatus(data.mode === "supabase" ? "Alert in Supabase gespeichert." : "Alert lokal gespeichert. Keine serverseitige Ausführung.");
     } catch {
       setAlerts((current) => [fallbackAlert, ...current]);
-      setSyncMode("demo");
+      setSyncMode("local");
       setSyncStatus("Nicht eingeloggt oder Supabase nicht erreichbar. Alert lokal gespeichert und nicht serverseitig aktiv.");
     }
   }
@@ -449,10 +415,10 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
       });
       if (!response.ok) throw new Error("alert update not authenticated");
       const data = await response.json() as { mode?: string };
-      setSyncMode(data.mode === "supabase" ? "supabase" : "demo");
+      setSyncMode(data.mode === "supabase" ? "supabase" : "local");
       setSyncStatus(data.mode === "supabase" ? "Alert-Status synchronisiert." : "Alert-Status lokal geändert.");
     } catch {
-      setSyncMode("demo");
+      setSyncMode("local");
       setSyncStatus("Supabase nicht erreichbar. Änderung bleibt lokal und wird nicht serverseitig ausgeführt.");
     }
   }
@@ -471,10 +437,10 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
 
       if (!response.ok) throw new Error("alert delete not authenticated");
       const data = (await response.json()) as { mode?: string };
-      setSyncMode(data.mode === "supabase" ? "supabase" : "demo");
+      setSyncMode(data.mode === "supabase" ? "supabase" : "local");
       setSyncStatus(data.mode === "supabase" ? "Alert gelöscht." : "Alert lokal gelöscht. Supabase nicht erreichbar.");
     } catch {
-      setSyncMode("demo");
+      setSyncMode("local");
       setSyncStatus("Nicht eingeloggt oder Supabase nicht erreichbar. Alert lokal gelöscht.");
     }
   }
@@ -490,7 +456,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
       },
       ...current
     ]);
-    setSyncMode("demo");
+    setSyncMode("local");
     setSyncStatus("Alert lokal dupliziert und pausiert. Bitte Schwelle, Frequenz und Kanal prüfen.");
   }
 
@@ -513,7 +479,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
     setFrequency(preset.frequency);
     setNotificationChannel(preset.notificationChannel);
     setFormError("");
-    setSyncStatus(`Preset "${preset.label}" geladen. Speichern erstellt eine neue lokale Demo-Regel.`);
+    setSyncStatus(`Preset "${preset.label}" geladen. Speichern erstellt eine neue lokale, nicht ausgeführte Regel.`);
   }
 
   function saveCurrentPreset() {
@@ -613,7 +579,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
 
   function setAllAlertsEnabled(enabled: boolean) {
     setAlerts((current) => current.map((alert) => ({ ...alert, enabled, status: enabled ? "created" : "paused" })));
-    setSyncMode("demo");
+    setSyncMode("local");
     setSyncStatus(enabled ? "Alle lokalen Alerts aktiviert. Serverseitige Ausführung braucht weiterhin einen Worker." : "Alle lokalen Alerts pausiert.");
   }
 
@@ -676,7 +642,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
             <h1 className="mt-2 text-3xl font-semibold">Signal- und Risikoalarme</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
               Kurs, RSI, News, Volumen, Earnings und KI-Risiko sind als Regeln modelliert.
-              Ohne echten Alert-Worker werden lokale Regeln deutlich als Demo markiert.
+              Ohne echten Alert-Worker bleiben lokale Regeln sichtbar nicht ausgeführt.
             </p>
             <p className={`mt-3 rounded-xl border px-3 py-2 text-xs ${syncMode === "supabase" ? "border-profit/30 bg-profit/10 text-profit" : "border-amber/30 bg-amber/10 text-amber"}`}>{syncStatus}</p>
           </div>
@@ -920,7 +886,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
               onClick={addAlert}
               disabled={!canCreateAlert}
               aria-describedby="alert-create-hint"
-              title={canCreateAlert ? "Lokalen Demo-Alert erstellen" : "Bitte Symbol und numerische Schwelle prüfen."}
+              title={canCreateAlert ? "Lokale Alert-Regel speichern" : "Bitte Symbol und numerische Schwelle prüfen."}
               className={`mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-md font-semibold transition ${
                 canCreateAlert
                   ? "bg-profit text-ink hover:bg-profit/90"
@@ -935,7 +901,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
             </p>
             {formError ? <p className="mt-3 rounded-md border border-loss/30 bg-loss/10 p-3 text-xs leading-5 text-loss">{formError}</p> : null}
             <p className="mt-3 rounded-md border border-amber/25 bg-amber/10 p-3 text-xs leading-5 text-amber">
-              Demo-Hinweis: Lokale Alerts lösen keine echte Push-, E-Mail- oder Webhook-Benachrichtigung aus.
+              Ausführungshinweis: Lokale Regeln lösen ohne Worker keine Push-, E-Mail- oder Webhook-Benachrichtigung aus.
             </p>
           </div>
         </div>
@@ -1101,7 +1067,7 @@ export function AlertsView({ initialAlerts }: { initialAlerts: AlertRule[] }) {
                     <p className="mt-1 text-sm text-muted">{alert.label}</p>
                   </div>
                   <span className={`rounded-md border px-2 py-1 text-[11px] ${syncMode === "supabase" ? "border-cyan/30 bg-cyan/10 text-cyan" : "border-amber/30 bg-amber/10 text-amber"}`}>
-                    {alert.status === "triggered" ? "ausgelöst" : syncMode === "supabase" ? (alert.enabled ? "erstellt" : "pausiert") : "Demo / lokal"}
+                    {alert.status === "triggered" ? "ausgelöst" : syncMode === "supabase" ? (alert.enabled ? "erstellt" : "pausiert") : "lokal / nicht ausgeführt"}
                   </span>
                   <button
                     type="button"

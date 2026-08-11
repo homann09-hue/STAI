@@ -1,5 +1,4 @@
 import { AlertsView } from "@/components/alerts-view";
-import { mockAlerts } from "@/lib/mock/market";
 
 export const metadata = {
   title: "Alerts",
@@ -12,5 +11,5 @@ export const metadata = {
 };
 
 export default function AlertsPage() {
-  return <AlertsView initialAlerts={mockAlerts} />;
+  return <AlertsView initialAlerts={[]} />;
 }

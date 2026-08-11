@@ -64,7 +64,7 @@ test.describe("offline PWA review", () => {
 
     await safeGoto(page, "/portfolio");
     await expect(page.getByText("Positionen und Risiko")).toBeVisible();
-    await expect(page.getByText(/Offline-Portfolio|Lokaler Portfolio-Modus/).first()).toBeVisible();
+    await expect(page.getByText(/Offline-Portfolio|Lokales Portfolio aktiv/).first()).toBeVisible();
 
     await safeGoto(page, "/assets/NVDA");
     await expect(page.getByText("NVDA").first()).toBeVisible();

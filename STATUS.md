@@ -1,5 +1,17 @@
 # StockPilot AI Status
 
+## Echte Nutzerzustände statt Mock-Portfolio und Mock-Alerts
+
+- Portfolio- und Alert-Seiten starten ohne Beispielpositionen oder
+  Beispielregeln; unauthentifizierte APIs liefern leere lokale Nutzerzustände.
+- Lokale Portfolioeingaben und Offline-Snapshots bleiben nutzbar, werden aber
+  nicht als brokerbestätigt oder als Supabase-Daten dargestellt.
+- Die lokale Alert-Prüfung verwendet keine erfundenen Kurs-, RSI-, Volumen-
+  oder Risikowerte mehr. Ohne echten Worker bleibt jede aktive Regel sichtbar
+  `unavailable` und kann nicht scheinbar ausgelöst werden.
+- Auch leere authentifizierte Konten zeigen ihren echten Supabase-Status statt
+  in einen Demo-Zustand zurückzufallen.
+
 ## Produktions-Fail-Closed für News und Fundamentaldaten
 
 - News- und Fundamentals-Provider fallen bei fehlenden Schlüsseln, leeren
@@ -12,8 +24,8 @@
   ergänzt und nicht als verifiziert analysiert.
 - README und Deployment-Anleitung verwenden nun sichere `auto`-Defaults statt
   produktiver Mock-Konfiguration.
-- Verifiziert: Formatprüfung, Typecheck, vollständiger Lint, 123 Testdateien
-  mit 984 Tests und Next.js-Produktionsbuild mit 35 Seiten erfolgreich.
+- Verifiziert: Formatprüfung, Typecheck, vollständiger Lint, 124 Testdateien
+  mit 986 Tests und Next.js-Produktionsbuild mit 35 Seiten erfolgreich.
 
 ## Konsistente Asset-Detailanalyse
 

@@ -1,5 +1,5 @@
-import { getMockPortfolio } from "@/lib/mock/market";
 import { jsonError, jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
+import { analyzePortfolio } from "@/lib/portfolio-analytics";
 import {
   applyUserPortfolioTrade,
   deleteUserPortfolioPosition,
@@ -34,14 +34,14 @@ export async function GET(request: Request) {
   }
 
   return jsonOk({
-    ...getMockPortfolio(),
+    ...analyzePortfolio([]),
     mode: "local",
     reason: auth.reason,
     metadata: {
       storage: "client",
-      dataQuality: "mock",
-      demo: true,
-      disclaimer: "Beispielportfolio aus Mock-Daten. Nicht als echtes Nutzerportfolio oder echte Performance interpretieren."
+      dataQuality: "user_data",
+      demo: false,
+      disclaimer: "Keine Anmeldung aktiv. Das lokale Portfolio beginnt leer und enthält ausschließlich vom Nutzer eingegebene oder importierte Positionen."
     }
   }, { headers: userDataHeaders });
 }
