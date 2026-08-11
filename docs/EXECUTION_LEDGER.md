@@ -82,3 +82,20 @@ Quota-Fix vollständig validieren, per PR durch pgTAP prüfen, Migration kontrol
 | Dependency Audit | bestanden | 0 bekannte npm-Schwachstellen |
 | Enterprise/Institutional | bestanden | 99/100 ohne Live-URL; 28/28 |
 | Datenbank/pgTAP | CI ausstehend | 29/29 Assertions statisch gezählt; lokal kein Docker |
+
+## Phase 1 - Abschlussbeleg Quoten-Mandantentrennung (2026-08-11)
+
+| Beleg | Ergebnis |
+|---|---|
+| Pull Request | #51, gemergt als c2e43c6 |
+| GitHub StockPilot CI | bestanden, Lauf 31509789925 |
+| GitHub Database Tests | bestanden, Lauf 31509790155 |
+| Supabase-Migration | 20260811154426_harden_feature_quota_tenant_identity angewendet |
+| Produktionsrechte | authenticated: EXECUTE; anon/service_role: kein EXECUTE |
+| Alte RPC-Signatur | entfernt |
+| Vercel-Produktion | dpl_9rgmGDqW9BqmW3BkJJBmkryKLMab, READY |
+| Öffentliche Adresse | https://stockpilot-ai-beta.vercel.app |
+| Live-Smoke | 5/5 Kernziele mit HTTP 200 |
+| Produktionsfehlerlog | keine Fehler im Prüfzeitraum |
+
+Die Quoten-RPC ist absichtlich als eng begrenzte SECURITY-DEFINER-Funktion über PostgREST erreichbar. Der Supabase-Linter meldet diese beabsichtigte Erreichbarkeit generisch; die Funktion ist durch auth.uid(), feste Feature-Whitelist, feste Grenzwerte, leeren search_path, atomare Schreiblogik und 29 pgTAP-Assertions abgesichert. Der separate Hinweis zur deaktivierten Leaked-Password-Protection bleibt als BLOCKER-012 offen.

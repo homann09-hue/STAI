@@ -43,3 +43,16 @@ ausgegeben.
 - Verteilter Rate-Limit- und Provider-Cache fehlt; In-Memory-Schutz ist nicht multi-instanzfest.
 - Vollständige Display-, Realtime- und Redistributionsrechte sind extern nicht abgeschlossen.
 - CAPTCHA, MFA-Produktflow und formale DAST-Abdeckung sind noch nicht vollständig umgesetzt.
+
+## Produktionsnachweis vom 2026-08-11
+
+- [x] Quotenverbrauch verwendet den RLS-gebundenen Nutzer-Client statt Service Role.
+- [x] Die Datenbank leitet die Nutzer-ID ausschließlich aus auth.uid() ab.
+- [x] Die alte RPC mit frei übergebbarer UUID ist entfernt.
+- [x] anon und service_role besitzen kein EXECUTE; authenticated besitzt nur EXECUTE auf der eng begrenzten RPC.
+- [x] search_path ist leer und alle Objekte sind schemaqualifiziert.
+- [x] 29 pgTAP-Assertions liefen im isolierten GitHub-Datenbankworkflow erfolgreich.
+- [x] Main-CI, Produktions-Build, Live-Smoke und Vercel-Fehlerprüfung sind grün.
+- [ ] Supabase Leaked-Password-Protection aktivieren; extern und tarifabhängig, siehe BLOCKER-012.
+
+Akzeptierter Linter-Hinweis: Supabase warnt allgemein vor einer durch authenticated ausführbaren SECURITY-DEFINER-Funktion. Für consume_feature_quota ist diese Ausführbarkeit beabsichtigt, weil direkte Tabellen-Schreibrechte die Quotenintegrität schwächen würden. Die RPC besitzt keine wählbare Nutzer-ID, arbeitet nur auf auth.uid(), akzeptiert nur zwei feste Features und ist mit atomaren Tenant-Isolationstests abgesichert.

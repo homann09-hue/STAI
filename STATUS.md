@@ -272,3 +272,13 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Lokal bestanden: Format, TypeScript, ESLint, 125 Vitest-Dateien mit 990 Tests, Produktions-Build und 35 Playwright-Tests; 1 mobiler Duplikatlauf ist bewusst übersprungen.
 - `npm audit` meldet 0 bekannte Schwachstellen. Enterprise-Check: 99/100 ohne gesetzte Live-URL. Institutional-Check: 28/28.
 - Die neue pgTAP-Suite enthält exakt 29 Assertions. Die Ausführung bleibt bis zum GitHub-Datenbankworkflow offen, weil lokal keine Docker-Supabase-Instanz läuft.
+
+## Phase 1 - Quoten-Mandantentrennung abgeschlossen (2026-08-11)
+
+- Pull Request #51 wurde als Merge-Commit c2e43c6 in main übernommen.
+- StockPilot CI und Database Tests sind auf dem Merge-Stand vollständig grün.
+- Produktionsmigration 20260811154426 ist angewendet; nur consume_feature_quota(text, integer) existiert.
+- Die RPC bindet den Mandanten an auth.uid(); authenticated darf ausführen, anon und service_role nicht.
+- Produktion dpl_9rgmGDqW9BqmW3BkJJBmkryKLMab ist READY und über https://stockpilot-ai-beta.vercel.app erreichbar.
+- Live-Smoke: Startseite, Health, AAPL, News und Provider-Status jeweils HTTP 200; Vercel-Fehlerlog leer.
+- Phase 1 bleibt aktiv. Nächster einzelne Arbeitspunkt ist die Auth-/Passwort-Härtung aus BLOCKER-012.
