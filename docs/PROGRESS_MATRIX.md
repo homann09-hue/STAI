@@ -1,11 +1,9 @@
-# Fortschrittsmatrix — Soll-Ist gegen `docs/MASTERPROMPT.md`
+# Fortschrittsmatrix - historischer Soll-Ist-Nachweis
 
-Stand: 2026-08-08 · Branch `codex/enterprise-saas-billing-20260711` · Commit `da2d027`
-· PR #16 mit vier bestandenen Checks
+Stand der Momentaufnahme: 2026-08-08
+Status: **HISTORICAL SNAPSHOT, NICHT AKTUELLE PROJEKTSTEUERUNG**
 
-Letzter Abgleich mit `docs/MASTERPROMPT.md`: 2026-08-08 nach dem
-Entitlement-Fix. Dabei neu gemessen: der Launch-Check nach §110 (unten) und die
-Auth-Verfahren.
+Diese Matrix dokumentiert belegte Zwischenstände des früheren Masterprompts. Die einzige aktuelle Autorität ist `docs/ULTIMATE_MARKET_READINESS_GOAL.md`; der tatsächliche Arbeitsstand steht in `docs/EXECUTION_LEDGER.md`. Veraltete Zählungen und Zustände in dieser Datei dürfen nicht als aktueller Produktstand ausgegeben werden.
 
 **Zustände**
 
