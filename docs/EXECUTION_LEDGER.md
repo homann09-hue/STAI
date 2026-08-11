@@ -1,15 +1,15 @@
 # StockPilot AI Execution Ledger
 
-Stand: 2026-08-11, 19:13 Uhr MESZ
+Stand: 2026-08-11
 
 ## Aktueller Arbeitszustand
 
 | Feld | Tatsächlicher Stand |
 |---|---|
 | Phase | Phase 1: bestehende kritische Fehler beheben |
-| Aktive Aufgabe | Abschlussnachweis Portfolio-Trade-Mandantengrenze |
-| Produktionsstand | `main` auf `6df7f4e1078a2c9259a0a35de796571f919436d1` |
-| Dokumentationsbranch | `codex/phase-1-portfolio-evidence` |
+| Aktive Aufgabe | Auth-Privilegiengrenze für normale Nutzeranfragen |
+| Produktionsstand | `main` auf `a07f7016a4128e507683354e38fdf9487ef9ec01` |
+| Arbeitsbranch | `codex/phase-1-auth-privilege-boundary` |
 | Repository | `homann09-hue/STAI` |
 | Produktion | `https://stockpilot-ai-beta.vercel.app` |
 | Vercel-Projekt | ausschließlich `stockpilot-ai`; BauPro blieb unberührt |
@@ -68,6 +68,22 @@ Stand: 2026-08-11, 19:13 Uhr MESZ
 
 Der Security Advisor meldet zusätzlich weiterhin den absichtlich begrenzten `consume_feature_quota`-RPC als generische Warnung. Dieser getrennte Pfad ist durch `auth.uid()`, feste Feature- und Grenzwertlisten, leeren `search_path`, atomare Logik und 29 pgTAP-Prüfungen abgesichert.
 
+## Aktiver Befund und Umsetzung
+
+`getSupabaseAuth()` erzeugte bislang vor jeder normalen Nutzeranfrage einen Service-Role-Client und validierte das Token darüber. Jetzt liest der Pfad zuerst das Token, erzeugt ausschließlich den RLS-gebundenen Publishable-Key-Client und validiert es serverseitig mit `auth.getUser(token)`. Das Auth-Ergebnis enthält keinen privilegierten Client mehr.
+
+DSGVO-Export und administrative Kontolöschung erzeugen die Service Role erst innerhalb der jeweiligen Operation. Fehlt die privilegierte Konfiguration, brechen diese beiden Pfade fail-closed ab; normale Nutzeranfragen bleiben davon unabhängig.
+
+## Lokale Abnahme
+
+- Formatprüfung bestanden.
+- Typecheck und Lint ohne Warnungen bestanden.
+- Sicherheitsregression: 10 gezielte Tests bestanden.
+- Gesamtsuite: 129 Testdateien und 1.004 Tests bestanden.
+- Produktions-Build: 35 statische Seiten erzeugt.
+- Browser/E2E: 35 Tests bestanden, ein reiner Mobile-Test auf Desktop bewusst übersprungen.
+- `npm ci` meldet keine bekannten Dependency-Schwachstellen.
+
 ## Nächster zulässiger Schritt
 
-Abschlussnachweis per Dokumentations-PR in `main` übernehmen. Danach den nächsten einzelnen Phase-1-Befund anhand von tatsächlichem Risiko und Produktwirkung auswählen; Phase 1 und die Marktreife-Mission bleiben aktiv.
+Den isolierten Branch committen, per GitHub-CI prüfen und ausschließlich im Vercel-Projekt `stockpilot-ai` ausrollen. Danach Live-Smokes und Fehlerlogs prüfen und den Abschlussnachweis übernehmen. Erst dann den nächsten Phase-1-Befund auswählen; Phase 1 und die Marktreife-Mission bleiben aktiv.

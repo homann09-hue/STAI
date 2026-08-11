@@ -11,7 +11,7 @@ StockPilot AI wird Phase für Phase zu einem belegbar marktreifen Finanzanalyse-
 
 **Phase 1: Bestehende kritische Fehler beheben.**
 
-Aktiver Arbeitspunkt: Die Portfolio-Trade-Mandantengrenze ist technisch und produktiv abgeschlossen. Der Abschlussnachweis wird in `main` übernommen; erst danach folgt der nächste einzelne Phase-1-Befund.
+Aktiver Arbeitspunkt: Die normale Supabase-Authentifizierung wird vom Service-Role-Schlüssel entkoppelt. Der privilegierte Client darf nur innerhalb von DSGVO-Export und administrativer Kontolöschung entstehen.
 
 ## Wichtigste Qualitätsregeln
 
@@ -75,3 +75,13 @@ Lokaler Stand: implementiert und vollständig grün mit 128 Testdateien, 1.001 T
 Produktionsabschluss: PR #55 ist als `6df7f4e` gemergt. Main-CI und Datenbanktests sind grün, Migration `20260811193000` ist angewendet und die neue RPC ist `auth.uid()`-gebunden. Deployment `dpl_H6FXaQ35nnYeLcw2bbxgJMUm9Cqg` ist READY; vier HTTP-Smokes, der echte lokale Portfoliofluss und das Fehlerlog sind grün.
 
 Nächster Schritt: Abschlussdokumentation mergen, danach den nächsten einzelnen Phase-1-Befund auswählen. Die übergeordnete Marktreife-Mission bleibt aktiv.
+
+## Aktiver Phase-1-Arbeitspunkt: Auth-Privilegiengrenze
+
+Ziel: Watchlist-, Alert-, Portfolio-, Billing- und andere normale Nutzerpfade validieren Sessions ausschließlich mit dem tokengebundenen Publishable-Key-Client. Der Service-Role-Client wird weder vorausgesetzt noch im Auth-Ergebnis weitergereicht.
+
+Privilegierte Ausnahmen: DSGVO-Export und administrative Kontolöschung erzeugen den Service-Client erst innerhalb der jeweiligen Operation und brechen bei fehlender Konfiguration sicher ab.
+
+Abnahme: Regressionstest, vollständige Qualitätsgates, GitHub-CI, kontrolliertes StockPilot-Deployment und Live-Smokes. BauPro bleibt vollständig unberührt.
+
+Lokaler Stand: implementiert und grün mit Formatprüfung, Typecheck, Lint, 129 Testdateien und 1.004 Tests, Produktions-Build mit 35 statischen Seiten sowie 35 bestandenen Browserflüssen und einem bewussten Skip.

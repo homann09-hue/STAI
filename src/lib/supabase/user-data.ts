@@ -6,22 +6,20 @@ import { logEvent } from "@/lib/observability";
 import { createSupabaseServiceClient, createSupabaseUserClient } from "@/lib/supabase/server";
 import type { AlertExecutionStatus, AlertFrequency, AlertNotificationChannel, AlertRule, AlertType, AssetType, PortfolioPosition, PortfolioSummary, PortfolioTradeInput } from "@/lib/types";
 
-type SupabaseClient = NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
+type SupabaseClient = NonNullable<ReturnType<typeof createSupabaseUserClient>>;
 
 /**
  * `supabase` ist nutzergebunden und unterliegt RLS. Es ist der Standardpfad für
  * alle Nutzerdaten.
  *
- * `serviceSupabase` umgeht RLS und ist bewusst nur für die zwei privilegierten
- * Pfade gedacht, die es technisch brauchen: den DSGVO-Export (liest u. a.
- * `billing_events`, das `authenticated` verweigert) und die Admin-API zur
- * Kontolöschung.
+ * Ein privilegierter Service-Role-Client ist bewusst kein Teil des
+ * Auth-Ergebnisses. Die zwei Operationen, die ihn technisch brauchen, erzeugen
+ * ihn erst lokal: DSGVO-Export und administrative Kontolöschung.
  */
 type AuthResult =
   | {
       ok: true;
       supabase: SupabaseClient;
-      serviceSupabase: SupabaseClient;
       userId: string;
       email: string | null;
       accessToken: string;
@@ -183,19 +181,10 @@ function portfolioBookFromRow(row: PortfolioBookRow): PortfolioBookRow {
 }
 
 export async function getSupabaseAuth(request: Request): Promise<AuthResult> {
-  const serviceSupabase = createSupabaseServiceClient();
-  if (!serviceSupabase) return { ok: false, reason: "missing_client" };
-
   const authorization = request.headers.get("authorization") ?? "";
   const token = authorization.startsWith("Bearer ") ? authorization.slice("Bearer ".length).trim() : "";
 
   if (!token) return { ok: false, reason: "anonymous" };
-
-  const { data, error } = await serviceSupabase.auth.getUser(token);
-
-  if (error || !data.user) {
-    return { ok: false, reason: "invalid_token" };
-  }
 
   const supabase = createSupabaseUserClient(token);
   if (!supabase) {
@@ -206,6 +195,15 @@ export async function getSupabaseAuth(request: Request): Promise<AuthResult> {
       reason: "missing_publishable_key"
     });
     return { ok: false, reason: "missing_client" };
+  }
+
+  // `getUser()` validiert das JWT serverseitig beim Auth-Service. Dafür reicht
+  // der Publishable-Key-Client; ein Service-Role-Secret ist weder nötig noch
+  // darf es normalen Nutzerpfaden als versteckte Abhängigkeit auferlegt werden.
+  const { data, error } = await supabase.auth.getUser(token);
+
+  if (error || !data.user) {
+    return { ok: false, reason: "invalid_token" };
   }
 
   const { error: profileError } = await supabase.from("profiles").upsert({
@@ -226,11 +224,19 @@ export async function getSupabaseAuth(request: Request): Promise<AuthResult> {
   return {
     ok: true,
     supabase,
-    serviceSupabase,
     userId: data.user.id,
     email: data.user.email ?? null,
     accessToken: token
   };
+}
+
+function requireServiceSupabase(operation: "account_export" | "account_deletion") {
+  const serviceSupabase = createSupabaseServiceClient();
+  if (!serviceSupabase) {
+    logEvent("error", "supabase.service_client_unavailable", { operation });
+    throw new Error("supabase_service_client_unavailable");
+  }
+  return serviceSupabase;
 }
 
 function alertFromRow(row: AlertRuleRow): AlertRule {
@@ -495,11 +501,12 @@ export async function exportUserData(auth: Extract<AuthResult, { ok: true }>) {
   // DSGVO-Auskunft: bewusst privilegiert, weil Tabellen wie `billing_events`
   // der Rolle `authenticated` per Policy jeden Zugriff verweigern. Die
   // Eigentümerbindung erzwingt hier zwingend der `ownerColumn`-Filter.
+  const serviceSupabase = requireServiceSupabase("account_export");
   const unavailableTables: string[] = [];
 
   const entries = await Promise.all(
     personalDataTables.map(async ({ key, table, ownerColumn }) => {
-      const { data, error } = await auth.serviceSupabase
+      const { data, error } = await serviceSupabase
         .from(table)
         .select("*")
         .eq(ownerColumn, auth.userId)
@@ -537,11 +544,12 @@ export async function exportUserData(auth: Extract<AuthResult, { ok: true }>) {
 
 export async function deleteUserAccount(auth: Extract<AuthResult, { ok: true }>) {
   // Admin-API: nur mit Service-Role verfügbar.
-  const { error: signOutError } = await auth.serviceSupabase.auth.admin.signOut(auth.accessToken, "global");
+  const serviceSupabase = requireServiceSupabase("account_deletion");
+  const { error: signOutError } = await serviceSupabase.auth.admin.signOut(auth.accessToken, "global");
   const signOutStatus = (signOutError as { status?: number } | null)?.status;
   if (signOutError && signOutStatus !== 401 && signOutStatus !== 404) throw signOutError;
 
-  const { error } = await auth.serviceSupabase.auth.admin.deleteUser(auth.userId);
+  const { error } = await serviceSupabase.auth.admin.deleteUser(auth.userId);
   if (error) throw error;
 }
 

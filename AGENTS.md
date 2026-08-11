@@ -40,13 +40,14 @@ Details und Aktivierungsschritte: `docs/BLOCKERS.md`.
 
 ### 1.2 Mandantentrennung läuft über RLS, nicht über Anwendungscode
 
-`getSupabaseAuth()` in `src/lib/supabase/user-data.ts` liefert **zwei** Clients:
+`getSupabaseAuth()` in `src/lib/supabase/user-data.ts` liefert ausschließlich
+`auth.supabase`: einen an das Access Token gebundenen Client, auf dem RLS
+greift. Auch `auth.getUser(token)` läuft über diesen Publishable-Key-Client.
+Normale Nutzeranfragen hängen deshalb nicht vom Service-Schlüssel ab und tragen
+keinen privilegierten Client durch die Anwendung.
 
-- `auth.supabase` — an das Access Token gebunden, RLS greift. **Standard für
-  alle Nutzerdaten.**
-- `auth.serviceSupabase` — Service Role, umgeht RLS vollständig.
-
-`serviceSupabase` ist auf genau zwei Pfaden erlaubt, beide begründet:
+Die Service Role wird in diesem Modul nur lokal für genau zwei begründete
+Operationen erzeugt:
 
 1. DSGVO-Export — liest `billing_events`, das `authenticated` per Policy alles
    verweigert.
@@ -56,7 +57,8 @@ Details und Aktivierungsschritte: `docs/BLOCKERS.md`.
 verlagert Mandantentrennung zurück in den Anwendungscode.
 
 → Es gibt **keinen** stillen Rückfall auf Service Role, wenn der Nutzer-Client
-nicht gebaut werden kann. Das wäre exakt die Aufhebung der Trennung.
+nicht gebaut oder das Token nicht validiert werden kann. Das wäre exakt die
+Aufhebung der Trennung.
 
 ### 1.3 Das Mock-Universum umfasst 7 Symbole
 

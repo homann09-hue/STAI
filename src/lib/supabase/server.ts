@@ -22,8 +22,8 @@ function isLikelyServiceKey(value: string | undefined): value is string {
 /**
  * Service-Role-Client. Umgeht Row Level Security vollständig.
  *
- * Nur für Pfade verwenden, die echte Privilegien brauchen: Token-Verifikation,
- * Admin-API, Webhooks und RPCs, die ausschließlich `service_role` gewährt sind.
+ * Nur für Pfade verwenden, die echte Privilegien brauchen: Admin-API,
+ * Webhooks und serverinterne Tabellen, die normalen Nutzern verwehrt sind.
  * Für Nutzerdaten stattdessen `createSupabaseUserClient()` verwenden, damit RLS
  * die Mandantentrennung erzwingt und nicht der Anwendungscode.
  */
