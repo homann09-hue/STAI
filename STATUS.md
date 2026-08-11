@@ -1,6 +1,6 @@
 # StockPilot AI Status
 
-## Aktueller Meilenstein: Phase 1 - Auth-Privilegiengrenze
+## Aktueller Meilenstein: Phase 1 - Auth-Privilegiengrenze abgeschlossen
 
 Stand: 2026-08-11
 
@@ -9,7 +9,10 @@ Stand: 2026-08-11
 - Die Service Role wird nur noch lokal und fail-closed für DSGVO-Export und administrative Kontolöschung erzeugt.
 - Ein Sicherheitsregressionstest schützt diese Grenze dauerhaft.
 - Lokal belegt: Format, Typecheck, Lint, 129 Testdateien mit 1.004 Tests, Produktions-Build mit 35 statischen Seiten sowie 35 bestandene Browserflüsse und ein bewusster Skip.
-- GitHub- und Produktionsnachweise folgen nach den externen Gates.
+- Pull Request #57 wurde als `3ceac72` gemergt; Main-CI `31518017780` und Datenbanktests `31518017734` sind grün.
+- Produktionsdeployment `dpl_5a5ih8TAvs1mqcJE8ND8RC8iwAeq` ist READY und bedient `stockpilot-ai-beta.vercel.app`.
+- Dashboard, Health, Watchlist, Portfolio und Einstellungen liefern HTTP 200; anonyme und ungültige Sessions bleiben ohne Cloud-Sync im lokalen Modus.
+- Das Produktionsfehlerlog war im Prüfzeitraum leer. BauPro blieb unberührt.
 
 ## Aktueller Meilenstein: Phase 1 - Portfolio-Trade-Mandantengrenze abgeschlossen
 
