@@ -417,6 +417,30 @@ export interface RiskEngineReport {
   findings: RiskFinding[];
 }
 
+export interface HistoricalRiskMetrics {
+  status: "available" | "insufficient_data" | "unavailable";
+  provider: string;
+  quality: MarketDataQuality;
+  asOf: string;
+  sampleSize: number;
+  tradingDays: number;
+  riskFreeRatePercent: number;
+  minimumReturns: number;
+  metrics: {
+    totalReturnPercent: number | null;
+    annualizedReturnPercent: number | null;
+    annualizedVolatilityPercent: number | null;
+    downsideVolatilityPercent: number | null;
+    maxDrawdownPercent: number | null;
+    sharpeRatio: number | null;
+    sortinoRatio: number | null;
+    calmarRatio: number | null;
+    valueAtRisk95Percent: number | null;
+    conditionalValueAtRisk95Percent: number | null;
+  };
+  warnings: string[];
+}
+
 export interface AnalystOpinion {
   consensus: "Constructive" | "Neutral" | "Cautious" | "Outperform";
   count: number;
@@ -504,6 +528,7 @@ export interface AssetDetail extends AssetSummary {
   professionalScores: ProfessionalScores;
   dataQuality: DataQualityReport;
   riskReport: RiskEngineReport;
+  historicalRisk: HistoricalRiskMetrics;
   analysisLayers: AnalysisLayer[];
   macroFactors: MacroFactor[];
   analystOpinion: AnalystOpinion | null;

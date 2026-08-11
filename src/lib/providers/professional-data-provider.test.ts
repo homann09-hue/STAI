@@ -1,16 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getMockAsset } from "@/lib/mock/market";
+import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
 import type { AssetDetail } from "@/lib/types";
 import { getProfessionalDataProvider } from "./professional-data-provider";
 
 const marketProviderMocks = vi.hoisted(() => ({
-  getAsset: vi.fn()
+  getAsset: vi.fn(),
+  getDashboard: vi.fn()
 }));
 
 vi.mock("@/lib/providers/market-provider", () => ({
   getMarketDataProvider: () => ({
     providerName: "Test Provider",
-    getAsset: marketProviderMocks.getAsset
+    getAsset: marketProviderMocks.getAsset,
+    getDashboard: marketProviderMocks.getDashboard
   })
 }));
 
@@ -65,12 +67,14 @@ function providerOnlyDetail(symbol: string): AssetDetail {
 describe("professional data provider", () => {
   afterEach(() => {
     marketProviderMocks.getAsset.mockReset();
+    marketProviderMocks.getDashboard.mockReset();
     if (originalProfessionalSymbols === undefined) delete process.env.STOCKPILOT_PROFESSIONAL_SYMBOLS;
     else process.env.STOCKPILOT_PROFESSIONAL_SYMBOLS = originalProfessionalSymbols;
   });
 
   it("builds reports from provider symbols without inventing fundamentals for provider-only assets", async () => {
     process.env.STOCKPILOT_PROFESSIONAL_SYMBOLS = "META";
+    marketProviderMocks.getDashboard.mockResolvedValue(getMockDashboard());
     marketProviderMocks.getAsset.mockImplementation(async (symbol: string) => getMockAsset(symbol) ?? (symbol === "META" ? providerOnlyDetail("META") : null));
 
     const report = await getProfessionalDataProvider().getMarketReport();

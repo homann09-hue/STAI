@@ -6,6 +6,7 @@ import {
   professionalScoresFromEvidence,
   scoresFromEvidence
 } from "@/lib/analysis/evidence-scores";
+import { calculateHistoricalRiskMetrics } from "@/lib/analysis/historical-risk";
 
 import { buildRiskReport } from "@/lib/risk-engine";
 
@@ -736,6 +737,11 @@ function detailFromProviderQuote(
     fundamentals: fundamentalsEvidence,
     base: providerOnlyDataQuality(quote)
   });
+  const historicalRisk = calculateHistoricalRiskMetrics({
+    candles: history.candles,
+    provider: history.provider,
+    integrityBlocked: history.integrity?.backtestStatus === "blocked"
+  });
   const historyConfirmed =
     history.candles.length >= 60 && history.integrity?.backtestStatus !== "blocked";
   const newsConfirmed = news.length > 0;
@@ -876,6 +882,7 @@ function detailFromProviderQuote(
     professionalScores,
     dataQuality,
     riskReport,
+    historicalRisk,
     analysisLayers,
     macroFactors,
     analystOpinion: null,

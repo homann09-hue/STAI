@@ -28,6 +28,7 @@ import {
 import { CandlestickChart, PriceLineChart } from "@/components/charts";
 import { AssetDecisionPanel } from "@/components/asset-decision-panel";
 import { MarketDataStatus } from "@/components/market-data-status";
+import { HistoricalRiskPanel } from "@/components/historical-risk-panel";
 import { NewsList } from "@/components/news-list";
 import { TechnicalTrendPanel } from "@/components/technical-trend-panel";
 import { OFFLINE_KEYS, readOfflineValue, saveOfflineValue } from "@/lib/offline";
@@ -585,6 +586,8 @@ export function AssetDetailView({
         ) : null}
         <CandlestickChart candles={candles} />
       </section>
+
+      <HistoricalRiskPanel metrics={detail.historicalRisk} />
 
       <AssetDecisionPanel detail={detail} />
 
