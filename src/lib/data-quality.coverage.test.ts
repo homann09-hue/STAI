@@ -77,6 +77,11 @@ describe("data quality branch coverage", () => {
     const realtime = cloneDetail("VOO");
     realtime.quote.quality = "realtime";
     realtime.quote.provider = "Unit Test Realtime Provider";
+    realtime.news = realtime.news.map((item, index) => ({
+      ...item,
+      source: "Unit Test News Provider",
+      url: `https://example.com/news/${index}`
+    }));
     const realtimeReport = assessDataQuality(realtime, new Date(realtime.quote.asOf));
     expect(realtimeReport.sourceLabel).toBe("Realtime-Daten");
     expect(realtimeReport.freshness).toBe("fresh");
