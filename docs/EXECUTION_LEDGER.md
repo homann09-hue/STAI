@@ -131,3 +131,11 @@ Den isolierten Branch committen und über GitHub-CI prüfen. Danach Migration `2
 - **Live-Smoke:** Startseite, Health, Billing und Settings 200; Export ohne Session 401
 - **Restbeobachtung:** FMP-429 mit funktionierendem Provider-Fallback; separat als Provider-Kapazitätsrisiko weiterverfolgen
 - **Projektgrenze:** BauPro nicht angefasst
+
+## Aktive Aufgabe - Phase 1 Provider-429-Stabilisierung
+
+- **Branch:** `codex/phase-1-provider-rate-limit`
+- **Belegter Fehler:** mehrere gleichzeitige FMP-Quote-Anfragen der Startseite endeten in HTTP 429.
+- **Ursache:** Chained Batches verwendeten Cache und Backoff auf Kettenebene statt auf den inneren Providern; FMP war zugleich Standard-Primary.
+- **Umsetzung:** providerweise Batch-Auflösung, konservative FMP-Parallelität, strukturierter Retry-After und Quote-spezifische Providerreihenfolge.
+- **Status:** Implementierung angelegt; lokale und externe Abschlussnachweise ausstehend.
