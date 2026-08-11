@@ -151,9 +151,9 @@ export async function requireFeature(request: Request, featureId: FeatureId): Pr
  * Lesen und Erhoehen zwei Schritte, koennten zwei gleichzeitige Anfragen beide
  * die letzte freie Einheit sehen und beide zugreifen.
  *
- * Der Service-Client ist hier noetig und begruendet: der Zaehler darf einem
- * Konto nicht gehoeren. Ein Nutzer, der seinen eigenen Verbrauch schreiben
- * koennte, haette keine Quote. Lesen darf er ihn (RLS), schreiben nicht.
+ * Der tokengebundene Client ist hier die Sicherheitsgrenze: die RPC leitet
+ * den Besitzer ausschliesslich aus `auth.uid()` ab. Ein Aufrufer kann deshalb
+ * weder eine fremde `user_id` uebergeben noch die Tabelle direkt beschreiben.
  */
 export async function consumeQuota(
   auth: AuthenticatedContext,
@@ -163,8 +163,7 @@ export async function consumeQuota(
   const limit = quotaLimitFor(entitlements.plan, quota);
   const now = new Date();
 
-  const { data, error } = await auth.serviceSupabase.rpc("consume_feature_quota", {
-    p_user_id: auth.userId,
+  const { data, error } = await auth.supabase.rpc("consume_feature_quota", {
     p_feature: quotaFeatureNames[quota],
     p_limit: limit
   });

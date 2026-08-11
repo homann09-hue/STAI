@@ -306,3 +306,24 @@ Der technische Disclaimer ersetzt keine rechtlich geprueften AGB,
 Widerrufsbelehrung, Datenschutzpruefung und Datenlizenzmatrix. Inhalte und
 Preise duerfen erst nach Freigabe durch qualifizierte Rechtsberatung als
 kommerziell produktionsbereit bezeichnet werden.
+
+## BLOCKER-012 - Schutz gegen geleakte Passwörter deaktiviert
+
+**Status:** `BLOCKED - EXTERNAL CONFIGURATION`
+
+**Nachweis (2026-08-11):** Der Supabase Security Advisor für das
+Produktionsprojekt `STAI` meldet `auth_leaked_password_protection` als
+Warnung. StockPilot bietet Passwortregistrierung und Passwortlogin an, daher ist
+der Befund relevant.
+
+**Auswirkung:** Bekannte kompromittierte Passwörter werden von Supabase Auth
+derzeit nicht automatisch abgewiesen. Die App darf diesen Schutz nicht als aktiv
+darstellen.
+
+**Aktivierung:** In den Supabase-Auth-Einstellungen "Leaked password
+protection" aktivieren. Laut offizieller Supabase-Dokumentation ist diese
+Funktion im Pro-Tarif und höher verfügbar. Danach Security Advisor erneut
+ausführen und den Befund erst bei leerem Ergebnis schließen.
+
+**Unabhängig im Code fortsetzbar:** Mindestlänge und Passwortregeln können
+gehärtet sowie verständliche Fehlerzustände getestet werden.
