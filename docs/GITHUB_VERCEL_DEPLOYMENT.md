@@ -42,14 +42,20 @@ Wichtig: Dieses Projekt niemals mit BauPro verlinken. In Vercel muss ein separat
 
 ## Vercel Environment Variables
 
-Für den Mock-Start reichen diese Werte:
+Der sichere Produktionsstart ist fail-closed. Ohne Anbieter-Schlüssel bleiben
+betroffene Bereiche sichtbar `unavailable`; es werden keine Fixtures angezeigt:
 
 ```bash
-STOCKPILOT_MARKET_PROVIDER=mock
-STOCKPILOT_NEWS_PROVIDER=mock
-STOCKPILOT_FUNDAMENTALS_PROVIDER=mock
+STOCKPILOT_MARKET_PROVIDER=auto
+STOCKPILOT_NEWS_PROVIDER=auto
+STOCKPILOT_FUNDAMENTALS_PROVIDER=auto
 STOCKPILOT_AI_PROVIDER=evidence
+STOCKPILOT_ALLOW_TEST_FIXTURES=false
 ```
+
+Lokale Fixtures sind ausschließlich für Entwicklung und Tests erlaubt. Selbst
+ein versehentlich gesetzter Testschalter wird bei `VERCEL_ENV=production`
+ignoriert.
 
 Für Supabase später in Vercel setzen:
 
@@ -68,6 +74,8 @@ POLYGON_API_KEY=
 TWELVE_DATA_API_KEY=
 YAHOO_FINANCE_API_KEY=
 NEWS_API_KEY=
+NEWSAPI_API_KEY=
+MARKETAUX_API_KEY=
 OPENAI_API_KEY=
 ```
 

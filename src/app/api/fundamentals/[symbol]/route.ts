@@ -45,7 +45,7 @@ export async function GET(request: Request, { params }: RouteContext) {
         warning: result.warning
       },
       disclaimer:
-        "Fundamentaldaten können je nach Anbieter verzögert, gecached, unvollständig oder Mock-Daten sein."
+        "Fundamentaldaten können je nach Anbieter verzögert, gecached oder unvollständig sein. Fehlende Providerfelder werden nicht durch Ersatzwerte ergänzt."
     }
   };
 

@@ -2,6 +2,7 @@ import { getMockNews } from "@/lib/mock/market";
 import { classifySubjects, detectEvents, type ProviderEntity } from "@/lib/news/classification";
 import { clusterNews } from "@/lib/news/dedupe";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import { developmentFixturesAllowed } from "@/lib/runtime-data-policy";
 import type { MarketDataQuality, NewsItem, Sentiment } from "@/lib/types";
 
 export interface NewsProvider {
@@ -141,13 +142,14 @@ function hasConfiguredNewsProvider() {
 function normalizeNewsProviderId(provider: string) {
   if (provider === "news_api") return "newsapi";
   if (provider === "marketaux" || provider === "newsapi" || provider === "auto" || provider === "mock") return provider;
-  return "mock";
+  return "auto";
 }
 
 function newsProviderLabel(provider: string) {
   if (provider === "marketaux") return "Marketaux";
   if (provider === "newsapi" || provider === "news_api") return "NewsAPI";
   if (provider === "auto") return "News Provider Auto-Fallback";
+  if (provider === "unavailable") return "Kein News-Provider";
   return "StockPilot Mock News Feed";
 }
 
@@ -160,19 +162,25 @@ function buildNewsMetadata(requestedProvider: string, actualProvider: string, ne
   const allMock = news.length > 0 && mockCount === news.length;
   const configured = hasConfiguredNewsProvider();
   const actualIsMock = actualProvider === "mock" || allMock;
+  const unavailable = actualProvider === "unavailable";
   const normalizedRequestedProvider = normalizeNewsProviderId(requestedProvider);
   const providerSwitched =
     normalizedRequestedProvider !== "auto" &&
     normalizedRequestedProvider !== "mock" &&
+    !unavailable &&
     normalizedRequestedProvider !== actualProvider;
-  const degraded = mockCount > 0 || !configured || actualIsMock || providerSwitched;
-  const quality: MarketDataQuality = actualIsMock || !configured ? "mock" : "near_realtime";
-  const warning = providerSwitched
-    ? `Gewünschter News-Provider ${newsProviderLabel(normalizedRequestedProvider)} konnte nicht liefern. Antwort stammt aus ${newsProviderLabel(actualProvider)}.`
-    : "News enthalten Mock-/Fallback-Daten oder es ist kein echter News-Provider aktiv. Nicht als bestätigte Realnachrichten interpretieren.";
+  const degraded = mockCount > 0 || actualIsMock || unavailable || providerSwitched || (!configured && news.length === 0);
+  const quality: MarketDataQuality = actualIsMock ? "mock" : unavailable ? "unavailable" : "near_realtime";
+  const warning = unavailable
+    ? "Kein konfigurierter News-Provider konnte verifizierte Meldungen liefern. Es werden keine Ersatzmeldungen angezeigt."
+    : providerSwitched
+      ? `Gewünschter News-Provider ${newsProviderLabel(normalizedRequestedProvider)} konnte nicht liefern. Antwort stammt aus ${newsProviderLabel(actualProvider)}.`
+      : actualIsMock
+        ? "Lokale Entwicklungs-Fixtures sind aktiv. Diese Meldungen sind keine echten Nachrichten."
+        : null;
 
   return {
-    provider: actualIsMock ? "StockPilot Mock News Feed" : newsProviderLabel(actualProvider),
+    provider: newsProviderLabel(actualProvider),
     requestedProvider: normalizedRequestedProvider,
     actualProvider,
     quality,
@@ -360,79 +368,57 @@ class FallbackNewsProvider implements NewsProvider {
         // fehlende Angabe ist keine niedrige Relevanz.
         if (news.length) return news.sort((a, b) => (b.relevance ?? -1) - (a.relevance ?? -1));
       } catch {
-        // News providers are optional. The next provider or mock fallback keeps the UI honest.
+        // News providers are optional. Der naechste echte Provider darf
+        // uebernehmen; Produktions-Fixtures sind kein Ausfall-Fallback.
       }
     }
 
-    return getMockNews(symbol);
+    return [];
   }
 }
 
 export function getNewsProvider(): NewsProvider {
-  const provider = (process.env.STOCKPILOT_NEWS_PROVIDER ?? "mock").trim().toLowerCase();
-  const marketaux = new MarketauxNewsProvider();
-  const newsApi = new NewsApiProvider();
-  const mock = new MockNewsProvider();
-  const hasNewsApi = Boolean(process.env.NEWS_API_KEY ?? process.env.NEWSAPI_API_KEY);
-
-  switch (provider) {
-    case "auto":
-      return new FallbackNewsProvider([
-        ...(process.env.MARKETAUX_API_KEY ? [marketaux] : []),
-        ...(hasNewsApi ? [newsApi] : []),
-        mock
-      ]);
-    case "marketaux":
-      return new FallbackNewsProvider([marketaux, ...(hasNewsApi ? [newsApi] : []), mock]);
-    case "newsapi":
-    case "news_api":
-      return new FallbackNewsProvider([newsApi, ...(process.env.MARKETAUX_API_KEY ? [marketaux] : []), mock]);
-    case "mock":
-      return mock;
-    default:
-      return mock;
-  }
+  const provider = normalizeNewsProviderId((process.env.STOCKPILOT_NEWS_PROVIDER ?? "auto").trim().toLowerCase());
+  return new FallbackNewsProvider(getNewsProviderAttempts(provider).map((attempt) => attempt.provider));
 }
 
 function getNewsProviderAttempts(provider: string) {
   const marketaux = new MarketauxNewsProvider();
   const newsApi = new NewsApiProvider();
-  const mock = new MockNewsProvider();
   const hasNewsApi = Boolean(process.env.NEWS_API_KEY ?? process.env.NEWSAPI_API_KEY);
   const attempts: Array<{ id: string; provider: NewsProvider }> = [];
 
   if (provider === "auto") {
     if (process.env.MARKETAUX_API_KEY) attempts.push({ id: "marketaux", provider: marketaux });
     if (hasNewsApi) attempts.push({ id: "newsapi", provider: newsApi });
-    attempts.push({ id: "mock", provider: mock });
     return attempts;
   }
 
   if (provider === "marketaux") {
     attempts.push({ id: "marketaux", provider: marketaux });
     if (hasNewsApi) attempts.push({ id: "newsapi", provider: newsApi });
-    attempts.push({ id: "mock", provider: mock });
     return attempts;
   }
 
   if (provider === "newsapi" || provider === "news_api") {
     attempts.push({ id: "newsapi", provider: newsApi });
     if (process.env.MARKETAUX_API_KEY) attempts.push({ id: "marketaux", provider: marketaux });
-    attempts.push({ id: "mock", provider: mock });
     return attempts;
   }
 
-  return [{ id: "mock", provider: mock }];
+  if (provider === "mock" && developmentFixturesAllowed()) {
+    return [{ id: "mock", provider: new MockNewsProvider() }];
+  }
+
+  return [];
 }
 
 export async function getNewsWithMetadata(symbol?: string) {
-  const provider = (process.env.STOCKPILOT_NEWS_PROVIDER ?? "mock").trim().toLowerCase();
+  const provider = normalizeNewsProviderId((process.env.STOCKPILOT_NEWS_PROVIDER ?? "auto").trim().toLowerCase());
   const attempts = getNewsProviderAttempts(provider);
   let emptyProviderResult: { actualProvider: string; news: NewsItem[] } | null = null;
 
   for (const attempt of attempts) {
-    if (attempt.id === "mock" && emptyProviderResult) break;
-
     try {
       const raw = await attempt.provider.getNews(symbol);
       if (raw.length) {
@@ -451,7 +437,8 @@ export async function getNewsWithMetadata(symbol?: string) {
         };
       }
     } catch {
-      // Try next configured provider or explicit mock fallback.
+      // Try the next configured, real provider. Fixtures are never an outage
+      // fallback and can only be selected explicitly outside production.
     }
   }
 
@@ -462,10 +449,8 @@ export async function getNewsWithMetadata(symbol?: string) {
     };
   }
 
-  const news = getMockNews(symbol);
-
   return {
-    news,
-    metadata: buildNewsMetadata(provider, "mock", news)
+    news: [],
+    metadata: buildNewsMetadata(provider, "unavailable", [])
   };
 }

@@ -667,10 +667,9 @@ function providerOnlyDataQuality(quote: NormalizedQuote): DataQualityReport {
 /**
  * Holt echte Nachrichten — und nur echte.
  *
- * `getNewsWithMetadata` fällt am Ende auf `getMockNews()` zurück. Dieser
- * Rückfall ist für `/api/news` gedacht, wo er als Demoquelle gekennzeichnet
- * wird; im Analysepfad wäre er ein §61-Verstoß. Übernommen wird deshalb nur,
- * was **nicht** als `quality: "mock"` gekennzeichnet ist.
+ * `getNewsWithMetadata` liefert in Produktion nur Providerdaten oder eine
+ * leere Liste. Der Qualitätsfilter bleibt als zweite Verteidigungslinie fuer
+ * explizite lokale Entwicklungs-Fixtures bestehen.
  *
  * Wirft nicht: eine nicht erreichbare Nachrichtenquelle darf die Asset-Seite
  * nicht abbrechen. Sie darf aber auch nicht durch erfundene Meldungen ersetzt
