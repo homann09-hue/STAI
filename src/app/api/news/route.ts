@@ -38,7 +38,7 @@ export async function GET(request: Request) {
         warning: result.warning
       },
       disclaimer:
-        "News können gecached, delayed, unvollständig oder Demo-Daten sein. Sentiment und Impact sind modellbasierte Einschätzungen."
+        "News können gecached, verzögert oder unvollständig sein. Fehlt eine verifizierte Quelle, bleibt der Feed leer. Sentiment und Impact sind modellbasierte Einschätzungen."
     }
   };
 

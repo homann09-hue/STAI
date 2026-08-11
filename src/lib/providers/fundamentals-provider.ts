@@ -1,16 +1,27 @@
 import { getMockAsset } from "@/lib/mock/market";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
-import type { Fundamentals, MarketDataQuality } from "@/lib/types";
+import { developmentFixturesAllowed } from "@/lib/runtime-data-policy";
+import type { Fundamentals, FundamentalsFieldSource, MarketDataQuality } from "@/lib/types";
+
+type FundamentalsProviderResult = {
+  actualProvider: "fmp" | "alpha_vantage" | "mock";
+  provider: string;
+  quality: MarketDataQuality;
+  fundamentals: Fundamentals;
+  fields: Partial<Record<keyof Fundamentals, FundamentalsFieldSource>>;
+};
 
 export interface FundamentalsProvider {
-  getFundamentals(symbol: string): Promise<Fundamentals | null>;
+  getFundamentals(symbol: string): Promise<FundamentalsProviderResult | null>;
 }
 
 export type FundamentalsProviderMetadata = {
   provider: string;
+  requestedProvider: string;
+  actualProvider: string;
   quality: MarketDataQuality;
   fetchedAt: string;
-  fields: Partial<Record<keyof Fundamentals, "provider" | "mock" | "unavailable">>;
+  fields: Partial<Record<keyof Fundamentals, FundamentalsFieldSource>>;
   fieldCoverage: {
     provider: number;
     mock: number;
@@ -26,11 +37,17 @@ export type FundamentalsProviderMetadata = {
   };
 };
 
-class MockFundamentalsProvider implements FundamentalsProvider {
-  async getFundamentals(symbol: string) {
-    return getMockAsset(symbol)?.fundamentals ?? null;
-  }
-}
+const fundamentalsMetricKeys = [
+  "peRatio",
+  "revenueGrowth",
+  "earningsGrowth",
+  "debtToEquity",
+  "cashflow",
+  "dividendYield",
+  "marketCap"
+] as const satisfies ReadonlyArray<keyof Fundamentals>;
+
+type ProviderValues = Partial<Record<keyof Fundamentals, number | null | undefined>>;
 
 function parseNumber(value: unknown) {
   if (value === null || value === undefined || value === "") return undefined;
@@ -50,103 +67,61 @@ function growth(latest?: number, previous?: number) {
   return Number((((latest - previous) / Math.abs(previous)) * 100).toFixed(2));
 }
 
-function hasObjectData(value: Record<string, unknown>) {
-  return Object.keys(value).length > 0;
-}
-
 function selectedFundamentalsProvider() {
-  return (process.env.STOCKPILOT_FUNDAMENTALS_PROVIDER ?? "mock").trim().toLowerCase();
+  const selected = (process.env.STOCKPILOT_FUNDAMENTALS_PROVIDER ?? "auto").trim().toLowerCase();
+  if (selected === "fmp" || selected === "alpha_vantage" || selected === "mock" || selected === "auto") {
+    return selected;
+  }
+  return "auto";
 }
 
-function hasConfiguredFundamentalsProvider(provider: string) {
-  if (provider === "fmp") return Boolean(process.env.FMP_API_KEY);
-  if (provider === "alpha_vantage") return Boolean(process.env.ALPHA_VANTAGE_API_KEY);
-  if (provider === "auto") return Boolean(process.env.FMP_API_KEY || process.env.ALPHA_VANTAGE_API_KEY);
-  return false;
-}
-
-function fundamentalsProviderLabel(provider: string) {
-  if (provider === "fmp") return "Financial Modeling Prep";
-  if (provider === "alpha_vantage") return "Alpha Vantage";
-  if (provider === "auto") return "Fundamentals Provider Auto-Fallback";
-  return "StockPilot Mock Fundamentals";
-}
-
-function sameMetric(a: number | null | undefined, b: number | null | undefined) {
-  return a === b || (a === null && b === undefined) || (a === undefined && b === null);
-}
-
-const fundamentalsMetricKeys = [
-  "peRatio",
-  "revenueGrowth",
-  "earningsGrowth",
-  "debtToEquity",
-  "cashflow",
-  "dividendYield",
-  "marketCap"
-] as const satisfies ReadonlyArray<keyof Fundamentals>;
-
-function mockLikeFundamentalFields(symbol: string, fundamentals: Fundamentals | null) {
-  const mock = getMockAsset(symbol)?.fundamentals;
-  if (!mock || !fundamentals) return [];
-
-  return fundamentalsMetricKeys.filter((key) => sameMetric(fundamentals[key], mock[key]));
-}
-
-function fundamentalFieldSources(symbol: string, fundamentals: Fundamentals | null) {
-  const fallbackFields = mockLikeFundamentalFields(symbol, fundamentals);
-
-  return Object.fromEntries(
+function providerResult(
+  actualProvider: "fmp" | "alpha_vantage",
+  provider: string,
+  quality: MarketDataQuality,
+  values: ProviderValues
+): FundamentalsProviderResult | null {
+  const fields = Object.fromEntries(
     fundamentalsMetricKeys.map((key) => [
       key,
-      !fundamentals || fundamentals[key] === null || fundamentals[key] === undefined
-        ? "unavailable"
-        : fallbackFields.includes(key)
-          ? "mock"
-          : "provider"
+      values[key] === undefined || values[key] === null ? "unavailable" : "provider"
     ])
-  ) as Partial<Record<keyof Fundamentals, "provider" | "mock" | "unavailable">>;
-}
+  ) as Partial<Record<keyof Fundamentals, FundamentalsFieldSource>>;
 
-function buildFundamentalsMetadata(symbol: string, fundamentals: Fundamentals | null): FundamentalsProviderMetadata {
-  const provider = selectedFundamentalsProvider();
-  const configured = hasConfiguredFundamentalsProvider(provider);
-  const fallbackFields = mockLikeFundamentalFields(symbol, fundamentals);
-  const fields = fundamentalFieldSources(symbol, fundamentals);
-  const fieldCoverage = {
-    provider: fundamentalsMetricKeys.filter((key) => fields[key] === "provider").length,
-    mock: fundamentalsMetricKeys.filter((key) => fields[key] === "mock").length,
-    unavailable: fundamentalsMetricKeys.filter((key) => fields[key] === "unavailable").length,
-    total: fundamentalsMetricKeys.length
-  };
-  const mockLike = Boolean(fundamentals && fallbackFields.length === fundamentalsMetricKeys.length);
-  const partiallyMockLike = fallbackFields.length > 0;
-  const providerIsMock = provider === "mock";
-  const degraded = !fundamentals || partiallyMockLike || providerIsMock || !configured;
-  const quality: MarketDataQuality = !fundamentals
-    ? "unavailable"
-    : mockLike || providerIsMock || !configured
-      ? "mock"
-      : "delayed";
+  if (!fundamentalsMetricKeys.some((key) => fields[key] === "provider")) return null;
 
   return {
-    provider: mockLike || providerIsMock ? "StockPilot Mock Fundamentals" : fundamentalsProviderLabel(provider),
+    actualProvider,
+    provider,
     quality,
-    fetchedAt: new Date().toISOString(),
-    fields,
-    fieldCoverage,
-    caveat: fundamentals && !degraded
-      ? "Providerdaten koennen je nach Anbieter verzögert, gecached oder unvollständig sein."
-      : null,
-    fallback: {
-      degraded,
-      mockLike,
-      fallbackFields,
-      warning: degraded
-        ? "Fundamentaldaten stammen ganz oder teilweise aus Mock-/Fallback-Daten. Nicht als bestätigte Unternehmenskennzahlen interpretieren."
-        : null
-    }
+    fundamentals: {
+      peRatio: values.peRatio ?? null,
+      revenueGrowth: values.revenueGrowth ?? 0,
+      earningsGrowth: values.earningsGrowth ?? 0,
+      debtToEquity: values.debtToEquity ?? 0,
+      cashflow: values.cashflow ?? 0,
+      dividendYield: values.dividendYield ?? null,
+      marketCap: values.marketCap ?? 0
+    },
+    fields
   };
+}
+
+class MockFundamentalsProvider implements FundamentalsProvider {
+  async getFundamentals(symbol: string) {
+    const fundamentals = getMockAsset(symbol)?.fundamentals;
+    if (!fundamentals) return null;
+
+    return {
+      actualProvider: "mock" as const,
+      provider: "StockPilot Mock Fundamentals",
+      quality: "mock" as const,
+      fundamentals,
+      fields: Object.fromEntries(fundamentalsMetricKeys.map((key) => [key, "mock"])) as Partial<
+        Record<keyof Fundamentals, FundamentalsFieldSource>
+      >
+    };
+  }
 }
 
 async function fetchJson<T>(url: URL, providerName: string, timeoutMs = 7000): Promise<T> {
@@ -159,11 +134,9 @@ async function fetchJson<T>(url: URL, providerName: string, timeoutMs = 7000): P
 }
 
 class FmpFundamentalsProvider implements FundamentalsProvider {
-  private readonly fallback = new MockFundamentalsProvider();
-
   async getFundamentals(symbol: string) {
     const token = process.env.FMP_API_KEY;
-    if (!token) return this.fallback.getFundamentals(symbol);
+    if (!token) return null;
 
     try {
       const baseUrl = process.env.FMP_API_BASE_URL ?? "https://financialmodelingprep.com/stable";
@@ -188,57 +161,36 @@ class FmpFundamentalsProvider implements FundamentalsProvider {
       const income = incomeResult.status === "fulfilled" ? incomeResult.value : [];
       const cashflow = cashflowResult.status === "fulfilled" ? cashflowResult.value[0] ?? {} : {};
       const balance = balanceResult.status === "fulfilled" ? balanceResult.value[0] ?? {} : {};
-      const providerHasData =
-        hasObjectData(profile) || hasObjectData(ratios) || income.length > 0 || hasObjectData(cashflow) || hasObjectData(balance);
       const latestIncome = income[0] ?? {};
       const previousIncome = income[1] ?? {};
-      const marketCap = parseNumber(profile.marketCap ?? profile.mktCap);
       const price = parseNumber(profile.price);
       const lastDividend = parseNumber(profile.lastDividend ?? profile.lastDiv);
-      const dividendYield = normalizeProviderPercentage(ratios.dividendYieldTTM);
       const totalDebt = parseNumber(balance.totalDebt ?? balance.shortTermDebt);
       const equity = parseNumber(balance.totalStockholdersEquity ?? balance.totalEquity);
-      const fallback = await this.fallback.getFundamentals(symbol);
 
-      if (!providerHasData && !fallback) return null;
-
-      return {
-        peRatio:
-          parseNumber(ratios.priceToEarningsRatioTTM ?? ratios.peRatioTTM ?? ratios.priceEarningsRatioTTM ?? profile.pe) ??
-          fallback?.peRatio ??
-          null,
-        revenueGrowth:
-          growth(parseNumber(latestIncome.revenue), parseNumber(previousIncome.revenue)) ?? fallback?.revenueGrowth ?? 0,
-        earningsGrowth:
-          growth(parseNumber(latestIncome.netIncome), parseNumber(previousIncome.netIncome)) ?? fallback?.earningsGrowth ?? 0,
+      return providerResult("fmp", "Financial Modeling Prep", "delayed", {
+        peRatio: parseNumber(ratios.priceToEarningsRatioTTM ?? ratios.peRatioTTM ?? ratios.priceEarningsRatioTTM ?? profile.pe),
+        revenueGrowth: growth(parseNumber(latestIncome.revenue), parseNumber(previousIncome.revenue)),
+        earningsGrowth: growth(parseNumber(latestIncome.netIncome), parseNumber(previousIncome.netIncome)),
         debtToEquity:
           parseNumber(ratios.debtEquityRatioTTM) ??
-          (totalDebt !== undefined && equity ? Number((totalDebt / equity).toFixed(2)) : undefined) ??
-          fallback?.debtToEquity ??
-          0,
-        cashflow:
-          parseNumber(cashflow.freeCashFlow ?? cashflow.operatingCashFlow ?? cashflow.netCashProvidedByOperatingActivities) ??
-          fallback?.cashflow ??
-          0,
+          (totalDebt !== undefined && equity ? Number((totalDebt / equity).toFixed(2)) : undefined),
+        cashflow: parseNumber(cashflow.freeCashFlow ?? cashflow.operatingCashFlow ?? cashflow.netCashProvidedByOperatingActivities),
         dividendYield:
-          dividendYield ??
-          (lastDividend !== undefined && price ? Number(((lastDividend / price) * 100).toFixed(2)) : undefined) ??
-          fallback?.dividendYield ??
-          null,
-        marketCap: marketCap ?? fallback?.marketCap ?? 0
-      };
+          normalizeProviderPercentage(ratios.dividendYieldTTM) ??
+          (lastDividend !== undefined && price ? Number(((lastDividend / price) * 100).toFixed(2)) : undefined),
+        marketCap: parseNumber(profile.marketCap ?? profile.mktCap)
+      });
     } catch {
-      return this.fallback.getFundamentals(symbol);
+      return null;
     }
   }
 }
 
 class AlphaVantageFundamentalsProvider implements FundamentalsProvider {
-  private readonly fallback = new MockFundamentalsProvider();
-
   async getFundamentals(symbol: string) {
     const token = process.env.ALPHA_VANTAGE_API_KEY;
-    if (!token) return this.fallback.getFundamentals(symbol);
+    if (!token) return null;
 
     try {
       const url = new URL("https://www.alphavantage.co/query");
@@ -247,31 +199,17 @@ class AlphaVantageFundamentalsProvider implements FundamentalsProvider {
       url.searchParams.set("apikey", token);
 
       const data = await fetchJson<Record<string, unknown>>(url, "Alpha Vantage overview", 8000);
-      const fallback = await this.fallback.getFundamentals(symbol);
-      const revenueGrowth = normalizeProviderPercentage(data.QuarterlyRevenueGrowthYOY);
-      const earningsGrowth = normalizeProviderPercentage(data.QuarterlyEarningsGrowthYOY);
-      const dividendYield = normalizeProviderPercentage(data.DividendYield);
-      const providerHasData =
-        parseNumber(data.PERatio) !== undefined ||
-        revenueGrowth !== undefined ||
-        earningsGrowth !== undefined ||
-        parseNumber(data.OperatingCashflowTTM) !== undefined ||
-        dividendYield !== undefined ||
-        parseNumber(data.MarketCapitalization) !== undefined;
 
-      if (!providerHasData && !fallback) return null;
-
-      return {
-        peRatio: parseNumber(data.PERatio) ?? fallback?.peRatio ?? null,
-        revenueGrowth: revenueGrowth ?? fallback?.revenueGrowth ?? 0,
-        earningsGrowth: earningsGrowth ?? fallback?.earningsGrowth ?? 0,
-        debtToEquity: fallback?.debtToEquity ?? 0,
-        cashflow: parseNumber(data.OperatingCashflowTTM) ?? fallback?.cashflow ?? 0,
-        dividendYield: dividendYield ?? fallback?.dividendYield ?? null,
-        marketCap: parseNumber(data.MarketCapitalization) ?? fallback?.marketCap ?? 0
-      };
+      return providerResult("alpha_vantage", "Alpha Vantage", "delayed", {
+        peRatio: parseNumber(data.PERatio),
+        revenueGrowth: normalizeProviderPercentage(data.QuarterlyRevenueGrowthYOY),
+        earningsGrowth: normalizeProviderPercentage(data.QuarterlyEarningsGrowthYOY),
+        cashflow: parseNumber(data.OperatingCashflowTTM),
+        dividendYield: normalizeProviderPercentage(data.DividendYield),
+        marketCap: parseNumber(data.MarketCapitalization)
+      });
     } catch {
-      return this.fallback.getFundamentals(symbol);
+      return null;
     }
   }
 }
@@ -281,43 +219,94 @@ class FallbackFundamentalsProvider implements FundamentalsProvider {
 
   async getFundamentals(symbol: string) {
     for (const provider of this.providers) {
-      const fundamentals = await provider.getFundamentals(symbol);
-      if (fundamentals) return fundamentals;
+      try {
+        const result = await provider.getFundamentals(symbol);
+        if (result) return result;
+      } catch {
+        // Der naechste echte Provider darf uebernehmen. Produktions-Fixtures
+        // sind niemals ein Ausfall-Fallback.
+      }
     }
 
     return null;
   }
 }
 
-export function getFundamentalsProvider(): FundamentalsProvider {
-  const provider = selectedFundamentalsProvider();
+function getFundamentalsProviderAttempts(selected: string): FundamentalsProvider[] {
   const fmp = new FmpFundamentalsProvider();
   const alphaVantage = new AlphaVantageFundamentalsProvider();
-  const mock = new MockFundamentalsProvider();
 
-  switch (provider) {
-    case "auto":
-      return new FallbackFundamentalsProvider([
-        ...(process.env.FMP_API_KEY ? [fmp] : []),
-        ...(process.env.ALPHA_VANTAGE_API_KEY ? [alphaVantage] : []),
-        mock
-      ]);
-    case "fmp":
-      return new FallbackFundamentalsProvider([fmp, ...(process.env.ALPHA_VANTAGE_API_KEY ? [alphaVantage] : []), mock]);
-    case "alpha_vantage":
-      return new FallbackFundamentalsProvider([alphaVantage, ...(process.env.FMP_API_KEY ? [fmp] : []), mock]);
-    case "mock":
-      return mock;
-    default:
-      return mock;
+  if (selected === "mock") {
+    return developmentFixturesAllowed() ? [new MockFundamentalsProvider()] : [];
   }
+
+  if (selected === "fmp") {
+    return [fmp, ...(process.env.ALPHA_VANTAGE_API_KEY ? [alphaVantage] : [])];
+  }
+
+  if (selected === "alpha_vantage") {
+    return [alphaVantage, ...(process.env.FMP_API_KEY ? [fmp] : [])];
+  }
+
+  return [
+    ...(process.env.FMP_API_KEY ? [fmp] : []),
+    ...(process.env.ALPHA_VANTAGE_API_KEY ? [alphaVantage] : [])
+  ];
+}
+
+export function getFundamentalsProvider(): FundamentalsProvider {
+  return new FallbackFundamentalsProvider(getFundamentalsProviderAttempts(selectedFundamentalsProvider()));
+}
+
+function buildFundamentalsMetadata(
+  requestedProvider: string,
+  result: FundamentalsProviderResult | null
+): FundamentalsProviderMetadata {
+  const fields = result?.fields ?? Object.fromEntries(fundamentalsMetricKeys.map((key) => [key, "unavailable"]));
+  const fieldCoverage = {
+    provider: fundamentalsMetricKeys.filter((key) => fields[key] === "provider").length,
+    mock: fundamentalsMetricKeys.filter((key) => fields[key] === "mock").length,
+    unavailable: fundamentalsMetricKeys.filter((key) => fields[key] === "unavailable").length,
+    total: fundamentalsMetricKeys.length
+  };
+  const mockLike = result?.actualProvider === "mock";
+  const partial = Boolean(result && fieldCoverage.unavailable > 0);
+  const degraded = !result || mockLike || partial;
+  const warning = !result
+    ? "Kein konfigurierter Fundamentals-Provider konnte verifizierte Kennzahlen liefern. Es werden keine Ersatzwerte angezeigt."
+    : mockLike
+      ? "Lokale Entwicklungs-Fixtures sind aktiv. Diese Kennzahlen sind keine echten Unternehmensdaten."
+      : partial
+        ? `${fieldCoverage.provider} von ${fieldCoverage.total} Kennzahlen sind durch den Provider belegt; fehlende Felder bleiben nicht verfügbar.`
+        : null;
+
+  return {
+    provider: result?.provider ?? "Kein Fundamentals-Provider",
+    requestedProvider,
+    actualProvider: result?.actualProvider ?? "unavailable",
+    quality: result?.quality ?? "unavailable",
+    fetchedAt: new Date().toISOString(),
+    fields,
+    fieldCoverage,
+    caveat:
+      result && !mockLike
+        ? "Providerdaten können je nach Anbieter verzögert, gecached oder unvollständig sein. Nur als Provider markierte Felder sind analysierbar."
+        : null,
+    fallback: {
+      degraded,
+      mockLike,
+      fallbackFields: mockLike ? fundamentalsMetricKeys.map(String) : [],
+      warning
+    }
+  };
 }
 
 export async function getFundamentalsWithMetadata(symbol: string) {
-  const fundamentals = await getFundamentalsProvider().getFundamentals(symbol);
+  const requestedProvider = selectedFundamentalsProvider();
+  const result = await getFundamentalsProvider().getFundamentals(symbol);
 
   return {
-    fundamentals,
-    metadata: buildFundamentalsMetadata(symbol, fundamentals)
+    fundamentals: result?.fundamentals ?? null,
+    metadata: buildFundamentalsMetadata(requestedProvider, result)
   };
 }

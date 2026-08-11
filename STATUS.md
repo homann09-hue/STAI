@@ -1,5 +1,20 @@
 # StockPilot AI Status
 
+## Produktions-Fail-Closed für News und Fundamentaldaten
+
+- News- und Fundamentals-Provider fallen bei fehlenden Schlüsseln, leeren
+  Antworten, Rate-Limits oder Fehlern nicht mehr auf Mock-Fixtures zurück.
+- `STOCKPILOT_*_PROVIDER=mock` ist nur bei lokal erlaubten
+  Entwicklungs-Fixtures wirksam; Vercel Production erzwingt immer
+  `unavailable` statt Ersatzdaten.
+- Teilweise Fundamentals tragen feldweise Provider- oder
+  `unavailable`-Provenienz. Fehlende Kennzahlen werden nicht aus Fixtures
+  ergänzt und nicht als verifiziert analysiert.
+- README und Deployment-Anleitung verwenden nun sichere `auto`-Defaults statt
+  produktiver Mock-Konfiguration.
+- Verifiziert: Formatprüfung, Typecheck, vollständiger Lint, 123 Testdateien
+  mit 984 Tests und Next.js-Produktionsbuild mit 35 Seiten erfolgreich.
+
 ## Konsistente Asset-Detailanalyse
 
 - Asset-Detailseiten bewerten Kurs, Historie, News und Fundamentaldaten jetzt als getrennte, dynamische Evidenz-Layer.
