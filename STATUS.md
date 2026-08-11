@@ -1,5 +1,16 @@
 # StockPilot AI Status
 
+## Aktueller Meilenstein: Phase 1 - Auth-Privilegiengrenze
+
+Stand: 2026-08-11
+
+- Normale Authentifizierung wird ausschließlich über den tokengebundenen Supabase-Publishable-Key-Client validiert.
+- `AuthResult` transportiert keinen Service-Role-Client mehr durch Watchlist-, Alert-, Portfolio- oder Billing-Pfade.
+- Die Service Role wird nur noch lokal und fail-closed für DSGVO-Export und administrative Kontolöschung erzeugt.
+- Ein Sicherheitsregressionstest schützt diese Grenze dauerhaft.
+- Lokal belegt: Format, Typecheck, Lint, 129 Testdateien mit 1.004 Tests, Produktions-Build mit 35 statischen Seiten sowie 35 bestandene Browserflüsse und ein bewusster Skip.
+- GitHub- und Produktionsnachweise folgen nach den externen Gates.
+
 ## Aktueller Meilenstein: Phase 1 - Portfolio-Trade-Mandantengrenze abgeschlossen
 
 Stand: 2026-08-11
