@@ -3,6 +3,7 @@ import { classifySubjects, detectEvents } from "@/lib/news/classification";
 import { assessDataQuality } from "@/lib/data-quality";
 import { analyzePortfolio } from "@/lib/portfolio-analytics";
 import { buildRiskReport } from "@/lib/risk-engine";
+import { calculateHistoricalRiskMetrics } from "@/lib/analysis/historical-risk";
 import { calculateProfessionalScores, calculateTotalScore } from "@/lib/scoring";
 import { safeDecodeURIComponent } from "@/lib/validation";
 import type {
@@ -27,7 +28,7 @@ import type {
 
 type AssetDetailCore = Omit<
   AssetDetail,
-  "professionalScores" | "dataQuality" | "riskReport" | "analysisLayers" | "macroFactors" | "aiAnalysis"
+  "professionalScores" | "dataQuality" | "riskReport" | "historicalRisk" | "analysisLayers" | "macroFactors" | "aiAnalysis"
 > & {
   aiAnalysis: AiAnalysisBase;
 };
@@ -744,10 +745,15 @@ export function getMockAsset(symbol: string): AssetDetail | null {
     macroFactors: makeMacroFactors(asset.symbol)
   };
   const riskReport = buildRiskReport(enrichedCore, dataQuality);
+  const historicalRisk = calculateHistoricalRiskMetrics({
+    candles: core.candles["1Y"],
+    provider: null
+  });
 
   return {
     ...enrichedCore,
     riskReport,
+    historicalRisk,
     aiAnalysis: enrichAnalysis(asset.symbol, core.aiAnalysis, dataQuality.score)
   };
 }

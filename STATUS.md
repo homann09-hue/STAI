@@ -189,3 +189,12 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Synthetische Mini-Charts aus einem einzelnen Kursstand wurden aus Dashboard und Marktterminal entfernt.
 - Detailseite, Dashboard, Profi-Report, Portfolio-Demo und Modellallokation zeigen bei fehlender Evidenz `n/a` oder halten die Auswertung zurück.
 - Komponenten- und Domänentests decken fehlende Evidenz sowie zurückgehaltene Wahrscheinlichkeiten ab.
+## 2026-08-11 - Historische Risiko-Engine und Entfernung synthetischer Profi-Daten
+
+- Neue deterministische Historical-Risk-Engine berechnet Rendite, annualisierte Volatilität, Downside-Volatilität, Maximum Drawdown, Sharpe, Sortino, Calmar sowie historischen VaR und CVaR.
+- Jede Berechnung trägt Provider, Datenstand, Stichprobengröße, Mindestmenge und Modellannahmen; unter 60 Renditen oder bei gescheiterter Historienintegrität bleiben alle Werte `n/a`.
+- Die Asset-Detailseite zeigt die neuen Kennzahlen mit Quellen- und Grenzhinweisen.
+- Feste ETF-Performance-, Sharpe-, Drawdown-, Holdings-, Sektor- und Stammdatenwerte wurden aus dem Profi-Provider entfernt.
+- Abgeleitete Fake-Fundamentals, Krypto-Supply-Werte, Mock-News, Demo-Portfolio-Kennzahlen, statische Vergleiche und Mock-Indexstände wurden entfernt oder fail-closed auf nicht verfügbar gesetzt.
+- Der Profi-Report bezieht sein Dashboard jetzt aus dem aktiven Marktprovider und besitzt kein eigenes hartcodiertes 15-Symbol-Universum mehr.
+- Gezielte Quant-, Komponenten- und Provider-Tests: 3 Dateien mit 7 Tests erfolgreich; TypeScript und gezielter Lint erfolgreich.
