@@ -6,10 +6,10 @@ Stand: 2026-08-12
 
 | Feld | Tatsächlicher Stand |
 | --- | --- |
-| Phase | Phase 6: Twelve Data aktiv; lokale Implementierung und QA abgeschlossen |
-| Abgeschlossener Punkt | Twelve-Data-Adapter, Normalisierung, Routing, Suche, Batch, Historie, Status und Streaming-Lifecycle lokal belegt |
-| Nächster Punkt | Phase-6-Commit, GitHub-CI/DB, Merge, ausschließlich StockPilot deployen und live prüfen |
-| Produktionsstand | `main` auf `053fd1315655872c7d2521ebeee361dc3ac4230d`; Phase 6 noch nicht produktiv |
+| Phase | Phase 6: Twelve Data abgeschlossen |
+| Abgeschlossener Punkt | Twelve-Data-Adapter, Normalisierung, Routing, Suche, Batch, Historie, Status und Streaming-Lifecycle lokal, in CI und Produktion belegt |
+| Nächster Punkt | Phase 7: Alpaca Realtime |
+| Produktionsstand | Phase-6-Laufzeitcommit `425c4163f2565a565c39db48420ac89df6940bf1`; Deployment `dpl_GknMoY35ArrDnps6Ri2HTCrs3iVa` READY |
 | Repository | `homann09-hue/STAI` |
 | Produktion | `https://stockpilot-ai-beta.vercel.app` |
 | Vercel-Projekt | ausschließlich `stockpilot-ai`; BauPro blieb unberührt |
@@ -59,10 +59,11 @@ Stand: 2026-08-12
 
 ## Nächster zulässiger Schritt
 
-Phase 6 wird über einen isolierten Commit und Pull Request freigegeben. Erst
-nach grüner Anwendungs-CI, grünen Datenbanktests, Merge, StockPilot-Deployment,
-Live-Fail-Closed-Prüfung, Produktionslogkontrolle und Lastnachweis darf Phase 7
-beginnen. BauPro bleibt außerhalb jeder Aktion.
+Phase 7 beginnt mit der Bestandsaufnahme der bestehenden Alpaca-Pfade und der
+IEX-Feedgrenzen. Quotes, Trades, Historie, WebSocket, Reconnect,
+Resubscribe, Limits und Market Session werden erst nach demselben vollständigen
+Freigabeprozess als abgeschlossen markiert. BauPro bleibt außerhalb jeder
+Aktion.
 
 ## 2026-08-12 — Phase 6: Twelve Data, lokale Freigabe
 
@@ -110,14 +111,36 @@ beginnen. BauPro bleibt außerhalb jeder Aktion.
   Quote und 5.000 historische Tagesbars werden normalisiert. Der Demo-Key ist
   kein Produktionsschlüssel und kein Nachweis externer Display-Rechte.
 
-**Offen vor Abschluss:**
+**GitHub- und Produktionsnachweis:**
 
-- Commit/Push, GitHub-CI und Datenbankworkflow.
-- Merge in `main`, ausschließlich Projekt `stockpilot-ai` deployen.
-- Live-Fail-Closed-Zustand ohne Twelve-Produktionsschlüssel, DR-/Security-
-  Prüfung, Produktionslogs und 2.000 aktive Produktionssitzungen.
+- Implementierungscommit `f27d893`; CI-Isolationsfix `b73b980`.
+- Der erste PR-CI-Lauf deckte auf, dass die globale Mock-Konfiguration den
+  Twelve-Integrationstest übersteuerte. Der Test setzt seinen Provider nun
+  explizit; derselbe Coverage-Lauf bestand anschließend vollständig.
+- PR #83 wurde als `425c4163f2565a565c39db48420ac89df6940bf1`
+  in `main` übernommen.
+- PR-CI `31569663725`, PR-Datenbanktests `31569663644`, Main-CI
+  `31569858919` und Main-Datenbanktests `31569858893`: erfolgreich.
+- Deployment `dpl_GknMoY35ArrDnps6Ri2HTCrs3iVa`, READY, Alias
+  `https://stockpilot-ai-beta.vercel.app`.
+- Live: Dashboard, Märkte, AAPL, Offline, Manifest und Health HTTP 200.
+  Suche und Quotes bleiben ohne verifizierten externen Provider ehrlich leer;
+  Provider-Pings sind öffentlich quota-schonend geschützt.
+- Live-DR und Enterprise-Readiness bestanden. Der öffentliche Health-Endpunkt
+  legt den Shared-Cache-Status absichtlich nicht offen; Vercel führt KV/Redis-
+  Variablen, die tatsächliche geteilte Laufzeitnutzung bleibt ohne
+  autorisierte Diagnose unbestätigt.
+- 2.000 aktive Produktionssitzungen: 2.000 HTTP 200, 0 Rejections,
+  0 HTTP-Fehler, `p95` 485 ms, Maximum 1.011 ms. Die 500er-Spitzenprobe
+  lieferte 500/500 HTTP 200; 14 Antworten lagen über fünf Sekunden.
+- Vercel-Logscan nach Smoke und Last: keine Error-, HTTP-500- oder
+  Warning-Ereignisse.
 - `BLOCKED – EXTERNAL`: eigener Twelve-Schlüssel, Tarif und externe
-  Display-/Redistributionsrechte fehlen; der Provider bleibt produktiv aus.
+  Display-/Redistributionsrechte fehlen; der Feed bleibt produktiv aus.
+- Ausschließlich `stockpilot-ai` wurde bereitgestellt; BauPro blieb unberührt.
+
+**Ergebnis:** Phase 6 vollständig abgeschlossen. Nächster einzelner Punkt ist
+Phase 7: Alpaca Realtime.
 
 ## 2026-08-12 — Phase 3: Provider Registry und Routing
 

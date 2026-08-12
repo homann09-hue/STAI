@@ -8,14 +8,14 @@ StockPilot AI wird Phase für Phase zu einem belegbar verlässlichen, schnellen,
 
 ## Aktuelle Phase
 
-- **Phase 5 abgeschlossen:** FMP-Migration und Hardening.
-- **Phase 6 aktiv:** Twelve-Data-Adapter, Normalisierung, Routing, Suche,
-  Quotes, Batch, Historie, Marktstatus und tariflich gesperrtes Streaming sind
-  implementiert und lokal vollständig geprüft.
-- GitHub-CI, Datenbankworkflow, Merge und Produktionsabnahme stehen für Phase 6
-  noch aus. Bis dahin ist Phase 6 nicht abgeschlossen.
-- Nächster zulässiger Schritt ist ausschließlich die Remote-Freigabekette von
-  Phase 6; Phase 7 beginnt erst nach deren vollständigem Nachweis.
+- **Phase 6 abgeschlossen:** Twelve Data.
+- Adapter, Normalisierung, Routing, Suche, Quotes, Batch, Historie,
+  Marktstatus und tariflich gesperrtes Streaming sind implementiert, lokal,
+  in CI und in Produktion fail-closed geprüft.
+- Produktion enthält bewusst keinen Twelve-Schlüssel und keine ungeprüfte
+  Display-Freigabe. Der technische Adapter ist produktiv, der externe Feed
+  bleibt bis zum Vertrag deaktiviert.
+- Nächster einzelner Arbeitspunkt: **Phase 7 – Alpaca Realtime**.
 
 ## Verbindliche Qualitätsregeln
 
@@ -45,14 +45,18 @@ Implementierung, Typecheck, Lint, Unit-/Integrationstests, relevante Datenbank- 
 
 ## Aktueller Produktionsnachweis
 
-- Main: `053fd1315655872c7d2521ebeee361dc3ac4230d`
-- Deployment: `dpl_BjDt1QudE7J8an8T85yTeJn8BS3D`, READY
+- Phase-6-Laufzeitcommit: `425c4163f2565a565c39db48420ac89df6940bf1`
+- Deployment: `dpl_GknMoY35ArrDnps6Ri2HTCrs3iVa`, READY
 - Live: `https://stockpilot-ai-beta.vercel.app`
-- Main-CI: `31566452682`, erfolgreich
-- Main-Datenbanktests: `31566452673`, erfolgreich
-- Lokal: 145 Testdateien / 1.105 Tests; Build 35 Seiten; Enterprise- und Grammatik-Gates bestanden
-- Last: 2.000 aktive Nutzer ohne Fehler, `p95` 484 ms; Release-Gate bis 200 gleichzeitig ohne Fehler; 500er-Probe 500/500 HTTP 200
-- Live: DR, PWA/Offline, Kernseiten, Health und FMP-Pfade geprüft; fehlende Providerrechte ehrlich leer/`unavailable`
+- Main-CI: `31569858919`, erfolgreich
+- Main-Datenbanktests: `31569858893`, erfolgreich
+- Lokal: 149 Testdateien / 1.129 Tests; Build 35 Seiten; 35 E2E
+  bestanden / 1 bewusster Skip; Enterprise-, Institutional- und
+  Grammatik-Gates bestanden
+- Last: 2.000 aktive Nutzer ohne Fehler, `p95` 485 ms; Release-Gate bis
+  200 gleichzeitig ohne Fehler; 500er-Probe 500/500 HTTP 200
+- Live: DR, PWA/Offline, Kernseiten, Health, Twelve-Fail-Closed und
+  geschützte Provider-Pings geprüft; keine Mock-Ersatzdaten
 - Produktionslog im Prüfzeitraum: keine Runtime-Fehler
 
 ## Arbeitsregeln
@@ -137,5 +141,9 @@ Zu jedem Aufgabenstart diese Karte und `docs/EXECUTION_LEDGER.md` lesen. Echten 
 - Last: 2.000 aktive Sitzungen ohne Fehler, `p95` 360 ms; Release-Gate bis
   500 gleichzeitig ohne Fehler. Die 1.000-/2.000-Spitzenprobe hatte jeweils
   74 Client-Timeouts und ist ausdrücklich kein bestandenes Release-Gate.
-- Remote-Abnahme ist noch offen; Phase 6 bleibt bis CI, Merge, Deployment,
-  Live-Smoke und Produktionslogkontrolle aktiv.
+- PR #83 wurde als `425c4163f2565a565c39db48420ac89df6940bf1`
+  gemergt. Main-CI und Datenbanktests sind erfolgreich.
+- Produktion `dpl_GknMoY35ArrDnps6Ri2HTCrs3iVa` ist READY. Live-Smoke, DR,
+  Enterprise, 2.000 aktive Sitzungen sowie Error-/500-/Warning-Logscan sind
+  erfolgreich; BauPro blieb unberührt.
+- Nächster einzelner Arbeitspunkt: **Phase 7 — Alpaca Realtime**.
