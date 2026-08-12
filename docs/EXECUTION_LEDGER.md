@@ -173,3 +173,65 @@ Limits und Circuit Breaker.
 
 **Ergebnis:** Phase 4 abgeschlossen. Nächster einzelner Punkt ist Phase 5:
 FMP-Adapter härten.
+
+## 2026-08-12 — Phase 5: FMP-Migration und Hardening
+
+**Implementiert:**
+
+- Zentraler serverseitiger FMP-Client mit HTTPS-/Hostbindung, geschlossener
+  Endpunkt- und Parameter-Allowlist, Zod-Validierung und Secret-Isolation.
+- Standardisierte Fehler für Konfiguration, Eingabe, Authentifizierung,
+  Entitlement, Rate Limit, Verfügbarkeit und Schemafehler.
+- Migration aller FMP-Pfade: Quotes, Historie, Übersichts- und
+  Mehrjahres-Fundamentals, Instrumentensuche, Corporate Actions,
+  Börsenkalender, Bewertung/Peers/Analysten, Intelligence-News und Health.
+- Provider-Registry um Corporate Actions und Markt-Kalender erweitert;
+  Bewertungsdaten prüfen Display-Rechte selbst und enden ohne Freigabe
+  fail-closed.
+- Cachequalität trennt gecachte Verfügbarkeit von gecachten Leerantworten:
+  fehlende Fundamentals bleiben `unavailable` und tragen den Cachezustand
+  separat.
+- DR- und Lastverträge unterscheiden echte Infrastrukturfehler von explizit
+  deklariertem, mock-freiem Degraded-Betrieb.
+- Verbindlicher Adaptervertrag: `docs/FMP_ADAPTER.md`.
+
+**Prüfnachweis:**
+
+- Enterprise-Readiness, Grammatik, TypeScript, ESLint und Build erfolgreich.
+- 145 Testdateien / 1.105 Tests erfolgreich.
+- Live-DR erfolgreich; einzige Warnung ist die extern fehlende
+  Upstash/Redis-Konfiguration.
+- 2.000 aktive Sitzungen: 2.000 HTTP 200, 0 Rejections, 0 HTTP-Fehler,
+  p50 50 ms, p95 484 ms, Maximum 723 ms, 67 Requests/s.
+- Microburst-Release-Gate bis 200 gleichzeitig: 0 Rejections, 0 HTTP-Fehler,
+  p95 1.739 ms. Nicht-gatende 500er-Probe: 500 HTTP 200, p95 4.750 ms.
+
+**GitHub-/Datenbank-Evidenz:**
+
+- PR #78: https://github.com/homann09-hue/STAI/pull/78
+- PR #79: https://github.com/homann09-hue/STAI/pull/79
+- PR #80: https://github.com/homann09-hue/STAI/pull/80
+- PR #81: https://github.com/homann09-hue/STAI/pull/81
+- Finaler Main-Commit: `b03819dd4d3ebd34b5d361ee3e9d4c15fcd94c40`.
+- Finale Main-CI: `31566452682`, erfolgreich.
+- Finale Main-Datenbanktests: `31566452673`, erfolgreich.
+
+**Produktions-Evidenz:**
+
+- Deployment: `dpl_BjDt1QudE7J8an8T85yTeJn8BS3D`, READY.
+- Alias: `https://stockpilot-ai-beta.vercel.app`.
+- Dashboard, Märkte, AAPL-Detail, Health, Suche, Quotes, Fundamentals,
+  Corporate Actions, Kalender und News geprüft.
+- FMP-Suche liefert den persistenten Instrument Master; Abdeckung bleibt
+  `complete: false` und `search_driven`.
+- Quotes, Fundamentals, Corporate Actions, Kalender und News zeigen ohne
+  verifizierte externe Rechte `unavailable`; keine Ersatzwerte oder
+  Mock-Daten.
+- Fundamentals-Leerantwort: HTTP 404, Qualität `unavailable`, Cachezustand
+  separat sichtbar.
+- Produktions-Error-Logs: keine Fehler im Prüfzeitraum.
+- Ausschließlich `stockpilot-ai` wurde bereitgestellt; BauPro blieb
+  unverändert.
+
+**Ergebnis:** Phase 5 abgeschlossen. Nächster einzelner Punkt ist Phase 6:
+Twelve Data.

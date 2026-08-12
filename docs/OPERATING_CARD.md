@@ -39,14 +39,14 @@ Implementierung, Typecheck, Lint, Unit-/Integrationstests, relevante Datenbank- 
 
 ## Aktueller Produktionsnachweis
 
-- Main: `a9de16bfe9a633283b8199764dca702939e13874`
-- Deployment: `dpl_BNgRtaHEupghcb6XgXX2PjiNm7fj`, READY
+- Main: `b03819dd4d3ebd34b5d361ee3e9d4c15fcd94c40`
+- Deployment: `dpl_BjDt1QudE7J8an8T85yTeJn8BS3D`, READY
 - Live: `https://stockpilot-ai-beta.vercel.app`
-- Main-CI: `31563261983`, erfolgreich
-- Main-Datenbanktests: `31563262143`, erfolgreich
-- Lokal: 142 Testdateien / 1.082 Tests; Build 35 Seiten; E2E 35 bestanden / 1 bewusst übersprungen
-- Last: 2.000 aktive Nutzer ohne Fehler, `p95` 367 ms; Stress-Gate bis 500 gleichzeitig ohne Fehler; Chaos bestanden
-- Live: Kernseiten, Health, Quotes und News 200; fehlende Providerrechte ehrlich leer/`unavailable`
+- Main-CI: `31566452682`, erfolgreich
+- Main-Datenbanktests: `31566452673`, erfolgreich
+- Lokal: 145 Testdateien / 1.105 Tests; Build 35 Seiten; Enterprise- und Grammatik-Gates bestanden
+- Last: 2.000 aktive Nutzer ohne Fehler, `p95` 484 ms; Release-Gate bis 200 gleichzeitig ohne Fehler; 500er-Probe 500/500 HTTP 200
+- Live: DR, PWA/Offline, Kernseiten, Health und FMP-Pfade geprüft; fehlende Providerrechte ehrlich leer/`unavailable`
 - Produktionslog im Prüfzeitraum: keine Runtime-Fehler
 
 ## Arbeitsregeln
@@ -87,3 +87,23 @@ Zu jedem Aufgabenstart diese Karte und `docs/EXECUTION_LEDGER.md` lesen. Echten 
   instanzübergreifend; ohne Upstash bleibt sie pro Prozess.
 - Aktive Produktion: `dpl_BNgRtaHEupghcb6XgXX2PjiNm7fj`,
   `https://stockpilot-ai-beta.vercel.app`.
+
+## Phase-5-Betriebskarte — FMP-Adapter (2026-08-12)
+
+- Verbindlicher Client: `src/lib/providers/fmp-client.ts`.
+- Verbindlicher Vertrag und Tarifmatrix: `docs/FMP_ADAPTER.md`.
+- Kein FMP-Netzwerkzugriff außerhalb des zentralen Clients.
+- Nur allowlist-basierte Endpunkte und Parameter; Antworten werden vor der
+  Domänennormalisierung validiert.
+- FMP bleibt `delayed`; Quote-Verfügbarkeit wird pro Symbol gemessen und ist
+  nicht heuristisch vorhersagbar.
+- Instrumentabdeckung bleibt suchgetrieben und unvollständig.
+- Ohne belegte Display-Rechte liefern öffentliche Pfade `unavailable`; es
+  gibt keinen Mock- oder Schätzfallback.
+- Cachezustand überschreibt keine fehlende Datenqualität. Eine gecachte
+  Leerantwort bleibt `unavailable`.
+- DR und Lasttests akzeptieren Degraded-Betrieb nur, wenn betroffene Symbole
+  explizit benannt und keine Mock-Symbole enthalten sind.
+- Aktive Produktion: `dpl_BjDt1QudE7J8an8T85yTeJn8BS3D`,
+  `https://stockpilot-ai-beta.vercel.app`.
+- Nächster einzelner Arbeitspunkt: **Phase 6 — Twelve Data**.

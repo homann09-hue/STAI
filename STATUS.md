@@ -464,3 +464,39 @@ Providerverträge. Ein API-Key allein schaltet keine öffentliche Anzeige frei.
 
 Nächster Arbeitspunkt gemäß Masterplan: **Phase 4 — Caching, Rate Limits und
 Circuit Breaker**.
+
+## Phase 5 — FMP-Migration und Hardening abgeschlossen (2026-08-12)
+
+- Sämtliche produktiven FMP-Netzwerkzugriffe laufen über den serverseitigen,
+  allowlist-basierten Client `src/lib/providers/fmp-client.ts`.
+- Endpunkte, Parameter und Antworten werden validiert; 401, 402/403, 429,
+  5xx, Timeout, Circuit Breaker und ungültige Antworten besitzen getrennte,
+  secret-freie Fehlercodes.
+- Quote, Historie, Fundamentals, Instrumentensuche, Corporate Actions,
+  Börsenkalender, Bewertung, News-Ingestion und Provider-Ping nutzen den
+  zentralen Adapter. Fehlende Display-Rechte bleiben fail-closed.
+- Der FMP-Betriebsvertrag und die gemessenen Tarifgrenzen sind in
+  `docs/FMP_ADAPTER.md` dokumentiert. Das Universum bleibt nachweislich
+  suchgetrieben und unvollständig; FMP wird nicht als Realtime bezeichnet.
+- Live gefundene Qualitätskanten wurden behoben: korrekte Umlaute und
+  Zeichensetzung, `unavailable` bleibt bei gecachten Leerantworten erhalten,
+  und der DR-Monitor akzeptiert explizit degradierten Betrieb nur ohne
+  Mock-Fallback.
+- PRs #78, #79, #80 und #81 sind gemergt. Finaler Main-Commit:
+  `b03819dd4d3ebd34b5d361ee3e9d4c15fcd94c40`.
+- Finale Main-Gates: StockPilot CI `31566452682` und Database Tests
+  `31566452673`, beide erfolgreich.
+- Lokal bestanden: Enterprise- und Grammatik-Gate, TypeScript, ESLint,
+  145 Testdateien mit 1.105 Tests und Produktions-Build mit 35 Seiten.
+- Produktion: `dpl_BjDt1QudE7J8an8T85yTeJn8BS3D`, READY,
+  `https://stockpilot-ai-beta.vercel.app`; keine Vercel-Error-Logs.
+- Live-DR bestanden: Offline/PWA, Security, Eingabegrenzen und explizit
+  degradierte Quotes ohne Mock-Fallback. Der externe Upstash/Redis-Hinweis
+  bleibt dokumentiert.
+- Lastnachweis: 2.000 aktive Sitzungen, 2.000 HTTP-200-Antworten,
+  0 Rejections, 0 HTTP-Fehler, p95 484 ms, Maximum 723 ms. Release-Gate bis
+  200 gleichzeitige Requests ohne Fehler; 500er-Kapazitätsprobe 500/500 HTTP
+  200.
+- Ausschließlich `stockpilot-ai` wurde deployt; BauPro blieb unberührt.
+
+Nächster einzelner Arbeitspunkt gemäß Masterplan: **Phase 6 — Twelve Data**.
