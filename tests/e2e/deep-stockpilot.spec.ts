@@ -96,6 +96,31 @@ test.describe("deep red-team browser checks", () => {
       expect(response.headers()["x-content-type-options"]).toBe("nosniff");
     }
 
+    const quoteResponse = await request.get("/api/market/quotes?symbols=NVDA,AAPL,BTC-USD");
+    const quotePayload = await quoteResponse.json();
+    const quoteData = quotePayload.data ?? quotePayload;
+    for (const quote of quoteData.quotes ?? []) {
+      expect(quote).toHaveProperty("instrumentId");
+      expect(quote).toEqual(
+        expect.objectContaining({
+          providerId: expect.any(String),
+          providerSymbol: expect.any(String),
+          last: expect.any(Number),
+          receivedTimestamp: expect.any(String),
+          isRealtime: expect.any(Boolean),
+          feedType: expect.any(String),
+          qualityStatus: expect.any(String),
+          qualityScore: expect.any(Number)
+        })
+      );
+      if (quote.isRealtime) {
+        expect(quote.feedType).toBe("REALTIME");
+        expect(quote.reportedDelaySeconds).toBe(0);
+        expect(quote.quality).toBe("realtime");
+        expect(["INVALID", "STALE", "UNAVAILABLE"]).not.toContain(quote.qualityStatus);
+      }
+    }
+
     const unsafeAsset = await request.get("/api/assets/%3Cscript%3E");
     expect(unsafeAsset.status()).toBe(400);
 

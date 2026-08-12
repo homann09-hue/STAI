@@ -22,18 +22,23 @@ export function quoteFromSummary(item: AssetSummary, liveQuote?: NormalizedQuote
     dayHigh: liveQuote.high ?? item.quote.dayHigh,
     dayLow: liveQuote.low ?? item.quote.dayLow,
     volume: liveQuote.volume ?? item.quote.volume,
-    delayedByMinutes: liveQuote.quality === "delayed" ? Math.max(item.quote.delayedByMinutes, 15) : 0,
+    delayedByMinutes:
+      liveQuote.reportedDelaySeconds !== null
+        ? Math.ceil(liveQuote.reportedDelaySeconds / 60)
+        : liveQuote.quality === "delayed"
+          ? item.quote.delayedByMinutes
+          : 0,
     asOf: liveQuote.timestamp,
-    bid: liveQuote.bid,
-    ask: liveQuote.ask,
-    spread: liveQuote.spread,
+    bid: liveQuote.bid ?? undefined,
+    ask: liveQuote.ask ?? undefined,
+    spread: liveQuote.spread ?? undefined,
     open: liveQuote.open ?? item.quote.open,
     previousClose: liveQuote.previousClose ?? item.quote.previousClose,
     fiftyTwoWeekHigh: liveQuote.fiftyTwoWeekHigh ?? item.quote.fiftyTwoWeekHigh,
     fiftyTwoWeekLow: liveQuote.fiftyTwoWeekLow ?? item.quote.fiftyTwoWeekLow,
     provider: liveQuote.provider,
     quality: liveQuote.quality,
-    latencyMs: liveQuote.latencyMs,
+    latencyMs: liveQuote.latencyMs ?? undefined,
     marketStatus: liveQuote.marketStatus
   };
 }

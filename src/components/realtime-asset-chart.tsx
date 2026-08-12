@@ -208,7 +208,7 @@ export function ChartStatusBar({
   intervalMs: RefreshInterval;
 }) {
   const timestamp = "timestamp" in quote ? quote.timestamp : quote.asOf;
-  const latency = quote.latencyMs !== undefined ? `${quote.latencyMs} ms` : "n/a";
+  const latency = typeof quote.latencyMs === "number" ? `${quote.latencyMs} ms` : "n/a";
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-stroke bg-panel/60 p-3 text-xs text-muted">
@@ -253,14 +253,14 @@ export function RealtimeAssetChart({
             asOf: liveQuote.timestamp,
             provider: liveQuote.provider,
             quality: liveQuote.quality,
-            latencyMs: liveQuote.latencyMs,
+            latencyMs: liveQuote.latencyMs ?? undefined,
             marketStatus: liveQuote.marketStatus,
             volume: liveQuote.volume ?? quote.volume,
             dayHigh: liveQuote.high ?? quote.dayHigh,
             dayLow: liveQuote.low ?? quote.dayLow,
-            bid: liveQuote.bid,
-            ask: liveQuote.ask,
-            spread: liveQuote.spread
+            bid: liveQuote.bid ?? undefined,
+            ask: liveQuote.ask ?? undefined,
+            spread: liveQuote.spread ?? undefined
           }
         : quote,
     [liveQuote, quote]

@@ -1,6 +1,9 @@
 import type { NormalizedQuote, Quote } from "@/lib/types";
 
-export function mergeLiveQuote(base: Quote, liveQuote?: NormalizedQuote): Quote {
+export function mergeLiveQuote(
+  base: Quote,
+  liveQuote?: NormalizedQuote,
+): Quote {
   if (!liveQuote) return base;
 
   return {
@@ -11,18 +14,23 @@ export function mergeLiveQuote(base: Quote, liveQuote?: NormalizedQuote): Quote 
     dayHigh: liveQuote.high ?? base.dayHigh,
     dayLow: liveQuote.low ?? base.dayLow,
     volume: liveQuote.volume ?? base.volume,
-    delayedByMinutes: liveQuote.quality === "delayed" ? Math.max(base.delayedByMinutes, 15) : 0,
+    delayedByMinutes:
+      liveQuote.reportedDelaySeconds !== null
+        ? Math.ceil(liveQuote.reportedDelaySeconds / 60)
+        : liveQuote.quality === "delayed"
+          ? base.delayedByMinutes
+          : 0,
     asOf: liveQuote.timestamp,
-    bid: liveQuote.bid,
-    ask: liveQuote.ask,
-    spread: liveQuote.spread,
+    bid: liveQuote.bid ?? undefined,
+    ask: liveQuote.ask ?? undefined,
+    spread: liveQuote.spread ?? undefined,
     open: liveQuote.open ?? base.open,
     previousClose: liveQuote.previousClose ?? base.previousClose,
     fiftyTwoWeekHigh: liveQuote.fiftyTwoWeekHigh ?? base.fiftyTwoWeekHigh,
     fiftyTwoWeekLow: liveQuote.fiftyTwoWeekLow ?? base.fiftyTwoWeekLow,
     provider: liveQuote.provider,
     quality: liveQuote.quality,
-    latencyMs: liveQuote.latencyMs,
-    marketStatus: liveQuote.marketStatus
+    latencyMs: liveQuote.latencyMs ?? undefined,
+    marketStatus: liveQuote.marketStatus,
   };
 }

@@ -1,22 +1,37 @@
-import { NO_INDICATORS, buildTechnicalIndicators } from "@/lib/analysis/technical";
+import {
+  NO_INDICATORS,
+  buildTechnicalIndicators,
+} from "@/lib/analysis/technical";
 import { selectVerifiedFundamentals } from "@/lib/analysis/verified-fundamentals";
 import {
   buildEvidenceBoundScores,
   buildQuoteOnlyScoreEvidence,
   professionalScoresFromEvidence,
-  scoresFromEvidence
+  scoresFromEvidence,
 } from "@/lib/analysis/evidence-scores";
 import { calculateHistoricalRiskMetrics } from "@/lib/analysis/historical-risk";
 
 import { buildRiskReport } from "@/lib/risk-engine";
+import { buildNormalizedQuote } from "@/lib/canonical-quote";
 
 import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
 import { getNewsWithMetadata } from "@/lib/providers/news-provider";
-import { getFundamentalsWithMetadata, type FundamentalsProviderMetadata } from "@/lib/providers/fundamentals-provider";
+import {
+  getFundamentalsWithMetadata,
+  type FundamentalsProviderMetadata,
+} from "@/lib/providers/fundamentals-provider";
 import { logEvent } from "@/lib/observability";
 import { resolveQuoteChain } from "@/lib/providers/quote-chain";
-import { fetchBoundedProviderJson, ProviderHttpResponseError } from "@/lib/providers/http-json";
-import { NO_HISTORY, fetchDailyHistory, sliceHistoryRanges, type HistoryResult } from "@/lib/providers/price-history";
+import {
+  fetchBoundedProviderJson,
+  ProviderHttpResponseError,
+} from "@/lib/providers/http-json";
+import {
+  NO_HISTORY,
+  fetchDailyHistory,
+  sliceHistoryRanges,
+  type HistoryResult,
+} from "@/lib/providers/price-history";
 import { getServerCacheAdapter } from "@/lib/server-cache";
 import { buildVerifiedProviderDashboard } from "@/lib/provider-dashboard";
 import { developmentFixturesAllowed } from "@/lib/runtime-data-policy";
@@ -37,7 +52,7 @@ import type {
   NormalizedQuote,
   ProfessionalScores,
   TechnicalIndicators,
-  TimeRange
+  TimeRange,
 } from "@/lib/types";
 
 // Die Kennung lebt in `quote-chain.ts` und wird hier nur weitergereicht,
@@ -57,7 +72,10 @@ export interface RealtimeProvider {
   readonly providerId: MarketProviderId;
   readonly quality: MarketDataQuality;
   readonly streamMode: StreamMode;
-  streamQuotes(symbols: string[], options?: MarketStreamOptions): AsyncIterable<NormalizedQuote[]>;
+  streamQuotes(
+    symbols: string[],
+    options?: MarketStreamOptions,
+  ): AsyncIterable<NormalizedQuote[]>;
 }
 
 export interface NearRealtimeProvider {
@@ -70,10 +88,18 @@ export interface DelayedProvider {
 }
 
 export interface HistoricalProvider {
-  getCandles(symbol: string, interval: "1m" | "5m" | "15m" | "1h" | "1d"): Promise<Candle[]>;
+  getCandles(
+    symbol: string,
+    interval: "1m" | "5m" | "15m" | "1h" | "1d",
+  ): Promise<Candle[]>;
 }
 
-export interface MarketDataProvider extends RealtimeProvider, NearRealtimeProvider, DelayedProvider, HistoricalProvider {
+export interface MarketDataProvider
+  extends
+    RealtimeProvider,
+    NearRealtimeProvider,
+    DelayedProvider,
+    HistoricalProvider {
   getDashboard(): Promise<DashboardData>;
   getAsset(symbol: string): Promise<AssetDetail | null>;
 }
@@ -83,7 +109,10 @@ type QuoteProvider = NearRealtimeProvider & {
   readonly providerId: MarketProviderId;
   readonly quality: MarketDataQuality;
   readonly streamMode: StreamMode;
-  streamQuotes?: (symbols: string[], options?: MarketStreamOptions) => AsyncIterable<NormalizedQuote[]>;
+  streamQuotes?: (
+    symbols: string[],
+    options?: MarketStreamOptions,
+  ) => AsyncIterable<NormalizedQuote[]>;
 };
 
 class ProviderConfigurationError extends Error {}
@@ -91,7 +120,7 @@ class ProviderHttpError extends Error {
   constructor(
     readonly providerName: string,
     readonly status: number,
-    readonly retryAfterMs?: number
+    readonly retryAfterMs?: number,
   ) {
     super(`${providerName} HTTP ${status}`);
   }
@@ -117,33 +146,53 @@ const DEFAULT_DASHBOARD_SYMBOLS = [
   "QQQ",
   "VOO",
   "BTC-USD",
-  "ETH-USD"
+  "ETH-USD",
 ];
-const DETAIL_RANGES = ["1D", "5D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y", "MAX"] as const;
-const DEFAULT_QUOTE_CACHE_TTL_MS = Math.max(5000, Number(process.env.STOCKPILOT_QUOTE_CACHE_TTL_MS) || 30000);
-const DEFAULT_CRYPTO_QUOTE_CACHE_TTL_MS = Math.max(1000, Number(process.env.STOCKPILOT_CRYPTO_QUOTE_CACHE_TTL_MS) || 3000);
+const DETAIL_RANGES = [
+  "1D",
+  "5D",
+  "1W",
+  "1M",
+  "3M",
+  "6M",
+  "YTD",
+  "1Y",
+  "5Y",
+  "MAX",
+] as const;
+const DEFAULT_QUOTE_CACHE_TTL_MS = Math.max(
+  5000,
+  Number(process.env.STOCKPILOT_QUOTE_CACHE_TTL_MS) || 30000,
+);
+const DEFAULT_CRYPTO_QUOTE_CACHE_TTL_MS = Math.max(
+  1000,
+  Number(process.env.STOCKPILOT_CRYPTO_QUOTE_CACHE_TTL_MS) || 3000,
+);
 const DEFAULT_STALE_QUOTE_CACHE_TTL_MS = Math.max(
   DEFAULT_QUOTE_CACHE_TTL_MS,
-  Number(process.env.STOCKPILOT_STALE_QUOTE_CACHE_TTL_MS) || 300000
+  Number(process.env.STOCKPILOT_STALE_QUOTE_CACHE_TTL_MS) || 300000,
 );
-const DEFAULT_RATE_LIMIT_BACKOFF_MS = Math.max(10000, Number(process.env.STOCKPILOT_RATE_LIMIT_BACKOFF_MS) || 60000);
+const DEFAULT_RATE_LIMIT_BACKOFF_MS = Math.max(
+  10000,
+  Number(process.env.STOCKPILOT_RATE_LIMIT_BACKOFF_MS) || 60000,
+);
 const DEFAULT_PROVIDER_CONCURRENCY = Math.max(
   1,
-  Math.min(10, Number(process.env.STOCKPILOT_PROVIDER_CONCURRENCY) || 6)
+  Math.min(10, Number(process.env.STOCKPILOT_PROVIDER_CONCURRENCY) || 6),
 );
 const PROVIDER_QUOTE_CONCURRENCY: Partial<Record<MarketProviderId, number>> = {
   alpha_vantage: 1,
   fmp: 1,
   finnhub: 2,
-  twelve_data: 2
+  twelve_data: 2,
 };
 const DEFAULT_DASHBOARD_QUOTE_TIMEOUT_MS = Math.max(
   150,
-  Number(process.env.STOCKPILOT_DASHBOARD_QUOTE_TIMEOUT_MS) || 650
+  Number(process.env.STOCKPILOT_DASHBOARD_QUOTE_TIMEOUT_MS) || 650,
 );
 const DEFAULT_ASSET_QUOTE_TIMEOUT_MS = Math.max(
   250,
-  Number(process.env.STOCKPILOT_ASSET_QUOTE_TIMEOUT_MS) || 900
+  Number(process.env.STOCKPILOT_ASSET_QUOTE_TIMEOUT_MS) || 900,
 );
 
 type QuoteCacheEntry = {
@@ -155,7 +204,10 @@ type QuoteCacheEntry = {
 
 const quoteCache = new Map<string, QuoteCacheEntry>();
 const quoteSharedCache = getServerCacheAdapter();
-const inFlightQuoteRequests = new Map<string, Promise<NormalizedQuote | null>>();
+const inFlightQuoteRequests = new Map<
+  string,
+  Promise<NormalizedQuote | null>
+>();
 const inFlightPollingBatches = new Map<string, Promise<NormalizedQuote[]>>();
 const providerRateLimitUntil = new Map<MarketProviderId, number>();
 const providerSymbolAccessDeniedUntil = new Map<string, number>();
@@ -163,7 +215,9 @@ const providerSymbolAccessDeniedUntil = new Map<string, number>();
 /** @internal Nur zur Isolation von Unit-Tests; Produktionszustand darf nicht zur Laufzeit geleert werden. */
 export async function resetMarketProviderRuntimeStateForTests() {
   if (process.env.NODE_ENV !== "test") {
-    throw new Error("Provider-Laufzeitstatus darf nur in Tests zurückgesetzt werden.");
+    throw new Error(
+      "Provider-Laufzeitstatus darf nur in Tests zurückgesetzt werden.",
+    );
   }
 
   quoteCache.clear();
@@ -178,7 +232,11 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-async function withDeadline<T>(operation: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+async function withDeadline<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  fallback: T,
+): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
   try {
@@ -186,7 +244,7 @@ async function withDeadline<T>(operation: Promise<T>, timeoutMs: number, fallbac
       operation,
       new Promise<T>((resolve) => {
         timeout = setTimeout(() => resolve(fallback), timeoutMs);
-      })
+      }),
     ]);
   } finally {
     if (timeout) clearTimeout(timeout);
@@ -199,13 +257,21 @@ function parseNumber(value: unknown) {
   return Number.isFinite(numberValue) ? numberValue : undefined;
 }
 
-function calculateChange(price: number, previousClose?: number, explicitChange?: number) {
+function calculateChange(
+  price: number,
+  previousClose?: number,
+  explicitChange?: number,
+) {
   if (explicitChange !== undefined) return explicitChange;
   if (!previousClose) return 0;
   return Number((price - previousClose).toFixed(4));
 }
 
-function calculateChangePercent(price: number, previousClose?: number, explicitPercent?: number) {
+function calculateChangePercent(
+  price: number,
+  previousClose?: number,
+  explicitPercent?: number,
+) {
   if (explicitPercent !== undefined) return explicitPercent;
   if (!previousClose) return 0;
   return Number((((price - previousClose) / previousClose) * 100).toFixed(4));
@@ -215,13 +281,21 @@ function normalizeMarketStatus(value: unknown): MarketStatus {
   const status = String(value ?? "unknown").toLowerCase();
 
   if (status.includes("pre")) return "pre_market";
-  if (status.includes("after") || status.includes("post") || status.includes("extended")) return "after_hours";
+  if (
+    status.includes("after") ||
+    status.includes("post") ||
+    status.includes("extended")
+  )
+    return "after_hours";
   if (status.includes("open")) return "open";
   if (status.includes("closed")) return "closed";
   return "unknown";
 }
 
-function inferAssetType(symbol: string, fallback?: Asset["type"]): Asset["type"] {
+function inferAssetType(
+  symbol: string,
+  fallback?: Asset["type"],
+): Asset["type"] {
   if (fallback) return fallback;
   if (/^[A-Z]{6}$/.test(symbol) && symbol.endsWith("USD")) return "forex";
   if (symbol.includes("-USD") || symbol.includes("/USD")) return "crypto";
@@ -253,22 +327,37 @@ function symbolForProvider(symbol: string, provider: MarketProviderId) {
 
 function isCryptoSymbol(symbol: string) {
   const normalized = safeDecodeURIComponent(symbol).trim().toUpperCase();
-  return normalized.includes("-USD") || normalized.includes("/USD") || normalized.endsWith("USDT");
+  return (
+    normalized.includes("-USD") ||
+    normalized.includes("/USD") ||
+    normalized.endsWith("USDT")
+  );
 }
 
 function envQuality(name: string, fallback: MarketDataQuality) {
   const value = process.env[name] as MarketDataQuality | undefined;
-  const allowed: MarketDataQuality[] = ["realtime", "near_realtime", "delayed", "historical", "mock", "unavailable"];
+  const allowed: MarketDataQuality[] = [
+    "realtime",
+    "near_realtime",
+    "delayed",
+    "historical",
+    "mock",
+    "unavailable",
+  ];
   return value && allowed.includes(value) ? value : fallback;
 }
 
 function isRateLimitError(error: unknown) {
-  if (error instanceof ProviderHttpError) return error.status === 429 || error.status === 418;
-  return /HTTP (429|418)/.test(error instanceof Error ? error.message : String(error));
+  if (error instanceof ProviderHttpError)
+    return error.status === 429 || error.status === 418;
+  return /HTTP (429|418)/.test(
+    error instanceof Error ? error.message : String(error),
+  );
 }
 
 function isProviderAccessError(error: unknown) {
-  if (error instanceof ProviderHttpError) return error.status === 402 || error.status === 403;
+  if (error instanceof ProviderHttpError)
+    return error.status === 402 || error.status === 403;
   return false;
 }
 
@@ -293,28 +382,45 @@ function quoteCacheTtlFor(provider: QuoteProvider) {
 function markServerCachedQuote(quote: NormalizedQuote) {
   return {
     ...quote,
-    provider: quote.provider.includes("Server-Cache") ? quote.provider : `${quote.provider} (Server-Cache)`,
-    latencyMs: 0
+    provider: quote.provider.includes("Server-Cache")
+      ? quote.provider
+      : `${quote.provider} (Server-Cache)`,
+    latencyMs: 0,
   };
 }
 
 function providerQuoteConcurrency(provider: QuoteProvider) {
-  return Math.max(1, Math.min(DEFAULT_PROVIDER_CONCURRENCY, PROVIDER_QUOTE_CONCURRENCY[provider.providerId] ?? DEFAULT_PROVIDER_CONCURRENCY));
+  return Math.max(
+    1,
+    Math.min(
+      DEFAULT_PROVIDER_CONCURRENCY,
+      PROVIDER_QUOTE_CONCURRENCY[provider.providerId] ??
+        DEFAULT_PROVIDER_CONCURRENCY,
+    ),
+  );
 }
 
 async function startProviderBackoff(provider: QuoteProvider, error: unknown) {
-  const retryAfterMs = error instanceof ProviderHttpError ? error.retryAfterMs : undefined;
-  const backoffMs = Math.max(10000, retryAfterMs ?? DEFAULT_RATE_LIMIT_BACKOFF_MS);
+  const retryAfterMs =
+    error instanceof ProviderHttpError ? error.retryAfterMs : undefined;
+  const backoffMs = Math.max(
+    10000,
+    retryAfterMs ?? DEFAULT_RATE_LIMIT_BACKOFF_MS,
+  );
   const now = Date.now();
   const currentUntil = providerRateLimitUntil.get(provider.providerId) ?? 0;
   const nextUntil = Math.max(currentUntil, now + backoffMs);
   providerRateLimitUntil.set(provider.providerId, nextUntil);
-  await quoteSharedCache.set(providerBackoffCacheKey(provider), nextUntil, Math.max(1, nextUntil - now));
+  await quoteSharedCache.set(
+    providerBackoffCacheKey(provider),
+    nextUntil,
+    Math.max(1, nextUntil - now),
+  );
 
   if (currentUntil <= now) {
     logEvent("warn", "market_provider.rate_limit_backoff", {
       provider: provider.providerName,
-      retryInMs: nextUntil - now
+      retryInMs: nextUntil - now,
     });
   }
 }
@@ -328,7 +434,9 @@ async function getCachedProviderQuote(provider: QuoteProvider, symbol: string) {
   let cached = quoteCache.get(key);
 
   if (!cached) {
-    cached = await quoteSharedCache.get<QuoteCacheEntry>(quoteSharedCacheKey(key)) ?? undefined;
+    cached =
+      (await quoteSharedCache.get<QuoteCacheEntry>(quoteSharedCacheKey(key))) ??
+      undefined;
     if (cached) quoteCache.set(key, cached);
   }
 
@@ -336,14 +444,21 @@ async function getCachedProviderQuote(provider: QuoteProvider, symbol: string) {
     return markServerCachedQuote(cached.quote);
   }
 
-  const sharedBackoffUntil = await quoteSharedCache.get<number>(providerBackoffCacheKey(provider));
-  const backoffUntil = Math.max(providerRateLimitUntil.get(provider.providerId) ?? 0, sharedBackoffUntil ?? 0);
+  const sharedBackoffUntil = await quoteSharedCache.get<number>(
+    providerBackoffCacheKey(provider),
+  );
+  const backoffUntil = Math.max(
+    providerRateLimitUntil.get(provider.providerId) ?? 0,
+    sharedBackoffUntil ?? 0,
+  );
   if (backoffUntil > now) {
     if (cached && now - cached.storedAtMs < cached.staleTtlMs) {
       return markServerCachedQuote(cached.quote);
     }
 
-    throw new ProviderRateLimitBackoffError(`${provider.providerName} rate-limit backoff active`);
+    throw new ProviderRateLimitBackoffError(
+      `${provider.providerName} rate-limit backoff active`,
+    );
   }
 
   const accessDeniedUntil = providerSymbolAccessDeniedUntil.get(key) ?? 0;
@@ -352,7 +467,9 @@ async function getCachedProviderQuote(provider: QuoteProvider, symbol: string) {
       return markServerCachedQuote(cached.quote);
     }
 
-    throw new ProviderAccessUnavailableError(`${provider.providerName} access unavailable for ${normalizedSymbol}`);
+    throw new ProviderAccessUnavailableError(
+      `${provider.providerName} access unavailable for ${normalizedSymbol}`,
+    );
   }
 
   const inFlight = inFlightQuoteRequests.get(key);
@@ -366,11 +483,15 @@ async function getCachedProviderQuote(provider: QuoteProvider, symbol: string) {
           quote,
           storedAtMs: Date.now(),
           ttlMs: quoteCacheTtlFor(provider),
-          staleTtlMs: DEFAULT_STALE_QUOTE_CACHE_TTL_MS
+          staleTtlMs: DEFAULT_STALE_QUOTE_CACHE_TTL_MS,
         };
 
         quoteCache.set(key, entry);
-        await quoteSharedCache.set(quoteSharedCacheKey(key), entry, entry.staleTtlMs);
+        await quoteSharedCache.set(
+          quoteSharedCacheKey(key),
+          entry,
+          entry.staleTtlMs,
+        );
       }
 
       return quote;
@@ -383,17 +504,24 @@ async function getCachedProviderQuote(provider: QuoteProvider, symbol: string) {
           return markServerCachedQuote(cached.quote);
         }
 
-        throw new ProviderRateLimitBackoffError(`${provider.providerName} rate-limit backoff active`);
+        throw new ProviderRateLimitBackoffError(
+          `${provider.providerName} rate-limit backoff active`,
+        );
       }
 
       if (isProviderAccessError(error)) {
-        providerSymbolAccessDeniedUntil.set(key, Date.now() + Math.max(DEFAULT_STALE_QUOTE_CACHE_TTL_MS, 3600000));
+        providerSymbolAccessDeniedUntil.set(
+          key,
+          Date.now() + Math.max(DEFAULT_STALE_QUOTE_CACHE_TTL_MS, 3600000),
+        );
 
         if (cached && now - cached.storedAtMs < cached.staleTtlMs) {
           return markServerCachedQuote(cached.quote);
         }
 
-        throw new ProviderAccessUnavailableError(`${provider.providerName} access unavailable for ${normalizedSymbol}`);
+        throw new ProviderAccessUnavailableError(
+          `${provider.providerName} access unavailable for ${normalizedSymbol}`,
+        );
       }
 
       throw error;
@@ -406,9 +534,15 @@ async function getCachedProviderQuote(provider: QuoteProvider, symbol: string) {
   return request;
 }
 
-async function getCachedProviderQuotes(provider: QuoteProvider, symbols: string[]) {
+async function getCachedProviderQuotes(
+  provider: QuoteProvider,
+  symbols: string[],
+) {
   const normalizedSymbols = uniqueSymbols(symbols);
-  const results: Array<NormalizedQuote | null> = Array.from({ length: normalizedSymbols.length }, () => null);
+  const results: Array<NormalizedQuote | null> = Array.from(
+    { length: normalizedSymbols.length },
+    () => null,
+  );
   let cursor = 0;
 
   async function worker() {
@@ -425,28 +559,48 @@ async function getCachedProviderQuotes(provider: QuoteProvider, symbols: string[
           !(error instanceof ProviderRateLimitBackoffError) &&
           !(error instanceof ProviderAccessUnavailableError)
         ) {
-          logEvent("error", "market_provider.quote_failed", { provider: provider.providerName, symbol, error });
+          logEvent("error", "market_provider.quote_failed", {
+            provider: provider.providerName,
+            symbol,
+            error,
+          });
         }
       }
     }
   }
 
   await Promise.all(
-    Array.from({ length: Math.min(providerQuoteConcurrency(provider), normalizedSymbols.length) }, () => worker())
+    Array.from(
+      {
+        length: Math.min(
+          providerQuoteConcurrency(provider),
+          normalizedSymbols.length,
+        ),
+      },
+      () => worker(),
+    ),
   );
 
   return results.filter((quote): quote is NormalizedQuote => Boolean(quote));
 }
 
-async function fetchJson<T>(url: URL, providerName: string, timeoutMs = 4500): Promise<{ data: T; latencyMs: number }> {
+async function fetchJson<T>(
+  url: URL,
+  providerName: string,
+  timeoutMs = 4500,
+): Promise<{ data: T; latencyMs: number }> {
   try {
     return await fetchBoundedProviderJson<T>(url, providerName, {
       timeoutMs,
-      userAgent: "StockPilotAI/0.1 market-data-layer"
+      userAgent: "StockPilotAI/0.1 market-data-layer",
     });
   } catch (error) {
     if (error instanceof ProviderHttpResponseError) {
-      throw new ProviderHttpError(providerName, error.status, error.retryAfterMs);
+      throw new ProviderHttpError(
+        providerName,
+        error.status,
+        error.retryAfterMs,
+      );
     }
 
     const message = error instanceof Error ? error.message : "";
@@ -481,6 +635,13 @@ function toNormalizedQuote(input: {
   freeFloat?: number;
   exchange?: string;
   timestamp?: string;
+  providerId: MarketProviderId;
+  providerSymbol?: string;
+  bidSize?: number;
+  askSize?: number;
+  lastSize?: number;
+  vwap?: number;
+  reportedDelaySeconds?: number | null;
   provider: string;
   quality: MarketDataQuality;
   latencyMs?: number;
@@ -488,23 +649,31 @@ function toNormalizedQuote(input: {
 }): NormalizedQuote {
   const previousClose = input.previousClose;
   const change = calculateChange(input.price, previousClose, input.change);
-  const changePercent = calculateChangePercent(input.price, previousClose, input.changePercent);
+  const changePercent = calculateChangePercent(
+    input.price,
+    previousClose,
+    input.changePercent,
+  );
 
-  return {
+  return buildNormalizedQuote({
+    instrumentId: null,
     symbol: input.symbol.toUpperCase(),
     name: input.name,
     assetType: inferAssetType(input.symbol, input.assetType),
-    price: Number(input.price.toFixed(6)),
-    currency: input.currency ?? "USD",
+    providerId: input.providerId,
+    providerSymbol: input.providerSymbol ?? input.symbol,
+    venue: input.exchange,
+    last: Number(input.price.toFixed(6)),
+    lastSize: input.lastSize,
+    currency: input.currency,
     change: Number(change.toFixed(6)),
     changePercent: Number(changePercent.toFixed(4)),
     bid: input.bid,
+    bidSize: input.bidSize,
     ask: input.ask,
-    spread:
-      input.bid !== undefined && input.ask !== undefined
-        ? Number(Math.max(0, input.ask - input.bid).toFixed(6))
-        : undefined,
+    askSize: input.askSize,
     volume: input.volume,
+    vwap: input.vwap,
     high: input.high,
     low: input.low,
     open: input.open,
@@ -513,16 +682,20 @@ function toNormalizedQuote(input: {
     fiftyTwoWeekLow: input.fiftyTwoWeekLow,
     marketCap: input.marketCap,
     freeFloat: input.freeFloat,
-    exchange: input.exchange,
-    timestamp: input.timestamp ?? nowIso(),
+    eventTimestamp: input.timestamp,
+    providerTimestamp: input.timestamp,
+    receivedTimestamp: nowIso(),
     provider: input.provider,
     quality: input.quality,
     latencyMs: input.latencyMs,
-    marketStatus: input.marketStatus ?? "unknown"
-  };
+    reportedDelaySeconds: input.reportedDelaySeconds,
+    marketStatus: input.marketStatus ?? "unknown",
+  });
 }
 
-function normalizedFromDetail(detail: AssetDetail | AssetSummary): NormalizedQuote {
+function normalizedFromDetail(
+  detail: AssetDetail | AssetSummary,
+): NormalizedQuote {
   return toNormalizedQuote({
     symbol: detail.asset.symbol,
     name: detail.asset.name,
@@ -540,13 +713,16 @@ function normalizedFromDetail(detail: AssetDetail | AssetSummary): NormalizedQuo
     previousClose: detail.quote.previousClose,
     fiftyTwoWeekHigh: detail.quote.fiftyTwoWeekHigh,
     fiftyTwoWeekLow: detail.quote.fiftyTwoWeekLow,
-    marketCap: "fundamentals" in detail ? detail.fundamentals.marketCap : undefined,
+    marketCap:
+      "fundamentals" in detail ? detail.fundamentals.marketCap : undefined,
     exchange: detail.asset.exchange,
     timestamp: detail.quote.asOf,
+    providerId: detail.quote.quality === "mock" ? "mock" : "unavailable",
+    providerSymbol: detail.asset.symbol,
     provider: detail.quote.provider,
     quality: detail.quote.quality,
     latencyMs: detail.quote.latencyMs,
-    marketStatus: detail.quote.marketStatus
+    marketStatus: detail.quote.marketStatus,
   });
 }
 
@@ -564,11 +740,13 @@ function summaryFromNormalizedQuote(quote: NormalizedQuote): AssetSummary {
       symbol: quote.symbol,
       name: quote.name ?? quote.symbol,
       type: quote.assetType,
-      exchange: quote.exchange ?? (quote.assetType === "crypto" ? "Crypto" : "Provider"),
+      exchange:
+        quote.exchange ??
+        (quote.assetType === "crypto" ? "Crypto" : "Provider"),
       currency: quote.currency,
       sector: sectorForQuote(quote),
       description:
-        "Aus dem aktiven Marktdatenanbieter normalisiert. Detaildaten hängen von Provider, Tarif und Börsenlizenz ab."
+        "Aus dem aktiven Marktdatenanbieter normalisiert. Detaildaten hängen von Provider, Tarif und Börsenlizenz ab.",
     },
     quote: {
       price: quote.price,
@@ -579,23 +757,34 @@ function summaryFromNormalizedQuote(quote: NormalizedQuote): AssetSummary {
       volume: quote.volume ?? 0,
       delayedByMinutes: quote.quality === "delayed" ? 15 : 0,
       asOf: quote.timestamp,
-      bid: quote.bid,
-      ask: quote.ask,
-      spread: quote.spread,
-      open: quote.open,
-      previousClose: quote.previousClose,
-      fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh,
-      fiftyTwoWeekLow: quote.fiftyTwoWeekLow,
+      bid: quote.bid ?? undefined,
+      ask: quote.ask ?? undefined,
+      spread: quote.spread ?? undefined,
+      open: quote.open ?? undefined,
+      previousClose: quote.previousClose ?? undefined,
+      fiftyTwoWeekHigh: quote.fiftyTwoWeekHigh ?? undefined,
+      fiftyTwoWeekLow: quote.fiftyTwoWeekLow ?? undefined,
       provider: quote.provider,
       quality: quote.quality,
-      latencyMs: quote.latencyMs,
-      marketStatus: quote.marketStatus
+      latencyMs: quote.latencyMs ?? undefined,
+      marketStatus: quote.marketStatus,
     },
-    scores: { trend: 0, news: 0, fundamental: 0, technical: 0, risk: 0, total: 0 },
-    aiRisk: "hoch" as const
+    scores: {
+      trend: 0,
+      news: 0,
+      fundamental: 0,
+      technical: 0,
+      risk: 0,
+      total: 0,
+    },
+    aiRisk: "hoch" as const,
   };
   const scoreEvidence = buildQuoteOnlyScoreEvidence(summary.quote);
-  return { ...summary, scores: scoresFromEvidence(scoreEvidence), scoreEvidence };
+  return {
+    ...summary,
+    scores: scoresFromEvidence(scoreEvidence),
+    scoreEvidence,
+  };
 }
 
 /**
@@ -610,10 +799,9 @@ function summaryFromNormalizedQuote(quote: NormalizedQuote): AssetSummary {
  * bleibt es leer.
  */
 function emptyCandleRanges(): Record<TimeRange, Candle[]> {
-  return Object.fromEntries(DETAIL_RANGES.map((range) => [range, [] as Candle[]])) as Record<
-    TimeRange,
-    Candle[]
-  >;
+  return Object.fromEntries(
+    DETAIL_RANGES.map((range) => [range, [] as Candle[]]),
+  ) as Record<TimeRange, Candle[]>;
 }
 
 /**
@@ -642,25 +830,51 @@ function indicatorsFromQuote(_quote: NormalizedQuote): TechnicalIndicators {
 }
 
 function providerOnlyDataQuality(quote: NormalizedQuote): DataQualityReport {
-  const isCurrent = quote.quality === "realtime" || quote.quality === "near_realtime";
-  const isDelayed = quote.quality === "delayed" || quote.quality === "historical";
-  const unavailable = quote.quality === "unavailable";
+  const blockedStatus = [
+    "INVALID",
+    "UNAVAILABLE",
+    "STALE",
+    "DIVERGENT",
+    "PROVIDER_DEGRADED",
+  ].includes(quote.qualityStatus);
+  const isCurrent =
+    (quote.quality === "realtime" || quote.quality === "near_realtime") &&
+    !blockedStatus;
+  const isDelayed =
+    quote.quality === "delayed" || quote.quality === "historical";
+  const unavailable = quote.qualityStatus === "UNAVAILABLE";
 
   return {
-    score: unavailable ? 18 : isCurrent ? 62 : 45,
-    freshness: unavailable ? "stale" : isDelayed ? "delayed" : "fresh",
-    sourceLabel: quote.quality === "near_realtime" ? "Near-Realtime-Daten" : quote.quality,
+    score: quote.qualityScore,
+    freshness:
+      unavailable || quote.qualityStatus === "STALE"
+        ? "stale"
+        : isDelayed
+          ? "delayed"
+          : "fresh",
+    sourceLabel:
+      quote.quality === "near_realtime" ? "Near-Realtime-Daten" : quote.quality,
     isMock: false,
     updatedAt: quote.timestamp,
-    stale: unavailable,
+    stale: unavailable || quote.qualityStatus === "STALE",
     sufficientForAnalysis: false,
     confidence: unavailable ? 12 : isCurrent ? 45 : 32,
     issues: [
-      "Für eine belastbare Einschätzung liegen derzeit nicht genügend verifizierte Fundamentaldaten, News und historische Kerzen vor."
+      "Für eine belastbare Einschätzung liegen derzeit nicht genügend verifizierte Fundamentaldaten, News und historische Kerzen vor.",
+      ...quote.qualityIssues.map((finding) => `Quote-Qualität: ${finding}.`),
     ],
     warnings: [
       "Diese Detailseite basiert auf einem normalisierten Provider-Quote und zeigt fehlende Analysebereiche bewusst als Datenlücke.",
-      ...(isDelayed ? ["Kursdaten sind verzögert oder historisch und nicht als Live-Signal geeignet."] : [])
+      ...(isDelayed
+        ? [
+            "Kursdaten sind verzögert oder historisch und nicht als Live-Signal geeignet.",
+          ]
+        : []),
+      ...(blockedStatus
+        ? [
+            `Quote-Status ${quote.qualityStatus}: aktuelle Analysesignale bleiben gesperrt.`,
+          ]
+        : []),
     ],
     contradictions: [],
     sources: [
@@ -670,7 +884,7 @@ function providerOnlyDataQuality(quote: NormalizedQuote): DataQualityReport {
         rank: 5,
         fetchedAt: quote.timestamp,
         status: unavailable ? "missing" : isDelayed ? "delayed" : "fresh",
-        note: "Serverseitig normalisierter Quote. Keine API-Keys im Frontend."
+        note: "Serverseitig normalisierter Quote. Keine API-Keys im Frontend.",
       },
       {
         name: "StockPilot Analysis Guard",
@@ -678,9 +892,9 @@ function providerOnlyDataQuality(quote: NormalizedQuote): DataQualityReport {
         rank: 4,
         fetchedAt: quote.timestamp,
         status: "missing",
-        note: "Fundamentaldaten, News, Analystenfelder und echte historische Kerzen sind für dieses Symbol noch nicht ausreichend verifiziert."
-      }
-    ]
+        note: "Fundamentaldaten, News, Analystenfelder und echte historische Kerzen sind für dieses Symbol noch nicht ausreichend verifiziert.",
+      },
+    ],
   };
 }
 
@@ -711,7 +925,7 @@ async function realNewsFor(symbol: string): Promise<NewsItem[]> {
   } catch (error) {
     logEvent("warn", "market_provider.news_failed", {
       symbol,
-      message: error instanceof Error ? error.message : "unknown"
+      message: error instanceof Error ? error.message : "unknown",
     });
     return [];
   }
@@ -724,24 +938,24 @@ function detailFromProviderQuote(
   fundamentalsResult: {
     fundamentals: AssetDetail["fundamentals"] | null;
     metadata: FundamentalsProviderMetadata;
-  } | null = null
+  } | null = null,
 ): AssetDetail {
   const summary = summaryFromNormalizedQuote(quote);
-  const candles = history.candles.length ? sliceHistoryRanges(history.candles) : emptyCandleRanges();
+  const candles = history.candles.length
+    ? sliceHistoryRanges(history.candles)
+    : emptyCandleRanges();
   // Indikatoren nur aus echter Historie. Ohne sie bleibt es bei Luecken statt
   // bei Zahlen, die aus dem Tageskurs abgeleitet waeren.
   const indicators = history.candles.length
     ? buildTechnicalIndicators(history.candles)
     : indicatorsFromQuote(quote);
-  const { fundamentals, evidence: fundamentalsEvidence } = selectVerifiedFundamentals(
-    fundamentalsResult,
-    {
-      value: quote.marketCap,
+  const { fundamentals, evidence: fundamentalsEvidence } =
+    selectVerifiedFundamentals(fundamentalsResult, {
+      value: quote.marketCap ?? undefined,
       provider: quote.provider,
       quality: quote.quality,
-      fetchedAt: quote.timestamp
-    }
-  );
+      fetchedAt: quote.timestamp,
+    });
   const scoreEvidence = buildEvidenceBoundScores({
     quote: summary.quote,
     candles: history.candles,
@@ -749,12 +963,12 @@ function detailFromProviderQuote(
     fundamentals,
     fundamentalsEvidence,
     news,
-    historyProvider: history.provider
+    historyProvider: history.provider,
   });
   const scoredSummary: AssetSummary = {
     ...summary,
     scores: scoresFromEvidence(scoreEvidence),
-    scoreEvidence
+    scoreEvidence,
   };
   const professionalScores = professionalScoresFromEvidence(scoreEvidence);
   const dataQuality = assessProviderEvidence({
@@ -762,34 +976,38 @@ function detailFromProviderQuote(
     history,
     news,
     fundamentals: fundamentalsEvidence,
-    base: providerOnlyDataQuality(quote)
+    base: providerOnlyDataQuality(quote),
   });
   const historicalRisk = calculateHistoricalRiskMetrics({
     candles: history.candles,
     provider: history.provider,
-    integrityBlocked: history.integrity?.backtestStatus === "blocked"
+    integrityBlocked: history.integrity?.backtestStatus === "blocked",
   });
   const historyConfirmed =
-    history.candles.length >= 60 && history.integrity?.backtestStatus !== "blocked";
+    history.candles.length >= 60 &&
+    history.integrity?.backtestStatus !== "blocked";
   const newsConfirmed = news.length > 0;
   const analysisLayers: AnalysisLayer[] = [
     {
       label: "Kursdaten",
       value: quote.quality,
       status: quote.changePercent >= 0 ? "positive" : "negative",
-      detail: "Normalisierter Provider-Quote mit ausgewiesenem Qualitäts- und Verzögerungsstatus.",
+      detail:
+        "Normalisierter Provider-Quote mit ausgewiesenem Qualitäts- und Verzögerungsstatus.",
       source: quote.provider,
-      updatedAt: quote.timestamp
+      updatedAt: quote.timestamp,
     },
     {
       label: "Historische Evidenz",
-      value: historyConfirmed ? `${history.candles.length} Kerzen` : "nicht ausreichend",
+      value: historyConfirmed
+        ? `${history.candles.length} Kerzen`
+        : "nicht ausreichend",
       status: historyConfirmed ? "positive" : "risk",
       detail: historyConfirmed
         ? `${history.candles.length} verwertbare Provider-Kerzen bilden die technische Analysebasis. ${history.note}`
         : `Für eine belastbare technische Analyse fehlen ausreichend verifizierte Kerzen. ${history.note}`,
       source: history.provider ?? "StockPilot Analysis Guard",
-      updatedAt: history.integrity?.dataCutoff ?? quote.timestamp
+      updatedAt: history.integrity?.dataCutoff ?? quote.timestamp,
     },
     {
       label: "News-Evidenz",
@@ -799,7 +1017,7 @@ function detailFromProviderQuote(
         ? "Externe Meldungen mit Quelle, Link und Veröffentlichungszeitpunkt sind angebunden."
         : "Keine verifizierten externen Meldungen für diese Analyse verfügbar.",
       source: newsConfirmed ? news[0].source : "StockPilot Analysis Guard",
-      updatedAt: newsConfirmed ? news[0].publishedAt : quote.timestamp
+      updatedAt: newsConfirmed ? news[0].publishedAt : quote.timestamp,
     },
     {
       label: "Fundamentaldaten",
@@ -818,16 +1036,17 @@ function detailFromProviderQuote(
           ? `${fundamentalsEvidence.coveragePercent} % der definierten Fundamentals-Felder sind durch Anbieterwerte belegt. Mock-/Fallback-Felder bleiben ausgeschlossen.`
           : "Im aktiven Asset-Analysepfad liegen keine verifizierten Fundamentaldaten vor; es werden keine Ersatzwerte erfunden.",
       source: fundamentalsEvidence.provider,
-      updatedAt: fundamentalsEvidence.fetchedAt
-    }
+      updatedAt: fundamentalsEvidence.fetchedAt,
+    },
   ];
   const macroFactors: MacroFactor[] = [
     {
       label: "Makro-Kontext",
       impact: "neutral",
-      detail: "Makro- und Branchenfaktoren sind für dieses Symbol noch nicht quellenbasiert verknüpft.",
-      source: "StockPilot Analysis Guard"
-    }
+      detail:
+        "Makro- und Branchenfaktoren sind für dieses Symbol noch nicht quellenbasiert verknüpft.",
+      source: "StockPilot Analysis Guard",
+    },
   ];
   /**
    * Der Risikobericht kommt aus der Engine, nicht aus einer Konstante.
@@ -857,29 +1076,40 @@ function detailFromProviderQuote(
       earningsDate: null,
       professionalScores,
       analysisLayers,
-      macroFactors
+      macroFactors,
     },
-    dataQuality
+    dataQuality,
   );
   const aiAnalysis: AiAnalysis = {
     summary:
       "Für dieses Symbol reicht die verifizierte Datenbasis derzeit nicht für eine belastbare probabilistische Einschätzung.",
     upsideDrivers: ["Aktueller Kurs und Tagesbewegung sind verfügbar."],
-    downsideDrivers: ["Wesentliche Analysequellen fehlen oder sind nicht verifiziert."],
-    counterArguments: ["Ein einzelner Quote reicht nicht für eine robuste Chancen-/Risikoanalyse."],
+    downsideDrivers: [
+      "Wesentliche Analysequellen fehlen oder sind nicht verifiziert.",
+    ],
+    counterArguments: [
+      "Ein einzelner Quote reicht nicht für eine robuste Chancen-/Risikoanalyse.",
+    ],
     dataGaps: [
       ...(fundamentalsEvidence.verifiedCount === 0
         ? ["Fundamentaldaten fehlen."]
         : fundamentalsEvidence.verifiedCount < fundamentalsEvidence.totalFields
-          ? [`Fundamentaldaten sind nur teilweise belegt (${fundamentalsEvidence.verifiedCount}/${fundamentalsEvidence.totalFields}).`]
+          ? [
+              `Fundamentaldaten sind nur teilweise belegt (${fundamentalsEvidence.verifiedCount}/${fundamentalsEvidence.totalFields}).`,
+            ]
           : []),
       ...(newsConfirmed ? [] : ["Unternehmensnachrichten fehlen."]),
-      ...(historyConfirmed ? [] : ["Ausreichende historische Provider-Kerzen fehlen."]),
-      "Analysten-, Insider- und Eventdaten fehlen."
+      ...(historyConfirmed
+        ? []
+        : ["Ausreichende historische Provider-Kerzen fehlen."]),
+      "Analysten-, Insider- und Eventdaten fehlen.",
     ],
-    bullCase: "Nicht belastbar ableitbar, bis zusätzliche Quellen verifiziert sind.",
-    bearCase: "Nicht belastbar ableitbar, bis zusätzliche Quellen verifiziert sind.",
-    neutralCase: "Beobachten, Datenabdeckung prüfen und keine Signale aus einem Einzelquote ableiten.",
+    bullCase:
+      "Nicht belastbar ableitbar, bis zusätzliche Quellen verifiziert sind.",
+    bearCase:
+      "Nicht belastbar ableitbar, bis zusätzliche Quellen verifiziert sind.",
+    neutralCase:
+      "Beobachten, Datenabdeckung prüfen und keine Signale aus einem Einzelquote ableiten.",
     shortTerm: "Nur Kursstatus sichtbar; Einschätzung mit niedriger Konfidenz.",
     mediumTerm: "Nicht ausreichend belastbar.",
     longTerm: "Nicht ausreichend belastbar.",
@@ -888,13 +1118,13 @@ function detailFromProviderQuote(
     probabilities: {
       up: 0,
       down: 0,
-      sideways: 0
+      sideways: 0,
     },
     sources: dataQuality.sources.map((source) => source.name),
     weakDataWarning:
       "Für eine belastbare Einschätzung liegen derzeit nicht genügend verifizierte Daten vor.",
     modelNote:
-      "Modellbasierte Einordnung aus begrenzten Provider-Kursdaten. Keine Garantie und keine Anlageberatung."
+      "Modellbasierte Einordnung aus begrenzten Provider-Kursdaten. Keine Garantie und keine Anlageberatung.",
   };
 
   const detail: AssetDetail = {
@@ -914,7 +1144,7 @@ function detailFromProviderQuote(
     macroFactors,
     analystOpinion: null,
     insiderActivity: [],
-    earningsDate: null
+    earningsDate: null,
   };
   const evidenceAnalysis = buildEvidenceBoundAnalysis(detail);
   const evidenceScores: ProfessionalScores = evidenceAnalysis
@@ -927,8 +1157,8 @@ function detailFromProviderQuote(
           "Wahrscheinlichkeiten basieren auf verifizierter Historie, gemessener Rendite und Volatilität.",
           fundamentalsEvidence.verifiedCount > 0
             ? `${fundamentalsEvidence.verifiedCount} Fundamentals-Feld(er) sind belegt; die Wahrscheinlichkeiten bleiben technisch und verwenden sie nicht als Kursprognose.`
-            : "Fundamentaldaten fehlen weiterhin; die Einordnung ist auf technische Evidenz begrenzt."
-        ]
+            : "Fundamentaldaten fehlen weiterhin; die Einordnung ist auf technische Evidenz begrenzt.",
+        ],
       }
     : {
         ...professionalScores,
@@ -937,14 +1167,14 @@ function detailFromProviderQuote(
         probabilitySideways: 0,
         explanation: [
           "Wahrscheinlichkeiten werden wegen unzureichender verifizierter Evidenz zurückgehalten.",
-          "Keine Garantie und keine Anlageberatung."
-        ]
+          "Keine Garantie und keine Anlageberatung.",
+        ],
       };
 
   return {
     ...detail,
     aiAnalysis: evidenceAnalysis ?? aiAnalysis,
-    professionalScores: evidenceScores
+    professionalScores: evidenceScores,
   };
 }
 
@@ -958,15 +1188,27 @@ function detailFromProviderQuote(
  */
 
 function uniqueSymbols(symbols: string[]) {
-  return [...new Set(symbols.map((symbol) => safeDecodeURIComponent(symbol).trim().toUpperCase()).filter(Boolean))].slice(0, MAX_BATCH_SIZE);
+  return [
+    ...new Set(
+      symbols
+        .map((symbol) => safeDecodeURIComponent(symbol).trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  ].slice(0, MAX_BATCH_SIZE);
 }
 
 function pollingBatchKey(provider: NearRealtimeProvider, symbols: string[]) {
-  const providerId = "providerId" in provider ? String((provider as QuoteProvider).providerId) : provider.constructor.name;
+  const providerId =
+    "providerId" in provider
+      ? String((provider as QuoteProvider).providerId)
+      : provider.constructor.name;
   return `${providerId}:${[...uniqueSymbols(symbols)].sort().join(",")}`;
 }
 
-async function getSharedPollingQuotes(provider: NearRealtimeProvider, symbols: string[]) {
+async function getSharedPollingQuotes(
+  provider: NearRealtimeProvider,
+  symbols: string[],
+) {
   const normalizedSymbols = uniqueSymbols(symbols);
   const key = pollingBatchKey(provider, normalizedSymbols);
   const existing = inFlightPollingBatches.get(key);
@@ -990,13 +1232,20 @@ async function sleep(ms: number, signal?: AbortSignal) {
         clearTimeout(timeout);
         resolve();
       },
-      { once: true }
+      { once: true },
     );
   });
 }
 
-async function* pollQuotes(provider: NearRealtimeProvider, symbols: string[], options?: MarketStreamOptions) {
-  const intervalMs = Math.max(1500, options?.intervalMs ?? DEFAULT_STREAM_INTERVAL_MS);
+async function* pollQuotes(
+  provider: NearRealtimeProvider,
+  symbols: string[],
+  options?: MarketStreamOptions,
+) {
+  const intervalMs = Math.max(
+    1500,
+    options?.intervalMs ?? DEFAULT_STREAM_INTERVAL_MS,
+  );
 
   while (!options?.signal?.aborted) {
     const quotes = await getSharedPollingQuotes(provider, symbols);
@@ -1095,7 +1344,7 @@ abstract class HttpQuoteProvider implements QuoteProvider {
 async function* streamFinnhubWebSocket(
   provider: FinnhubQuoteProvider,
   symbols: string[],
-  options?: MarketStreamOptions
+  options?: MarketStreamOptions,
 ): AsyncIterable<NormalizedQuote[]> {
   const token = process.env.FINNHUB_API_KEY;
 
@@ -1105,7 +1354,9 @@ async function* streamFinnhubWebSocket(
   }
 
   const normalizedSymbols = uniqueSymbols(symbols);
-  const socket = new WebSocket(`wss://ws.finnhub.io?token=${encodeURIComponent(token)}`);
+  const socket = new WebSocket(
+    `wss://ws.finnhub.io?token=${encodeURIComponent(token)}`,
+  );
   const maxQueuedBatches = 32;
   const queue: NormalizedQuote[][] = [];
   let done = false;
@@ -1122,12 +1373,17 @@ async function* streamFinnhubWebSocket(
       socket.close();
       wakeReader();
     },
-    { once: true }
+    { once: true },
   );
 
   socket.addEventListener("open", () => {
     for (const symbol of normalizedSymbols) {
-      socket.send(JSON.stringify({ type: "subscribe", symbol: symbolForProvider(symbol, "finnhub") }));
+      socket.send(
+        JSON.stringify({
+          type: "subscribe",
+          symbol: symbolForProvider(symbol, "finnhub"),
+        }),
+      );
     }
   });
 
@@ -1144,7 +1400,9 @@ async function* streamFinnhubWebSocket(
         .map((trade) => {
           const providerSymbol = String(trade.s ?? "");
           const symbol =
-            normalizedSymbols.find((item) => symbolForProvider(item, "finnhub") === providerSymbol) ??
+            normalizedSymbols.find(
+              (item) => symbolForProvider(item, "finnhub") === providerSymbol,
+            ) ??
             providerSymbol.replace(/^BINANCE:/, "").replace("USDT", "-USD");
           const price = parseNumber(trade.p);
           if (!price) return null;
@@ -1153,11 +1411,14 @@ async function* streamFinnhubWebSocket(
             symbol,
             price,
             volume: parseNumber(trade.v),
+            lastSize: parseNumber(trade.v),
             timestamp: trade.t ? new Date(trade.t).toISOString() : nowIso(),
+            providerId: provider.providerId,
+            providerSymbol,
             provider: "Finnhub WebSocket",
             quality: provider.quality,
             latencyMs: trade.t ? Math.max(0, Date.now() - trade.t) : undefined,
-            marketStatus: "unknown"
+            marketStatus: "unknown",
           });
         })
         .filter((quote): quote is NormalizedQuote => Boolean(quote));
@@ -1204,7 +1465,10 @@ class FinnhubQuoteProvider extends HttpQuoteProvider {
   readonly providerName = "Finnhub";
   readonly providerId = "finnhub" as const;
   readonly quality = envQuality("FINNHUB_DATA_QUALITY", "near_realtime");
-  readonly streamMode: StreamMode = process.env.FINNHUB_STREAM_ENABLED === "true" ? "provider_websocket" : "rest_polling";
+  readonly streamMode: StreamMode =
+    process.env.FINNHUB_STREAM_ENABLED === "true"
+      ? "provider_websocket"
+      : "rest_polling";
 
   async getQuote(symbol: string) {
     const token = process.env.FINNHUB_API_KEY;
@@ -1215,7 +1479,10 @@ class FinnhubQuoteProvider extends HttpQuoteProvider {
     url.searchParams.set("symbol", providerSymbol);
     url.searchParams.set("token", token);
 
-    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(url, this.providerName);
+    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(
+      url,
+      this.providerName,
+    );
     const price = parseNumber(data.c);
     if (!price) return null;
 
@@ -1224,22 +1491,27 @@ class FinnhubQuoteProvider extends HttpQuoteProvider {
     return toNormalizedQuote({
       symbol,
       price,
+      providerId: this.providerId,
+      providerSymbol,
       previousClose,
       change: parseNumber(data.d),
       changePercent: parseNumber(data.dp),
       high: parseNumber(data.h),
       low: parseNumber(data.l),
       open: parseNumber(data.o),
-      timestamp: parseNumber(data.t) ? new Date(Number(data.t) * 1000).toISOString() : nowIso(),
+      timestamp: parseNumber(data.t)
+        ? new Date(Number(data.t) * 1000).toISOString()
+        : nowIso(),
       provider: this.providerName,
       quality: this.quality,
       latencyMs,
-      marketStatus: "unknown"
+      marketStatus: "unknown",
     });
   }
 
   streamQuotes(symbols: string[], options?: MarketStreamOptions) {
-    if (this.streamMode !== "provider_websocket") return pollQuotes(this, symbols, options);
+    if (this.streamMode !== "provider_websocket")
+      return pollQuotes(this, symbols, options);
     return streamFinnhubWebSocket(this, symbols, options);
   }
 }
@@ -1251,21 +1523,30 @@ class TwelveDataQuoteProvider extends HttpQuoteProvider {
 
   async getQuote(symbol: string) {
     const token = process.env.TWELVE_DATA_API_KEY;
-    if (!token) throw new ProviderConfigurationError("TWELVE_DATA_API_KEY fehlt");
+    if (!token)
+      throw new ProviderConfigurationError("TWELVE_DATA_API_KEY fehlt");
 
     const url = new URL("https://api.twelvedata.com/quote");
     url.searchParams.set("symbol", symbolForProvider(symbol, this.providerId));
     url.searchParams.set("apikey", token);
 
-    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(url, this.providerName);
+    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(
+      url,
+      this.providerName,
+    );
     const price = parseNumber(data.close ?? data.price);
     if (!price) return null;
 
-    const timestamp = typeof data.datetime === "string" ? new Date(data.datetime).toISOString() : nowIso();
+    const timestamp =
+      typeof data.datetime === "string"
+        ? new Date(data.datetime).toISOString()
+        : nowIso();
 
     return toNormalizedQuote({
       symbol,
       price,
+      providerId: this.providerId,
+      providerSymbol: symbolForProvider(symbol, this.providerId),
       currency: typeof data.currency === "string" ? data.currency : "USD",
       change: parseNumber(data.change),
       changePercent: parseNumber(data.percent_change),
@@ -1274,11 +1555,12 @@ class TwelveDataQuoteProvider extends HttpQuoteProvider {
       low: parseNumber(data.low),
       open: parseNumber(data.open),
       previousClose: parseNumber(data.previous_close),
+      exchange: typeof data.exchange === "string" ? data.exchange : undefined,
       timestamp,
       provider: this.providerName,
       quality: this.quality,
       latencyMs,
-      marketStatus: "unknown"
+      marketStatus: "unknown",
     });
   }
 }
@@ -1293,17 +1575,24 @@ class EodhdQuoteProvider extends HttpQuoteProvider {
     if (!token) throw new ProviderConfigurationError("EODHD_API_KEY fehlt");
 
     const providerSymbol = symbolForProvider(symbol, this.providerId);
-    const url = new URL(`https://eodhd.com/api/real-time/${encodeURIComponent(providerSymbol)}`);
+    const url = new URL(
+      `https://eodhd.com/api/real-time/${encodeURIComponent(providerSymbol)}`,
+    );
     url.searchParams.set("api_token", token);
     url.searchParams.set("fmt", "json");
 
-    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(url, this.providerName);
+    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(
+      url,
+      this.providerName,
+    );
     const price = parseNumber(data.close ?? data.price);
     if (!price) return null;
 
     return toNormalizedQuote({
       symbol,
       price,
+      providerId: this.providerId,
+      providerSymbol,
       change: parseNumber(data.change),
       changePercent: parseNumber(data.change_p ?? data.changePercent),
       volume: parseNumber(data.volume),
@@ -1311,11 +1600,13 @@ class EodhdQuoteProvider extends HttpQuoteProvider {
       low: parseNumber(data.low),
       open: parseNumber(data.open),
       previousClose: parseNumber(data.previousClose ?? data.previous_close),
-      timestamp: parseNumber(data.timestamp) ? new Date(Number(data.timestamp) * 1000).toISOString() : nowIso(),
+      timestamp: parseNumber(data.timestamp)
+        ? new Date(Number(data.timestamp) * 1000).toISOString()
+        : nowIso(),
       provider: this.providerName,
       quality: this.quality,
       latencyMs,
-      marketStatus: normalizeMarketStatus(data.marketStatus)
+      marketStatus: normalizeMarketStatus(data.marketStatus),
     });
   }
 }
@@ -1327,17 +1618,23 @@ class MassiveSnapshotProvider extends HttpQuoteProvider {
 
   async getQuote(symbol: string) {
     const token = process.env.MASSIVE_API_KEY ?? process.env.POLYGON_API_KEY;
-    if (!token) throw new ProviderConfigurationError("MASSIVE_API_KEY oder POLYGON_API_KEY fehlt");
+    if (!token)
+      throw new ProviderConfigurationError(
+        "MASSIVE_API_KEY oder POLYGON_API_KEY fehlt",
+      );
 
     const url = new URL(
       process.env.MASSIVE_SNAPSHOT_URL ??
         process.env.POLYGON_SNAPSHOT_URL ??
-        "https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers"
+        "https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers",
     );
     url.searchParams.set("tickers", symbolForProvider(symbol, this.providerId));
     url.searchParams.set("apiKey", token);
 
-    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(url, this.providerName);
+    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(
+      url,
+      this.providerName,
+    );
     const tickers = Array.isArray(data.tickers) ? data.tickers : [];
     const item = (tickers[0] ?? data.ticker ?? data) as Record<string, unknown>;
     const day = (item.day ?? {}) as Record<string, unknown>;
@@ -1351,20 +1648,28 @@ class MassiveSnapshotProvider extends HttpQuoteProvider {
     return toNormalizedQuote({
       symbol,
       price,
+      providerId: this.providerId,
+      providerSymbol: symbolForProvider(symbol, this.providerId),
+      currency: "USD",
       change: parseNumber(item.todaysChange),
       changePercent: parseNumber(item.todaysChangePerc),
       bid: parseNumber(lastQuote.p ?? lastQuote.bp),
+      bidSize: parseNumber(lastQuote.s ?? lastQuote.bs),
       ask: parseNumber(lastQuote.P ?? lastQuote.ap),
+      askSize: parseNumber(lastQuote.S ?? lastQuote.as),
+      lastSize: parseNumber(lastTrade.s),
       volume: parseNumber(day.v),
       high: parseNumber(day.h),
       low: parseNumber(day.l),
       open: parseNumber(day.o),
       previousClose: parseNumber(prevDay.c),
-      timestamp: parseNumber(item.updated ?? lastTrade.t) ? new Date(Number(item.updated ?? lastTrade.t) / 1000000).toISOString() : nowIso(),
+      timestamp: parseNumber(item.updated ?? lastTrade.t)
+        ? new Date(Number(item.updated ?? lastTrade.t) / 1000000).toISOString()
+        : nowIso(),
       provider: this.providerName,
       quality: this.quality,
       latencyMs,
-      marketStatus: "unknown"
+      marketStatus: "unknown",
     });
   }
 }
@@ -1376,14 +1681,19 @@ class AlphaVantageQuoteProvider extends HttpQuoteProvider {
 
   async getQuote(symbol: string) {
     const token = process.env.ALPHA_VANTAGE_API_KEY;
-    if (!token) throw new ProviderConfigurationError("ALPHA_VANTAGE_API_KEY fehlt");
+    if (!token)
+      throw new ProviderConfigurationError("ALPHA_VANTAGE_API_KEY fehlt");
 
     const url = new URL("https://www.alphavantage.co/query");
     url.searchParams.set("function", "GLOBAL_QUOTE");
     url.searchParams.set("symbol", symbolForProvider(symbol, this.providerId));
     url.searchParams.set("apikey", token);
 
-    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(url, this.providerName, 7000);
+    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(
+      url,
+      this.providerName,
+      7000,
+    );
     const quote = (data["Global Quote"] ?? {}) as Record<string, unknown>;
     const price = parseNumber(quote["05. price"]);
     if (!price) return null;
@@ -1391,18 +1701,25 @@ class AlphaVantageQuoteProvider extends HttpQuoteProvider {
     return toNormalizedQuote({
       symbol,
       price,
+      providerId: this.providerId,
+      providerSymbol: symbolForProvider(symbol, this.providerId),
       change: parseNumber(quote["09. change"]),
-      changePercent: parseNumber(String(quote["10. change percent"] ?? "").replace("%", "")),
+      changePercent: parseNumber(
+        String(quote["10. change percent"] ?? "").replace("%", ""),
+      ),
       volume: parseNumber(quote["06. volume"]),
       high: parseNumber(quote["03. high"]),
       low: parseNumber(quote["04. low"]),
       open: parseNumber(quote["02. open"]),
       previousClose: parseNumber(quote["08. previous close"]),
-      timestamp: typeof quote["07. latest trading day"] === "string" ? `${quote["07. latest trading day"]}T21:00:00.000Z` : nowIso(),
+      timestamp:
+        typeof quote["07. latest trading day"] === "string"
+          ? `${quote["07. latest trading day"]}T21:00:00.000Z`
+          : nowIso(),
       provider: this.providerName,
       quality: this.quality,
       latencyMs,
-      marketStatus: "unknown"
+      marketStatus: "unknown",
     });
   }
 }
@@ -1414,21 +1731,25 @@ class FmpQuoteProvider extends HttpQuoteProvider {
 
   async getQuote(symbol: string) {
     const knownAsset = getMockAsset(symbol)?.asset;
-    if (knownAsset?.type === "etf" && process.env.FMP_ENABLE_ETF_QUOTES !== "true") return null;
+    if (
+      knownAsset?.type === "etf" &&
+      process.env.FMP_ENABLE_ETF_QUOTES !== "true"
+    )
+      return null;
 
     const token = process.env.FMP_API_KEY;
     if (!token) throw new ProviderConfigurationError("FMP_API_KEY fehlt");
 
     const providerSymbol = symbolForProvider(symbol, this.providerId);
-    const url = new URL(`${process.env.FMP_API_BASE_URL ?? "https://financialmodelingprep.com/stable"}/quote`);
+    const url = new URL(
+      `${process.env.FMP_API_BASE_URL ?? "https://financialmodelingprep.com/stable"}/quote`,
+    );
     url.searchParams.set("symbol", providerSymbol);
     url.searchParams.set("apikey", token);
 
-    const { data, latencyMs } = await fetchJson<Record<string, unknown>[] | Record<string, unknown>>(
-      url,
-      this.providerName,
-      6000
-    );
+    const { data, latencyMs } = await fetchJson<
+      Record<string, unknown>[] | Record<string, unknown>
+    >(url, this.providerName, 6000);
     const item = (Array.isArray(data) ? data[0] : data) ?? {};
     const price = parseNumber(item.price);
     if (!price) return null;
@@ -1437,8 +1758,13 @@ class FmpQuoteProvider extends HttpQuoteProvider {
       symbol,
       name: typeof item.name === "string" ? item.name : undefined,
       price,
+      providerId: this.providerId,
+      providerSymbol,
+      currency: typeof item.currency === "string" ? item.currency : undefined,
       change: parseNumber(item.change),
-      changePercent: parseNumber(item.changePercentage ?? item.changesPercentage),
+      changePercent: parseNumber(
+        item.changePercentage ?? item.changesPercentage,
+      ),
       volume: parseNumber(item.volume),
       high: parseNumber(item.dayHigh),
       low: parseNumber(item.dayLow),
@@ -1448,11 +1774,15 @@ class FmpQuoteProvider extends HttpQuoteProvider {
       fiftyTwoWeekLow: parseNumber(item.yearLow),
       marketCap: parseNumber(item.marketCap),
       exchange: typeof item.exchange === "string" ? item.exchange : undefined,
-      timestamp: parseNumber(item.timestamp) ? new Date(Number(item.timestamp) * 1000).toISOString() : nowIso(),
+      timestamp: parseNumber(item.timestamp)
+        ? new Date(Number(item.timestamp) * 1000).toISOString()
+        : nowIso(),
       provider: this.providerName,
       quality: this.quality,
       latencyMs,
-      marketStatus: normalizeMarketStatus(item.marketState ?? item.marketStatus)
+      marketStatus: normalizeMarketStatus(
+        item.marketState ?? item.marketStatus,
+      ),
     });
   }
 }
@@ -1469,7 +1799,11 @@ class BinanceQuoteProvider extends HttpQuoteProvider {
     const url = new URL("https://api.binance.com/api/v3/ticker/24hr");
     url.searchParams.set("symbol", providerSymbol);
 
-    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(url, this.providerName, 4500);
+    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(
+      url,
+      this.providerName,
+      4500,
+    );
     const price = parseNumber(data.lastPrice);
     if (!price) return null;
 
@@ -1477,21 +1811,30 @@ class BinanceQuoteProvider extends HttpQuoteProvider {
       symbol,
       assetType: "crypto",
       price,
+      providerId: this.providerId,
+      providerSymbol,
+      exchange: "BINANCE",
       currency: "USD",
       change: parseNumber(data.priceChange),
       changePercent: parseNumber(data.priceChangePercent),
       bid: parseNumber(data.bidPrice),
+      bidSize: parseNumber(data.bidQty),
       ask: parseNumber(data.askPrice),
+      askSize: parseNumber(data.askQty),
+      lastSize: parseNumber(data.lastQty),
+      vwap: parseNumber(data.weightedAvgPrice),
       volume: parseNumber(data.quoteVolume ?? data.volume),
       high: parseNumber(data.highPrice),
       low: parseNumber(data.lowPrice),
       open: parseNumber(data.openPrice),
       previousClose: parseNumber(data.prevClosePrice),
-      timestamp: parseNumber(data.closeTime) ? new Date(Number(data.closeTime)).toISOString() : nowIso(),
+      timestamp: parseNumber(data.closeTime)
+        ? new Date(Number(data.closeTime)).toISOString()
+        : nowIso(),
       provider: this.providerName,
       quality: this.quality,
       latencyMs,
-      marketStatus: "open"
+      marketStatus: "open",
     });
   }
 }
@@ -1505,9 +1848,15 @@ class CoinbaseQuoteProvider extends HttpQuoteProvider {
     if (!isCryptoSymbol(symbol)) return null;
 
     const providerSymbol = symbolForProvider(symbol, this.providerId);
-    const url = new URL(`https://api.exchange.coinbase.com/products/${encodeURIComponent(providerSymbol)}/ticker`);
+    const url = new URL(
+      `https://api.exchange.coinbase.com/products/${encodeURIComponent(providerSymbol)}/ticker`,
+    );
 
-    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(url, this.providerName, 4500);
+    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(
+      url,
+      this.providerName,
+      4500,
+    );
     const price = parseNumber(data.price);
     if (!price) return null;
 
@@ -1515,21 +1864,30 @@ class CoinbaseQuoteProvider extends HttpQuoteProvider {
       symbol,
       assetType: "crypto",
       price,
+      providerId: this.providerId,
+      providerSymbol,
+      exchange: "COINBASE",
       currency: "USD",
       bid: parseNumber(data.bid),
       ask: parseNumber(data.ask),
+      lastSize: parseNumber(data.size),
       volume: parseNumber(data.volume),
-      timestamp: typeof data.time === "string" ? new Date(data.time).toISOString() : nowIso(),
+      timestamp:
+        typeof data.time === "string"
+          ? new Date(data.time).toISOString()
+          : nowIso(),
       provider: this.providerName,
       quality: this.quality,
       latencyMs,
-      marketStatus: "open"
+      marketStatus: "open",
     });
   }
 }
 
 function selectedCryptoProviderId(): MarketProviderId | null {
-  const provider = (process.env.STOCKPILOT_CRYPTO_PROVIDER ?? "binance").toLowerCase();
+  const provider = (
+    process.env.STOCKPILOT_CRYPTO_PROVIDER ?? "binance"
+  ).toLowerCase();
 
   if (provider === "none" || provider === "off") return null;
   if (provider === "coinbase") return "coinbase";
@@ -1565,9 +1923,15 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
 
   async getDashboard() {
     const symbols = uniqueSymbols(DEFAULT_DASHBOARD_SYMBOLS);
-    const quotes = await withDeadline(this.getQuotes(symbols), DEFAULT_DASHBOARD_QUOTE_TIMEOUT_MS, []);
+    const quotes = await withDeadline(
+      this.getQuotes(symbols),
+      DEFAULT_DASHBOARD_QUOTE_TIMEOUT_MS,
+      [],
+    );
     const summaries = quotes
-      .filter((quote) => quote.quality !== "mock" && quote.quality !== "unavailable")
+      .filter(
+        (quote) => quote.quality !== "mock" && quote.quality !== "unavailable",
+      )
       .map(summaryFromNormalizedQuote);
     const news = await realNewsFor("");
 
@@ -1600,7 +1964,11 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
    * Lücken. Er gilt jetzt für alle.
    */
   async getAsset(symbol: string) {
-    const quote = await withDeadline(this.getQuote(symbol), DEFAULT_ASSET_QUOTE_TIMEOUT_MS, null);
+    const quote = await withDeadline(
+      this.getQuote(symbol),
+      DEFAULT_ASSET_QUOTE_TIMEOUT_MS,
+      null,
+    );
     if (!quote) return null;
 
     // Die Historie ist der teuerste Abruf im Pfad (ueber 1000 Kerzen). Sie
@@ -1611,7 +1979,7 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
     const [history, news, fundamentals] = await Promise.all([
       withDeadline(fetchDailyHistory(symbol), 9500, NO_HISTORY),
       withDeadline(realNewsFor(symbol), 6000, [] as NewsItem[]),
-      withDeadline(getFundamentalsWithMetadata(symbol), 8500, null)
+      withDeadline(getFundamentalsWithMetadata(symbol), 8500, null),
     ]);
 
     return detailFromProviderQuote(quote, history, news, fundamentals);
@@ -1624,8 +1992,12 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
       this.cryptoProvider.providerId !== this.quoteProvider.providerId
     ) {
       try {
-        const cryptoQuote = await getCachedProviderQuote(this.cryptoProvider, symbol);
-        if (cryptoQuote?.bid !== undefined && cryptoQuote.ask !== undefined) return cryptoQuote;
+        const cryptoQuote = await getCachedProviderQuote(
+          this.cryptoProvider,
+          symbol,
+        );
+        if (cryptoQuote?.bid !== undefined && cryptoQuote.ask !== undefined)
+          return cryptoQuote;
       } catch (error) {
         if (
           !(error instanceof ProviderConfigurationError) &&
@@ -1635,7 +2007,7 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
           logEvent("error", "crypto_provider.quote_failed", {
             provider: this.cryptoProvider.providerName,
             symbol,
-            error
+            error,
           });
         }
       }
@@ -1649,8 +2021,12 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
         !(error instanceof ProviderConfigurationError) &&
         !(error instanceof ProviderRateLimitBackoffError) &&
         !(error instanceof ProviderAccessUnavailableError)
-        ) {
-        logEvent("error", "market_provider.quote_failed", { provider: this.providerName, symbol, error });
+      ) {
+        logEvent("error", "market_provider.quote_failed", {
+          provider: this.providerName,
+          symbol,
+          error,
+        });
       }
     }
 
@@ -1679,20 +2055,27 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
       } catch (error) {
         logEvent("error", "crypto_provider.batch_failed", {
           provider: this.cryptoProvider.providerName,
-          error
+          error,
         });
       }
     }
 
-    const cryptoMap = new Map(cryptoQuotes.map((quote) => [quote.symbol, quote]));
-    const primaryRequested = requested.filter((symbol) => !cryptoMap.has(symbol));
+    const cryptoMap = new Map(
+      cryptoQuotes.map((quote) => [quote.symbol, quote]),
+    );
+    const primaryRequested = requested.filter(
+      (symbol) => !cryptoMap.has(symbol),
+    );
     let realQuotes: NormalizedQuote[] = [];
 
     try {
       realQuotes = await this.quoteProvider.getQuotes(primaryRequested);
     } catch (error) {
       if (!(error instanceof ProviderConfigurationError)) {
-        logEvent("error", "market_provider.batch_failed", { provider: this.providerName, error });
+        logEvent("error", "market_provider.batch_failed", {
+          provider: this.providerName,
+          error,
+        });
       }
     }
 
@@ -1701,19 +2084,22 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
     // Dashboard nicht von echten zu unterscheiden. Eine kuerzere Liste ist die
     // ehrliche Antwort; wer sie anzeigt, sieht auch, dass etwas fehlt.
     const missing = requested.filter(
-      (symbol) => ![...cryptoQuotes, ...realQuotes].some((quote) => quote.symbol === symbol)
+      (symbol) =>
+        ![...cryptoQuotes, ...realQuotes].some(
+          (quote) => quote.symbol === symbol,
+        ),
     );
 
     if (missing.length > 0) {
       logEvent("warn", "market_provider.quotes_missing", {
         provider: this.providerName,
         requested: requested.length,
-        missing: missing.length
+        missing: missing.length,
       });
     }
 
     return [...cryptoQuotes, ...realQuotes].sort(
-      (a, b) => requested.indexOf(a.symbol) - requested.indexOf(b.symbol)
+      (a, b) => requested.indexOf(a.symbol) - requested.indexOf(b.symbol),
     );
   }
 
@@ -1733,24 +2119,33 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
    * Intraday-Intervalle liefern **nichts**. Tagesschlusskurse enthalten keinen
    * Verlauf innerhalb des Tages, und ihn zu erfinden wäre der Ausgangsfehler.
    */
-  async getCandles(symbol: string, interval: "1m" | "5m" | "15m" | "1h" | "1d") {
+  async getCandles(
+    symbol: string,
+    interval: "1m" | "5m" | "15m" | "1h" | "1d",
+  ) {
     if (interval !== "1d") return [];
 
-    const history = await withDeadline(fetchDailyHistory(symbol), 9500, NO_HISTORY);
+    const history = await withDeadline(
+      fetchDailyHistory(symbol),
+      9500,
+      NO_HISTORY,
+    );
     if (!history.candles.length) return [];
 
     return sliceHistoryRanges(history.candles)["1Y"];
   }
 
   streamQuotes(symbols: string[], options?: MarketStreamOptions) {
-    if (this.quoteProvider.streamMode === "provider_websocket" && this.quoteProvider.streamQuotes) {
+    if (
+      this.quoteProvider.streamMode === "provider_websocket" &&
+      this.quoteProvider.streamQuotes
+    ) {
       return this.quoteProvider.streamQuotes(symbols, options);
     }
 
     return pollQuotes(this, symbols, options);
   }
 }
-
 
 // `autoProviderId` und `selectedProviderId` sind entfallen: die Rangfolge
 // entscheidet jetzt `resolveQuoteChain()` in quote-chain.ts, und zwar als
@@ -1819,7 +2214,7 @@ export class ChainedQuoteProvider implements QuoteProvider {
           logEvent("warn", "market.provider_failed_over", {
             providerId: provider.providerId,
             symbol,
-            message: error instanceof Error ? error.message : "unknown"
+            message: error instanceof Error ? error.message : "unknown",
           });
         }
       }
@@ -1860,11 +2255,16 @@ export function getMarketDataProvider(): MarketDataProvider {
     .filter((provider): provider is QuoteProvider => provider !== null);
 
   if (providers.length === 0) {
-    return developmentFixturesAllowed() ? new MockMarketDataProvider() : new UnavailableMarketDataProvider();
+    return developmentFixturesAllowed()
+      ? new MockMarketDataProvider()
+      : new UnavailableMarketDataProvider();
   }
-  if (providers.length === 1) return new ProviderBackedMarketDataProvider(providers[0]);
+  if (providers.length === 1)
+    return new ProviderBackedMarketDataProvider(providers[0]);
 
-  return new ProviderBackedMarketDataProvider(new ChainedQuoteProvider(providers));
+  return new ProviderBackedMarketDataProvider(
+    new ChainedQuoteProvider(providers),
+  );
 }
 import { assessProviderEvidence } from "@/lib/analysis/provider-evidence";
 import { buildEvidenceBoundAnalysis } from "@/lib/analysis/evidence-analysis";

@@ -3,6 +3,7 @@ import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
 import { withCacheFallback } from "@/lib/provider-cache";
 import { cacheControlHeaders, getCostControls } from "@/lib/cost-controls";
 import { summarizeQuoteProviders } from "@/lib/providers/quote-provenance";
+import { normalizeCanonicalQuoteRecord } from "@/lib/canonical-quote";
 import type { NormalizedQuote } from "@/lib/types";
 import { validateSymbol } from "@/lib/validation";
 
@@ -10,28 +11,6 @@ const inFlightQuoteBatches = new Map<string, Promise<NormalizedQuote[]>>();
 const MAX_QUOTE_SYMBOLS = 40;
 const MAX_SYMBOLS_QUERY_LENGTH = 900;
 const MAX_IN_FLIGHT_QUOTE_BATCHES = 80;
-const validAssetTypes = new Set<NormalizedQuote["assetType"]>([
-  "stock",
-  "etf",
-  "crypto",
-  "forex",
-  "index",
-]);
-const validQualities = new Set<NormalizedQuote["quality"]>([
-  "realtime",
-  "near_realtime",
-  "delayed",
-  "historical",
-  "mock",
-  "unavailable",
-]);
-const validMarketStatuses = new Set<NormalizedQuote["marketStatus"]>([
-  "open",
-  "closed",
-  "pre_market",
-  "after_hours",
-  "unknown",
-]);
 
 function parseSymbols(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -50,78 +29,19 @@ function parseSymbols(request: Request) {
   return { ok: true as const, symbols };
 }
 
-function finiteNumber(value: unknown, fallback = 0) {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function optionalFiniteNumber(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : undefined;
-}
-
-function safeText(value: unknown, maxLength: number, fallback: string) {
-  return typeof value === "string" && value.trim()
-    ? value.trim().slice(0, maxLength)
-    : fallback;
-}
-
-function safeTimestamp(value: unknown) {
-  if (typeof value !== "string") return new Date().toISOString();
-  const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp)
-    ? new Date(timestamp).toISOString()
-    : new Date().toISOString();
-}
-
 function normalizeQuoteForResponse(
   rawQuote: unknown,
   allowedSymbols: Set<string>,
 ): NormalizedQuote | null {
   if (!rawQuote || typeof rawQuote !== "object") return null;
 
-  const quote = rawQuote as Partial<NormalizedQuote>;
-  const symbol =
-    typeof quote.symbol === "string" ? quote.symbol.trim().toUpperCase() : "";
+  const quote = normalizeCanonicalQuoteRecord(rawQuote);
+  if (!quote) return null;
+  const symbol = quote.symbol;
 
   if (!allowedSymbols.has(symbol)) return null;
 
-  return {
-    symbol,
-    name: quote.name ? safeText(quote.name, 120, symbol) : undefined,
-    assetType:
-      quote.assetType && validAssetTypes.has(quote.assetType)
-        ? quote.assetType
-        : "stock",
-    price: finiteNumber(quote.price),
-    currency: safeText(quote.currency, 8, "USD").toUpperCase(),
-    change: finiteNumber(quote.change),
-    changePercent: finiteNumber(quote.changePercent),
-    bid: optionalFiniteNumber(quote.bid),
-    ask: optionalFiniteNumber(quote.ask),
-    spread: optionalFiniteNumber(quote.spread),
-    volume: optionalFiniteNumber(quote.volume),
-    high: optionalFiniteNumber(quote.high),
-    low: optionalFiniteNumber(quote.low),
-    open: optionalFiniteNumber(quote.open),
-    previousClose: optionalFiniteNumber(quote.previousClose),
-    fiftyTwoWeekHigh: optionalFiniteNumber(quote.fiftyTwoWeekHigh),
-    fiftyTwoWeekLow: optionalFiniteNumber(quote.fiftyTwoWeekLow),
-    marketCap: optionalFiniteNumber(quote.marketCap),
-    freeFloat: optionalFiniteNumber(quote.freeFloat),
-    exchange: quote.exchange ? safeText(quote.exchange, 80, "") : undefined,
-    timestamp: safeTimestamp(quote.timestamp),
-    provider: safeText(quote.provider, 80, "unknown"),
-    quality:
-      quote.quality && validQualities.has(quote.quality)
-        ? quote.quality
-        : "unavailable",
-    latencyMs: optionalFiniteNumber(quote.latencyMs),
-    marketStatus:
-      quote.marketStatus && validMarketStatuses.has(quote.marketStatus)
-        ? quote.marketStatus
-        : "unknown",
-  };
+  return quote;
 }
 
 function orderQuotesForRequest(quotes: NormalizedQuote[], symbols: string[]) {

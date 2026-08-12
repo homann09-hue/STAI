@@ -24,6 +24,25 @@ export type MarketDataQuality =
   | "unavailable";
 export type MarketStatus =
   "open" | "closed" | "pre_market" | "after_hours" | "unknown";
+export type QuoteMarketSession =
+  "PRE_MARKET" | "REGULAR" | "AFTER_HOURS" | "CLOSED" | "HALTED" | "UNKNOWN";
+export type QuoteFeedType =
+  | "REALTIME"
+  | "NEAR_REALTIME"
+  | "DELAYED"
+  | "END_OF_DAY"
+  | "REFERENCE_DATA"
+  | "INDICATIVE";
+export type QuoteQualityStatus =
+  | "OK"
+  | "DELAYED"
+  | "STALE"
+  | "DIVERGENT"
+  | "PARTIAL"
+  | "MARKET_CLOSED"
+  | "PROVIDER_DEGRADED"
+  | "UNAVAILABLE"
+  | "INVALID";
 export type RefreshMode = "sse" | "websocket" | "polling" | "manual";
 export type RefreshInterval = 1000 | 5000 | 10000 | 30000 | 60000 | 300000;
 export type MarketConnectionStatus =
@@ -84,30 +103,49 @@ export interface Quote {
 }
 
 export interface NormalizedQuote {
+  instrumentId: string | null;
   symbol: string;
   name?: string;
   assetType: AssetType;
+  providerId: string;
+  providerSymbol: string;
+  venue: string | null;
   price: number;
+  last: number;
+  lastSize: number | null;
   currency: string;
   change: number;
   changePercent: number;
-  bid?: number;
-  ask?: number;
-  spread?: number;
-  volume?: number;
-  high?: number;
-  low?: number;
-  open?: number;
-  previousClose?: number;
-  fiftyTwoWeekHigh?: number;
-  fiftyTwoWeekLow?: number;
-  marketCap?: number;
-  freeFloat?: number;
-  exchange?: string;
+  bid: number | null;
+  bidSize: number | null;
+  ask: number | null;
+  askSize: number | null;
+  spread: number | null;
+  volume: number | null;
+  vwap: number | null;
+  high: number | null;
+  low: number | null;
+  open: number | null;
+  previousClose: number | null;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+  marketCap: number | null;
+  freeFloat: number | null;
+  exchange: string | null;
+  marketSession: QuoteMarketSession;
+  eventTimestamp: string | null;
+  providerTimestamp: string | null;
+  receivedTimestamp: string;
+  isRealtime: boolean;
+  reportedDelaySeconds: number | null;
+  feedType: QuoteFeedType;
+  qualityStatus: QuoteQualityStatus;
+  qualityScore: number;
+  qualityIssues: string[];
   timestamp: string;
   provider: string;
   quality: MarketDataQuality;
-  latencyMs?: number;
+  latencyMs: number | null;
   marketStatus: MarketStatus;
 }
 

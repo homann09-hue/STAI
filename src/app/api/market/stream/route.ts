@@ -1,7 +1,13 @@
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
-import { REQUEST_ID_HEADER, jsonError, rateLimit, secureStreamHeaders } from "@/lib/api-guard";
+import {
+  REQUEST_ID_HEADER,
+  jsonError,
+  rateLimit,
+  secureStreamHeaders,
+} from "@/lib/api-guard";
 import { getStreamIntervalMs } from "@/lib/cost-controls";
 import { logEvent } from "@/lib/observability";
+import { normalizeCanonicalQuoteRecord } from "@/lib/canonical-quote";
 import type { NormalizedQuote } from "@/lib/types";
 import { validateSymbol } from "@/lib/validation";
 
@@ -16,7 +22,8 @@ const STREAM_HEARTBEAT_MS = 15_000;
 
 function parseSymbols(request: Request) {
   const { searchParams } = new URL(request.url);
-  const rawSymbols = searchParams.get("symbols") ?? searchParams.get("symbol") ?? "";
+  const rawSymbols =
+    searchParams.get("symbols") ?? searchParams.get("symbol") ?? "";
 
   if (rawSymbols.length > MAX_STREAM_SYMBOLS_QUERY_LENGTH) {
     return { ok: false as const, reason: "too_long" as const, symbols: [] };
@@ -36,16 +43,23 @@ function sse(event: string, data: unknown) {
   if (payload.length > MAX_SSE_PAYLOAD_CHARS) {
     return `event: error\ndata: ${JSON.stringify({
       message: "Stream-Payload wurde aus Sicherheitsgründen begrenzt.",
-      maxPayloadChars: MAX_SSE_PAYLOAD_CHARS
+      maxPayloadChars: MAX_SSE_PAYLOAD_CHARS,
     })}\n\n`;
   }
 
   return `event: ${event}\ndata: ${payload}\n\n`;
 }
 
-function filterQuotesForSubscription(quotes: NormalizedQuote[], allowedSymbols: Set<string>) {
+function filterQuotesForSubscription(
+  quotes: NormalizedQuote[],
+  allowedSymbols: Set<string>,
+) {
   return quotes
-    .filter((quote) => typeof quote.symbol === "string" && allowedSymbols.has(quote.symbol.toUpperCase()))
+    .map((quote) => normalizeCanonicalQuoteRecord(quote))
+    .filter(
+      (quote): quote is NormalizedQuote =>
+        quote !== null && allowedSymbols.has(quote.symbol.toUpperCase()),
+    )
     .slice(0, MAX_STREAM_QUOTES_PER_EVENT);
 }
 
@@ -64,7 +78,10 @@ export async function GET(request: Request) {
   }
 
   if (parsedSymbols.symbols.length > MAX_STREAM_SYMBOLS) {
-    return jsonError(`Maximal ${MAX_STREAM_SYMBOLS} Stream-Symbole pro Verbindung.`, 400);
+    return jsonError(
+      `Maximal ${MAX_STREAM_SYMBOLS} Stream-Symbole pro Verbindung.`,
+      400,
+    );
   }
 
   const symbols: string[] = [];
@@ -125,15 +142,16 @@ export async function GET(request: Request) {
           stopLifetimeTimer();
           streamAbortController.abort();
         },
-        { once: true }
+        { once: true },
       );
 
       lifetimeTimer = setTimeout(() => {
         lifetimeEnded = true;
         send("complete", {
           provider: provider.providerName,
-          message: "Stream-Laufzeitlimit erreicht. Client soll die Verbindung mit Backoff neu öffnen.",
-          maxConnectionMs: MAX_STREAM_CONNECTION_MS
+          message:
+            "Stream-Laufzeitlimit erreicht. Client soll die Verbindung mit Backoff neu öffnen.",
+          maxConnectionMs: MAX_STREAM_CONNECTION_MS,
         });
         streamAbortController.abort();
       }, MAX_STREAM_CONNECTION_MS);
@@ -150,48 +168,55 @@ export async function GET(request: Request) {
         note:
           provider.streamMode === "rest_polling"
             ? "Server streamt normalisierte Quotes; Provider-Verbindung nutzt REST-Polling als Fallback."
-            : "Server streamt normalisierte Quotes ohne API-Key im Frontend."
+            : "Server streamt normalisierte Quotes ohne API-Key im Frontend.",
       });
 
       heartbeatTimer = setInterval(() => {
         send("heartbeat", {
           timestamp: new Date().toISOString(),
           provider: provider.providerName,
-          status: "connected"
+          status: "connected",
         });
       }, STREAM_HEARTBEAT_MS);
 
       try {
         for await (const quotes of provider.streamQuotes(symbols, {
           signal: streamAbortController.signal,
-          intervalMs: streamIntervalMs
+          intervalMs: streamIntervalMs,
         })) {
-          const safeQuotes = filterQuotesForSubscription(quotes, allowedSymbols);
+          const safeQuotes = filterQuotesForSubscription(
+            quotes,
+            allowedSymbols,
+          );
 
           send("quotes", {
             provider: provider.providerName,
             quotes: safeQuotes,
             droppedQuotes: Math.max(0, quotes.length - safeQuotes.length),
-            receivedAt: new Date().toISOString()
+            receivedAt: new Date().toISOString(),
           });
           send("heartbeat", {
             timestamp: new Date().toISOString(),
-            provider: provider.providerName
+            provider: provider.providerName,
           });
         }
       } catch (error) {
         if (request.signal.aborted || lifetimeEnded) {
           logEvent("info", "market.stream_closed", {
             provider: provider.providerName,
-            reason: lifetimeEnded ? "max_connection_ms" : "client_abort"
+            reason: lifetimeEnded ? "max_connection_ms" : "client_abort",
           });
           return;
         }
 
-        logEvent("error", "market.stream_failed", { provider: provider.providerName, error });
+        logEvent("error", "market.stream_failed", {
+          provider: provider.providerName,
+          error,
+        });
         send("error", {
           provider: provider.providerName,
-          message: "Marktdatenstream unterbrochen. Client soll auf REST-Polling wechseln."
+          message:
+            "Marktdatenstream unterbrochen. Client soll auf REST-Polling wechseln.",
         });
       } finally {
         closed = true;
@@ -204,7 +229,7 @@ export async function GET(request: Request) {
           // Client may already have disconnected.
         }
       }
-    }
+    },
   });
 
   return new Response(stream, {
@@ -218,7 +243,7 @@ export async function GET(request: Request) {
       "X-StockPilot-Stream-Mode": provider.streamMode,
       "X-StockPilot-Stream-Interval-Ms": `${streamIntervalMs}`,
       "X-StockPilot-Stream-Max-Connection-Ms": `${MAX_STREAM_CONNECTION_MS}`,
-      "X-StockPilot-Symbol-Count": `${symbols.length}`
-    }
+      "X-StockPilot-Symbol-Count": `${symbols.length}`,
+    },
   });
 }
