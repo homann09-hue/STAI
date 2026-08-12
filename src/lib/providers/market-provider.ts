@@ -23,6 +23,7 @@ import {
 } from "@/lib/providers/fundamentals-provider";
 import { logEvent } from "@/lib/observability";
 import { resolveQuoteChain } from "@/lib/providers/quote-chain";
+import { resolveProviderRoute } from "@/lib/providers/provider-registry";
 import {
   fetchBoundedProviderJson,
   ProviderHttpResponseError,
@@ -1942,8 +1943,15 @@ function selectedCryptoProviderId(): MarketProviderId | null {
   ).toLowerCase();
 
   if (provider === "none" || provider === "off") return null;
-  if (provider === "coinbase") return "coinbase";
-  return "binance";
+  const route = resolveProviderRoute({
+    capability: "quote",
+    assetClass: "crypto",
+    preferredProvider: provider,
+  });
+  const selected = route.providers[0];
+  return selected === "coinbase" || selected === "binance"
+    ? selected
+    : null;
 }
 
 function getCryptoQuoteProvider(): QuoteProvider | null {

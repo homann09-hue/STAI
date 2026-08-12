@@ -16,6 +16,7 @@
  */
 
 import { fetchBoundedProviderJson, fetchBoundedProviderText } from "@/lib/providers/http-json";
+import { resolveProviderRoute } from "@/lib/providers/provider-registry";
 
 export const SEC_DATA_HOST = "data.sec.gov";
 export const SEC_ARCHIVE_HOST = "www.sec.gov";
@@ -35,6 +36,14 @@ export function secUserAgent() {
 
 export function hasSecContact() {
   return Boolean(process.env.SEC_CONTACT_EMAIL?.trim());
+}
+
+function secRouteAvailable() {
+  return resolveProviderRoute({
+    capability: "filings",
+    assetClass: "equity",
+    preferredProvider: "sec_edgar",
+  }).providers.includes("sec_edgar");
 }
 
 /** Die Formulararten, die §31 namentlich nennt, mit Erklärung in einem Satz. */
@@ -115,6 +124,7 @@ export function clearSecCaches() {
  * das ist kein Fehler, sondern der Geltungsbereich der Behörde.
  */
 export async function resolveCik(symbol: string): Promise<{ cik: string; title: string } | null> {
+  if (!secRouteAvailable()) return null;
   const normalized = symbol.trim().toUpperCase();
   if (!normalized) return null;
 

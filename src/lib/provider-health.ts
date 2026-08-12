@@ -1,4 +1,9 @@
 import type { MarketDataQuality } from "@/lib/types";
+import {
+  getMarketDataEnvironment,
+  getProviderLicensePolicy,
+  type ProviderId,
+} from "@/lib/providers/provider-registry";
 
 export type ProviderCategory = "market" | "crypto" | "news" | "fundamentals" | "ai" | "auth" | "cache" | "billing";
 export type ProviderOperationalStatus = "ready" | "degraded" | "configured" | "missing_key" | "license_required" | "demo";
@@ -139,14 +144,19 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
   const supabaseSecretConfigured = hasEnv("SUPABASE_SERVICE_ROLE_KEY") || hasEnv("SUPABASE_SECRET_KEY");
   const sharedCacheConfigured = hasEnv("UPSTASH_REDIS_REST_URL") && hasEnv("UPSTASH_REDIS_REST_TOKEN");
   const billingConfigured = hasEnv("STRIPE_SECRET_KEY") || hasEnv("LEMONSQUEEZY_API_KEY");
+  const marketEnvironment = getMarketDataEnvironment();
+  const providerCanRun = (id: ProviderId) =>
+    marketEnvironment === "development" ||
+    marketEnvironment === "test" ||
+    getProviderLicensePolicy(id).externalDisplayAllowed;
 
   const items: ProviderHealthItem[] = [
     provider({
       id: "finnhub",
       name: "Finnhub",
       category: "market",
-      status: finnhubConfigured ? "configured" : "missing_key",
-      quality: finnhubConfigured ? qualityFromEnv("FINNHUB_DATA_QUALITY", "near_realtime") : "unavailable",
+      status: finnhubConfigured ? (providerCanRun("finnhub") ? "configured" : "degraded") : "missing_key",
+      quality: finnhubConfigured && providerCanRun("finnhub") ? qualityFromEnv("FINNHUB_DATA_QUALITY", "near_realtime") : "unavailable",
       configured: finnhubConfigured,
       secretEnv: ["FINNHUB_API_KEY"],
       capabilities: ["Aktien-Quotes", "News", "Fundamentals je nach Plan", "WebSocket je nach Plan"],
@@ -160,7 +170,7 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
       name: "Financial Modeling Prep",
       category: "fundamentals",
       status: fmpConfigured ? "degraded" : "missing_key",
-      quality: fmpConfigured ? qualityFromEnv("FMP_DATA_QUALITY", "delayed") : "unavailable",
+      quality: fmpConfigured && providerCanRun("fmp") ? qualityFromEnv("FMP_DATA_QUALITY", "delayed") : "unavailable",
       configured: fmpConfigured,
       secretEnv: ["FMP_API_KEY"],
       capabilities: ["Fundamentaldaten", "Financial Statements", "Profile", "Kursdaten je nach Plan"],
@@ -174,7 +184,7 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
       name: "Alpha Vantage",
       category: "market",
       status: alphaConfigured ? "degraded" : "missing_key",
-      quality: alphaConfigured ? qualityFromEnv("ALPHA_VANTAGE_DATA_QUALITY", "delayed") : "unavailable",
+      quality: alphaConfigured && providerCanRun("alpha_vantage") ? qualityFromEnv("ALPHA_VANTAGE_DATA_QUALITY", "delayed") : "unavailable",
       configured: alphaConfigured,
       secretEnv: ["ALPHA_VANTAGE_API_KEY"],
       capabilities: ["Fallback-Quotes", "Zeitreihen", "Indikatoren je nach Endpoint"],
@@ -187,22 +197,29 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
       id: "binance-coinbase",
       name: "Binance / Coinbase",
       category: "crypto",
-      status: "ready",
-      quality: "near_realtime",
+      status: providerCanRun("binance") || providerCanRun("coinbase") ? "ready" : "degraded",
+      quality: providerCanRun("binance") || providerCanRun("coinbase") ? "near_realtime" : "unavailable",
       configured: true,
       secretEnv: [],
       capabilities: ["Krypto-Quotes", "24h Volumen", "nahe Echtzeit je Endpoint", "REST/WebSocket-Struktur vorbereitet"],
       limitations: ["Exchange-Daten sind keine regulierte Börsen-Konsolidierung", "Bid/Ask hängt vom Handelspaar ab"],
       fallback: "Letzten bestätigten Cache anzeigen oder als nicht verfügbar ausweisen",
-      userImpact: "Krypto kann deutlich näher an Echtzeit laufen als viele kostenlose Aktienfeeds.",
+      userImpact: providerCanRun("binance") || providerCanRun("coinbase")
+        ? "Krypto kann deutlich näher an Echtzeit laufen als viele kostenlose Aktienfeeds."
+        : "Krypto-Marktdaten bleiben bis zur bestätigten externen Darstellungsfreigabe gesperrt.",
       nextAction: "Subscriptions auf sichtbare Symbole begrenzen und Orderbook-Felder nur bei echten Daten zeigen."
     }),
     provider({
       id: "news",
       name: "NewsAPI / Marketaux",
       category: "news",
-      status: newsApiConfigured || marketauxConfigured ? "configured" : "missing_key",
-      quality: newsApiConfigured || marketauxConfigured ? "near_realtime" : "unavailable",
+      status: newsApiConfigured || marketauxConfigured
+        ? (providerCanRun(marketauxConfigured ? "marketaux" : "newsapi") ? "configured" : "degraded")
+        : "missing_key",
+      quality: (newsApiConfigured || marketauxConfigured)
+        && providerCanRun(marketauxConfigured ? "marketaux" : "newsapi")
+        ? "near_realtime"
+        : "unavailable",
       configured: newsApiConfigured || marketauxConfigured,
       secretEnv: ["NEWS_API_KEY", "NEWSAPI_API_KEY", "MARKETAUX_API_KEY"],
       capabilities: ["Unternehmensnachrichten", "Quellen", "Zeitstempel", "Sentiment/Impact vorbereitet"],

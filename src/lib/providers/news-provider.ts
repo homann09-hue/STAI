@@ -2,6 +2,10 @@ import { getMockNews } from "@/lib/mock/market";
 import { classifySubjects, detectEvents, type ProviderEntity } from "@/lib/news/classification";
 import { clusterNews } from "@/lib/news/dedupe";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import {
+  resolveProviderRoute,
+  type ProviderId,
+} from "@/lib/providers/provider-registry";
 import { developmentFixturesAllowed } from "@/lib/runtime-data-policy";
 import type { MarketDataQuality, NewsItem, Sentiment } from "@/lib/types";
 
@@ -136,7 +140,7 @@ function enrich(
 }
 
 function hasConfiguredNewsProvider() {
-  return Boolean(process.env.MARKETAUX_API_KEY || process.env.NEWS_API_KEY || process.env.NEWSAPI_API_KEY);
+  return resolveProviderRoute({ capability: "news" }).providers.length > 0;
 }
 
 function normalizeNewsProviderId(provider: string) {
@@ -385,32 +389,27 @@ export function getNewsProvider(): NewsProvider {
 function getNewsProviderAttempts(provider: string) {
   const marketaux = new MarketauxNewsProvider();
   const newsApi = new NewsApiProvider();
-  const hasNewsApi = Boolean(process.env.NEWS_API_KEY ?? process.env.NEWSAPI_API_KEY);
   const attempts: Array<{ id: string; provider: NewsProvider }> = [];
-
-  if (provider === "auto") {
-    if (process.env.MARKETAUX_API_KEY) attempts.push({ id: "marketaux", provider: marketaux });
-    if (hasNewsApi) attempts.push({ id: "newsapi", provider: newsApi });
-    return attempts;
-  }
-
-  if (provider === "marketaux") {
-    attempts.push({ id: "marketaux", provider: marketaux });
-    if (hasNewsApi) attempts.push({ id: "newsapi", provider: newsApi });
-    return attempts;
-  }
-
-  if (provider === "newsapi" || provider === "news_api") {
-    attempts.push({ id: "newsapi", provider: newsApi });
-    if (process.env.MARKETAUX_API_KEY) attempts.push({ id: "marketaux", provider: marketaux });
-    return attempts;
-  }
 
   if (provider === "mock" && developmentFixturesAllowed()) {
     return [{ id: "mock", provider: new MockNewsProvider() }];
   }
 
-  return [];
+  const route = resolveProviderRoute({
+    capability: "news",
+    preferredProvider: provider === "auto" ? null : provider,
+  });
+  const adapters: Partial<Record<ProviderId, NewsProvider>> = {
+    marketaux,
+    newsapi: newsApi,
+  };
+
+  for (const id of route.providers) {
+    const adapter = adapters[id];
+    if (adapter) attempts.push({ id, provider: adapter });
+  }
+
+  return attempts;
 }
 
 export async function getNewsWithMetadata(symbol?: string) {

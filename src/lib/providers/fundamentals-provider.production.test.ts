@@ -17,6 +17,9 @@ beforeEach(() => {
   delete process.env.ALPHA_VANTAGE_API_KEY;
   delete process.env.VERCEL_ENV;
   delete process.env.STOCKPILOT_ALLOW_TEST_FIXTURES;
+  delete process.env.MARKET_DATA_ALLOW_EXTERNAL_DISPLAY;
+  delete process.env.MARKET_DATA_LICENSE_VERIFIED_PROVIDERS;
+  delete process.env.MARKET_DATA_EXTERNAL_DISPLAY_PROVIDERS;
 });
 
 afterEach(() => {
@@ -61,6 +64,9 @@ describe("Fundamentals-Provider Produktionswahrheit", () => {
     process.env.VERCEL_ENV = "production";
     process.env.STOCKPILOT_FUNDAMENTALS_PROVIDER = "fmp";
     process.env.FMP_API_KEY = "test-key";
+    process.env.MARKET_DATA_ALLOW_EXTERNAL_DISPLAY = "true";
+    process.env.MARKET_DATA_LICENSE_VERIFIED_PROVIDERS = "fmp";
+    process.env.MARKET_DATA_EXTERNAL_DISPLAY_PROVIDERS = "fmp";
 
     const result = await loadFundamentals();
 

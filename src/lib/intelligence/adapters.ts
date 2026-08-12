@@ -9,6 +9,7 @@ import type {
   RawSourceEvent,
   SecEntityRequest
 } from "@/lib/intelligence/types";
+import { resolveProviderRoute } from "@/lib/providers/provider-registry";
 
 type FetchLike = typeof fetch;
 
@@ -315,6 +316,23 @@ export class SecEdgarAdapter implements IntelligenceSourceAdapter {
     const userAgent = this.options.userAgent ?? process.env.SEC_EDGAR_USER_AGENT;
     if (!userAgent || !/@/.test(userAgent)) {
       throw new ProviderAdapterError("SEC EDGAR", "SEC_EDGAR_USER_AGENT mit Kontakt-E-Mail fehlt.", null, false);
+    }
+
+    const route = resolveProviderRoute(
+      {
+        capability: "filings",
+        assetClass: "equity",
+        preferredProvider: "sec_edgar",
+      },
+      { ...process.env, SEC_EDGAR_USER_AGENT: userAgent },
+    );
+    if (!route.providers.includes("sec_edgar")) {
+      throw new ProviderAdapterError(
+        "SEC EDGAR",
+        "SEC EDGAR ist für diese Umgebung nicht freigeschaltet.",
+        null,
+        false,
+      );
     }
 
     const cik = entity.cik.replace(/\D/g, "").padStart(10, "0").slice(-10);

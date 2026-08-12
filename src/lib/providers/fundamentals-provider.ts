@@ -1,5 +1,6 @@
 import { getMockAsset } from "@/lib/mock/market";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import { resolveProviderRoute, type ProviderId } from "@/lib/providers/provider-registry";
 import { developmentFixturesAllowed } from "@/lib/runtime-data-policy";
 import type { Fundamentals, FundamentalsFieldSource, MarketDataQuality } from "@/lib/types";
 
@@ -233,25 +234,23 @@ class FallbackFundamentalsProvider implements FundamentalsProvider {
 }
 
 function getFundamentalsProviderAttempts(selected: string): FundamentalsProvider[] {
-  const fmp = new FmpFundamentalsProvider();
-  const alphaVantage = new AlphaVantageFundamentalsProvider();
-
   if (selected === "mock") {
     return developmentFixturesAllowed() ? [new MockFundamentalsProvider()] : [];
   }
 
-  if (selected === "fmp") {
-    return [fmp, ...(process.env.ALPHA_VANTAGE_API_KEY ? [alphaVantage] : [])];
-  }
+  const route = resolveProviderRoute({
+    capability: "fundamentals",
+    preferredProvider: selected === "auto" ? null : selected,
+  });
+  const adapters: Partial<Record<ProviderId, FundamentalsProvider>> = {
+    fmp: new FmpFundamentalsProvider(),
+    alpha_vantage: new AlphaVantageFundamentalsProvider(),
+  };
 
-  if (selected === "alpha_vantage") {
-    return [alphaVantage, ...(process.env.FMP_API_KEY ? [fmp] : [])];
-  }
-
-  return [
-    ...(process.env.FMP_API_KEY ? [fmp] : []),
-    ...(process.env.ALPHA_VANTAGE_API_KEY ? [alphaVantage] : [])
-  ];
+  return route.providers.flatMap((id) => {
+    const adapter = adapters[id];
+    return adapter ? [adapter] : [];
+  });
 }
 
 export function getFundamentalsProvider(): FundamentalsProvider {

@@ -1,5 +1,10 @@
 # Datenquellen — Bestand und Eigenschaften
 
+> Die verbindliche Routing- und Rechtebeschreibung steht in
+> [DATA_PROVIDER_RIGHTS.md](DATA_PROVIDER_RIGHTS.md). Einzelne Adapter wählen
+> sich nicht selbst; die Registry entscheidet nach Capability, Assetklasse,
+> Konfiguration, Lizenz und Health.
+
 Stand: 2026-08-08 · gemessen am Code, nicht aus Anbieterprospekten übernommen
 
 §21 verlangt für jede Quelle neun Angaben. Diese Datei liefert sie — und sagt
