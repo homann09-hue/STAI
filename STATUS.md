@@ -1,6 +1,6 @@
 # StockPilot AI Status
 
-## 2026-08-12 – Phase 6: Twelve Data, lokale Freigabe abgeschlossen
+## 2026-08-12 – Phase 6: Twelve Data abgeschlossen
 
 - Twelve Data ist als zentraler serverseitiger Adapter für Suche,
   Instrumentauflösung, Quote, echtes Batch, historische Bars, Marktstatus und
@@ -23,10 +23,20 @@
 - Ein lokaler Smoke mit dem offiziellen Demo-Key belegt Suche, Quote und
   Historie technisch, aber weder einen Produktionsschlüssel noch externe
   Nutzungsrechte.
-- GitHub-CI, Datenbankworkflow, Merge, StockPilot-Deployment und Live-Abnahme
-  stehen noch aus. Phase 6 ist deshalb noch nicht vollständig abgeschlossen.
-- BauPro bleibt unberührt. Phase 7 beginnt erst nach vollständiger
-  Produktionsabnahme von Phase 6.
+- PR #83 ist als Main-Commit `425c4163f2565a565c39db48420ac89df6940bf1`
+  gemergt. PR- und Main-CI sowie beide isolierten Datenbankworkflows sind grün.
+- StockPilot-Deployment `dpl_GknMoY35ArrDnps6Ri2HTCrs3iVa` ist READY und
+  bedient `https://stockpilot-ai-beta.vercel.app`. Fehlende Rechte bleiben
+  live als leerer/unavailable Zustand ohne Mock-Fallback sichtbar.
+- Live-DR und Enterprise-Gate bestehen. Provider-Pings bleiben öffentlich
+  geschützt; kein anonymer Request verbraucht Twelve-Quota.
+- 2.000 aktive Produktionssitzungen liefen ohne Fehler (`p95` 485 ms); die
+  500er-Spitzenprobe lieferte 500/500 HTTP 200 bei 14 langsamen Antworten.
+- Vercel meldete nach Smoke und Last keine Error-, 500- oder Warning-Logs.
+- Twelve-Produktionsschlüssel, Tarif und externe Displayrechte bleiben
+  `BLOCKED – EXTERNAL`; der technische Adapter ist produktiv, der Feed aus.
+- BauPro blieb unberührt. Nächster einzelner Arbeitspunkt: Phase 7 – Alpaca
+  Realtime.
 
 ## 2026-08-12 – Phase 4: Caching, Rate Limits und Circuit Breaker
 
