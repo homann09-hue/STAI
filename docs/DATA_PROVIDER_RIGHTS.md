@@ -23,6 +23,24 @@ Status als offizielle öffentliche Quellen nicht automatisch für die externe
 Anzeige freigeschaltet; ihre Bedingungen und Attribution bleiben
 verpflichtend.
 
+### Twelve Data (Phase 6)
+
+| Punkt | Belegter Stand 2026-08-12 |
+|---|---|
+| Tarif ohne hinterlegten Projektschlüssel | nicht bestimmbar; Produktion bleibt deaktiviert |
+| Basic laut offizieller Preis-/Credit-Dokumentation | 8 API-Credits/Minute, 800/Tag |
+| Batch | offiziell unterstützt, kostet weiterhin einen Credit je Symbol |
+| WebSocket | Basic/Grow nur Trial-Symbole, volle Abdeckung erst planabhängig |
+| Interne Entwicklung | erlaubt gemäß konservativer StockPilot-Policy |
+| Externe Endnutzeranzeige | **nicht verifiziert, daher gesperrt** |
+| Redistribution / Derived Data | nicht verifiziert |
+| Attribution | erforderlich |
+
+Der Adapter begrenzt Batch und Stream standardmäßig auf acht Symbole. Ein
+API-Schlüssel allein schaltet keine Produktionsanzeige frei. Dafür müssen der
+konkrete Vertrag, die Börsenrechte und die Display-Nutzung dokumentiert und
+Twelve Data explizit in beide Produktions-Allowlisten aufgenommen werden.
+
 ## Produktionsfreigabe
 
 Eine Freigabe braucht alle drei Einstellungen:

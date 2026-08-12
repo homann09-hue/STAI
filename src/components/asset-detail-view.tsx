@@ -354,7 +354,7 @@ export function AssetDetailView({
           ? Math.ceil(liveQuote.reportedDelaySeconds / 60)
           : liveQuote.quality === "delayed"
             ? detail.quote.delayedByMinutes
-            : 0,
+            : null,
       asOf: liveQuote.timestamp,
       bid: liveQuote.bid ?? undefined,
       ask: liveQuote.ask ?? undefined,

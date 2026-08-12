@@ -27,7 +27,7 @@ export function quoteFromSummary(item: AssetSummary, liveQuote?: NormalizedQuote
         ? Math.ceil(liveQuote.reportedDelaySeconds / 60)
         : liveQuote.quality === "delayed"
           ? item.quote.delayedByMinutes
-          : 0,
+          : null,
     asOf: liveQuote.timestamp,
     bid: liveQuote.bid ?? undefined,
     ask: liveQuote.ask ?? undefined,

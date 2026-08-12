@@ -140,8 +140,14 @@ const requestDefaults: Partial<
   },
   twelve_data: {
     requestsPerMinute: 8,
-    burstCapacity: 2,
+    // Das offizielle Basic-Budget ist acht Credits pro Minute. Ein Burst von
+    // nur zwei blockierte den normalen Flow Suche -> Quote -> Historie lokal,
+    // obwohl noch sechs Provider-Credits verfuegbar waren.
+    burstCapacity: 8,
     maxConcurrency: 2,
+    // Drei Versuche wuerden bereits beim Basic-Burstlimit den eigentlichen
+    // 5xx-Fehler durch einen lokalen 429 ersetzen.
+    maxRetries: 1,
   },
   finnhub: {
     requestsPerMinute: 60,
@@ -264,6 +270,20 @@ export function getProviderRequestPolicy(
     1,
     requestsPerMinute,
   );
+  const globalMaxRetries = envInteger(
+    env,
+    "MARKET_DATA_RETRY_ATTEMPTS",
+    2,
+    0,
+    5,
+  );
+  const maxRetries = envInteger(
+    env,
+    `MARKET_DATA_RETRY_ATTEMPTS_${suffix}`,
+    Math.min(globalMaxRetries, overrides.maxRetries ?? globalMaxRetries),
+    0,
+    5,
+  );
 
   return {
     providerId,
@@ -290,13 +310,7 @@ export function getProviderRequestPolicy(
       100,
       10_000,
     ),
-    maxRetries: envInteger(
-      env,
-      "MARKET_DATA_RETRY_ATTEMPTS",
-      2,
-      0,
-      5,
-    ),
+    maxRetries,
     retryBaseDelayMs: envInteger(
       env,
       "MARKET_DATA_RETRY_BASE_DELAY_MS",

@@ -30,6 +30,7 @@ export type ProviderCapability =
   | "stream_quotes"
   | "historical_bars"
   | "instrument_search"
+  | "market_status"
   | "fundamentals"
   | "corporate_actions"
   | "market_calendar"
@@ -126,7 +127,14 @@ export const PROVIDER_DEFINITIONS: readonly ProviderDefinition[] = [
     id: "twelve_data",
     name: "Twelve Data",
     adapterStatus: "implemented",
-    capabilities: ["quote", "quote_batch"],
+    capabilities: [
+      "quote",
+      "quote_batch",
+      "stream_quotes",
+      "historical_bars",
+      "instrument_search",
+      "market_status",
+    ],
     assetClasses: ALL_MARKET_ASSETS,
     configurationEnv: ["TWELVE_DATA_API_KEY", "TWELVEDATA_API_KEY"],
     enableEnv: "MARKET_DATA_ENABLE_TWELVE_DATA",
@@ -527,9 +535,10 @@ const ROUTING_PRIORITY: Record<
     "fmp",
     "alpha_vantage",
   ],
-  stream_quotes: ["alpaca", "databento"],
-  historical_bars: ["alpaca", "databento", "fmp"],
-  instrument_search: ["fmp"],
+  stream_quotes: ["alpaca", "twelve_data", "databento"],
+  historical_bars: ["alpaca", "twelve_data", "databento", "fmp"],
+  instrument_search: ["twelve_data", "fmp"],
+  market_status: ["twelve_data"],
   fundamentals: ["fmp", "alpha_vantage"],
   corporate_actions: ["fmp"],
   market_calendar: ["fmp"],

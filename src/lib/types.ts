@@ -87,7 +87,7 @@ export interface Quote {
   dayHigh: number;
   dayLow: number;
   volume: number;
-  delayedByMinutes: number;
+  delayedByMinutes: number | null;
   asOf: string;
   bid?: number;
   ask?: number;

@@ -8,11 +8,14 @@ StockPilot AI wird Phase für Phase zu einem belegbar verlässlichen, schnellen,
 
 ## Aktuelle Phase
 
-- **Phase 4 abgeschlossen:** Caching, Rate Limits und Circuit Breaker.
-- Alle HTTP-Providerzugriffe laufen durch eine gemeinsame Resilience-Schicht.
-- Cachefenster, Budgets, Retry, Backoff, Parallelität und Circuit-Zustände sind typisiert, getestet und produktiv belegt.
-- Horizontale, instanzübergreifende Koordination bleibt `BLOCKED – EXTERNAL`, bis dediziertes Upstash/Redis für StockPilot konfiguriert ist; lokal bleibt der Prozesscache funktional.
-- Nächster einzelner Arbeitspunkt: **Phase 5 – FMP-Adapter härten**.
+- **Phase 5 abgeschlossen:** FMP-Migration und Hardening.
+- **Phase 6 aktiv:** Twelve-Data-Adapter, Normalisierung, Routing, Suche,
+  Quotes, Batch, Historie, Marktstatus und tariflich gesperrtes Streaming sind
+  implementiert und lokal vollständig geprüft.
+- GitHub-CI, Datenbankworkflow, Merge und Produktionsabnahme stehen für Phase 6
+  noch aus. Bis dahin ist Phase 6 nicht abgeschlossen.
+- Nächster zulässiger Schritt ist ausschließlich die Remote-Freigabekette von
+  Phase 6; Phase 7 beginnt erst nach deren vollständigem Nachweis.
 
 ## Verbindliche Qualitätsregeln
 
@@ -28,6 +31,9 @@ StockPilot AI wird Phase für Phase zu einem belegbar verlässlichen, schnellen,
 ## Aktuelle externe Blocker
 
 - FMP bietet im aktiven Tarif kein vollständiges Instrumentverzeichnis und sperrt Quotes symbolweise; der Live-Bar-Inhaltstest ist deshalb derzeit nicht reproduzierbar.
+- Für Twelve Data fehlen in StockPilot-Produktion ein eigener API-Schlüssel,
+  ein bestätigter Tarif sowie belegte externe Display-/Redistributionsrechte.
+  Der Adapter bleibt deshalb in Produktion fail-closed.
 - Vollständige Realtime-, Börsen- und Display-Rechte erfordern passende Datenverträge.
 - Ein verteilter Produktionscache benötigt eine konfigurierte Redis-/Upstash-Instanz.
 - Native iOS-Veröffentlichung benötigt Apple-Developer-Zugang und Signierung.
@@ -39,7 +45,7 @@ Implementierung, Typecheck, Lint, Unit-/Integrationstests, relevante Datenbank- 
 
 ## Aktueller Produktionsnachweis
 
-- Main: `b03819dd4d3ebd34b5d361ee3e9d4c15fcd94c40`
+- Main: `053fd1315655872c7d2521ebeee361dc3ac4230d`
 - Deployment: `dpl_BjDt1QudE7J8an8T85yTeJn8BS3D`, READY
 - Live: `https://stockpilot-ai-beta.vercel.app`
 - Main-CI: `31566452682`, erfolgreich
@@ -107,3 +113,29 @@ Zu jedem Aufgabenstart diese Karte und `docs/EXECUTION_LEDGER.md` lesen. Echten 
 - Aktive Produktion: `dpl_BjDt1QudE7J8an8T85yTeJn8BS3D`,
   `https://stockpilot-ai-beta.vercel.app`.
 - Nächster einzelner Arbeitspunkt: **Phase 6 — Twelve Data**.
+
+## Phase-6-Betriebskarte — Twelve Data (2026-08-12)
+
+- Verbindlicher Client: `src/lib/providers/twelve-data-client.ts`.
+- Verbindliche Normalisierung:
+  `src/lib/providers/twelve-data-normalization.ts`.
+- REST-Zugriffe nutzen ausschließlich Header-Authentifizierung, eine feste
+  Host-/Endpunkt-Allowlist, die gemeinsame Resilience-Schicht und validierte
+  Antworten. Schlüssel erscheinen weder in öffentlichen Daten noch Logs.
+- Quote, echtes Batch, Instrumentensuche/-auflösung, historische Bars und
+  Marktstatus sind zentral angebunden. Fehlende Werte wie Bid/Ask, Währung,
+  Volumen oder bekannte Verzögerung werden nicht erfunden.
+- Streaming ist standardmäßig deaktiviert und an Tarif-/Symbolgrenzen
+  gebunden. Reconnect, Resubscribe, Heartbeat, Backpressure und sauberes
+  Listener-Aufräumen sind getestet; REST-Polling bleibt der ehrliche Fallback.
+- Der kostenlose Basic-Tarif wird nicht als externer Produktionsfeed
+  freigegeben. Ein offizieller Demo-Smoke belegt lokal nur die technische
+  Kompatibilität von Suche, Quote und Historie, keine kommerziellen Rechte.
+- Lokale Freigabe: 149 Testdateien / 1.129 Tests, 35 E2E bestanden / 1 Skip,
+  Build 35 Seiten, Coverage 46,83 %, Performance-Budget 1.714 KiB,
+  Enterprise 99/100 und Institutional 28/28.
+- Last: 2.000 aktive Sitzungen ohne Fehler, `p95` 360 ms; Release-Gate bis
+  500 gleichzeitig ohne Fehler. Die 1.000-/2.000-Spitzenprobe hatte jeweils
+  74 Client-Timeouts und ist ausdrücklich kein bestandenes Release-Gate.
+- Remote-Abnahme ist noch offen; Phase 6 bleibt bis CI, Merge, Deployment,
+  Live-Smoke und Produktionslogkontrolle aktiv.

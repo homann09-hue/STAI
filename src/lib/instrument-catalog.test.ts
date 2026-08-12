@@ -96,6 +96,28 @@ describe("Instrumentkatalog in der UI", () => {
     expect(result[0]?.canonicalId).toBe(identifierMatch.canonicalId);
   });
 
+  it("bewahrt bei gleichwertigen Listings die Relevanzreihenfolge des Providers", () => {
+    const primary = hit({
+      canonicalId: "stock:nasdaq:aapl:usd",
+      symbol: "AAPL",
+      name: "Apple Inc.",
+      origin: "provider_search",
+      quoteStatus: "unknown",
+      confirmationCount: 1,
+    });
+    const secondary = hit({
+      canonicalId: "stock:bcba:aapl:ars",
+      symbol: "AAPL",
+      name: "Apple Inc. CEDEAR",
+      origin: "provider_search",
+      quoteStatus: "unknown",
+      confirmationCount: 1,
+    });
+    expect(rankInstrumentCatalogHits([primary, secondary], "AAPL")[0]).toBe(
+      primary,
+    );
+  });
+
   it("stellt delayed niemals als realtime dar", () => {
     const result = instrumentCatalogHitToUniverse(hit());
     expect(result.quoteQuality).toBe("delayed");

@@ -37,6 +37,8 @@ export interface InstrumentRecord {
   exchange: string;
   exchangeFullName: string | null;
   currency: string;
+  country: string | null;
+  mic: string | null;
   provider: string;
   identityConfidence: number;
   resolutionStatus: InstrumentResolutionStatus;
@@ -60,6 +62,7 @@ export function instrumentRecordFromHit(
     currency: hit.currency,
     assetClass: hit.assetClass,
     matchedVia: hit.matchedVia,
+    assetClassEvidence: hit.assetClassEvidence,
   });
 
   return {
@@ -75,6 +78,8 @@ export function instrumentRecordFromHit(
     exchange: hit.exchange,
     exchangeFullName: hit.exchangeFullName,
     currency: hit.currency,
+    country: hit.country ?? null,
+    mic: hit.mic ?? null,
     provider: hit.provider,
     identityConfidence: identity.identityConfidence,
     resolutionStatus: identity.resolutionStatus,
@@ -123,7 +128,7 @@ export async function persistInstrumentHits(
       p_exchange: record.exchange,
       p_exchange_full_name: record.exchangeFullName,
       p_currency: record.currency,
-      p_country: null,
+      p_country: record.country,
       p_provider: record.provider,
       p_discovery_source: "provider_search",
       p_discovery_query: discoveryQuery.slice(0, 120),
@@ -169,6 +174,16 @@ export async function persistInstrumentHits(
                   instrument_id: instrumentId,
                   identifier_type: "exchange" as const,
                   value: record.exchange,
+                  provider: null,
+                },
+              ]
+            : []),
+          ...(record.mic
+            ? [
+                {
+                  instrument_id: instrumentId,
+                  identifier_type: "mic" as const,
+                  value: record.mic,
                   provider: null,
                 },
               ]

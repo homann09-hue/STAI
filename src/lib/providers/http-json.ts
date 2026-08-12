@@ -43,6 +43,24 @@ export class ProviderHttpResponseError extends Error {
   }
 }
 
+export type ProviderJsonResponse<T> = {
+  data: T;
+  latencyMs: number;
+  /** Nur explizit freigegebene, unkritische Antwortheader. */
+  responseHeaders: Record<string, string>;
+};
+
+export type ProviderJsonRequestOptions<T> = {
+  timeoutMs?: number;
+  userAgent?: string;
+  maxBytes?: number;
+  /** Serverseitiger Authorization-Wert; wird weder URL noch Request-Key. */
+  authorization?: string;
+  /** Erlaubt Validierung im Resilience-Scope, damit Body-Fehler retried werden. */
+  parseJson?: (value: unknown) => T;
+  captureResponseHeaders?: readonly string[];
+};
+
 function parseRetryAfterMs(value: string | null, nowMs = Date.now()) {
   if (!value) return undefined;
 
@@ -170,8 +188,8 @@ export async function readBoundedResponseText(
 export async function fetchBoundedProviderJson<T>(
   url: URL,
   providerName: string,
-  options: { timeoutMs?: number; userAgent?: string; maxBytes?: number } = {}
-): Promise<{ data: T; latencyMs: number }> {
+  options: ProviderJsonRequestOptions<T> = {}
+): Promise<ProviderJsonResponse<T>> {
   if (url.protocol !== "https:") {
     throw new Error(`${providerName} Provider-URL muss HTTPS verwenden.`);
   }
@@ -198,7 +216,10 @@ export async function fetchBoundedProviderJson<T>(
           cache: "no-store",
           headers: {
             Accept: "application/json",
-            "User-Agent": options.userAgent ?? "StockPilotAI/0.1 provider-layer"
+            "User-Agent": options.userAgent ?? "StockPilotAI/0.1 provider-layer",
+            ...(options.authorization
+              ? { Authorization: options.authorization }
+              : {}),
           },
           signal: controller.signal
         });
@@ -213,14 +234,37 @@ export async function fetchBoundedProviderJson<T>(
 
         const text = await readBoundedResponseText(response, providerName, maxBytes);
 
+        let decoded: unknown;
         try {
-          return {
-            data: JSON.parse(text) as T,
-            latencyMs: Date.now() - started
-          };
+          decoded = JSON.parse(text) as unknown;
         } catch {
           throw new Error(`${providerName} lieferte ungültiges JSON.`);
         }
+
+        // Domainfehler aus einem Parser bleiben im Resilience-Scope. So
+        // erkennt die zentrale Logik auch HTTP-200-Antworten mit code=429.
+        const data = options.parseJson
+          ? options.parseJson(decoded)
+          : (decoded as T);
+        const responseHeaders = Object.fromEntries(
+          (options.captureResponseHeaders ?? [])
+            .map((name) => name.trim().toLowerCase())
+            .filter(
+              (name) =>
+                /^[a-z0-9-]{1,64}$/.test(name) &&
+                !["authorization", "cookie", "set-cookie"].includes(name),
+            )
+            .slice(0, 12)
+            .flatMap((name) => {
+              const value = response.headers.get(name);
+              return value === null ? [] : [[name, value] as const];
+            }),
+        );
+        return {
+          data,
+          latencyMs: Date.now() - started,
+          responseHeaders,
+        };
       } finally {
         clearTimeout(timeout);
       }

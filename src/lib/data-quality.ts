@@ -25,7 +25,7 @@ const sourceLabels: Record<MarketDataQuality, string> = {
   unavailable: "Nicht verfügbar"
 };
 
-function finiteDelayMinutes(value: number | undefined) {
+function finiteDelayMinutes(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? Math.min(1440, Math.max(1, Math.round(value)))
     : 15;
@@ -40,7 +40,7 @@ function timestampAgeMinutes(timestamp: string, now: Date) {
 export type DataQualityDisplayInput = {
   quality: MarketDataQuality;
   marketStatus?: MarketStatus;
-  delayedByMinutes?: number;
+  delayedByMinutes?: number | null;
   fromCache?: boolean;
   offline?: boolean;
 };

@@ -37,6 +37,10 @@ import {
   getFmpClient,
 } from "@/lib/providers/fmp-client";
 import { resolveProviderRoute } from "@/lib/providers/provider-registry";
+import {
+  getTwelveDataClient,
+  TwelveDataClientError,
+} from "@/lib/providers/twelve-data-client";
 import { chartRanges, type NormalizedBar, type TimeRange } from "@/lib/types";
 
 export type HistoryResult = {
@@ -328,11 +332,15 @@ export async function fetchDailyHistory(
       normalized.endsWith("USD") || normalized.includes("-")
         ? "crypto"
         : "equity",
-    preferredProvider: process.env.STOCKPILOT_HISTORY_PROVIDER ?? "fmp",
+    preferredProvider: process.env.STOCKPILOT_HISTORY_PROVIDER,
   });
-  if (!route.providers.includes("fmp")) {
+  if (
+    !route.providers.includes("fmp") &&
+    !route.providers.includes("twelve_data")
+  ) {
     const reason = route.rejected.find(
-      (entry) => entry.providerId === "fmp",
+      (entry) =>
+        entry.providerId === "twelve_data" || entry.providerId === "fmp",
     )?.detail;
     return {
       ...NO_HISTORY,
@@ -351,50 +359,150 @@ export async function fetchDailyHistory(
     return applyPlanLimit(cached.result, limitYears, now);
   }
 
-  let result: HistoryResult;
+  let result: HistoryResult | null = null;
+  const failureNotes: string[] = [];
+  const twelveIsPreferred =
+    route.providers.includes("twelve_data") &&
+    (!route.providers.includes("fmp") ||
+      route.providers.indexOf("twelve_data") < route.providers.indexOf("fmp"));
 
-  try {
-    const { data } = await getFmpClient().request(
-      "historical-price-eod/full",
-      { symbol: normalized },
-      fmpRowsSchema,
-      {
-      timeoutMs: 9_000,
-      // Ueber 1200 Tageskerzen mit vollem OHLCV. Das Standardlimit von 1,5 MB
-      // reicht, wird hier aber ausdruecklich benannt statt stillschweigend
-      // angenommen.
-      maxBytes: 2_500_000,
-      },
-    );
+  if (twelveIsPreferred) {
+    try {
+      const response = await getTwelveDataClient().getHistoricalBars(
+        normalized,
+        "1d",
+        {
+          outputsize: 5_000,
+          instrumentId: context?.instrumentId,
+          venue: context?.venue,
+          currency: context?.currency,
+          now,
+        },
+      );
+      const parsedHistory = response.data;
+      const candles = parsedHistory.bars;
+      const integrity = assessHistoricalDataIntegrity(
+        candles,
+        now.toISOString(),
+      );
+      if (candles.length) {
+        result = {
+          candles,
+          note: `${candles.length} rohe Tageskerzen von Twelve Data. Preisbasis: ${historicalPriceBasisLabel(integrity.priceBasis)}. Bar-Qualität: ${parsedHistory.quality.status}, Score ${parsedHistory.quality.qualityScore}/100; ${parsedHistory.quality.rejected} ungültige und ${parsedHistory.quality.duplicates} doppelte Zeilen verworfen.`,
+          provider: "Twelve Data",
+          integrity,
+          barQuality: parsedHistory.quality,
+        };
+      } else {
+        failureNotes.push(
+          "Twelve Data lieferte keine verwertbaren Tageskerzen",
+        );
+      }
+    } catch (error) {
+      failureNotes.push(
+        error instanceof TwelveDataClientError
+          ? error.code === "not_entitled"
+            ? "Der Twelve-Data-Tarif deckt dieses Instrument nicht ab"
+            : error.message
+          : "Twelve Data Abruf fehlgeschlagen",
+      );
+    }
+  }
 
-    const parsedHistory = parseFmpDailyHistoryResult(normalized, data, context);
-    const candles = parsedHistory.bars;
-    const integrity = assessHistoricalDataIntegrity(candles, new Date().toISOString());
+  if (!result && route.providers.includes("fmp")) {
+    try {
+      const { data } = await getFmpClient().request(
+        "historical-price-eod/full",
+        { symbol: normalized },
+        fmpRowsSchema,
+        {
+          timeoutMs: 9_000,
+          maxBytes: 2_500_000,
+        },
+      );
 
-    result = candles.length
-      ? {
+      const parsedHistory = parseFmpDailyHistoryResult(
+        normalized,
+        data,
+        context,
+      );
+      const candles = parsedHistory.bars;
+      const integrity = assessHistoricalDataIntegrity(
+        candles,
+        now.toISOString(),
+      );
+
+      if (candles.length) {
+        result = {
           candles,
           note: `${candles.length} Tageskerzen von Financial Modeling Prep. Preisbasis: ${historicalPriceBasisLabel(integrity.priceBasis)}. Bar-Qualität: ${parsedHistory.quality.status}, Score ${parsedHistory.quality.qualityScore}/100; ${parsedHistory.quality.rejected} ungültige und ${parsedHistory.quality.duplicates} doppelte Zeilen verworfen.`,
           provider: "Financial Modeling Prep",
           integrity,
-          barQuality: parsedHistory.quality
-        }
-      : {
-          ...NO_HISTORY,
-          note: "Der Anbieter lieferte keine verwertbaren Tageskerzen.",
-          barQuality: parsedHistory.quality
+          barQuality: parsedHistory.quality,
         };
-  } catch (error) {
-    result = {
-      ...NO_HISTORY,
-      // Der Grund wird durchgereicht statt geschluckt. HTTP 402 heisst bei FMP
-      // "im Tarif nicht enthalten" -- das trifft ETFs und ist keine Stoerung,
-      // sondern eine Tarifgrenze, die der Nutzer erfahren soll.
-      note: error instanceof FmpClientError && error.code === "not_entitled"
-        ? "Keine Kurshistorie: Der FMP-Tarif deckt dieses Instrument nicht ab."
-        : `Keine Kurshistorie: ${fmpFailureReason(error)}.`
-    };
+      } else {
+        failureNotes.push("FMP lieferte keine verwertbaren Tageskerzen");
+      }
+    } catch (error) {
+      failureNotes.push(
+        error instanceof FmpClientError && error.code === "not_entitled"
+          ? "Der FMP-Tarif deckt dieses Instrument nicht ab"
+          : fmpFailureReason(error),
+      );
+    }
   }
+
+  if (
+    !result &&
+    !twelveIsPreferred &&
+    route.providers.includes("twelve_data")
+  ) {
+    try {
+      const response = await getTwelveDataClient().getHistoricalBars(
+        normalized,
+        "1d",
+        {
+          outputsize: 5_000,
+          instrumentId: context?.instrumentId,
+          venue: context?.venue,
+          currency: context?.currency,
+          now,
+        },
+      );
+      const parsedHistory = response.data;
+      const candles = parsedHistory.bars;
+      const integrity = assessHistoricalDataIntegrity(
+        candles,
+        now.toISOString(),
+      );
+      if (candles.length) {
+        result = {
+          candles,
+          note: `${candles.length} rohe Tageskerzen von Twelve Data. Preisbasis: ${historicalPriceBasisLabel(integrity.priceBasis)}. Bar-Qualität: ${parsedHistory.quality.status}, Score ${parsedHistory.quality.qualityScore}/100; ${parsedHistory.quality.rejected} ungültige und ${parsedHistory.quality.duplicates} doppelte Zeilen verworfen.`,
+          provider: "Twelve Data",
+          integrity,
+          barQuality: parsedHistory.quality,
+        };
+      } else {
+        failureNotes.push(
+          "Twelve Data lieferte keine verwertbaren Tageskerzen",
+        );
+      }
+    } catch (error) {
+      failureNotes.push(
+        error instanceof TwelveDataClientError
+          ? error.code === "not_entitled"
+            ? "Der Twelve-Data-Tarif deckt dieses Instrument nicht ab"
+            : error.message
+          : "Twelve Data Abruf fehlgeschlagen",
+      );
+    }
+  }
+
+  result ??= {
+    ...NO_HISTORY,
+    note: `Keine Kurshistorie: ${failureNotes.join("; ") || "kein Provider lieferte verwertbare Daten"}.`,
+  };
 
   if (historyCache.size >= MAX_CACHE_ENTRIES) {
     const oldest = historyCache.keys().next().value;

@@ -134,6 +134,8 @@ function provider(item: ProviderHealthItem): ProviderHealthItem {
 
 export function getProviderHealthReport(now = new Date()): ProviderHealthReport {
   const finnhubConfigured = hasEnv("FINNHUB_API_KEY");
+  const twelveDataConfigured =
+    hasEnv("TWELVE_DATA_API_KEY") || hasEnv("TWELVEDATA_API_KEY");
   const fmpConfigured = hasEnv("FMP_API_KEY");
   const alphaConfigured = hasEnv("ALPHA_VANTAGE_API_KEY");
   const newsApiConfigured = hasEnv("NEWS_API_KEY") || hasEnv("NEWSAPI_API_KEY");
@@ -164,6 +166,45 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
       fallback: "FMP, Alpha Vantage, letzter bestätigter Cache oder nicht verfügbar",
       userImpact: finnhubConfigured ? "Marktdaten können providerbasiert geladen werden." : "Andere echte Anbieter dürfen übernehmen; ohne Beleg bleibt der Kurs nicht verfügbar.",
       nextAction: finnhubConfigured ? "Plan/Lizenz prüfen und Datenqualität pro Markt festlegen." : "FINNHUB_API_KEY serverseitig in Vercel setzen."
+    }),
+    provider({
+      id: "twelve-data",
+      name: "Twelve Data",
+      category: "market",
+      status: twelveDataConfigured
+        ? providerCanRun("twelve_data")
+          ? "configured"
+          : "license_required"
+        : "missing_key",
+      quality:
+        twelveDataConfigured && providerCanRun("twelve_data")
+          ? qualityFromEnv("TWELVE_DATA_QUALITY", "near_realtime")
+          : "unavailable",
+      configured: twelveDataConfigured,
+      secretEnv: ["TWELVE_DATA_API_KEY", "TWELVEDATA_API_KEY"],
+      capabilities: [
+        "Globale Instrumentensuche",
+        "Einzel- und Batch-Quotes",
+        "Intraday- und Tageskerzen",
+        "Boersenstatus",
+        "WebSocket planabhaengig",
+      ],
+      limitations: [
+        "Basic: 8 API-Credits pro Minute und 800 pro Tag",
+        "WebSocket im Basic/Grow-Tarif nur fuer Trial-Symbole",
+        "Externe Anzeige bleibt ohne dokumentierte Display-Rechte gesperrt",
+        "WebSocket liefert kein Bid/Ask oder OHLC",
+      ],
+      fallback:
+        "Finnhub/FMP je Datentyp, letzter bestaetigter Cache oder nicht verfuegbar",
+      userImpact: twelveDataConfigured
+        ? providerCanRun("twelve_data")
+          ? "Globale Suche, Quotes und Kerzen koennen intern providerbasiert geladen werden."
+          : "Provider ist konfiguriert, aber fuer externe Anzeige rechtlich gesperrt."
+        : "Twelve Data bleibt deaktiviert; andere echte Anbieter duerfen uebernehmen.",
+      nextAction: twelveDataConfigured
+        ? "Tarif und Display-Rechte dokumentieren; Stream nur bei passender Freigabe aktivieren."
+        : "TWELVE_DATA_API_KEY ausschliesslich serverseitig setzen.",
     }),
     provider({
       id: "fmp",
