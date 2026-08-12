@@ -2,6 +2,7 @@ import { hasPrivilegedAccess, hasStrongAdminSecret } from "@/lib/admin-access";
 import { jsonOk, rateLimit } from "@/lib/api-guard";
 import { getPublicRuntimeDiagnostics } from "@/lib/observability";
 import { getProviderHealthReport } from "@/lib/provider-health";
+import { getProviderResilienceSnapshot } from "@/lib/provider-resilience";
 import { getServerCacheAdapter } from "@/lib/server-cache";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +40,8 @@ export async function GET(request: Request) {
         mode: cache.mode,
         sharedConfigured: cache.sharedConfigured
       },
-      providerHealth: getProviderHealthReport()
+      providerHealth: getProviderHealthReport(),
+      providerResilience: getProviderResilienceSnapshot()
     },
     {
       headers: {

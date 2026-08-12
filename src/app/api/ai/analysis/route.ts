@@ -40,6 +40,7 @@ export async function GET(request: Request) {
     `ai:${parsed.data}`,
     () => getAiAnalysisWithMetadata(parsed.data),
     {
+      policy: "ai_analysis",
       staleTtlMs: costControls.aiStaleTtlMs,
       ttlMs: costControls.aiTtlMs
     }

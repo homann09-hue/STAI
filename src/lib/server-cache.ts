@@ -11,6 +11,8 @@ export type ServerCacheAdapter = {
   get<T>(key: string): Promise<T | null>;
   increment(key: string, ttlMs: number): Promise<number>;
   set<T>(key: string, value: T, ttlMs: number): Promise<void>;
+  setIfAbsent<T>(key: string, value: T, ttlMs: number): Promise<boolean>;
+  deleteIfValue<T>(key: string, expectedValue: T): Promise<boolean>;
   delete(key: string): Promise<void>;
   clear(): Promise<void>;
 };
@@ -19,7 +21,8 @@ const memoryStore = new Map<string, CacheEntry<unknown>>();
 const MAX_CACHE_KEY_CHARS = 240;
 const MAX_CACHE_JSON_CHARS = 1_500_000;
 const MAX_MEMORY_CACHE_ENTRIES = 10_000;
-const MAX_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+const MAX_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+const UPSTASH_TIMEOUT_MS = 2_500;
 const configuredUpstashRestUrl = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
 const upstashRestToken = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
 const upstashRestUrl = normalizeUpstashRestUrl(configuredUpstashRestUrl);
@@ -98,9 +101,14 @@ const memoryCacheAdapter: ServerCacheAdapter = {
 
   async increment(key: string, ttlMs: number) {
     const safeKey = normalizeCacheKey(key);
-    const current = (await this.get<number>(safeKey)) ?? 0;
+    const entry = pruneExpired(safeKey, memoryStore.get(safeKey));
+    const current = typeof entry?.value === "number" ? entry.value : 0;
     const next = current + 1;
-    await this.set(safeKey, next, ttlMs);
+    pruneMemoryStoreCapacity();
+    memoryStore.set(safeKey, {
+      value: next,
+      expiresAt: Date.now() + normalizeTtlMs(ttlMs),
+    });
     return next;
   },
 
@@ -111,6 +119,25 @@ const memoryCacheAdapter: ServerCacheAdapter = {
       value,
       expiresAt: Date.now() + normalizeTtlMs(ttlMs),
     });
+  },
+
+  async setIfAbsent<T>(key: string, value: T, ttlMs: number) {
+    const safeKey = normalizeCacheKey(key);
+    if (pruneExpired(safeKey, memoryStore.get(safeKey))) return false;
+    pruneMemoryStoreCapacity();
+    memoryStore.set(safeKey, {
+      value,
+      expiresAt: Date.now() + normalizeTtlMs(ttlMs),
+    });
+    return true;
+  },
+
+  async deleteIfValue<T>(key: string, expectedValue: T) {
+    const safeKey = normalizeCacheKey(key);
+    const entry = pruneExpired(safeKey, memoryStore.get(safeKey));
+    if (!entry || entry.value !== expectedValue) return false;
+    memoryStore.delete(safeKey);
+    return true;
   },
 
   async delete(key: string) {
@@ -128,28 +155,36 @@ async function upstashCommand<T>(command: unknown[]) {
   const body = safeSerializeCacheValue(command);
   if (!body) throw new Error("Upstash REST cache command is too large");
 
-  const response = await fetch(upstashRestUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${upstashRestToken}`,
-      "Content-Type": "application/json",
-    },
-    body,
-    cache: "no-store",
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), UPSTASH_TIMEOUT_MS);
 
-  if (!response.ok) {
-    throw new Error(`Upstash REST cache failed with HTTP ${response.status}`);
+  try {
+    const response = await fetch(upstashRestUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${upstashRestToken}`,
+        "Content-Type": "application/json",
+      },
+      body,
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Upstash REST cache failed with HTTP ${response.status}`);
+    }
+
+    const rawPayload = await response.text();
+    if (rawPayload.length > MAX_CACHE_JSON_CHARS) {
+      throw new Error("Upstash REST cache response is too large");
+    }
+
+    const payload = JSON.parse(rawPayload) as { error?: string; result?: T };
+    if (payload.error) throw new Error(payload.error);
+    return payload.result ?? null;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const rawPayload = await response.text();
-  if (rawPayload.length > MAX_CACHE_JSON_CHARS) {
-    throw new Error("Upstash REST cache response is too large");
-  }
-
-  const payload = JSON.parse(rawPayload) as { error?: string; result?: T };
-  if (payload.error) throw new Error(payload.error);
-  return payload.result ?? null;
 }
 
 function parseCachedValue<T>(value: unknown) {
@@ -222,6 +257,58 @@ const serverCacheAdapter: ServerCacheAdapter = {
         // Keep serving from memory if the shared cache is temporarily unavailable.
       }
     }
+  },
+
+  async setIfAbsent<T>(key: string, value: T, ttlMs: number) {
+    const safeKey = normalizeCacheKey(key);
+    const safeTtlMs = normalizeTtlMs(ttlMs);
+    const serialized = safeSerializeCacheValue(value);
+    if (!serialized) return false;
+
+    if (upstashConfigured) {
+      try {
+        const result = await upstashCommand<string>([
+          "SET",
+          safeKey,
+          serialized,
+          "NX",
+          "PX",
+          safeTtlMs,
+        ]);
+        if (result !== "OK") return false;
+        await memoryCacheAdapter.set(safeKey, value, safeTtlMs);
+        return true;
+      } catch {
+        // Fall through to the process-local lock when shared cache is unavailable.
+      }
+    }
+
+    return memoryCacheAdapter.setIfAbsent(safeKey, value, safeTtlMs);
+  },
+
+  async deleteIfValue<T>(key: string, expectedValue: T) {
+    const safeKey = normalizeCacheKey(key);
+    const serialized = safeSerializeCacheValue(expectedValue);
+    if (!serialized) return false;
+
+    if (upstashConfigured) {
+      try {
+        const deleted = await upstashCommand<number>([
+          "EVAL",
+          "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+          "1",
+          safeKey,
+          serialized,
+        ]);
+        if (deleted !== 1) return false;
+        await memoryCacheAdapter.delete(safeKey);
+        return true;
+      } catch {
+        // Fall through to process-local ownership verification.
+      }
+    }
+
+    return memoryCacheAdapter.deleteIfValue(safeKey, expectedValue);
   },
 
   async delete(key: string) {

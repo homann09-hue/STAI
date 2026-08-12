@@ -90,6 +90,7 @@ export async function GET(request: Request) {
 
   try {
     const result = await withCacheFallback(region.cacheKey, region.load, {
+      policy: "macro",
       ttlMs: costControls.fundamentalsTtlMs,
       staleTtlMs: costControls.fundamentalsStaleTtlMs
     });

@@ -21,7 +21,11 @@ export async function GET(request: Request) {
   const result = await withCacheFallback(
     "professional:overview",
     () => provider.getMarketReport(),
-    { staleTtlMs: costControls.professionalStaleTtlMs, ttlMs: costControls.professionalTtlMs }
+    {
+      policy: "professional",
+      staleTtlMs: costControls.professionalStaleTtlMs,
+      ttlMs: costControls.professionalTtlMs
+    }
   );
 
   return jsonOk({

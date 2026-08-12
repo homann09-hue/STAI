@@ -37,6 +37,7 @@ export async function GET(request: Request) {
 
   try {
     const result = await withCacheFallback(`dashboard:${provider.providerId}`, () => provider.getDashboard(), {
+      policy: "dashboard",
       staleTtlMs,
       ttlMs
     });

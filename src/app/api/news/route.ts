@@ -21,6 +21,7 @@ export async function GET(request: Request) {
   const result = await withCacheFallback(`news:${symbol ?? "all"}`, () =>
     getNewsWithMetadata(symbol)
   , {
+    policy: "news",
     staleTtlMs: costControls.newsStaleTtlMs,
     ttlMs: costControls.newsTtlMs
   }

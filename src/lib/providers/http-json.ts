@@ -1,3 +1,8 @@
+import {
+  createProviderRequestKey,
+  executeProviderRequest,
+} from "@/lib/provider-resilience";
+
 const DEFAULT_PROVIDER_JSON_MAX_BYTES = 1_500_000;
 const MAX_RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_ALLOWED_PROVIDER_HOSTS = [
@@ -175,43 +180,52 @@ export async function fetchBoundedProviderJson<T>(
     throw new Error(`${providerName} Provider-Host ist nicht freigegeben.`);
   }
 
-  const timeoutMs = Math.max(750, Math.min(15000, options.timeoutMs ?? 6500));
-  const maxBytes = options.maxBytes ?? providerJsonMaxBytes();
-  const started = Date.now();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  return executeProviderRequest(
+    {
+      providerName,
+      requestKey: createProviderRequestKey(url, "json"),
+      operation: "fetch_json",
+    },
+    async () => {
+      const timeoutMs = Math.max(750, Math.min(15000, options.timeoutMs ?? 6500));
+      const maxBytes = options.maxBytes ?? providerJsonMaxBytes();
+      const started = Date.now();
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-  try {
-    const response = await fetch(url, {
-      cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        "User-Agent": options.userAgent ?? "StockPilotAI/0.1 provider-layer"
-      },
-      signal: controller.signal
-    });
+      try {
+        const response = await fetch(url, {
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+            "User-Agent": options.userAgent ?? "StockPilotAI/0.1 provider-layer"
+          },
+          signal: controller.signal
+        });
 
-    if (!response.ok) {
-      throw new ProviderHttpResponseError(
-        providerName,
-        response.status,
-        parseRetryAfterMs(response.headers.get("retry-after"))
-      );
-    }
+        if (!response.ok) {
+          throw new ProviderHttpResponseError(
+            providerName,
+            response.status,
+            parseRetryAfterMs(response.headers.get("retry-after"))
+          );
+        }
 
-    const text = await readBoundedResponseText(response, providerName, maxBytes);
+        const text = await readBoundedResponseText(response, providerName, maxBytes);
 
-    try {
-      return {
-        data: JSON.parse(text) as T,
-        latencyMs: Date.now() - started
-      };
-    } catch {
-      throw new Error(`${providerName} lieferte ungültiges JSON.`);
-    }
-  } finally {
-    clearTimeout(timeout);
-  }
+        try {
+          return {
+            data: JSON.parse(text) as T,
+            latencyMs: Date.now() - started
+          };
+        } catch {
+          throw new Error(`${providerName} lieferte ungültiges JSON.`);
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+  );
 }
 
 /**
@@ -242,37 +256,46 @@ export async function fetchBoundedProviderText(
     throw new Error(`${providerName} Provider-Host ist nicht freigegeben.`);
   }
 
-  const timeoutMs = Math.max(750, Math.min(15000, options.timeoutMs ?? 6500));
-  const maxBytes = options.maxBytes ?? providerJsonMaxBytes();
-  const started = Date.now();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  return executeProviderRequest(
+    {
+      providerName,
+      requestKey: createProviderRequestKey(url, "text"),
+      operation: "fetch_text",
+    },
+    async () => {
+      const timeoutMs = Math.max(750, Math.min(15000, options.timeoutMs ?? 6500));
+      const maxBytes = options.maxBytes ?? providerJsonMaxBytes();
+      const started = Date.now();
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-  try {
-    const response = await fetch(url, {
-      cache: "no-store",
-      headers: {
-        Accept: options.accept ?? "text/csv",
-        "User-Agent": options.userAgent ?? "StockPilotAI/0.1 provider-layer"
-      },
-      signal: controller.signal
-    });
+      try {
+        const response = await fetch(url, {
+          cache: "no-store",
+          headers: {
+            Accept: options.accept ?? "text/csv",
+            "User-Agent": options.userAgent ?? "StockPilotAI/0.1 provider-layer"
+          },
+          signal: controller.signal
+        });
 
-    if (!response.ok) {
-      throw new ProviderHttpResponseError(
-        providerName,
-        response.status,
-        parseRetryAfterMs(response.headers.get("retry-after"))
-      );
-    }
+        if (!response.ok) {
+          throw new ProviderHttpResponseError(
+            providerName,
+            response.status,
+            parseRetryAfterMs(response.headers.get("retry-after"))
+          );
+        }
 
-    return {
-      text: await readBoundedResponseText(response, providerName, maxBytes, {
-        expectedContentType: options.expectedContentType ?? "csv"
-      }),
-      latencyMs: Date.now() - started
-    };
-  } finally {
-    clearTimeout(timeout);
-  }
+        return {
+          text: await readBoundedResponseText(response, providerName, maxBytes, {
+            expectedContentType: options.expectedContentType ?? "csv"
+          }),
+          latencyMs: Date.now() - started
+        };
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+  );
 }
