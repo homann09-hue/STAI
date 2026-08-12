@@ -8,7 +8,13 @@ import {
   type CorporateActionsResult
 } from "@/lib/corporate-actions";
 import { logEvent } from "@/lib/observability";
-import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import { resolveProviderRoute } from "@/lib/providers/provider-registry";
+import {
+  FmpClient,
+  fmpFailureReason,
+  fmpRowsSchema,
+  getFmpClient,
+} from "@/lib/providers/fmp-client";
 
 type EndpointResult = { ok: true; data: unknown } | { ok: false; reason: string };
 type CacheEntry = { result: CorporateActionsResult; storedAtMs: number };
@@ -20,27 +26,15 @@ const MAX_CACHE_ENTRIES = 500;
 const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<CorporateActionsResult>>();
 
-function safeFailureReason(error: unknown) {
-  const message = error instanceof Error ? error.message : "unbekannter Providerfehler";
-  if (message.includes("402") || message.includes("403")) return "im aktiven Providertarif nicht freigeschaltet";
-  if (message.includes("429")) return "Provider-Rate-Limit erreicht";
-  if (/timeout|Zeitüberschreitung/i.test(message)) return "Provider-Zeitüberschreitung";
-  return "Provider derzeit nicht erreichbar";
-}
-
-async function fetchEndpoint(base: string, path: string, symbol: string, token: string): Promise<EndpointResult> {
-  const url = new URL(`${base}/${path}`);
-  url.searchParams.set("symbol", symbol);
-  url.searchParams.set("apikey", token);
-
+async function fetchEndpoint(client: FmpClient, path: "dividends" | "splits", symbol: string): Promise<EndpointResult> {
   try {
-    const { data } = await fetchBoundedProviderJson<unknown>(url, `${PROVIDER} Corporate Actions`, {
+    const { data } = await client.request(path, { symbol }, fmpRowsSchema, {
       timeoutMs: 8_000,
       maxBytes: 1_500_000
     });
     return { ok: true, data };
   } catch (error) {
-    const reason = safeFailureReason(error);
+    const reason = fmpFailureReason(error);
     logEvent("warn", "corporate_actions.provider_failed", { symbol, path, reason });
     return { ok: false, reason };
   }
@@ -83,6 +77,20 @@ export async function fetchCorporateActions(
     );
   }
 
+  const route = resolveProviderRoute({
+    capability: "corporate_actions",
+    assetClass: assetType === "etf" ? "etf" : "equity",
+    preferredProvider: "fmp",
+  });
+  if (!route.providers.includes("fmp")) {
+    const reason = route.rejected.find((entry) => entry.providerId === "fmp")?.detail;
+    return unavailable(
+      normalized,
+      retrievedAt,
+      `Corporate Actions nicht verfügbar: ${reason ?? "kein freigegebener Provider"}.`,
+    );
+  }
+
   const cached = cache.get(normalized);
   if (cached) {
     const ttl = cached.result.available ? AVAILABLE_TTL_MS : UNAVAILABLE_TTL_MS;
@@ -105,10 +113,10 @@ export async function fetchCorporateActions(
     return result;
   }
 
-  const base = (process.env.FMP_API_BASE_URL ?? "https://financialmodelingprep.com/stable").replace(/\/$/, "");
+  const client = getFmpClient({ apiKey: token });
   const [dividends, splits] = await Promise.all([
-    fetchEndpoint(base, "dividends", normalized, token),
-    fetchEndpoint(base, "splits", normalized, token)
+    fetchEndpoint(client, "dividends", normalized),
+    fetchEndpoint(client, "splits", normalized)
   ]);
 
   const actions = mergeCorporateActions(

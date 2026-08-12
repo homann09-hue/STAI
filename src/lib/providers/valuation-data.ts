@@ -22,10 +22,13 @@
  * (`limit=6` antwortet mit HTTP 402).
  */
 
-import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import {
+  type FmpEndpoint,
+  fmpRowsSchema,
+  getFmpClient,
+} from "@/lib/providers/fmp-client";
+import { resolveProviderRoute } from "@/lib/providers/provider-registry";
 import type { DcfAssumptions } from "@/lib/analysis/valuation";
-
-const FMP_HOST = "financialmodelingprep.com";
 
 /** Mehr gibt der Tarif nicht her — und mehr wird deshalb nicht angefragt. */
 export const MAX_FISCAL_YEARS = 5;
@@ -324,17 +327,11 @@ export function parseAnalystView(consensusRaw: unknown, targetsRaw: unknown): An
   };
 }
 
-async function fmp<T>(path: string, params: Record<string, string>): Promise<T | null> {
-  const token = process.env.FMP_API_KEY;
-  if (!token) return null;
-
-  const base = process.env.FMP_API_BASE_URL ?? `https://${FMP_HOST}/stable`;
-  const url = new URL(`${base}/${path}`);
-  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-  url.searchParams.set("apikey", token);
-
+async function fmp(path: FmpEndpoint, params: Record<string, string>): Promise<unknown[] | null> {
   try {
-    const { data } = await fetchBoundedProviderJson<T>(url, "FMP Fundamentals", { timeoutMs: 8000 });
+    const { data } = await getFmpClient().request(path, params, fmpRowsSchema, {
+      timeoutMs: 8_000,
+    });
     return data;
   } catch {
     // Eine fehlende Kennzahl darf keinen Analysepfad abbrechen -- sie darf aber
@@ -359,15 +356,21 @@ export async function fetchFundamentals(
   const normalized = symbol.trim().toUpperCase();
   if (!normalized) return null;
 
+  const route = resolveProviderRoute({
+    capability: "fundamentals",
+    preferredProvider: "fmp",
+  });
+  if (!route.providers.includes("fmp")) return null;
+
   const years = String(MAX_FISCAL_YEARS);
   const [ratiosRaw, metricsRaw, cashRaw, balanceRaw, peersRaw, consensusRaw, targetsRaw] = await Promise.all([
-    fmp<unknown>("ratios", { symbol: normalized, limit: years }),
-    fmp<unknown>("key-metrics", { symbol: normalized, limit: years }),
-    fmp<unknown>("cash-flow-statement", { symbol: normalized, limit: "1" }),
-    fmp<unknown>("balance-sheet-statement", { symbol: normalized, limit: "1" }),
-    fmp<unknown>("stock-peers", { symbol: normalized }),
-    fmp<unknown>("grades-consensus", { symbol: normalized }),
-    fmp<unknown>("price-target-summary", { symbol: normalized })
+    fmp("ratios", { symbol: normalized, limit: years }),
+    fmp("key-metrics", { symbol: normalized, limit: years }),
+    fmp("cash-flow-statement", { symbol: normalized, limit: "1" }),
+    fmp("balance-sheet-statement", { symbol: normalized, limit: "1" }),
+    fmp("stock-peers", { symbol: normalized }),
+    fmp("grades-consensus", { symbol: normalized }),
+    fmp("price-target-summary", { symbol: normalized })
   ]);
 
   const ratios = parseRatioHistory(ratiosRaw);
@@ -380,8 +383,8 @@ export async function fetchFundamentals(
   const peersWithMetrics = await Promise.all(
     peers.slice(0, MAX_PEERS_WITH_METRICS).map(async (peer) => {
       const [peerRatios, peerMetrics] = await Promise.all([
-        fmp<unknown>("ratios", { symbol: peer.symbol, limit: "1" }),
-        fmp<unknown>("key-metrics", { symbol: peer.symbol, limit: "1" })
+        fmp("ratios", { symbol: peer.symbol, limit: "1" }),
+        fmp("key-metrics", { symbol: peer.symbol, limit: "1" })
       ]);
 
       return { ...peer, metrics: parsePeerMetrics(peerRatios, peerMetrics) };

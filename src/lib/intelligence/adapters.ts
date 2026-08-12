@@ -10,6 +10,10 @@ import type {
   SecEntityRequest
 } from "@/lib/intelligence/types";
 import { resolveProviderRoute } from "@/lib/providers/provider-registry";
+import {
+  getFmpClient,
+  type FmpRequester,
+} from "@/lib/providers/fmp-client";
 
 type FetchLike = typeof fetch;
 
@@ -174,33 +178,44 @@ export class FmpNewsAdapter implements IntelligenceSourceAdapter {
   constructor(
     private readonly options: {
       apiKey?: string;
-      fetchImpl?: FetchLike;
-      baseDelayMs?: number;
+      client?: FmpRequester;
     } = {}
   ) {}
 
   async fetchBatch(request: AdapterFetchRequest): Promise<AdapterBatch> {
+    const routingEnv = this.options.apiKey
+      ? ({ ...process.env, FMP_API_KEY: this.options.apiKey } as NodeJS.ProcessEnv)
+      : process.env;
+    const route = resolveProviderRoute({
+      capability: "news",
+      preferredProvider: "fmp",
+      usage: "internal",
+    }, routingEnv);
+    if (!route.providers.includes("fmp")) {
+      const reason = route.rejected.find((entry) => entry.providerId === "fmp")?.detail;
+      throw new ProviderAdapterError("FMP", reason ?? "FMP News ist nicht freigegeben.", null, false);
+    }
     const apiKey = this.options.apiKey ?? process.env.FMP_API_KEY;
     if (!apiKey) throw new ProviderAdapterError("FMP", "FMP_API_KEY fehlt.", null, false);
 
     const receivedAt = new Date().toISOString();
     const symbols = [...new Set((request.symbols ?? []).map(safeSymbol).filter((value): value is string => Boolean(value)))].slice(0, 25);
-    const endpoint = symbols.length ? "/news/stock" : "/news/stock-latest";
-    const url = new URL(`${this.descriptor.baseUrl}${endpoint}`);
-    if (symbols.length) url.searchParams.set("symbols", symbols.join(","));
-    url.searchParams.set("page", "0");
-    url.searchParams.set("limit", String(Math.min(Math.max(request.limit ?? 25, 1), 100)));
-    url.searchParams.set("apikey", apiKey);
+    const endpoint = symbols.length ? "news/stock" : "news/stock-latest";
+    const params: Record<string, string> = {
+      page: "0",
+      limit: String(Math.min(Math.max(request.limit ?? 25, 1), 100)),
+    };
+    if (symbols.length) params.symbols = symbols.join(",");
 
-    const payload = await fetchJsonWithRetry<unknown>(url, "FMP", {
-      fetchImpl: this.options.fetchImpl,
-      baseDelayMs: this.options.baseDelayMs,
-      headers: { "User-Agent": "StockPilotAI/1.0 intelligence-fmp-adapter" }
-    });
-    const parsed = fmpNewsPayloadSchema.safeParse(payload);
-    if (!parsed.success) throw new ProviderAdapterError("FMP", "FMP lieferte ein unerwartetes News-Schema.", null, false);
+    const client = this.options.client ?? getFmpClient({ apiKey });
+    const { data: payload } = await client.request(
+      endpoint,
+      params,
+      fmpNewsPayloadSchema,
+      { userAgent: "StockPilotAI/1.0 intelligence-fmp-adapter" },
+    );
 
-    const events = parsed.data.flatMap<RawSourceEvent>((item) => {
+    const events = payload.flatMap<RawSourceEvent>((item) => {
       const sourceUrl = safeHttpsUrl(item.url);
       const title = cleanText(item.title, "", 500);
       if (!sourceUrl || !title) return [];

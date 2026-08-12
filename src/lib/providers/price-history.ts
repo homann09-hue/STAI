@@ -30,7 +30,12 @@ import {
   type BarSeriesQuality,
   type CanonicalBarInput,
 } from "@/lib/canonical-bar";
-import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import {
+  FmpClientError,
+  fmpFailureReason,
+  fmpRowsSchema,
+  getFmpClient,
+} from "@/lib/providers/fmp-client";
 import { resolveProviderRoute } from "@/lib/providers/provider-registry";
 import { chartRanges, type NormalizedBar, type TimeRange } from "@/lib/types";
 
@@ -279,6 +284,7 @@ const historyCache = new Map<string, CacheEntry>();
 // konservativ und haelt die Zahl der Abrufe klein -- die Antwort ist mit ueber
 // 1000 Kerzen die teuerste im ganzen Provider-Pfad.
 const HISTORY_TTL_MS = 60 * 60 * 1000;
+const UNAVAILABLE_HISTORY_TTL_MS = 60 * 1000;
 const MAX_CACHE_ENTRIES = 500;
 
 export function clearHistoryCache() {
@@ -338,30 +344,28 @@ export async function fetchDailyHistory(
   // am Tarif des Aufrufers und darf deshalb nicht mit zwischengespeichert
   // werden -- sonst bekaeme der naechste Nutzer die Grenze des vorigen.
   const cached = historyCache.get(cacheKey);
-  if (cached && now.getTime() - cached.storedAtMs < HISTORY_TTL_MS) {
+  const cachedTtl = cached?.result.candles.length
+    ? HISTORY_TTL_MS
+    : UNAVAILABLE_HISTORY_TTL_MS;
+  if (cached && now.getTime() - cached.storedAtMs < cachedTtl) {
     return applyPlanLimit(cached.result, limitYears, now);
   }
-
-  const token = process.env.FMP_API_KEY;
-  if (!token) {
-    return { ...NO_HISTORY, note: "Keine Kurshistorie: FMP_API_KEY ist nicht gesetzt." };
-  }
-
-  const base = process.env.FMP_API_BASE_URL ?? "https://financialmodelingprep.com/stable";
-  const url = new URL(`${base}/historical-price-eod/full`);
-  url.searchParams.set("symbol", normalized);
-  url.searchParams.set("apikey", token);
 
   let result: HistoryResult;
 
   try {
-    const { data } = await fetchBoundedProviderJson<unknown>(url, "FMP History", {
-      timeoutMs: 9000,
+    const { data } = await getFmpClient().request(
+      "historical-price-eod/full",
+      { symbol: normalized },
+      fmpRowsSchema,
+      {
+      timeoutMs: 9_000,
       // Ueber 1200 Tageskerzen mit vollem OHLCV. Das Standardlimit von 1,5 MB
       // reicht, wird hier aber ausdruecklich benannt statt stillschweigend
       // angenommen.
-      maxBytes: 2_500_000
-    });
+      maxBytes: 2_500_000,
+      },
+    );
 
     const parsedHistory = parseFmpDailyHistoryResult(normalized, data, context);
     const candles = parsedHistory.bars;
@@ -381,15 +385,14 @@ export async function fetchDailyHistory(
           barQuality: parsedHistory.quality
         };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "unbekannter Fehler";
     result = {
       ...NO_HISTORY,
       // Der Grund wird durchgereicht statt geschluckt. HTTP 402 heisst bei FMP
       // "im Tarif nicht enthalten" -- das trifft ETFs und ist keine Stoerung,
       // sondern eine Tarifgrenze, die der Nutzer erfahren soll.
-      note: message.includes("402")
+      note: error instanceof FmpClientError && error.code === "not_entitled"
         ? "Keine Kurshistorie: Der FMP-Tarif deckt dieses Instrument nicht ab."
-        : `Keine Kurshistorie: ${message}.`
+        : `Keine Kurshistorie: ${fmpFailureReason(error)}.`
     };
   }
 

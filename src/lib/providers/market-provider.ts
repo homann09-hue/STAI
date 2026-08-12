@@ -29,6 +29,11 @@ import {
   ProviderHttpResponseError,
 } from "@/lib/providers/http-json";
 import {
+  FmpClientError,
+  fmpRowsOrRecordSchema,
+  getFmpClient,
+} from "@/lib/providers/fmp-client";
+import {
   bindHistoryInstrumentContext,
   NO_HISTORY,
   fetchDailyHistory,
@@ -352,6 +357,7 @@ function envQuality(name: string, fallback: MarketDataQuality) {
 }
 
 function isRateLimitError(error: unknown) {
+  if (error instanceof FmpClientError) return error.code === "rate_limited";
   if (error instanceof ProviderHttpError)
     return error.status === 429 || error.status === 418;
   return /HTTP (429|418)/.test(
@@ -360,6 +366,7 @@ function isRateLimitError(error: unknown) {
 }
 
 function isProviderAccessError(error: unknown) {
+  if (error instanceof FmpClientError) return error.code === "not_entitled";
   if (error instanceof ProviderHttpError)
     return error.status === 402 || error.status === 403;
   return false;
@@ -1790,19 +1797,13 @@ class FmpQuoteProvider extends HttpQuoteProvider {
     )
       return null;
 
-    const token = process.env.FMP_API_KEY;
-    if (!token) throw new ProviderConfigurationError("FMP_API_KEY fehlt");
-
     const providerSymbol = symbolForProvider(symbol, this.providerId);
-    const url = new URL(
-      `${process.env.FMP_API_BASE_URL ?? "https://financialmodelingprep.com/stable"}/quote`,
+    const { data, latencyMs } = await getFmpClient().request(
+      "quote",
+      { symbol: providerSymbol },
+      fmpRowsOrRecordSchema,
+      { timeoutMs: 6_000 },
     );
-    url.searchParams.set("symbol", providerSymbol);
-    url.searchParams.set("apikey", token);
-
-    const { data, latencyMs } = await fetchJson<
-      Record<string, unknown>[] | Record<string, unknown>
-    >(url, this.providerName, 6000);
     const item = (Array.isArray(data) ? data[0] : data) ?? {};
     const price = parseNumber(item.price);
     if (!price) return null;
