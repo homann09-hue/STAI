@@ -46,4 +46,18 @@ describe("resilience policy", () => {
     expect(policy.maxConcurrency).toBe(1);
     expect(policy.maxRetries).toBe(5);
   });
+
+  it("does not let a global retry count exceed the Twelve Data burst budget", () => {
+    const policy = getProviderRequestPolicy("twelve_data", {
+      MARKET_DATA_RETRY_ATTEMPTS: "5",
+    });
+    expect(policy.burstCapacity).toBe(8);
+    expect(policy.maxRetries).toBe(1);
+
+    const explicitlyDisabled = getProviderRequestPolicy("twelve_data", {
+      MARKET_DATA_RETRY_ATTEMPTS: "5",
+      MARKET_DATA_RETRY_ATTEMPTS_TWELVE_DATA: "0",
+    });
+    expect(explicitlyDisabled.maxRetries).toBe(0);
+  });
 });

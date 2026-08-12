@@ -1,9 +1,18 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { getProviderHealthReport, getPublicProviderCapabilityReport } from "./provider-health";
 
 const originalEnv = {
+  NODE_ENV: process.env.NODE_ENV,
+  MARKET_DATA_ALLOW_EXTERNAL_DISPLAY:
+    process.env.MARKET_DATA_ALLOW_EXTERNAL_DISPLAY,
+  MARKET_DATA_LICENSE_VERIFIED_PROVIDERS:
+    process.env.MARKET_DATA_LICENSE_VERIFIED_PROVIDERS,
+  MARKET_DATA_EXTERNAL_DISPLAY_PROVIDERS:
+    process.env.MARKET_DATA_EXTERNAL_DISPLAY_PROVIDERS,
   FINNHUB_API_KEY: process.env.FINNHUB_API_KEY,
   FMP_API_KEY: process.env.FMP_API_KEY,
+  TWELVE_DATA_API_KEY: process.env.TWELVE_DATA_API_KEY,
+  TWELVEDATA_API_KEY: process.env.TWELVEDATA_API_KEY,
   NEWS_API_KEY: process.env.NEWS_API_KEY,
   MARKETAUX_API_KEY: process.env.MARKETAUX_API_KEY,
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -19,7 +28,10 @@ function resetEnv() {
 }
 
 describe("provider health capability report", () => {
-  afterEach(resetEnv);
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    resetEnv();
+  });
 
   it("summarizes public provider capabilities without leaking secret variable names", () => {
     process.env.FINNHUB_API_KEY = "secret-test-key";
@@ -42,6 +54,8 @@ describe("provider health capability report", () => {
   it("keeps missing provider areas explicit instead of implying complete live coverage", () => {
     delete process.env.FINNHUB_API_KEY;
     delete process.env.FMP_API_KEY;
+    delete process.env.TWELVE_DATA_API_KEY;
+    delete process.env.TWELVEDATA_API_KEY;
     delete process.env.NEWS_API_KEY;
     delete process.env.MARKETAUX_API_KEY;
 
@@ -65,5 +79,23 @@ describe("provider health capability report", () => {
       secretEnv: []
     });
     expect(publicReport.criticalLimitations.length).toBeGreaterThan(0);
+  });
+
+  it("keeps Twelve Data internal-only until production display rights are verified", () => {
+    process.env.TWELVE_DATA_API_KEY = "secret-test-key";
+    vi.stubEnv("NODE_ENV", "production");
+    process.env.MARKET_DATA_ALLOW_EXTERNAL_DISPLAY = "true";
+    delete process.env.MARKET_DATA_LICENSE_VERIFIED_PROVIDERS;
+    delete process.env.MARKET_DATA_EXTERNAL_DISPLAY_PROVIDERS;
+
+    const item = getProviderHealthReport().items.find(
+      (entry) => entry.id === "twelve-data",
+    );
+    expect(item).toMatchObject({
+      configured: true,
+      status: "license_required",
+      quality: "unavailable",
+    });
+    expect(item?.limitations.join(" ")).toMatch(/externe Anzeige.*gesperrt/i);
   });
 });

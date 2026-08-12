@@ -40,6 +40,25 @@ describe("provider registry", () => {
     }
   });
 
+  it("routes every implemented Twelve Data domain only when configured", () => {
+    const env = { ...base, TWELVE_DATA_API_KEY: "x" };
+    for (const capability of [
+      "quote",
+      "quote_batch",
+      "stream_quotes",
+      "historical_bars",
+      "instrument_search",
+      "market_status",
+    ] as const) {
+      expect(resolveProviderRoute({ capability }, env).providers).toContain(
+        "twelve_data",
+      );
+    }
+    expect(
+      resolveProviderRoute({ capability: "market_status" }, base).providers,
+    ).not.toContain("twelve_data");
+  });
+
   it("keeps prepared adapters out of executable routes", () => {
     const result = resolveProviderRoute(
       {

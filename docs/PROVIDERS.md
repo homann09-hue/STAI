@@ -5,7 +5,7 @@
 > sich nicht selbst; die Registry entscheidet nach Capability, Assetklasse,
 > Konfiguration, Lizenz und Health.
 
-Stand: 2026-08-08 · gemessen am Code, nicht aus Anbieterprospekten übernommen
+Stand: 2026-08-12 · gemessen am Code und gegen offizielle Provider-Dokumentation
 
 §21 verlangt für jede Quelle neun Angaben. Diese Datei liefert sie — und sagt
 dort, wo eine Angabe **nicht gemessen** ist, genau das, statt eine plausible
@@ -22,7 +22,7 @@ was im Code sonst vorbereitet ist.
 | Financial Modeling Prep | ✅ | ja | 35× |
 | Finnhub | ✅ | ja | 17× |
 | Alpha Vantage | ✅ | ja | 14× |
-| Twelve Data | ✅ | ja | 12× |
+| Twelve Data | ✅ Quote, Batch, Suche, Historie, Marktstatus; Stream tarifgesteuert | ja | zentraler Serveradapter |
 | Marketaux | ✅ | ja | 12× |
 | Binance | ✅ | nein | 11× |
 | Coinbase | ✅ | nein | 10× |
@@ -49,15 +49,15 @@ eine Quelle auftreten darf — nicht eine Messung des Einzelabrufs.
 | **FMP** | global, Aktien/ETF/Krypto/Forex | `delayed` | nein im aktuellen Tarif | Basic kostenlos | ungeprüft | eigene Display-Lizenz nötig |
 | **Finnhub** | global | `near_realtime` | tarifabhängig | ungeprüft | ungeprüft | ungeprüft |
 | **Binance / Coinbase** | Krypto | `near_realtime` | ja | keine | ungeprüft | Nutzungsbedingungen ungeprüft |
-| **Twelve Data** | global | `near_realtime` | tarifabhängig | kreditbasiert | ungeprüft | ungeprüft |
+| **Twelve Data** | Aktien, ETF, Indizes, Forex, Krypto, globale Listings | höchstens `near_realtime`, Delay je Markt/Tarif offen | tarifabhängig | Basic offiziell 8 Credits/Min., 800/Tag | Intraday bis 1 Monat, 1–5000 Werte je Abruf | externe Anzeige nicht verifiziert und daher gesperrt |
 | **Alpha Vantage** | global | `delayed` | nein | eng limitiert | ungeprüft | ungeprüft |
 | **EODHD / Massive** | global | `delayed` | nein | ungeprüft | ungeprüft | ungeprüft |
 | **Marketaux / NewsAPI** | Nachrichten | n/a | n/a | ungeprüft | ungeprüft | ungeprüft |
 | **SEC EDGAR** | US-Filings | n/a | n/a | keine | vollständig | öffentlich, User-Agent verlangt |
 | **Polygon / Databento** | US | ungeprüft | tarifabhängig | ungeprüft | ungeprüft | ungeprüft |
 
-**Ungeprüft heißt ungeprüft.** Für neun von vierzehn Quellen sind Rate Limits,
-Kosten, Historie und Lizenz nie gemessen worden. Sie sind ohne Schlüssel
+**Ungeprüft heißt ungeprüft.** Für mehrere Quellen sind Rate Limits,
+Kosten, Historie und Lizenz noch nicht gemessen. Sie sind ohne Schlüssel
 inaktiv, sodass daraus heute kein Risiko entsteht — vor der ersten produktiven
 Nutzung einer dieser Quellen muss die Zeile gefüllt werden.
 
@@ -69,8 +69,8 @@ Das ist die Seite, die tatsächlich ausgebaut ist:
 - **Zeitlimit je Abruf** über `withDeadline`, mit definiertem Ersatzwert
 - **Health-Report** mit sechs Betriebszuständen: `ready`, `degraded`,
   `configured`, `missing_key`, `license_required`, `demo`
-- **Mock-Rückfall** — aber sichtbar: die Qualitätsstufe `mock` wird bis in die
-  Oberfläche durchgereicht und nie als Live ausgegeben
+- **Kein stiller Mock-Rückfall** in Produktionspfaden: fehlt ein echter Kurs,
+  bleibt er `unavailable`; Fixtures sind auf Entwicklung/Test begrenzt
 
 ## Primary, Secondary, Fallback
 
@@ -81,8 +81,8 @@ gesetzten Schlüsseln eine Rangfolge; `ChainedQuoteProvider` fragt sie der Reihe
 nach ab. Fällt die erste Quelle aus, wird die zweite versucht — erst wenn keine
 antwortet, greift der Mock.
 
-Standardrangfolge nach Abdeckung: FMP → Finnhub → Twelve Data → EODHD →
-Massive/Polygon → Alpha Vantage. Krypto-Börsen stehen bewusst nicht darin: sie
+Standardrangfolge für globale Quotes: Twelve Data → Finnhub → FMP/Massive/
+EODHD je Route → Alpha Vantage. Krypto-Börsen stehen bewusst separat: sie
 beantworten nur Kryptosymbole und wären als allgemeiner Rückfall eine
 Verschlechterung.
 
@@ -119,15 +119,19 @@ Stand 2026-08-08, live gegen die Produktions-API gemessen:
 | VOO (ETF) | dieselbe | **HTTP 402** — im Tarif nicht enthalten |
 | AAPL | Finnhub `/stock/candle` | **HTTP 403** — kostenpflichtige Ressource |
 
-Daraus folgen drei Dinge, die in `price-history.ts` festgeschrieben sind:
+Daraus folgten bis Phase 5 drei Einschränkungen. Phase 6 ergänzt nun Twelve
+Data als konfigurierbaren globalen Historienprovider:
 
-1. **Für die Historie gibt es kein Failover.** Finnhub ist als zweite
-   Kursquelle konfiguriert, kann aber keine Kerzen liefern. Fällt FMP aus, gibt
-   es keine Historie — und dann eben keine, statt einer erzeugten.
-2. **ETFs haben keine Historie.** HTTP 402 ist eine Tarifgrenze und wird als
-   solche an die Oberfläche durchgereicht, nicht als Störung.
-3. **Kein Intraday.** Tagesschlusskurse ergeben kein `1D`-Fenster. Das bleibt
-   leer, mit Begründung.
+1. **Historien-Failover:** Routing kann Twelve Data und FMP nach Konfiguration
+   und Rechten nacheinander nutzen; Provider und Preisbasis bleiben sichtbar.
+2. **Intraday:** Twelve Data unterstützt 1m, 5m, 15m, 30m, 1h und 4h. Der
+   Adapter fordert UTC für Intraday an, validiert OHLCV und erfindet kein
+   fehlendes Volumen.
+3. **Tagesdaten:** Twelve Data wird mit `adjust=none` als rohe Preisbasis
+   angefordert; FMP bleibt ein verzögerter Fallback, sofern der Tarif das
+   Instrument deckt.
+4. **Ohne Schlüssel/Rechte:** Produktion bleibt unverändert fail-closed. Ein
+   vorbereiteter Adapter ist kein Live-Nachweis.
 
 Zwischenspeicher: eine Stunde je Symbol. Die Antwort mit über 1000 Kerzen ist
 der teuerste Abruf im gesamten Provider-Pfad, und Tagesschlusskurse ändern sich

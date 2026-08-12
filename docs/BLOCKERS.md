@@ -395,3 +395,30 @@ implementiert. Ohne konfigurierte `UPSTASH_REDIS_REST_URL` und
 `sharedConfigured: false`; mehrere Vercel-Instanzen koordinieren dann nicht
 global. Dieser externe Infrastrukturpunkt bleibt deshalb offen und wird nicht
 als horizontal abgeschlossen bezeichnet.
+
+## Phase-6-Ergänzung — Twelve Data Produktion
+
+**Status:** `BLOCKED – EXTERNAL`, Adapter bleibt produktiv fail-closed.
+
+Am 2026-08-12 war weder lokal noch im StockPilot-Vercel-Projekt ein
+`TWELVE_DATA_API_KEY`/`TWELVEDATA_API_KEY` konfiguriert. Ebenso fehlen
+dokumentierte externe Display-/Redistribution-/Derived-Data-Rechte für den
+konkreten Tarif. Deshalb darf Twelve Data in Produktion weder als aktiver Feed
+noch als Live-Nachweis erscheinen.
+
+Technisch vollständig unabhängig davon vorbereitet: serverseitige
+Header-Authentifizierung, Symbolsuche, Listing-Auflösung, Quote, kreditbewusste
+Batch-Quote, rohe historische Kerzen, Marktstatus, standardisierte Fehler,
+Quota-Header, Health Check sowie tarifgesteuertes WebSocket mit Reconnect und
+Resubscribe.
+
+**Aktivierungsschritte:**
+
+1. Twelve-Data-Vertrag/Tarif und Börsen-Display-Rechte prüfen.
+2. Schlüssel nur serverseitig im StockPilot-Vercel-Projekt setzen.
+3. Tarifgerechte `TWELVE_DATA_BATCH_MAX_SYMBOLS` und
+   `TWELVE_DATA_STREAM_MAX_SYMBOLS` setzen.
+4. Erst nach Rechtsprüfung `twelve_data` in die beiden Market-Data-Allowlisten
+   aufnehmen und externe Anzeige global freigeben.
+5. Live-Contract-Test für US-Aktie, Xetra-Aktie, ETF, Index, Forex und Krypto
+   durchführen; Quota-, Delay- und Marktstatusangaben gegenprüfen.

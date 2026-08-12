@@ -15,6 +15,7 @@ export interface InstrumentIdentityInput {
   currency: string;
   assetClass: MarketUniverseAssetClass;
   matchedVia: "symbol" | "name";
+  assetClassEvidence?: "provider" | "heuristic";
 }
 
 export interface InstrumentIdentityAssessment {
@@ -65,11 +66,13 @@ export function assessInstrumentIdentity(input: InstrumentIdentityInput): Instru
   let confidence = 70;
 
   const exchangeKnown = input.exchange.trim().toLowerCase() !== "unknown" && input.exchange.trim() !== "";
-  const { certain } = inferAssetClass({
-    symbol: input.symbol,
-    name: input.name,
-    exchange: input.exchange
-  });
+  const certain = input.assetClassEvidence === "provider"
+    ? true
+    : inferAssetClass({
+        symbol: input.symbol,
+        name: input.name,
+        exchange: input.exchange
+      }).certain;
 
   if (!exchangeKnown) {
     confidence -= 25;
@@ -81,7 +84,7 @@ export function assessInstrumentIdentity(input: InstrumentIdentityInput): Instru
   } else {
     confidence -= 10;
     warnings.push(
-      "Assetklasse wurde heuristisch aus Name und Handelsplatz abgeleitet. FMP liefert kein explizites Typfeld."
+      "Assetklasse wurde heuristisch aus Name und Handelsplatz abgeleitet; der Provider lieferte kein belastbares Typfeld."
     );
   }
 

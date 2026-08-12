@@ -77,6 +77,14 @@ describe("assessInstrumentIdentity", () => {
     expect(crypto.resolutionStatus).toBe("resolved");
   });
 
+  it("verwendet ein explizites Provider-Typfeld statt einer FMP-Heuristik", () => {
+    const identity = assessInstrumentIdentity(
+      hit({ assetClassEvidence: "provider" }),
+    );
+    expect(identity.identityConfidence).toBeGreaterThanOrEqual(80);
+    expect(identity.resolutionWarnings.join(" ")).not.toMatch(/heuristisch/i);
+  });
+
   it("stuft einen Treffer ohne Handelsplatz herab und warnt sichtbar", () => {
     const identity = assessInstrumentIdentity(hit({ exchange: "unknown" }));
 

@@ -6,7 +6,7 @@ import type { MarketDataQuality, MarketStatus } from "@/lib/types";
 type DataQualityProps = {
   quality: MarketDataQuality;
   marketStatus?: MarketStatus;
-  delayedByMinutes?: number;
+  delayedByMinutes?: number | null;
   fromCache?: boolean;
   offline?: boolean;
   compact?: boolean;

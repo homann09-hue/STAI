@@ -104,12 +104,23 @@ export function rankInstrumentCatalogHits(
   query: string,
 ): InstrumentCatalogHit[] {
   const normalizedQuery = normalizedSearchValue(query);
+  const providerOrder = new Map(
+    hits.map((hit, index) => [hit.canonicalId, index] as const),
+  );
   return [...hits].sort((left, right) => {
     const scoreDifference =
       catalogSearchScore(right, normalizedQuery) -
       catalogSearchScore(left, normalizedQuery);
     if (scoreDifference !== 0) return scoreDifference;
-    return left.canonicalId.localeCompare(right.canonicalId, "en");
+    // Bei fachlich gleichem Score bleibt die Relevanzreihenfolge des
+    // Providers erhalten. Alphabetische Canonical-IDs hatten bei AAPL das
+    // argentinische Nebenlisting vor NASDAQ sortiert.
+    const orderDifference =
+      (providerOrder.get(left.canonicalId) ?? Number.MAX_SAFE_INTEGER) -
+      (providerOrder.get(right.canonicalId) ?? Number.MAX_SAFE_INTEGER);
+    return (
+      orderDifference || left.canonicalId.localeCompare(right.canonicalId, "en")
+    );
   });
 }
 

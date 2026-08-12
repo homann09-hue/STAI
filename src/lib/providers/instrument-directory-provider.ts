@@ -1,36 +1,23 @@
 import "server-only";
 
 import { z } from "zod";
-import { FmpClient, getFmpClient } from "@/lib/providers/fmp-client";
-import { resolveProviderRoute } from "@/lib/providers/provider-registry";
+
 import { logEvent } from "@/lib/observability";
 import {
-  inferAssetClass,
-  instrumentDirectoryCapabilityReport as buildCapabilityReport
-} from "@/lib/providers/instrument-directory-provider.pure";
+  getFmpClient,
+  type FmpClient,
+} from "@/lib/providers/fmp-client";
+import { resolveProviderRoute } from "@/lib/providers/provider-registry";
+import {
+  getTwelveDataApiKey,
+  getTwelveDataClient,
+} from "@/lib/providers/twelve-data-client";
 import type { MarketUniverseAssetClass } from "@/lib/types";
+import {
+  inferAssetClass,
+  instrumentDirectoryCapabilityReport as buildFmpCapabilityReport,
+} from "./instrument-directory-provider.pure";
 
-export { inferAssetClass } from "@/lib/providers/instrument-directory-provider.pure";
-
-/**
- * Instrument-Discovery ueber die FMP Stable API.
- *
- * Tarifrealitaet, gemessen am 2026-08-07 gegen die Live-API:
- *   v3/stock/list, v3/etf/list, v3/available-traded/list  -> 403 (Legacy, abgeschaltet)
- *   v3/symbol/available-*                                  -> 403 (Legacy, abgeschaltet)
- *   stable/company-screener                                -> 402 (nicht im Tarif)
- *   stable/available-exchanges                             -> 402 (nicht im Tarif)
- *   stable/search-isin                                     -> 402 (nicht im Tarif)
- *   stable/search-symbol                                   -> 200
- *   stable/search-name                                     -> 200
- *
- * Ein Vollabzug des Instrumentuniversums ist damit nicht moeglich. Dieses Modul
- * implementiert deshalb bewusst nur Discovery per Suche und meldet den fehlenden
- * Verzeichnisabruf als sichtbaren Capability-Status, statt Vollstaendigkeit zu
- * behaupten. Siehe docs/BLOCKERS.md.
- */
-
-const PROVIDER_NAME = "FMP";
 const MAX_QUERY_LENGTH = 64;
 const MAX_RESULTS_PER_ENDPOINT = 25;
 const MAX_MERGED_RESULTS = 40;
@@ -48,18 +35,22 @@ export interface ProviderInstrumentHit {
   currency: string;
   assetClass: MarketUniverseAssetClass;
   provider: string;
-  /** Welcher Endpunkt den Treffer geliefert hat. Teil der Provenance. */
   matchedVia: "symbol" | "name";
   fetchedAt: string;
+  mic?: string | null;
+  country?: string | null;
+  tradingTimezone?: string | null;
+  instrumentType?: string | null;
+  assetClassEvidence?: "provider" | "heuristic";
 }
 
 export interface InstrumentDirectoryResult {
   hits: ProviderInstrumentHit[];
   capability: InstrumentDirectoryCapability;
-  /** Menschenlesbare Begruendung, direkt in der UI anzeigbar. */
   capabilityNote: string;
   latencyMs: number;
   degraded: boolean;
+  providers: string[];
 }
 
 interface FmpSearchRow {
@@ -71,23 +62,16 @@ interface FmpSearchRow {
 }
 
 const fmpSearchRowsSchema = z.array(
-  z.object({
-    symbol: z.unknown().optional(),
-    name: z.unknown().optional(),
-    currency: z.unknown().optional(),
-    exchange: z.unknown().optional(),
-    exchangeFullName: z.unknown().optional(),
-  }).passthrough(),
+  z
+    .object({
+      symbol: z.unknown().optional(),
+      name: z.unknown().optional(),
+      currency: z.unknown().optional(),
+      exchange: z.unknown().optional(),
+      exchangeFullName: z.unknown().optional(),
+    })
+    .passthrough(),
 );
-
-function providerApiKey() {
-  const route = resolveProviderRoute({
-    capability: "instrument_search",
-    preferredProvider: "fmp",
-  });
-  if (!route.providers.includes("fmp")) return null;
-  return process.env.FMP_API_KEY?.trim() || null;
-}
 
 function cleanText(value: unknown, maxLength: number) {
   if (typeof value !== "string") return "";
@@ -96,29 +80,43 @@ function cleanText(value: unknown, maxLength: number) {
 
 function normalizeSymbol(value: unknown) {
   if (typeof value !== "string") return "";
-  return value.trim().toUpperCase().replace(/[^A-Z0-9./:^-]/g, "").slice(0, 32);
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9./:^-]/g, "")
+    .slice(0, 32);
 }
 
 function normalizeCurrency(value: unknown) {
-  const cleaned = cleanText(value, 12).toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const cleaned = cleanText(value, 12)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
   return /^[A-Z0-9]{2,12}$/.test(cleaned) ? cleaned : "XXX";
 }
 
-function normalizeRow(
+function enabledSearchProviders() {
+  const route = resolveProviderRoute({ capability: "instrument_search" });
+  return {
+    route,
+    fmp:
+      route.providers.includes("fmp") &&
+      Boolean(process.env.FMP_API_KEY?.trim()),
+    twelve:
+      route.providers.includes("twelve_data") &&
+      Boolean(getTwelveDataApiKey()),
+  };
+}
+
+function normalizeFmpRow(
   row: FmpSearchRow,
   matchedVia: ProviderInstrumentHit["matchedVia"],
-  fetchedAt: string
+  fetchedAt: string,
 ): ProviderInstrumentHit | null {
   const symbol = normalizeSymbol(row.symbol);
   const name = cleanText(row.name, 240);
-
-  // Ohne Symbol und Namen ist der Treffer nicht identifizierbar und wird
-  // verworfen, statt mit Platzhaltern aufgefuellt zu werden.
   if (!symbol || !name) return null;
-
   const exchange = cleanText(row.exchange, 120) || "unknown";
   const { assetClass } = inferAssetClass({ symbol, name, exchange });
-
   return {
     symbol,
     name,
@@ -126,17 +124,18 @@ function normalizeRow(
     exchangeFullName: cleanText(row.exchangeFullName, 240) || null,
     currency: normalizeCurrency(row.currency),
     assetClass,
-    provider: PROVIDER_NAME,
+    provider: "FMP",
     matchedVia,
-    fetchedAt
+    fetchedAt,
+    assetClassEvidence: "heuristic",
   };
 }
 
-async function fetchSearchEndpoint(
+async function fetchFmpSearchEndpoint(
   endpoint: "search-symbol" | "search-name",
   query: string,
   client: FmpClient,
-  timeoutMs: number
+  timeoutMs: number,
 ) {
   const { data, latencyMs } = await client.request(
     endpoint,
@@ -144,106 +143,201 @@ async function fetchSearchEndpoint(
     fmpSearchRowsSchema,
     { timeoutMs },
   );
-
   return { rows: Array.isArray(data) ? data : [], latencyMs };
 }
 
+async function searchFmp(query: string, fetchedAt: string, timeoutMs: number) {
+  const client = getFmpClient({ apiKey: process.env.FMP_API_KEY?.trim() });
+  const [bySymbol, byName] = await Promise.allSettled([
+    fetchFmpSearchEndpoint("search-symbol", query, client, timeoutMs),
+    fetchFmpSearchEndpoint("search-name", query, client, timeoutMs),
+  ]);
+  const hits: ProviderInstrumentHit[] = [];
+  let latencyMs = 0;
+  let failures = 0;
+  const collect = (
+    settled: PromiseSettledResult<{ rows: FmpSearchRow[]; latencyMs: number }>,
+    matchedVia: ProviderInstrumentHit["matchedVia"],
+  ) => {
+    if (settled.status !== "fulfilled") {
+      failures += 1;
+      return;
+    }
+    latencyMs = Math.max(latencyMs, settled.value.latencyMs);
+    for (const row of settled.value.rows) {
+      const hit = normalizeFmpRow(row, matchedVia, fetchedAt);
+      if (hit) hits.push(hit);
+    }
+  };
+  collect(bySymbol, "symbol");
+  collect(byName, "name");
+  if (failures === 2) {
+    throw new Error("Beide FMP-Suchendpunkte sind fehlgeschlagen.");
+  }
+  return { hits, latencyMs, degraded: failures > 0, provider: "FMP" };
+}
+
+async function searchTwelveData(
+  query: string,
+  fetchedAt: string,
+  timeoutMs: number,
+) {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  let result: Awaited<
+    ReturnType<ReturnType<typeof getTwelveDataClient>["searchInstruments"]>
+  >;
+  try {
+    result = await Promise.race([
+      getTwelveDataClient().searchInstruments(query, MAX_MERGED_RESULTS),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error("Twelve Data Instrumentsuche Timeout.")),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+  const normalizedQuery = query.toUpperCase();
+  return {
+    hits: result.data.map(
+      (row): ProviderInstrumentHit => ({
+        symbol: row.symbol,
+        name: row.name,
+        exchange: row.exchange ?? row.mic ?? "unknown",
+        exchangeFullName: row.exchange,
+        currency: row.currency,
+        assetClass: row.assetClass,
+        provider: "Twelve Data",
+        matchedVia:
+          row.symbol === normalizedQuery ||
+          row.symbol.startsWith(normalizedQuery)
+            ? "symbol"
+            : "name",
+        fetchedAt,
+        mic: row.mic,
+        country: row.country,
+        tradingTimezone: row.tradingTimezone,
+        instrumentType: row.instrumentType,
+        assetClassEvidence: "provider",
+      }),
+    ),
+    latencyMs: result.latencyMs,
+    degraded: false,
+    provider: "Twelve Data",
+  };
+}
+
 /**
- * Sucht Instrumente ueber beide nutzbaren Endpunkte und dedupliziert.
- *
- * Ein Fehlschlag eines Endpunkts macht das Ergebnis `degraded`, verwirft aber
- * nicht die Treffer des anderen. Ein vollstaendiger Fehlschlag liefert ein
- * leeres Ergebnis mit Begruendung — niemals stillschweigend Mock-Daten.
+ * Suchgetriebene Discovery ueber alle aktivierten, lizenzierten Adapter.
+ * Mehrfachlistings bleiben durch Symbol + MIC/Boerse getrennt.
  */
 export async function searchProviderInstruments(
   rawQuery: string,
-  options: { timeoutMs?: number } = {}
+  options: { timeoutMs?: number } = {},
 ): Promise<InstrumentDirectoryResult> {
   const query = cleanText(rawQuery, MAX_QUERY_LENGTH);
   const fetchedAt = new Date().toISOString();
-  const apiKey = providerApiKey();
+  const configured = enabledSearchProviders();
+  const providers = [
+    ...(configured.twelve ? ["Twelve Data"] : []),
+    ...(configured.fmp ? ["FMP"] : []),
+  ];
 
-  if (!apiKey) {
+  if (!providers.length) {
     return {
       hits: [],
       capability: "provider_unconfigured",
       capabilityNote:
-        "Kein FMP_API_KEY konfiguriert. Instrument-Discovery ist deaktiviert; es werden keine Ersatzdaten angezeigt.",
+        "Keine lizenzierte Instrumentsuche konfiguriert. Es werden keine Ersatzdaten angezeigt.",
       latencyMs: 0,
-      degraded: true
+      degraded: true,
+      providers: [],
     };
   }
-
-  if (query.length < 1) {
+  if (!query) {
     return {
       hits: [],
       capability: "search_only",
       capabilityNote: "Suchbegriff fehlt.",
       latencyMs: 0,
-      degraded: false
+      degraded: false,
+      providers,
     };
   }
 
-  const timeoutMs = options.timeoutMs ?? 6500;
-  const client = getFmpClient({ apiKey });
-
-  const [bySymbol, byName] = await Promise.allSettled([
-    fetchSearchEndpoint("search-symbol", query, client, timeoutMs),
-    fetchSearchEndpoint("search-name", query, client, timeoutMs)
-  ]);
-
+  const timeoutMs = options.timeoutMs ?? 6_500;
+  const attempts: Array<Promise<{
+    hits: ProviderInstrumentHit[];
+    latencyMs: number;
+    degraded: boolean;
+    provider: string;
+  }>> = [];
+  if (configured.twelve) {
+    attempts.push(searchTwelveData(query, fetchedAt, timeoutMs));
+  }
+  if (configured.fmp) attempts.push(searchFmp(query, fetchedAt, timeoutMs));
+  const settled = await Promise.allSettled(attempts);
   const merged = new Map<string, ProviderInstrumentHit>();
   let latencyMs = 0;
   let failures = 0;
+  let degraded = false;
 
-  const collect = (
-    settled: PromiseSettledResult<{ rows: FmpSearchRow[]; latencyMs: number }>,
-    matchedVia: ProviderInstrumentHit["matchedVia"]
-  ) => {
-    if (settled.status !== "fulfilled") {
+  for (const outcome of settled) {
+    if (outcome.status !== "fulfilled") {
       failures += 1;
-      logEvent("warn", "instrument_directory.endpoint_failed", {
-        endpoint: matchedVia,
-        message: settled.reason instanceof Error ? settled.reason.message : "unknown"
+      logEvent("warn", "instrument_directory.provider_failed", {
+        message:
+          outcome.reason instanceof Error ? outcome.reason.message : "unknown",
       });
-      return;
+      continue;
     }
-
-    latencyMs = Math.max(latencyMs, settled.value.latencyMs);
-
-    for (const row of settled.value.rows) {
-      const hit = normalizeRow(row, matchedVia, fetchedAt);
-      if (!hit) continue;
-
-      // Dedupe ueber Symbol + Boerse: dasselbe Unternehmen an mehreren
-      // Handelsplaetzen bleibt bewusst als separates Listing erhalten.
-      const key = `${hit.symbol}@${hit.exchange.toUpperCase()}`;
+    latencyMs = Math.max(latencyMs, outcome.value.latencyMs);
+    degraded ||= outcome.value.degraded;
+    for (const hit of outcome.value.hits) {
+      const listing = hit.mic ?? hit.exchange.toUpperCase();
+      const key = `${hit.symbol}@${listing}`;
       const existing = merged.get(key);
-
-      // Ein Symboltreffer ist staerkere Evidenz als ein Namenstreffer.
-      if (!existing || (existing.matchedVia === "name" && hit.matchedVia === "symbol")) {
+      // Twelve liefert MIC, Land und Zeitzone. Diese Evidenz ist bei gleichem
+      // Listing staerker als ein FMP-Treffer ohne diese Felder.
+      if (
+        !existing ||
+        (existing.provider === "FMP" && hit.provider === "Twelve Data") ||
+        (existing.matchedVia === "name" && hit.matchedVia === "symbol")
+      ) {
         merged.set(key, hit);
       }
     }
-  };
-
-  collect(bySymbol, "symbol");
-  collect(byName, "name");
+  }
 
   return {
     hits: [...merged.values()].slice(0, MAX_MERGED_RESULTS),
     capability: "search_only",
     capabilityNote:
-      "Der aktive FMP-Tarif erlaubt Instrumentsuche, aber keinen Verzeichnisabruf. Das Universum wächst suchgetrieben und ist nicht vollständig.",
+      "Die aktive Provider-Suche ist suchgetrieben und nicht vollstaendig. Sie ist kein Beleg fuer ein vollstaendiges Instrumentuniversum.",
     latencyMs,
-    degraded: failures > 0
+    degraded: degraded || failures > 0,
+    providers: settled.flatMap((outcome) =>
+      outcome.status === "fulfilled" ? [outcome.value.provider] : [],
+    ),
   };
 }
 
-/**
- * Statischer Capability-Report fuer Admin- und Coverage-Ansichten. Bewusst ohne
- * Netzwerkaufruf, damit er in jeder Ansicht ohne Quota-Verbrauch nutzbar ist.
- */
 export function instrumentDirectoryCapabilityReport() {
-  return buildCapabilityReport(Boolean(providerApiKey()));
+  const configured = enabledSearchProviders();
+  const providers = [
+    ...(configured.twelve ? ["Twelve Data"] : []),
+    ...(configured.fmp ? ["FMP"] : []),
+  ];
+  const fmpReport = buildFmpCapabilityReport(providers.length > 0);
+  return {
+    ...fmpReport,
+    provider: providers.join(" / ") || "Kein Provider",
+    searchProviders: providers,
+    searchAvailable: providers.length > 0,
+    verifiedAt: "2026-08-12",
+    consequence:
+      "Das Universum waechst suchgetrieben. Vollstaendigkeit wird erst nach einem nachweisbaren, lizenzierten Verzeichnissync behauptet.",
+  } as const;
 }

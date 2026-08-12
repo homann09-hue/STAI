@@ -191,6 +191,9 @@ function providerHit(
     record.exchange,
     record.provider,
   );
+  if (hit.mic) {
+    identifiers.push({ type: "mic", value: hit.mic });
+  }
   const canonical = buildCanonicalInstrument({
     canonicalId: buildCanonicalInstrumentId({
       assetClass: hit.assetClass,
@@ -205,9 +208,12 @@ function providerHit(
     instrumentType: record.assetClass,
     exchangeName: record.exchangeFullName,
     exchangeCode: record.exchange,
+    mic: hit.mic,
     currency: record.currency,
+    country: hit.country,
     identifiers,
     primaryProvider: record.provider,
+    tradingTimezone: hit.tradingTimezone,
   });
   return {
     ...canonical,
@@ -247,6 +253,7 @@ export async function searchInstrumentCatalog(
   let persistence: Awaited<ReturnType<typeof persistInstrumentHits>> | null =
     null;
   let providerLatencyMs = 0;
+  let activeProviders = capability.searchProviders;
 
   const needsProviderLookup =
     Boolean(query) &&
@@ -257,6 +264,7 @@ export async function searchInstrumentCatalog(
     try {
       const directory = await searchProviderInstruments(query);
       providerLatencyMs = directory.latencyMs;
+      activeProviders = directory.providers;
       degraded = directory.degraded;
       providerNote = directory.capabilityNote;
       const filteredHits = directory.hits.filter(
@@ -305,7 +313,7 @@ export async function searchInstrumentCatalog(
     persistence,
     coverage,
     degraded,
-    provider: "FMP + StockPilot Instrument Master",
+    provider: `${activeProviders.join(" / ") || "Kein Suchprovider"} + StockPilot Instrument Master`,
     providerLatencyMs,
     receivedAt: new Date().toISOString(),
   };

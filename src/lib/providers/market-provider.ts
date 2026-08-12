@@ -34,6 +34,14 @@ import {
   getFmpClient,
 } from "@/lib/providers/fmp-client";
 import {
+  getTwelveDataBatchLimit,
+  getTwelveDataClient,
+  getTwelveDataStreamSymbolLimit,
+  isTwelveDataStreamingEnabled,
+  streamTwelveDataQuotes,
+  TwelveDataClientError,
+} from "@/lib/providers/twelve-data-client";
+import {
   bindHistoryInstrumentContext,
   NO_HISTORY,
   fetchDailyHistory,
@@ -122,6 +130,8 @@ type QuoteProvider = NearRealtimeProvider & {
     symbols: string[],
     options?: MarketStreamOptions,
   ) => AsyncIterable<NormalizedQuote[]>;
+  /** Echte Provider-Batchroute; Cache/Backoff bleiben zentral. */
+  getQuotesBatch?: (symbols: string[]) => Promise<NormalizedQuote[]>;
 };
 
 class ProviderConfigurationError extends Error {}
@@ -358,6 +368,8 @@ function envQuality(name: string, fallback: MarketDataQuality) {
 
 function isRateLimitError(error: unknown) {
   if (error instanceof FmpClientError) return error.code === "rate_limited";
+  if (error instanceof TwelveDataClientError)
+    return error.code === "rate_limited";
   if (error instanceof ProviderHttpError)
     return error.status === 429 || error.status === 418;
   return /HTTP (429|418)/.test(
@@ -367,6 +379,8 @@ function isRateLimitError(error: unknown) {
 
 function isProviderAccessError(error: unknown) {
   if (error instanceof FmpClientError) return error.code === "not_entitled";
+  if (error instanceof TwelveDataClientError)
+    return error.code === "not_entitled" || error.code === "authentication";
   if (error instanceof ProviderHttpError)
     return error.status === 402 || error.status === 403;
   return false;
@@ -550,6 +564,109 @@ async function getCachedProviderQuotes(
   symbols: string[],
 ) {
   const normalizedSymbols = uniqueSymbols(symbols);
+  if (provider.getQuotesBatch && normalizedSymbols.length > 1) {
+    const now = Date.now();
+    const fresh = new Map<string, NormalizedQuote>();
+    const stale = new Map<string, NormalizedQuote>();
+    const unresolved: string[] = [];
+
+    for (const symbol of normalizedSymbols) {
+      const key = quoteCacheKey(provider, symbol);
+      let cached = quoteCache.get(key);
+      if (!cached) {
+        cached =
+          (await quoteSharedCache.get<QuoteCacheEntry>(
+            quoteSharedCacheKey(key),
+          )) ?? undefined;
+        if (cached) quoteCache.set(key, cached);
+      }
+      if (cached && now - cached.storedAtMs < cached.ttlMs) {
+        fresh.set(symbol, markServerCachedQuote(cached.quote));
+      } else {
+        if (cached && now - cached.storedAtMs < cached.staleTtlMs) {
+          stale.set(symbol, markServerCachedQuote(cached.quote));
+        }
+        if ((providerSymbolAccessDeniedUntil.get(key) ?? 0) <= now) {
+          unresolved.push(symbol);
+        }
+      }
+    }
+
+    if (unresolved.length) {
+      const sharedBackoffUntil = await quoteSharedCache.get<number>(
+        providerBackoffCacheKey(provider),
+      );
+      const backoffUntil = Math.max(
+        providerRateLimitUntil.get(provider.providerId) ?? 0,
+        sharedBackoffUntil ?? 0,
+      );
+      if (backoffUntil <= now) {
+        const batchSymbols = unresolved.slice(
+          0,
+          provider.providerId === "twelve_data"
+            ? getTwelveDataBatchLimit()
+            : unresolved.length,
+        );
+        const inFlightKey = `provider-batch:${provider.providerId}:${[
+          ...batchSymbols,
+        ]
+          .sort()
+          .join(",")}`;
+        let request = inFlightPollingBatches.get(inFlightKey);
+        if (!request) {
+          request = provider.getQuotesBatch(batchSymbols).finally(() => {
+            inFlightPollingBatches.delete(inFlightKey);
+          });
+          inFlightPollingBatches.set(inFlightKey, request);
+        }
+
+        try {
+          const quotes = await request;
+          for (const quote of quotes) {
+            const symbol = uniqueSymbols([quote.symbol])[0];
+            if (!symbol || !batchSymbols.includes(symbol)) continue;
+            fresh.set(symbol, quote);
+            const entry: QuoteCacheEntry = {
+              quote,
+              storedAtMs: Date.now(),
+              ttlMs: quoteCacheTtlFor(provider),
+              staleTtlMs: DEFAULT_STALE_QUOTE_CACHE_TTL_MS,
+            };
+            const key = quoteCacheKey(provider, symbol);
+            quoteCache.set(key, entry);
+            await quoteSharedCache.set(
+              quoteSharedCacheKey(key),
+              entry,
+              entry.staleTtlMs,
+            );
+          }
+        } catch (error) {
+          if (isRateLimitError(error)) {
+            await startProviderBackoff(provider, error);
+          } else if (isProviderAccessError(error)) {
+            for (const symbol of batchSymbols) {
+              providerSymbolAccessDeniedUntil.set(
+                quoteCacheKey(provider, symbol),
+                Date.now() +
+                  Math.max(DEFAULT_STALE_QUOTE_CACHE_TTL_MS, 3_600_000),
+              );
+            }
+          } else {
+            logEvent("error", "market_provider.batch_failed", {
+              provider: provider.providerName,
+              requested: batchSymbols.length,
+              error,
+            });
+          }
+        }
+      }
+    }
+
+    return normalizedSymbols.flatMap((symbol) => {
+      const quote = fresh.get(symbol) ?? stale.get(symbol);
+      return quote ? [quote] : [];
+    });
+  }
   const results: Array<NormalizedQuote | null> = Array.from(
     { length: normalizedSymbols.length },
     () => null,
@@ -766,7 +883,7 @@ function summaryFromNormalizedQuote(quote: NormalizedQuote): AssetSummary {
       dayHigh: quote.high ?? quote.price,
       dayLow: quote.low ?? quote.price,
       volume: quote.volume ?? 0,
-      delayedByMinutes: quote.quality === "delayed" ? 15 : 0,
+      delayedByMinutes: quote.quality === "delayed" ? 15 : null,
       asOf: quote.timestamp,
       bid: quote.bid ?? undefined,
       ask: quote.ask ?? undefined,
@@ -1580,47 +1697,30 @@ class TwelveDataQuoteProvider extends HttpQuoteProvider {
   readonly providerName = "Twelve Data";
   readonly providerId = "twelve_data" as const;
   readonly quality = envQuality("TWELVE_DATA_QUALITY", "near_realtime");
+  readonly streamMode: StreamMode = isTwelveDataStreamingEnabled()
+    ? "provider_websocket"
+    : "rest_polling";
 
   async getQuote(symbol: string) {
-    const token = process.env.TWELVE_DATA_API_KEY;
-    if (!token)
-      throw new ProviderConfigurationError("TWELVE_DATA_API_KEY fehlt");
+    const result = await getTwelveDataClient().getQuote(symbol, this.quality);
+    return result.data;
+  }
 
-    const url = new URL("https://api.twelvedata.com/quote");
-    url.searchParams.set("symbol", symbolForProvider(symbol, this.providerId));
-    url.searchParams.set("apikey", token);
+  async getQuotesBatch(symbols: string[]) {
+    const result = await getTwelveDataClient().getQuotes(symbols, this.quality);
+    return result.data;
+  }
 
-    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(
-      url,
-      this.providerName,
-    );
-    const price = parseNumber(data.close ?? data.price);
-    if (!price) return null;
-
-    const timestamp =
-      typeof data.datetime === "string"
-        ? new Date(data.datetime).toISOString()
-        : nowIso();
-
-    return toNormalizedQuote({
-      symbol,
-      price,
-      providerId: this.providerId,
-      providerSymbol: symbolForProvider(symbol, this.providerId),
-      currency: typeof data.currency === "string" ? data.currency : "USD",
-      change: parseNumber(data.change),
-      changePercent: parseNumber(data.percent_change),
-      volume: parseNumber(data.volume),
-      high: parseNumber(data.high),
-      low: parseNumber(data.low),
-      open: parseNumber(data.open),
-      previousClose: parseNumber(data.previous_close),
-      exchange: typeof data.exchange === "string" ? data.exchange : undefined,
-      timestamp,
-      provider: this.providerName,
+  streamQuotes(symbols: string[], options?: MarketStreamOptions) {
+    if (
+      this.streamMode !== "provider_websocket" ||
+      uniqueSymbols(symbols).length > getTwelveDataStreamSymbolLimit()
+    ) {
+      return pollQuotes(this, symbols, options);
+    }
+    return streamTwelveDataQuotes(symbols, {
+      signal: options?.signal,
       quality: this.quality,
-      latencyMs,
-      marketStatus: "unknown",
     });
   }
 }
@@ -2184,6 +2284,28 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
     symbol: string,
     interval: "1m" | "5m" | "15m" | "1h" | "1d",
   ) {
+    const route = resolveProviderRoute({
+      capability: "historical_bars",
+      assetClass: isCryptoSymbol(symbol) ? "crypto" : "equity",
+    });
+    if (route.providers.includes("twelve_data")) {
+      try {
+        const outputsize = interval === "1m" ? 390 : interval === "1d" ? 1_500 : 500;
+        const result = await getTwelveDataClient().getHistoricalBars(
+          symbol,
+          interval,
+          { outputsize },
+        );
+        if (result.data.bars.length) return result.data.bars;
+      } catch (error) {
+        logEvent("warn", "twelve_data.history_failed_over", {
+          symbol,
+          interval,
+          message: error instanceof Error ? error.message : "unknown",
+        });
+      }
+    }
+
     if (interval !== "1d") return [];
 
     const history = await withDeadline(
@@ -2293,7 +2415,9 @@ export class ChainedQuoteProvider implements QuoteProvider {
     for (const provider of this.chain) {
       if (unresolved.size === 0) break;
 
-      const quotes = await getCachedProviderQuotes(provider, [...unresolved]);
+      const quotes = provider.getQuotesBatch
+        ? await provider.getQuotes([...unresolved])
+        : await getCachedProviderQuotes(provider, [...unresolved]);
       for (const quote of quotes) {
         const normalizedSymbol = uniqueSymbols([quote.symbol])[0];
         if (!normalizedSymbol || !unresolved.has(normalizedSymbol)) continue;

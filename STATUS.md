@@ -1,5 +1,33 @@
 # StockPilot AI Status
 
+## 2026-08-12 – Phase 6: Twelve Data, lokale Freigabe abgeschlossen
+
+- Twelve Data ist als zentraler serverseitiger Adapter für Suche,
+  Instrumentauflösung, Quote, echtes Batch, historische Bars, Marktstatus und
+  tariflich gesperrtes Streaming integriert.
+- REST-Schlüssel bleiben in Headern und ausschließlich serverseitig; Host,
+  Endpunkte, Parameter und Antworten werden validiert. Fehler, Quoten und
+  fehlende Rechte bleiben getrennt und secret-frei.
+- Daten werden ohne erfundene Bid/Ask-, Volumen-, Währungs- oder Delaywerte
+  normalisiert. Listingidentität, MIC, Land, Zeitzone und Providerherkunft
+  bleiben bis Instrument Master, API und UI erhalten.
+- Streaming ist standardmäßig deaktiviert. Reconnect, Resubscribe, Heartbeat,
+  Backpressure und Listener-Cleanup sind getestet; REST-Polling ist der
+  kontrollierte Fallback.
+- Lokal bestanden: Format, TypeScript, ESLint, 149 Testdateien mit 1.129 Tests,
+  Coverage, Build mit 35 Seiten, 35 Browserflüsse bei 1 bewusstem Skip,
+  Dependency-/Lizenz-/Sprachprüfung, Performance- und Enterprise-Gates.
+- 2.000 aktive Sitzungen liefen ohne Fehler (`p95` 360 ms); das Release-Gate
+  bis 500 gleichzeitige Anfragen blieb fehlerfrei. Je 74 Timeouts bei den
+  nicht-gatenden 1.000-/2.000-Einzelprozess-Spitzen sind dokumentiert.
+- Ein lokaler Smoke mit dem offiziellen Demo-Key belegt Suche, Quote und
+  Historie technisch, aber weder einen Produktionsschlüssel noch externe
+  Nutzungsrechte.
+- GitHub-CI, Datenbankworkflow, Merge, StockPilot-Deployment und Live-Abnahme
+  stehen noch aus. Phase 6 ist deshalb noch nicht vollständig abgeschlossen.
+- BauPro bleibt unberührt. Phase 7 beginnt erst nach vollständiger
+  Produktionsabnahme von Phase 6.
+
 ## 2026-08-12 – Phase 4: Caching, Rate Limits und Circuit Breaker
 
 - Eine zentrale Resilience-Laufzeit schützt sämtliche HTTP-Providerzugriffe mit providerbezogenen Budgets, Burst-Grenzen, begrenzter Parallelität und Warteschlangen.

@@ -6,10 +6,10 @@ Stand: 2026-08-12
 
 | Feld | Tatsächlicher Stand |
 | --- | --- |
-| Phase | Phase 4: Caching, Rate Limits und Circuit Breaker abgeschlossen |
-| Abgeschlossener Punkt | Zentrale Provider-Resilience einschließlich geteiltem Cache-Stampede-Schutz |
-| Nächster Punkt | Phase 5: FMP-Adapter härten |
-| Produktionsstand | `main` auf `a9de16bfe9a633283b8199764dca702939e13874` |
+| Phase | Phase 6: Twelve Data aktiv; lokale Implementierung und QA abgeschlossen |
+| Abgeschlossener Punkt | Twelve-Data-Adapter, Normalisierung, Routing, Suche, Batch, Historie, Status und Streaming-Lifecycle lokal belegt |
+| Nächster Punkt | Phase-6-Commit, GitHub-CI/DB, Merge, ausschließlich StockPilot deployen und live prüfen |
+| Produktionsstand | `main` auf `053fd1315655872c7d2521ebeee361dc3ac4230d`; Phase 6 noch nicht produktiv |
 | Repository | `homann09-hue/STAI` |
 | Produktion | `https://stockpilot-ai-beta.vercel.app` |
 | Vercel-Projekt | ausschließlich `stockpilot-ai`; BauPro blieb unberührt |
@@ -59,7 +59,65 @@ Stand: 2026-08-12
 
 ## Nächster zulässiger Schritt
 
-Phase 3 beginnt mit der Bestandsaufnahme und Vereinheitlichung der Provider Registry und der Routing-Matrix. Das erste Ziel ist eine zentrale, konfigurierbare Auswahl nach Capability, Assetklasse, Lizenz, Health und Datenqualität, ohne Providerpriorität im Frontend und ohne einen gesperrten FMP-Quote als stillen Mock-/Fallbackpfad zu ersetzen.
+Phase 6 wird über einen isolierten Commit und Pull Request freigegeben. Erst
+nach grüner Anwendungs-CI, grünen Datenbanktests, Merge, StockPilot-Deployment,
+Live-Fail-Closed-Prüfung, Produktionslogkontrolle und Lastnachweis darf Phase 7
+beginnen. BauPro bleibt außerhalb jeder Aktion.
+
+## 2026-08-12 — Phase 6: Twelve Data, lokale Freigabe
+
+**Implementiert:**
+
+- Zentraler serverseitiger Twelve-Data-Client mit fester HTTPS-/WebSocket-
+  Zielbindung, Header-Authentifizierung für REST, Antwortvalidierung und
+  standardisierten, secret-freien Fehlern.
+- Normalisierung für Quotes, echte Batch-Antworten, Symbolsuche,
+  Listingauflösung, Marktstatus und historische OHLCV-Bars; Provideridentität,
+  MIC, Land, Zeitzone, Qualität und Zeitstempel bleiben erhalten.
+- Provider-Routing und Instrumentkatalog nutzen Twelve Data ohne eine zweite
+  Parallelarchitektur. Historie fällt nur kontrolliert auf einen berechtigten
+  Provider zurück.
+- Batch-, Cache-, Coalescing-, Rate-Limit-, Retry- und Circuit-Regeln sind in
+  die bestehende gemeinsame Resilience-Laufzeit integriert.
+- WebSocket-Streaming ist tariflich standardmäßig aus. Bei Aktivierung sind
+  Subscribe, Heartbeat, begrenzte Queue, Reconnect, Resubscribe und
+  Abort-/Listener-Cleanup getestet; REST-Polling bleibt verfügbar.
+- Health und geschützte Providerdiagnose unterscheiden fehlenden Schlüssel,
+  fehlende Rechte, deaktivierten Stream, Tarifgrenze und Providerfehler.
+
+**Lokale Evidenz:**
+
+- Format, TypeScript und ESLint: erfolgreich.
+- Unit/Integration: 149 Dateien, 1.129 Tests, alle erfolgreich.
+- Coverage: Statements 46,83 %, Branches 44,98 %, Functions 46,64 %,
+  Lines 48,57 %; Twelve-Client 80,11 % Statements.
+- Produktionsbuild: erfolgreich, 35 Seiten.
+- Browser/E2E: 35 erfolgreich, 1 redundanter Desktop-Mobile-Lauf bewusst
+  übersprungen.
+- Dependency-Audit: 0 bekannte Schwachstellen; Lizenzprüfung erfolgreich mit
+  den dokumentierten transitiven Sharp/libvips-LGPL-Prüfhinweisen.
+- Performance-Budget: 1.755.087 Bytes / 1.714 KiB, unter 2 MiB.
+- Enterprise-Readiness 99/100; einzige Warnung ist der absichtlich erst nach
+  Deployment ausführbare Live-URL-Test. Institutional-Readiness 28/28.
+- 2.000 aktive Sitzungen: 2.000 HTTP-200-Antworten, 0 Rejections,
+  0 HTTP-Fehler, `p95` 360 ms, Maximum 477 ms.
+- Stress-Release-Gate bis 500 gleichzeitig: 0 Rejections, 0 HTTP-Fehler,
+  `p95` 3.511 ms. Die nicht-gatenden 1.000-/2.000-Proben hatten jeweils
+  74 Client-Timeouts und belegen die Einzelprozessgrenze.
+- Chaos: fehlender Schlüssel, Provider-Deadline, deaktivierter Kryptopfad,
+  Eingabegrenzen und Rate-Limit-Burst ohne unerwartete Fehler.
+- Offizieller Twelve-Demo-Smoke: AAPL-Suche löst NASDAQ/XNGS zuerst auf;
+  Quote und 5.000 historische Tagesbars werden normalisiert. Der Demo-Key ist
+  kein Produktionsschlüssel und kein Nachweis externer Display-Rechte.
+
+**Offen vor Abschluss:**
+
+- Commit/Push, GitHub-CI und Datenbankworkflow.
+- Merge in `main`, ausschließlich Projekt `stockpilot-ai` deployen.
+- Live-Fail-Closed-Zustand ohne Twelve-Produktionsschlüssel, DR-/Security-
+  Prüfung, Produktionslogs und 2.000 aktive Produktionssitzungen.
+- `BLOCKED – EXTERNAL`: eigener Twelve-Schlüssel, Tarif und externe
+  Display-/Redistributionsrechte fehlen; der Provider bleibt produktiv aus.
 
 ## 2026-08-12 — Phase 3: Provider Registry und Routing
 

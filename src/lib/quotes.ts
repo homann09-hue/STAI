@@ -19,7 +19,7 @@ export function mergeLiveQuote(
         ? Math.ceil(liveQuote.reportedDelaySeconds / 60)
         : liveQuote.quality === "delayed"
           ? base.delayedByMinutes
-          : 0,
+          : null,
     asOf: liveQuote.timestamp,
     bid: liveQuote.bid ?? undefined,
     ask: liveQuote.ask ?? undefined,

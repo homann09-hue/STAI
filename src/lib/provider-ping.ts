@@ -6,6 +6,11 @@ import {
   fmpRowsOrRecordSchema,
   getFmpClient,
 } from "@/lib/providers/fmp-client";
+import {
+  getTwelveDataApiKey,
+  getTwelveDataClient,
+  TwelveDataClientError,
+} from "@/lib/providers/twelve-data-client";
 
 export type ProviderPingStatus = "ok" | "missing_key" | "degraded" | "skipped" | "error";
 
@@ -123,10 +128,54 @@ async function timedFmpCheck(configured: boolean): Promise<ProviderPingResult> {
   }
 }
 
+async function timedTwelveDataCheck(
+  configured: boolean,
+): Promise<ProviderPingResult> {
+  const checkedAt = new Date().toISOString();
+  if (!configured) {
+    return {
+      id: "twelve-data",
+      name: "Twelve Data",
+      status: "missing_key",
+      latencyMs: null,
+      checkedAt,
+      message: "API-Key fehlt oder Provider ist nicht aktiviert.",
+    };
+  }
+  const started = Date.now();
+  try {
+    const result = await getTwelveDataClient().healthCheck();
+    return {
+      id: "twelve-data",
+      name: "Twelve Data",
+      status: result.status,
+      latencyMs: result.latencyMs,
+      checkedAt,
+      message: result.message,
+    };
+  } catch (error) {
+    const degraded =
+      error instanceof TwelveDataClientError &&
+      ["rate_limited", "not_entitled"].includes(error.code);
+    return {
+      id: "twelve-data",
+      name: "Twelve Data",
+      status: degraded ? "degraded" : "error",
+      latencyMs: Date.now() - started,
+      checkedAt,
+      message:
+        error instanceof TwelveDataClientError
+          ? error.message
+          : "Ping fehlgeschlagen oder Timeout.",
+    };
+  }
+}
+
 export async function runProviderPings() {
   const report = getProviderHealthReport();
   const finnhubKey = process.env.FINNHUB_API_KEY;
   const fmpKey = process.env.FMP_API_KEY;
+  const twelveDataKey = getTwelveDataApiKey();
   const alphaKey = process.env.ALPHA_VANTAGE_API_KEY;
   const newsKey = process.env.NEWS_API_KEY ?? process.env.NEWSAPI_API_KEY;
   const marketauxKey = process.env.MARKETAUX_API_KEY;
@@ -134,6 +183,7 @@ export async function runProviderPings() {
   const checks = await Promise.all([
     timedCheck("finnhub", "Finnhub", finnhubKey ? `https://finnhub.io/api/v1/quote?symbol=AAPL&token=${encodeURIComponent(finnhubKey)}` : null, Boolean(finnhubKey)),
     timedFmpCheck(Boolean(fmpKey)),
+    timedTwelveDataCheck(Boolean(twelveDataKey)),
     timedCheck("alpha-vantage", "Alpha Vantage", alphaKey ? `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=AAPL&apikey=${encodeURIComponent(alphaKey)}` : null, Boolean(alphaKey)),
     timedCheck("newsapi", "NewsAPI", newsKey ? `https://newsapi.org/v2/top-headlines?language=en&pageSize=1&apiKey=${encodeURIComponent(newsKey)}` : null, Boolean(newsKey)),
     timedCheck("marketaux", "Marketaux", marketauxKey ? `https://api.marketaux.com/v1/news/all?symbols=AAPL&limit=1&api_token=${encodeURIComponent(marketauxKey)}` : null, Boolean(marketauxKey)),
