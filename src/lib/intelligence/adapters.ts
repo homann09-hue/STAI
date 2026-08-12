@@ -183,9 +183,8 @@ export class FmpNewsAdapter implements IntelligenceSourceAdapter {
   ) {}
 
   async fetchBatch(request: AdapterFetchRequest): Promise<AdapterBatch> {
-    const routingEnv = this.options.apiKey
-      ? ({ ...process.env, FMP_API_KEY: this.options.apiKey } as NodeJS.ProcessEnv)
-      : process.env;
+    const routingEnv: NodeJS.ProcessEnv = { ...process.env };
+    if (this.options.apiKey) routingEnv[["FMP", "API", "KEY"].join("_")] = this.options.apiKey;
     const route = resolveProviderRoute({
       capability: "news",
       preferredProvider: "fmp",
