@@ -48,23 +48,14 @@ describe("Auswertung der Anbieterantwort", () => {
     expect(parseFmpDailyHistory("AAPL", undefined)).toEqual([]);
   });
 
-  it("hält die Spanne widerspruchsfrei", () => {
-    // Ein Hoch unter dem Schlusskurs ist ein Anbieterfehler. Es wird korrigiert
-    // statt weitergereicht, sonst waere die ATR negativ.
-    const [candle] = parseFmpDailyHistory("AAPL", [row("2026-08-07", 100, { high: 90, low: 110 })]);
-
-    expect(candle.high).toBeGreaterThanOrEqual(candle.close);
-    expect(candle.low).toBeLessThanOrEqual(candle.close);
-    expect(candle.low).toBeGreaterThanOrEqual(0);
+  it("verwirft eine widersprüchliche Spanne statt sie zu reparieren", () => {
+    expect(
+      parseFmpDailyHistory("AAPL", [row("2026-08-07", 100, { high: 90, low: 110 })]),
+    ).toEqual([]);
   });
 
-  it("setzt bei fehlender Spanne den Schlusskurs ein, ohne zu schätzen", () => {
-    const [candle] = parseFmpDailyHistory("AAPL", [{ date: "2026-08-07", close: 100 }]);
-
-    expect(candle.open).toBe(100);
-    expect(candle.high).toBe(100);
-    expect(candle.low).toBe(100);
-    expect(candle.volume).toBe(0);
+  it("verwirft fehlende OHLCV-Werte statt eine plausible Kerze zu erfinden", () => {
+    expect(parseFmpDailyHistory("AAPL", [{ date: "2026-08-07", close: 100 }])).toEqual([]);
   });
 
   it("übernimmt Adjusted Close nur, wenn der Anbieter einen positiven Wert liefert", () => {

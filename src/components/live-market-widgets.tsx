@@ -78,7 +78,8 @@ export function MiniSparkline({ candles, positive }: { candles: Candle[]; positi
     const values = candles
       .map((candle) => candle.close)
       .filter((value) => Number.isFinite(value) && value > 0);
-    const cleanValues = values.length ? values : [1, 1.02, 1.01];
+    if (values.length < 2) return { area: "", points: "" };
+    const cleanValues = values;
     const min = Math.min(...cleanValues);
     const max = Math.max(...cleanValues);
     const spread = max - min || 1;
@@ -96,6 +97,10 @@ export function MiniSparkline({ candles, positive }: { candles: Candle[]; positi
     };
   }, [candles]);
 
+  if (!points) {
+    return <div className="flex h-12 items-center text-[11px] text-muted" role="status">Kein verifizierter Verlauf</div>;
+  }
+
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-12 w-full overflow-visible" aria-hidden="true">
       <polygon points={area} fill={positive ? "#35d07f" : "#ff5c5c"} opacity="0.12" />
@@ -104,33 +109,11 @@ export function MiniSparkline({ candles, positive }: { candles: Candle[]; positi
   );
 }
 
-function fallbackSparkline(item: AssetSummary, quote: Quote): Candle[] {
-  const volatility = Math.max(Math.abs(quote.change), quote.price * 0.004);
-  return [0, 1, 2, 3, 4, 5].map((step) => {
-    const close = quote.price - quote.change + (quote.change / 5) * step + Math.sin(step * 1.4) * volatility * 0.18;
-    return {
-      symbol: item.asset.symbol,
-      range: "1D",
-      timestamp: quote.asOf,
-      time: "",
-      open: close - volatility * 0.12,
-      high: close + volatility * 0.22,
-      low: close - volatility * 0.2,
-      close,
-      volume: quote.volume / 6
-    };
-  });
-}
-
 export const MarketIndexCard = memo(function MarketIndexCard({ item, liveQuote }: { item: AssetSummary; liveQuote?: NormalizedQuote }) {
   const quote = quoteFromSummary(item, liveQuote);
   const positive = quote.changePercent >= 0;
   const updated = marketTimeFormatter.format(new Date(quote.asOf));
   const href = item.asset.type === "index" && quote.provider.includes("Mock Index") ? "/indices" : `/assets/${encodeURIComponent(item.asset.symbol)}`;
-  const sparklineCandles = useMemo(
-    () => fallbackSparkline(item, quote),
-    [item, quote.asOf, quote.change, quote.price, quote.volume]
-  );
 
   return (
     <Link
@@ -149,7 +132,7 @@ export const MarketIndexCard = memo(function MarketIndexCard({ item, liveQuote }
       </div>
 
       <div className="mt-3 grid grid-cols-[1fr_auto] items-end gap-3">
-        <MiniSparkline candles={sparklineCandles} positive={positive} />
+        <MiniSparkline candles={[]} positive={positive} />
         <div className="text-right">
           <span className="font-mono text-lg font-semibold text-mist">{formatCurrency(quote.price, item.asset.currency)}</span>
           <div className="mt-1">

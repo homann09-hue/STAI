@@ -1,5 +1,16 @@
 # StockPilot AI Status
 
+## 2026-08-12 – Phase 2: Kanonisches Bar-/Kerzenmodell
+
+- Verbindlicher NormalizedBar-Vertrag mit Instrument, Provider, Intervall, UTC-Grenzen, OHLCV, Trade Count, VWAP, Währung, Provenienz und Qualitätsstatus.
+- RAW, SPLIT_ADJUSTED, DIVIDEND_ADJUSTED und SPLIT_DIVIDEND_ADJUSTED sind getrennte, validierte Zustände.
+- FMP-Zeilen mit fehlendem oder widersprüchlichem OHLCV werden verworfen; Duplikate, falsche Intervalle, Zukunftszeiten und gemischte Bereinigungsarten werden erkannt.
+- Analyse und Backtest bleiben bei ungeklärter Identität, Währung, Divergenz oder inkonsistenter Bereinigung geschlossen.
+- Synthetische Marktband-Sparklines wurden entfernt; fehlende Historie wird sichtbar als fehlend dargestellt.
+- Lokal belegt: Typecheck, Lint, 137 Testdateien / 1.051 Tests, Build mit 35 statischen Seiten, E2E 35 bestanden / 1 bewusst übersprungen.
+- GitHub-CI und Production-Liveprüfung: ausstehend bis zum Merge dieses Meilensteins.
+
+
 ## Aktueller Meilenstein: Phase 2 - Kanonisches Quote-Modell abgeschlossen
 
 Stand: 2026-08-12
