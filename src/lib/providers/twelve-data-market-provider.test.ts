@@ -9,6 +9,7 @@ import {
 beforeEach(async () => {
   vi.stubEnv("NODE_ENV", "test");
   vi.stubEnv("MARKET_DATA_ENV", "test");
+  vi.stubEnv("MARKET_DATA_DEFAULT_PROVIDER", "twelve_data");
   vi.stubEnv("TWELVE_DATA_API_KEY", "server-secret");
   vi.stubEnv("MARKET_DATA_ENABLE_TWELVE_DATA", "true");
   vi.stubEnv("MARKET_DATA_ENABLE_FINNHUB", "false");
