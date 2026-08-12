@@ -339,3 +339,23 @@ Nicht als erledigt gemeldet:
 - Leaked-Password-Protection bleibt tarifabhängig und laut Supabase erst ab Pro verfügbar.
 
 Offizielle Anleitung: https://supabase.com/docs/guides/auth/password-security
+
+### Ergänzung zu FMP-Instrument-/Tarifgrenzen vom 2026-08-12
+
+**Status:** `BLOCKED – EXTERNAL`
+
+Beim finalen Produktionsnachweis des kanonischen Bar-Modells antwortete AAPL mit
+HTTP 403 und `quote_not_entitled`. SPY, MSFT und NVDA antworteten fail-closed mit
+HTTP 503 und `identity_unverified`. Das suchgetriebene Instrumentuniversum
+enthielt zu diesem Zeitpunkt kein als `available` bestätigtes FMP-Symbol.
+
+Damit sind Deployment, API-Fehlerzustände und das Zurückhalten von Analysen real
+belegt. Ein finaler Live-Inhaltstest echter Providerbars ist jedoch erst möglich,
+wenn ein Produktionsprovider für dasselbe Instrument Identität, Quote und
+Historie freigibt.
+
+**Aktivierungsschritt:** FMP-Tarif mit symbolübergreifend nutzbaren Quotes und
+historischen Tagesdaten freischalten oder in Phase 3 einen lizenzierten Provider
+für Quote und Historie routen. Danach ein Instrument im Instrument Master als
+`available` messen und den Live-Test für Identität, Währung, OHLCV, Intervall,
+Adjustment-Art und Analysis Gate wiederholen.
