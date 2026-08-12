@@ -192,3 +192,13 @@ Den Abschlussnachweis über die vollständigen GitHub-Gates mergen. Danach genau
 ## Nächster zulässiger Schritt Phase 2
 
 Implementierung committen und über PR-CI prüfen. Der isolierte GitHub-Datenbankworkflow muss die Migration und alle pgTAP-Suiten bestehen. Erst danach darf die Migration auf Supabase-Produktion angewendet werden; anschließend folgen ausschließlich StockPilot-Deployment, reale Such-/Schema-Smokes und Abschlussdokumentation.
+
+## Aktiver Hotfix - Instrumentensuche nach Produktions-Smoke
+
+- **Ausgangsstand:** PR #65 ist als `508c30a7d72225dd0cbef12fa8e66fd98b7b14fe` gemergt; Main-CI `31553281620` und Database Tests `31553281554` sind erfolgreich.
+- **Produktion:** Migration `20260812012358` ist angewendet; Deployment `dpl_3Y7vph8PPxvP5w4s7SAX2TNaTf8w` ist READY und bedient den StockPilot-Live-Alias.
+- **Live-Befund:** Bei einer wiederholten Suche nach `AAPL` konnte `AAPL.NE` wegen hoeherer `confirmation_count` vor dem exakten Ticker erscheinen.
+- **Ursache:** Persistierte und neu gelieferte Treffer wurden zusammengefuehrt, ohne eine gemeinsame querybezogene Rangfolge zu berechnen.
+- **Korrektur:** Exaktes Symbol, exaktes Anzeigesymbol und exakte Kennung erhalten voneinander getrennte absolute Relevanzstufen. Symbol-/Namensnaehe folgt danach; Aufloesungs-, Kurs-, Herkunfts-, Konfidenz- und Bestaetigungswerte entscheiden nur innerhalb einer Relevanzstufe.
+- **Status:** Implementierung und Regressionstests angelegt; alle lokalen und externen Abschlussgates stehen noch aus.
+- **Projektgrenze:** Ausschliesslich StockPilot; BauPro bleibt unberuehrt.

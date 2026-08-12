@@ -37,6 +37,82 @@ export interface InstrumentCatalogCoverage {
   verifiedAt: string;
 }
 
+function normalizedSearchValue(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleUpperCase("en-US");
+}
+
+function catalogSearchScore(
+  hit: InstrumentCatalogHit,
+  normalizedQuery: string,
+): number {
+  const symbol = normalizedSearchValue(hit.symbol);
+  const displaySymbol = normalizedSearchValue(hit.displaySymbol);
+  const name = normalizedSearchValue(hit.name);
+  const identifiers = hit.identifiers.map((identifier) =>
+    normalizedSearchValue(identifier.value),
+  );
+
+  let relevance = 0;
+  if (normalizedQuery) {
+    if (symbol === normalizedQuery) relevance = 1_000_000;
+    else if (displaySymbol === normalizedQuery) relevance = 950_000;
+    else if (identifiers.includes(normalizedQuery)) relevance = 900_000;
+    else if (symbol.startsWith(normalizedQuery)) relevance = 800_000;
+    else if (displaySymbol.startsWith(normalizedQuery)) relevance = 750_000;
+    else if (name === normalizedQuery) relevance = 700_000;
+    else if (name.startsWith(normalizedQuery)) relevance = 650_000;
+    else if (
+      identifiers.some((identifier) => identifier.startsWith(normalizedQuery))
+    )
+      relevance = 600_000;
+    else if (name.includes(normalizedQuery)) relevance = 500_000;
+    else if (symbol.includes(normalizedQuery)) relevance = 400_000;
+    else if (displaySymbol.includes(normalizedQuery)) relevance = 350_000;
+    else if (
+      identifiers.some((identifier) => identifier.includes(normalizedQuery))
+    )
+      relevance = 300_000;
+  }
+
+  const resolution =
+    hit.resolutionStatus === "resolved"
+      ? 10_000
+      : hit.resolutionStatus === "ambiguous"
+        ? 5_000
+        : 0;
+  const quote =
+    hit.quoteStatus === "available"
+      ? 2_000
+      : hit.quoteStatus === "unknown"
+        ? 1_000
+        : 0;
+  const origin = hit.origin === "instrument_master" ? 500 : 0;
+  const confidence = Math.min(100, Math.max(0, hit.identityConfidence));
+  const confirmations = Math.min(
+    100,
+    Math.max(0, Math.floor(hit.confirmationCount)),
+  );
+
+  return relevance + resolution + quote + origin + confidence + confirmations;
+}
+
+export function rankInstrumentCatalogHits(
+  hits: readonly InstrumentCatalogHit[],
+  query: string,
+): InstrumentCatalogHit[] {
+  const normalizedQuery = normalizedSearchValue(query);
+  return [...hits].sort((left, right) => {
+    const scoreDifference =
+      catalogSearchScore(right, normalizedQuery) -
+      catalogSearchScore(left, normalizedQuery);
+    if (scoreDifference !== 0) return scoreDifference;
+    return left.canonicalId.localeCompare(right.canonicalId, "en");
+  });
+}
+
 function readinessFor(hit: InstrumentCatalogHit): {
   status: InstrumentAnalysisReadiness;
   blockers: string[];

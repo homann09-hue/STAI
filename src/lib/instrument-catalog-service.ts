@@ -12,6 +12,7 @@ import {
   searchStoredInstruments,
 } from "@/lib/instrument-master-store";
 import { logEvent } from "@/lib/observability";
+import { rankInstrumentCatalogHits } from "@/lib/instrument-catalog";
 import type {
   InstrumentCatalogCoverage,
   InstrumentCatalogHit,
@@ -279,7 +280,10 @@ export async function searchInstrumentCatalog(
       "Provider-Suche ist nicht konfiguriert. Es werden nur Eintraege des Instrument Masters angezeigt.";
   }
 
-  const results = [...storedResults, ...providerResults].slice(0, limit);
+  const results = rankInstrumentCatalogHits(
+    [...storedResults, ...providerResults],
+    query,
+  ).slice(0, limit);
   const coverage: InstrumentCatalogCoverage = {
     complete: false,
     mode: "search_driven",
