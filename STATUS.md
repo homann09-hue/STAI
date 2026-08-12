@@ -382,4 +382,10 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Die kanonische Instrumentmigration ist auf dem Produktionsprojekt `STAI` angewendet. RLS, privilegierte Schreibgrenzen und die neuen Constraints wurden direkt gegen Produktion geprueft.
 - Das StockPilot-Deployment `dpl_3Y7vph8PPxvP5w4s7SAX2TNaTf8w` ist READY; BauPro wurde nicht veraendert oder deployt.
 - Der reale Such-Smoke deckte eine Rankingregression auf: Ein haeufiger bestaetigtes Suffix-Listing konnte den exakten Ticker verdraengen. Der aktive Hotfix priorisiert jetzt exaktes Symbol, exakte Kennung und erst danach Naehe sowie Bestaetigungsdaten.
-- Der Arbeitspunkt bleibt bis zu vollstaendigen lokalen Gates, GitHub-CI, erneutem StockPilot-Deployment und realer Suchpruefung offen.
+- Der Suchranking-Hotfix wurde mit PR #66 als `9b49193ba724cb860dbf6f326d75d93fb1f8f8b8` in `main` uebernommen. Exakte Symbole und Kennungen koennen nicht mehr durch Bestaetigungszaehler unscharfer Listings verdraengt werden.
+- Lokal bestanden: 5 gezielte Tests, TypeScript, ESLint, 131 Testdateien mit 1.017 Tests, Produktions-Build mit 35 Seiten und 35 Browserfluesse; ein redundanter Desktop-Lauf des Mobile-Tests ist bewusst uebersprungen.
+- PR-Gates: StockPilot CI `31553969385`, Database Tests `31553969403` mit 224 pgTAP-Pruefungen und Vercel-Vorschau `dpl_7iLnKN1VK4nDF3VyG9NgNWR2GthA` sind erfolgreich.
+- Finale Main-Gates: StockPilot CI `31554156481` und Database Tests `31554156442` sind erfolgreich.
+- Produktion: `dpl_3xBgzmgrzzciZd67sFZ6uPyMG4Jt` ist READY und bedient `https://stockpilot-ai-beta.vercel.app`.
+- Live-Abnahme: `/`, `/markets`, `/assets/AAPL` und `/api/health` jeweils HTTP 200. Drei aufeinanderfolgende Suchen ordnen `AAPL` auf NASDAQ vor `AAPL.NE`; Abdeckung bleibt ehrlich `complete: false` und `search_driven`; das Fehlerlog ist leer.
+- Das kanonische Instrumentenmodell ist damit produktiv abgeschlossen. Naechster einzelner Phase-2-Arbeitspunkt ist das kanonische Quote-Modell. BauPro blieb unveraendert.

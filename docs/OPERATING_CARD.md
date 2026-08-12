@@ -1,137 +1,59 @@
 # StockPilot AI Operating Card
 
-Stand: 2026-08-11
+Stand: 2026-08-12
 Autorität: `docs/ULTIMATE_MARKET_READINESS_GOAL.md`
 
 ## Oberstes Produktziel
 
-StockPilot AI wird Phase für Phase zu einem belegbar marktreifen Finanzanalyse-Produkt für aktive Anleger und Trader entwickelt. Priorität haben Datenkorrektheit, Stabilität, Sicherheit, tatsächlicher Trader-Mehrwert, Erklärbarkeit, Geschwindigkeit, UX und erst danach Funktionsbreite.
+StockPilot AI wird Phase für Phase zu einem belegbar marktreifen Finanzanalyse-Produkt für aktive Anleger und Trader entwickelt. Priorität: Datenkorrektheit, Stabilität, Sicherheit, tatsächlicher Trader-Mehrwert, Erklärbarkeit, Geschwindigkeit, UX, Funktionsbreite.
 
-## Aktuelle Phase
+## Aktuelle Phase und aktiver Punkt
 
 **Phase 2: Kanonische Instrument-, Quote- und Bar-Domainmodelle.**
 
-Aktiver Arbeitspunkt: Zuerst das kanonische Instrumentenmodell vollständig durch Domain, Instrument Master, Such-API, Migration und Datenbankkontrollen führen. Unbekannte Referenzdaten bleiben `null`; keine MIC-, ISIN-, FIGI-, Zeitzonen- oder Listingstatus-Heuristiken.
+Das kanonische Instrumentenmodell ist produktiv abgeschlossen. Aktiver nächster Einzelpunkt ist das kanonische Quote-Modell mit Provider-/Venue-Identität, Bid/Ask/Last, Größen, OHLC, Volumen/VWAP, drei Zeitstempeln, Marktphase, Feedtyp, belegter Verzögerung und zentralem Qualitätsstatus. Keine UI- oder Providerintegration darf diesen Typ umgehen.
 
-## Wichtigste Qualitätsregeln
+## Qualitätsregeln
 
-1. Keine erfundenen Marktdaten, Quellen, Kennzahlen oder Erfolgsmeldungen.
-2. Nie `Live` oder `Realtime` anzeigen, wenn Daten delayed, cached, mock, stale oder nicht lizenzgeprüft sind.
-3. Keine Analyse veröffentlichen, wenn Instrument, Währung, Aktualität oder erforderliche Eingangsdaten unzureichend sind.
-4. Nutzerdaten ausschließlich über den tokengebundenen Supabase-Client und RLS trennen. Service Role nur für begründete, dokumentierte Serverpfade.
-5. Secrets ausschließlich serverseitig. Providerabrufe nur begrenzt, validiert und gegen SSRF geschützt.
-6. LLMs interpretieren validierte Evidenz, berechnen aber keine Finanzkennzahlen und erfinden keine Fakten.
-7. Ein Arbeitspunkt wird beendet, bevor der nächste beginnt.
+1. Keine erfundenen Daten, Quellen, Kennzahlen oder Erfolgsmeldungen.
+2. Nie `Live`/`Realtime` anzeigen, wenn Daten delayed, cached, mock, stale oder lizenzrechtlich ungeprüft sind.
+3. Analysen bei ungeklärtem Instrument, falscher Währung, unzureichender Aktualität oder fehlender Evidenz zurückhalten.
+4. Nutzerdaten ausschließlich tokengebunden und RLS-geschützt; Service Role nur in den drei dokumentierten Ausnahmewegen.
+5. Secrets ausschließlich serverseitig; Providerabrufe begrenzt, validiert, dedupliziert und SSRF-geschützt.
+6. LLMs interpretieren validierte Evidenz, berechnen keine Finanzkennzahlen und erfinden keine Fakten.
+7. Genau einen Arbeitspunkt vollständig beenden, bevor der nächste beginnt.
 
-## Aktuelle Blocker
+## Aktuelle externe Blocker
 
-- `BLOCKER-001/005`: Der aktive FMP-Tarif liefert kein vollständiges Verzeichnis und schaltet Quotes symbolweise frei.
+- `BLOCKER-001/005`: FMP liefert kein vollständiges Verzeichnis und schaltet Quotes symbolweise frei.
 - `BLOCKER-002/009`: Vollständige Realtime- und Display-Rechte benötigen geeignete Datenverträge.
 - `BLOCKER-004`: Native iOS-Veröffentlichung benötigt vollständigen Apple-Developer-Zugang.
 - `BLOCKER-006`: Vercel Hobby erlaubt Cron-Jobs nur täglich.
 - `BLOCKER-010`: Verteilter Produktionscache fehlt.
-- `BLOCKER-011`: Kommerzielle Rechts- und Lizenzprüfung ist nicht abgeschlossen.
+- `BLOCKER-011`: Kommerzielle Rechts- und Lizenzprüfung ist offen.
 - `BLOCKER-012`: Supabase-Schutz gegen bekannte geleakte Passwörter ist deaktiviert.
 
-Details und Nachweise stehen in `docs/BLOCKERS.md`.
+Details: `docs/BLOCKERS.md`.
 
-## Definition of Done für jeden Arbeitspunkt
+## Definition of Done je Arbeitspunkt
 
-Implementierung, Typecheck, Lint, Unit- und Integrationstests, relevante E2E-Tests, Build, Security-Auswirkungen, Mobile/Desktop, Regressionen und Dokumentation sind geprüft. Danach folgen sauberer Commit, GitHub-Push, grünes CI, kontrollierte Datenbankmigration, kontrolliertes Deployment und reale Funktionsprüfung. Externe Hindernisse werden als `BLOCKED - EXTERNAL` dokumentiert.
+Implementierung, Typecheck, Lint, Unit-/Integrationstests, relevante E2E-Tests, Build, Security, Mobile/Desktop, Regressionen und Dokumentation sind geprüft. Danach folgen Commit, Push, grünes CI, kontrollierte Migration, ausschließlich StockPilot-Deployment und reale Produktionsprüfung. Externe Hindernisse werden als `BLOCKED - EXTERNAL` dokumentiert.
+
+## Letzter belegter Produktionsstand
+
+- Kanonisches Instrumentenmodell: PR #65, Merge `508c30a7d72225dd0cbef12fa8e66fd98b7b14fe`.
+- Suchranking-Hotfix: PR #66, Merge `9b49193ba724cb860dbf6f326d75d93fb1f8f8b8`.
+- Finale Main-Gates: StockPilot CI `31554156481`; Database Tests `31554156442`, 224/224 pgTAP.
+- Supabase: Migration `20260812012358`; Schema, Constraints, RLS und RPC-Rechte produktiv geprüft.
+- Vercel: `dpl_3xBgzmgrzzciZd67sFZ6uPyMG4Jt`, READY, Alias `stockpilot-ai-beta.vercel.app`.
+- Live: `/`, `/markets`, `/assets/AAPL`, `/api/health` jeweils 200; drei exakte `AAPL`-Suchen korrekt; Fehlerlog leer.
+- Projektgrenze: ausschließlich `stockpilot-ai`; BauPro blieb unverändert.
 
 ## Arbeitsregeln
 
 - Zu Aufgabenstart diese Karte und `docs/EXECUTION_LEDGER.md` lesen.
 - Vor Änderungen den echten Repository-, CI- und Live-Stand messen.
-- Bestehende Architektur erweitern, keine unnötige Parallelarchitektur bauen.
-- Provider-Provenance und Datenqualität bis in die UI erhalten.
-- BauPro niemals verändern, neu deployen oder mit StockPilot-Artefakten vermischen.
-- `STATUS.md`, `docs/EXECUTION_LEDGER.md` und belegte Blocker nach jedem Meilenstein aktualisieren.
-
-## Abschluss dieses Arbeitspunkts
-
-Status: abgeschlossen am 2026-08-11.
-
-Belegt durch PR #51, Merge c2e43c6, grüne Main-CI- und pgTAP-Läufe, angewendete Produktionsmigration, READY-Deployment dpl_9rgmGDqW9BqmW3BkJJBmkryKLMab, 5/5 erfolgreiche Live-Smokes und leeres Vercel-Fehlerlog.
-
-Nächster einzelner Phase-1-Arbeitspunkt: Auth-/Passwort-Härtung gemäß BLOCKER-012. Die übergeordnete Marktreife-Mission bleibt aktiv.
-
-## Aktiver Phase-1-Arbeitspunkt: Auth-/Passwort-Härtung
-
-Ziel: Passwort-Reset, App-Regeln und Supabase-Regeln konsistent absichern, ohne die produktive Auth-Konfiguration breit oder unbelegt zu überschreiben.
-
-Lokaler Stand: implementiert und vollständig grün mit 127 Testdateien, 998 Tests, Produktions-Build sowie 35 bestandenen Browser-Tests.
-
-Externe Abnahmebedingung: gezielte Produktionsaktivierung von Mindestlänge und sicherem Passwortwechsel sowie, bei verfügbarem Pro-Tarif, Leaked-Password-Protection. Bis dahin bleibt BLOCKER-012 offen und dieser Arbeitspunkt wird nicht als produktiv abgeschlossen bezeichnet.
-
-Web-App-Stand: Die UI-Härtung ist als Deployment dpl_6LXiqnVm5rurCwWZfVn95xfkFTAD live und technisch grün. Der Arbeitspunkt bleibt ausschließlich wegen der getrennten Supabase-Produktionskonfiguration offen.
-
-## Aktiver Phase-1-Arbeitspunkt: Portfolio-Trade-Mandantengrenze
-
-Ziel: Die atomare Portfolio-RPC akzeptiert keine Nutzer-ID mehr, leitet den Eigentümer ausschließlich aus `auth.uid()` ab und läuft über den tokengebundenen RLS-Client. Direkte RPC-Aufrufe werden zusätzlich durch Datenbankgrenzen validiert.
-
-Lokaler Stand: implementiert und vollständig grün mit 128 Testdateien, 1.001 Tests, 10 pgTAP-Dateien mit 201 Prüfungen, Produktions-Build, 35 bestandenen Browserflüssen und 5/5 parallelen Hydration-Durchläufen.
-
-Produktionsabschluss: PR #55 ist als `6df7f4e` gemergt. Main-CI und Datenbanktests sind grün, Migration `20260811193000` ist angewendet und die neue RPC ist `auth.uid()`-gebunden. Deployment `dpl_H6FXaQ35nnYeLcw2bbxgJMUm9Cqg` ist READY; vier HTTP-Smokes, der echte lokale Portfoliofluss und das Fehlerlog sind grün.
-
-Nächster Schritt: Abschlussdokumentation mergen, danach den nächsten einzelnen Phase-1-Befund auswählen. Die übergeordnete Marktreife-Mission bleibt aktiv.
-
-## Aktiver Phase-1-Arbeitspunkt: Auth-Privilegiengrenze
-
-Ziel: Watchlist-, Alert-, Portfolio-, Billing- und andere normale Nutzerpfade validieren Sessions ausschließlich mit dem tokengebundenen Publishable-Key-Client. Der Service-Role-Client wird weder vorausgesetzt noch im Auth-Ergebnis weitergereicht.
-
-Privilegierte Ausnahmen: DSGVO-Export und administrative Kontolöschung erzeugen den Service-Client erst innerhalb der jeweiligen Operation und brechen bei fehlender Konfiguration sicher ab.
-
-Abnahme: Regressionstest, vollständige Qualitätsgates, GitHub-CI, kontrolliertes StockPilot-Deployment und Live-Smokes. BauPro bleibt vollständig unberührt.
-
-Lokaler Stand: implementiert und grün mit Formatprüfung, Typecheck, Lint, 129 Testdateien und 1.004 Tests, Produktions-Build mit 35 statischen Seiten sowie 35 bestandenen Browserflüssen und einem bewussten Skip.
-
-Produktionsabschluss: PR #57 ist als `3ceac72` gemergt. Main-CI `31518017780` und Datenbanktests `31518017734` sind grün. Das ausschließlich dem Projekt `stockpilot-ai` zugeordnete Deployment `dpl_5a5ih8TAvs1mqcJE8ND8RC8iwAeq` ist READY und bedient die Live-Aliase. Fünf Live-Ziele, lokale Fallbacks für anonyme und ungültige Sessions sowie das Fehlerlog sind geprüft. BauPro blieb unberührt.
-
-Nächster Schritt: den Abschlussnachweis mergen und danach genau einen weiteren Phase-1-Befund anhand von Risiko und Produktwirkung auswählen. Die übergeordnete Marktreife-Mission bleibt aktiv.
-
-## Aktiver Phase-1-Arbeitspunkt: DSGVO-Export-Mandantengrenze
-
-Ziel: Kein Exportpfad darf RLS pauschal umgehen. Alle persönlichen Tabellen werden über den tokengebundenen Nutzerclient gelesen. `billing_events` erhält nur SELECT für eigene Zeilen; INSERT, UPDATE und DELETE bleiben für `authenticated` verboten.
-
-Abnahme: Code-Regression, pgTAP-Mandantentest, vollständige Qualitätsgates, kontrollierte Produktionsmigration, GitHub-CI, StockPilot-Deployment und reale Export-/Fallback-Prüfung. BauPro bleibt vollständig unberührt.
-
-Lokaler Stand: implementiert und grün mit Formatprüfung, Typecheck, Lint, 129 Testdateien und 1.005 Tests, 10 pgTAP-Suiten und 207 Prüfungen, Produktions-Build mit 35 statischen Seiten sowie 35 bestandenen Browserflüssen und einem bewussten Skip.
-
-## Letzter Produktionsnachweis: DSGVO-Export-RLS (2026-08-11)
-
-- Merge: PR #59 / `ff9d45529e48df9b7acd268432e9ccf4c7c91c64`
-- Supabase: `harden_billing_export_tenant_boundary` angewendet und Rechte direkt gegen Produktion geprüft
-- CI: `31520423798` und `31520423808` erfolgreich
-- Vercel: `dpl_3eUzVsgZy6tBpLjz3SAgohqTHDo7`, Status READY, Alias `stockpilot-ai-beta.vercel.app`
-- Live: Kernseiten 200; anonymer Export 401; keine Fehler- oder Secret-Ausgabe
-- Abgrenzung: ausschließlich Projekt `stockpilot-ai`; BauPro unverändert
-
-## Aktiver Arbeitspunkt: Provider-429-Stabilisierung
-
-- Produktionsbefund: Dashboard-Smoke löste mehrere parallele FMP-429 aus.
-- Grenze: nur Quote-Routing, providerbezogener Cache/Backoff, FMP-Parallelität und Retry-After.
-- Fertig erst nach vollständigen lokalen Gates, CI, StockPilot-Deployment und erneuter Live-Log-Prüfung.
-
-## Produktionsabschluss: Provider-429-Stabilisierung
-
-- Quote-Batches werden providerweise aufgelöst; nur ungelöste Symbole erreichen den nächsten Anbieter.
-- Provider-Cache, gemeinsamer Backoff, Retry-After und konservative Parallelität greifen auf der tatsächlichen Provider-Ebene.
-- FMP ist kein Standard-Primary für Quotes mehr. Die API nennt die tatsächlich liefernden Quote-Provider in Body und Header.
-- Lokal: 130 Testdateien / 1.011 Tests, TypeScript, ESLint und Build vollständig grün.
-- GitHub: PR #61, #62 und #63 gemergt; finale Main-CI `31524154601` und Database Tests `31524154520` erfolgreich.
-- Last: 2.000/2.000 Sitzungen mit HTTP 200, keine HTTP-Fehler; p95 1.155 ms. 1.000-/2.000-Stressproben zeigen je 75 Client-Timeouts und damit weiteren horizontalen Skalierungsbedarf oberhalb des 500er Release-Gates.
-- Produktion: `dpl_87usaNbURyTjfTNwLaqzsPTmZmjx`, READY, Alias `stockpilot-ai-beta.vercel.app`.
-- Live: fünf Kernziele HTTP 200; zehn Quotes von Finnhub als `near_realtime`; kein Mock-/Unavailable-Fallback.
-- Log: ein gemeinsames FMP-Backoff-Ereignis, keine symbolweise 429-Anfragewelle.
-- Projektgrenze: ausschließlich `stockpilot-ai`; BauPro blieb unverändert.
-
-Nächster Schritt: Abschlussnachweis mergen und danach genau einen weiteren Phase-1-Befund nach Risiko und Produktwirkung auswählen. Die übergeordnete Marktreife-Mission bleibt aktiv.
-
-## Aktiver Phase-2-Arbeitspunkt: Kanonisches Instrumentenmodell
-
-Ziel: Jedes bekannte Listing besitzt eine providerunabhängige, stark typisierte Identität mit interner ID, Symbol, Anzeigename, Assetklasse, Instrumenttyp, Börse, MIC, Währung, Land, ISIN/FIGI, Provider-Mappings, Handelszeitzone, Präzision und belegtem Aktiv-/Delistingstatus.
-
-Lokaler Stand: Domain, ehrliche Normalisierung, Instrumentkatalog, persistentes Schema, Suchausgabe und 41 pgTAP-Kontrollen sind implementiert. TypeScript, ESLint, 131 Testdateien / 1.015 Tests, Build und 35 Browserflüsse sind grün.
-
-Abnahmegrenze: Docker Desktop startet nach einem lokalen ENOSPC-Abbruch noch nicht. Deshalb bleibt der Punkt offen, bis der isolierte GitHub-Datenbankworkflow die vollständige Migration und alle pgTAP-Suiten belegt, die Produktionsmigration kontrolliert angewendet und StockPilot live geprüft ist.
+- Bestehende Architektur erweitern, keine Parallelarchitektur bauen.
+- Provenienz und Datenqualität bis in die UI erhalten.
+- BauPro niemals verändern oder deployen.
+- `STATUS.md`, Ledger und belegte Blocker nach jedem Meilenstein aktualisieren.
