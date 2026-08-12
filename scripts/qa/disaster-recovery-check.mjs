@@ -114,10 +114,34 @@ try {
   }
 
   const quotes = await request("/api/market/quotes?symbols=AAPL,BTC-USD");
-  if (quotes.status < 500 && Array.isArray(quotes.json?.quotes) && quotes.json.quotes.length > 0) {
-    report.push(pass("market quotes degraded operation", `status=${quotes.status}, provider=${quotes.json.provider ?? "unknown"}`));
+  const quoteRows = Array.isArray(quotes.json?.quotes) ? quotes.json.quotes : null;
+  const unavailableSymbols = Array.isArray(quotes.json?.fallback?.unavailableSymbols)
+    ? quotes.json.fallback.unavailableSymbols
+    : [];
+  const mockSymbols = Array.isArray(quotes.json?.fallback?.mockSymbols)
+    ? quotes.json.fallback.mockSymbols
+    : [];
+  const hasProviderQuotes = Boolean(quoteRows?.length);
+  const isExplicitlyUnavailable = Boolean(
+    quoteRows
+      && quoteRows.length === 0
+      && quotes.json?.fallback?.degraded === true
+      && unavailableSymbols.length > 0
+      && mockSymbols.length === 0
+  );
+
+  if (quotes.status < 500 && (hasProviderQuotes || isExplicitlyUnavailable)) {
+    report.push(pass(
+      "market quotes degraded operation",
+      hasProviderQuotes
+        ? `status=${quotes.status}, provider=${quotes.json.provider ?? "unknown"}`
+        : `status=${quotes.status}, ${unavailableSymbols.length} symbol(s) explicitly unavailable, no mock fallback`
+    ));
   } else {
-    report.push(fail("market quotes degraded operation", `expected non-5xx quotes payload, got ${quotes.status}`));
+    report.push(fail(
+      "market quotes degraded operation",
+      `expected provider quotes or explicit unavailable state without mocks, got status=${quotes.status}`
+    ));
   }
 
   const invalidQuotes = await request("/api/market/quotes?symbols=%25%25%25");
