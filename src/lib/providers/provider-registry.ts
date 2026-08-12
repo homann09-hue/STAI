@@ -274,10 +274,10 @@ export const PROVIDER_DEFINITIONS: readonly ProviderDefinition[] = [
   {
     id: "fred",
     name: "FRED",
-    adapterStatus: "prepared",
+    adapterStatus: "implemented",
     capabilities: ["macro"],
     assetClasses: ["macro"],
-    configurationEnv: ["FRED_API_KEY"],
+    configurationEnv: [],
     enableEnv: "MARKET_DATA_ENABLE_FRED",
     feedType: "reference",
     maximumKnownDelay: null,

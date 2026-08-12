@@ -2,6 +2,7 @@ import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
 import { withCacheFallback } from "@/lib/provider-cache";
 import { cacheControlHeaders, getCostControls } from "@/lib/cost-controls";
 import { getMacroOverview } from "@/lib/providers/macro-provider";
+import { resolveProviderRoute } from "@/lib/providers/provider-registry";
 import { getUsMacroOverview } from "@/lib/providers/us-macro-provider";
 import { trackProviderUsage } from "@/lib/cost/usage-recorder";
 import { logEvent } from "@/lib/observability";
@@ -67,6 +68,21 @@ export async function GET(request: Request) {
     return jsonError(
       `Unbekannter Wirtschaftsraum "${requested}". Verfügbar: ${Object.keys(regions).join(", ")}.`,
       400
+    );
+  }
+
+  const routing = resolveProviderRoute({
+    capability: "macro",
+    assetClass: "macro",
+    preferredProvider: region.usageProvider,
+  });
+  if (!routing.providers.includes(region.usageProvider)) {
+    const reason = routing.rejected.find(
+      (entry) => entry.providerId === region.usageProvider,
+    )?.detail;
+    return jsonError(
+      `Makrodaten sind für die externe Anzeige nicht freigeschaltet. ${reason ?? "Kein zulässiger Provider verfügbar."}`,
+      503,
     );
   }
 

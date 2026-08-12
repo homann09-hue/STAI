@@ -1,4 +1,5 @@
 import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
+import { resolveProviderRoute } from "@/lib/providers/provider-registry";
 import { fetchCompanyFilings, hasSecContact } from "@/lib/sec/edgar";
 import { validateSymbol } from "@/lib/validation";
 
@@ -17,6 +18,21 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const parsed = validateSymbol(searchParams.get("symbol") ?? "");
   if (!parsed.success) return jsonError("Ungültiges Symbol.", 400);
+
+  const routing = resolveProviderRoute({
+    capability: "filings",
+    assetClass: "equity",
+    preferredProvider: "sec_edgar",
+  });
+  if (!routing.providers.includes("sec_edgar")) {
+    const reason = routing.rejected.find(
+      (entry) => entry.providerId === "sec_edgar",
+    )?.detail;
+    return jsonError(
+      `SEC-Daten sind für die externe Anzeige nicht freigeschaltet. ${reason ?? "Kein zulässiger Provider verfügbar."}`,
+      503,
+    );
+  }
 
   const requestedForms = (searchParams.get("forms") ?? "")
     .split(",")
