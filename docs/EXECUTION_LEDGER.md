@@ -6,10 +6,10 @@ Stand: 2026-08-12
 
 | Feld | Tatsächlicher Stand |
 | --- | --- |
-| Phase | Phase 2: kanonische Instrument-/Quote-/Bar-Modelle abgeschlossen |
-| Abgeschlossener Punkt | Kanonisches Bar-/Kerzenmodell einschließlich Analyse-Gate |
-| Nächster Punkt | Phase 3: Provider Registry und Routing |
-| Produktionsstand | `main` auf `02c245cfc92cf475dc865873a37d12f7895279c0` |
+| Phase | Phase 4: Caching, Rate Limits und Circuit Breaker abgeschlossen |
+| Abgeschlossener Punkt | Zentrale Provider-Resilience einschließlich geteiltem Cache-Stampede-Schutz |
+| Nächster Punkt | Phase 5: FMP-Adapter härten |
+| Produktionsstand | `main` auf `a9de16bfe9a633283b8199764dca702939e13874` |
 | Repository | `homann09-hue/STAI` |
 | Produktion | `https://stockpilot-ai-beta.vercel.app` |
 | Vercel-Projekt | ausschließlich `stockpilot-ai`; BauPro blieb unberührt |
@@ -121,3 +121,55 @@ Failover-Behandlung.
 
 **Ergebnis:** Phase 3 abgeschlossen. Nächster Punkt ist Phase 4: Caching, Rate
 Limits und Circuit Breaker.
+
+## 2026-08-12 — Phase 4: Caching, Rate Limits und Circuit Breaker
+
+**Implementiert:**
+
+- Typisierte Cache-Policies für Quote, Asset, Dashboard, Fundamentals, News,
+  Makro, Filings, historische Bars, Instrumentmetadaten, Analysen, Forecasts
+  und Professional-Daten.
+- Providerbezogene Request-Budgets, Burst-Limits, Parallelitätsgrenzen,
+  Warteschlangen, Retry-Klassifikation, exponentieller Backoff mit Jitter und
+  `Retry-After`-Cooldown.
+- Circuit Breaker mit geteiltem Zustand, Fast-Fail, exakt einem Half-open-Probe
+  und vollständiger Provider-Isolation.
+- Request-Coalescing und Deduplizierung über gehashte Request-Identitäten;
+  URLs, Queryparameter und API-Schlüssel erscheinen nicht in Metriken oder
+  Logs.
+- Atomare Cache-Zähler, `SET NX`-Sperren, besitzersicheres Freigeben,
+  2,5-Sekunden-Upstash-Deadline und maximal 30 Tage Cachezeit.
+- Geschützte Betriebsdiagnose mit aggregierten Metriken und Circuit-Zuständen.
+
+**Prüf- und Lastnachweis:**
+
+- Typecheck und ESLint erfolgreich.
+- 142 Testdateien / 1.082 Tests erfolgreich.
+- Produktionsbuild erfolgreich, 35 statische Seiten.
+- Browser/E2E: 35 erfolgreich, 1 redundanter Lauf bewusst übersprungen.
+- 2.000 aktive Sitzungen: 2.000 Antworten, 0 Rejections, 0 HTTP-Fehler,
+  `p95` 367 ms, Maximum 444 ms.
+- Stress-Gate bis 500 gleichzeitige Anfragen: 0 Rejections, 0 HTTP-Fehler.
+- 1.000/2.000 gleichzeitige Einzelprozess-Proben blieben bewusst
+  nicht-blockierende Kapazitätsmessungen; horizontale Skalierung benötigt den
+  externen Shared Cache.
+- Chaos-Szenarien für fehlende Schlüssel, Provider-Deadline, deaktivierten
+  Kryptoprovider und Rate-Limit-Burst erfolgreich.
+- Format- und Dependency-Audit erfolgreich; 0 bekannte Schwachstellen.
+
+**GitHub und Produktion:**
+
+- PR #76: https://github.com/homann09-hue/STAI/pull/76
+- Implementierungscommit `11cd4fd`; Merge/Main
+  `a9de16bfe9a633283b8199764dca702939e13874`.
+- PR CI/DB: `31563071386`, `31563071330` — erfolgreich.
+- Main CI/DB: `31563261983`, `31563262143` — erfolgreich.
+- Deployment `dpl_BNgRtaHEupghcb6XgXX2PjiNm7fj`, READY, target production.
+- Alias `https://stockpilot-ai-beta.vercel.app`.
+- `/`, `/markets`, `/assets/AAPL`, `/api/health`, Quotes und News: HTTP 200.
+- Fehlende Providerrechte bleiben leer/`unavailable`; keine Ersatzdaten.
+- Vercel Error-Logs: keine Fehler im Prüfzeitraum.
+- Ausschließlich `stockpilot-ai` wurde deployt; BauPro blieb unberührt.
+
+**Ergebnis:** Phase 4 abgeschlossen. Nächster einzelner Punkt ist Phase 5:
+FMP-Adapter härten.
