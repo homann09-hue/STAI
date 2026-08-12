@@ -3,6 +3,18 @@ import { assessHistoricalDataIntegrity } from "@/lib/analysis/history-integrity"
 import { assessProviderEvidence } from "@/lib/analysis/provider-evidence";
 import type { AssetDetail, Candle, DataQualityReport } from "@/lib/types";
 
+function usableBarQuality(count: number) {
+  return {
+    status: "DELAYED" as const,
+    accepted: count,
+    rejected: 0,
+    duplicates: 0,
+    qualityScore: 70,
+    issues: [],
+    sufficientForPriceAnalysis: true,
+  };
+}
+
 function candles(count: number): Candle[] {
   return Array.from({ length: count }, (_, index) => ({
     symbol: "SAP.DE",
@@ -67,7 +79,7 @@ describe("assessProviderEvidence", () => {
   it("blockiert eine Analyse ohne belastbare Historie und nennt die Datenlücken", () => {
     const report = assessProviderEvidence({
       quote,
-      history: { candles: [], provider: null, note: "nicht geliefert", integrity: null },
+      history: { candles: [], provider: null, note: "nicht geliefert", integrity: null, barQuality: null },
       news: [],
       fundamentals: undefined,
       base: baseReport()
@@ -88,7 +100,8 @@ describe("assessProviderEvidence", () => {
         candles: historyCandles,
         provider: "FMP Historical",
         note: "Daily history",
-        integrity: assessHistoricalDataIntegrity(historyCandles)
+        integrity: assessHistoricalDataIntegrity(historyCandles),
+        barQuality: usableBarQuality(historyCandles.length)
       },
       news: [
         {
@@ -131,7 +144,8 @@ describe("assessProviderEvidence", () => {
         candles: historyCandles,
         provider: "FMP Historical",
         note: "Daily history",
-        integrity: assessHistoricalDataIntegrity(historyCandles)
+        integrity: assessHistoricalDataIntegrity(historyCandles),
+        barQuality: usableBarQuality(historyCandles.length)
       },
       news: [],
       fundamentals: {
@@ -167,7 +181,8 @@ describe("assessProviderEvidence", () => {
         candles: historyCandles,
         provider: "FMP Historical",
         note: "Daily history",
-        integrity: assessHistoricalDataIntegrity(historyCandles)
+        integrity: assessHistoricalDataIntegrity(historyCandles),
+        barQuality: usableBarQuality(historyCandles.length)
       },
       news: [],
       fundamentals: undefined,
@@ -176,5 +191,34 @@ describe("assessProviderEvidence", () => {
 
     expect(report.sufficientForAnalysis).toBe(false);
     expect(report.confidence).toBeLessThanOrEqual(35);
+  });
+
+  it("blockiert numerisch vollständige Bars mit ungeklärter Identität", () => {
+    const historyCandles = candles(90);
+    const report = assessProviderEvidence({
+      quote,
+      history: {
+        candles: historyCandles,
+        provider: "FMP Historical",
+        note: "Instrument-ID und Währung fehlen.",
+        integrity: assessHistoricalDataIntegrity(historyCandles),
+        barQuality: {
+          ...usableBarQuality(historyCandles.length),
+          status: "PARTIAL",
+          qualityScore: 39,
+          issues: ["instrument_identity_incomplete"],
+          sufficientForPriceAnalysis: false,
+        },
+      },
+      news: [],
+      fundamentals: undefined,
+      base: baseReport(),
+    });
+
+    expect(report.sufficientForAnalysis).toBe(false);
+    expect(report.confidence).toBeLessThanOrEqual(35);
+    expect(report.issues.join(" ")).toContain("Bar-Qualität PARTIAL");
+    expect(report.warnings.join(" ")).toContain("instrument_identity_incomplete");
+    expect(report.sources.some((source) => source.name === "FMP Historical")).toBe(false);
   });
 });
