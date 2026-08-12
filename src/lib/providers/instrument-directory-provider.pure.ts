@@ -70,6 +70,6 @@ export function instrumentDirectoryCapabilityReport(searchAvailable: boolean) {
       { endpoint: "stable/search-name", status: 200 }
     ],
     consequence:
-      "Vollstaendige Instrumentabdeckung ist mit diesem Tarif technisch nicht erreichbar. Das Universum waechst suchgetrieben."
+      "Vollständige Instrumentabdeckung ist mit diesem Tarif technisch nicht erreichbar. Das Universum wächst suchgetrieben."
   } as const;
 }

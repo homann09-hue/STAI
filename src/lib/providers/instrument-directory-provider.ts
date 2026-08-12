@@ -234,7 +234,7 @@ export async function searchProviderInstruments(
     hits: [...merged.values()].slice(0, MAX_MERGED_RESULTS),
     capability: "search_only",
     capabilityNote:
-      "Der aktive FMP-Tarif erlaubt Instrumentsuche, aber keinen Verzeichnisabruf. Das Universum waechst suchgetrieben und ist nicht vollstaendig.",
+      "Der aktive FMP-Tarif erlaubt Instrumentsuche, aber keinen Verzeichnisabruf. Das Universum wächst suchgetrieben und ist nicht vollständig.",
     latencyMs,
     degraded: failures > 0
   };

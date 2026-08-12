@@ -88,7 +88,7 @@ export async function fetchExchangeCalendar(exchange: string, now = new Date()):
     return unavailable(
       normalized,
       retrievedAt,
-      `Börsenkalender nicht verfügbar: ${reason ?? "kein freigegebener Provider"}.`,
+      `Börsenkalender nicht verfügbar: ${reason ?? "Kein freigegebener Provider."}`,
     );
   }
 
