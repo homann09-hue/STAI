@@ -1,5 +1,21 @@
 # StockPilot AI Status
 
+## Aktueller Meilenstein: Phase 2 - Kanonisches Quote-Modell abgeschlossen
+
+Stand: 2026-08-12
+
+- Ein zentraler, providerunabhängiger Quote-Vertrag transportiert Instrument-, Provider-, Provider-Symbol-, Venue-, Preis-, Größen-, Zeit-, Feed- und Qualitätsprovenienz bis zur API und UI.
+- `isRealtime` wird ausschließlich bei belegtem Realtime-Feed, gemeldeter Null-Verzögerung, vorhandenem Event-Zeitstempel und zulässigem Qualitätsstatus gesetzt.
+- Die Qualitätszustände `OK`, `DELAYED`, `STALE`, `DIVERGENT`, `PARTIAL`, `MARKET_CLOSED`, `PROVIDER_DEGRADED`, `UNAVAILABLE` und `INVALID` sind zentral normalisiert. Ein erkannter Fehler kann beim erneuten Normalisieren nicht verschwinden.
+- Nullkurse, gekreuzte Bid-/Ask-Werte, negative Volumina und zukünftige Zeitstempel werden verworfen oder als ungültig gesperrt. Fehlende Währungen bleiben `XXX`; es wird kein USD erfunden.
+- REST-, Stream-, Provider-, Analyse- und UI-Pfade verwenden denselben Vertrag. Unzureichende Quote-Qualität sperrt aktuelle Analyseaussagen.
+- Lokal belegt: TypeScript, ESLint, 132 Testdateien mit 1.025 Tests, Produktionsbuild mit 35 Seiten sowie 35 bestandene Browserflüsse und ein bewusster Skip.
+- Pull Request #68 wurde als `75ac1052839f4a8bb60625421c07c825db4843b6` gemergt. PR-CI `31555878371`, PR-Datenbanktests `31555878466`, Main-CI `31556173755` und Main-Datenbanktests `31556173724` sind erfolgreich.
+- Produktionsdeployment `dpl_CNqvdkS78XHgo7MyVVKe3gBkVNSp` ist READY und bedient `https://stockpilot-ai-beta.vercel.app`.
+- Live belegt: Startseite, Märkte, AAPL und Health liefern HTTP 200. FMP-Aktien sind `DELAYED`; Binance-BTC ist `NEAR_REALTIME/PARTIAL`; keine Stichprobe behauptet unbelegte Echtzeit. Das Produktionsfehlerlog war leer.
+- Es gab keine Datenbankmigration. Ausschließlich `stockpilot-ai` wurde veröffentlicht; BauPro blieb unberührt.
+- Nächster einzelner Arbeitspunkt: kanonisches Bar-/Kerzenmodell.
+
 ## Aktueller Meilenstein: Phase 1 - DSGVO-Export-Mandantengrenze
 
 Stand: 2026-08-11
