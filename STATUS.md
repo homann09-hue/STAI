@@ -419,3 +419,35 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Produktion: `dpl_3xBgzmgrzzciZd67sFZ6uPyMG4Jt` ist READY und bedient `https://stockpilot-ai-beta.vercel.app`.
 - Live-Abnahme: `/`, `/markets`, `/assets/AAPL` und `/api/health` jeweils HTTP 200. Drei aufeinanderfolgende Suchen ordnen `AAPL` auf NASDAQ vor `AAPL.NE`; Abdeckung bleibt ehrlich `complete: false` und `search_driven`; das Fehlerlog ist leer.
 - Das kanonische Instrumentenmodell ist damit produktiv abgeschlossen. Naechster einzelner Phase-2-Arbeitspunkt ist das kanonische Quote-Modell. BauPro blieb unveraendert.
+
+## Phase 3 — Provider Registry und Routing abgeschlossen (2026-08-12)
+
+Phase 3 ist mit Produktionsnachweis abgeschlossen. Die zentrale Registry unter
+`src/lib/providers/provider-registry.ts` entscheidet jetzt für Quotes,
+Krypto, Historie, Instrumentensuche, Fundamentals, News, SEC und Makrodaten
+nach Capability, Assetklasse, Konfiguration, Freigabeschalter, Nutzungsrecht
+und Health-Status.
+
+Belegte Hauptstände:
+
+- Implementierung: PR #73, Commit `3e76a96`, Merge `3d072ed`.
+- Live-Redteam-Fix: PR #74, Commit `868d924`, Merge `cda7624`.
+- Lokal: Typecheck, Lint, 139 Testdateien / 1.065 Tests, Build mit 35 Seiten,
+  E2E 35 bestanden / 1 bewusst übersprungen.
+- PR-CI: `31560753764`, `31560753799`, `31561327284`,
+  `31561327285`, alle erfolgreich.
+- Main-CI: `31560928157`, `31560928148`, `31561509219`,
+  `31561509315`, alle erfolgreich.
+- Produktion: `dpl_ERhonfRua42y6NqVrFxpkHdv956z`, Status READY,
+  Alias `https://stockpilot-ai-beta.vercel.app`.
+- Live: `/`, `/markets`, `/assets/AAPL`, `/api/health` jeweils 200.
+- Live fail-closed: Quotes und News 200 mit klarer Unavailable-Provenienz;
+  SEC, EZB und FRED 503 mit explizitem Hinweis auf nicht verifizierte externe
+  Darstellungsrechte.
+- Produktions-Error-Logscan: keine Fehler im Prüfzeitraum.
+
+Externer Blocker bleibt die dokumentierte Prüfung der konkreten
+Providerverträge. Ein API-Key allein schaltet keine öffentliche Anzeige frei.
+
+Nächster Arbeitspunkt gemäß Masterplan: **Phase 4 — Caching, Rate Limits und
+Circuit Breaker**.

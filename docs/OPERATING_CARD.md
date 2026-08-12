@@ -51,3 +51,22 @@ Implementierung, Typecheck, Lint, Unit-/Integrationstests, relevante Datenbank- 
 ## Arbeitsregeln
 
 Zu jedem Aufgabenstart diese Karte und `docs/EXECUTION_LEDGER.md` lesen. Echten Repository-, CI-, Datenbank- und Live-Stand messen, statt zu raten. Bestehende Architektur erweitern, keine Parallelarchitektur bauen. Externe Grenzen ehrlich dokumentieren und unabhängige Arbeit fortsetzen.
+
+## Phase-3-Betriebskarte — Provider Routing (2026-08-12)
+
+- Verbindliche Registry: `src/lib/providers/provider-registry.ts`.
+- Verbindliche Rechtebeschreibung: `docs/DATA_PROVIDER_RIGHTS.md`.
+- Produktion/Preview ist für externe Providerdaten standardmäßig fail-closed.
+- Eine Freigabe braucht gemeinsam:
+  `MARKET_DATA_ALLOW_EXTERNAL_DISPLAY=true`,
+  `MARKET_DATA_LICENSE_VERIFIED_PROVIDERS`,
+  `MARKET_DATA_EXTERNAL_DISPLAY_PROVIDERS` und einen dokumentierten
+  `MARKET_DATA_LICENSE_VERIFIED_AT`-Zeitpunkt.
+- `VERCEL_ENV=production|preview` und `NODE_ENV=production` können durch
+  `MARKET_DATA_ENV=development` nicht heruntergestuft werden.
+- Der geschützte Provider-Health-Endpunkt liefert den secret-freien Snapshot
+  als `marketDataRouting`.
+- Fehlende Rechte, fehlende Konfiguration, fehlende Capability, deaktivierte
+  Adapter und offene Circuit Breaker bleiben getrennte Gründe.
+- Aktive Produktion: `dpl_ERhonfRua42y6NqVrFxpkHdv956z`,
+  `https://stockpilot-ai-beta.vercel.app`.

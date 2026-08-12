@@ -359,3 +359,28 @@ historischen Tagesdaten freischalten oder in Phase 3 einen lizenzierten Provider
 für Quote und Historie routen. Danach ein Instrument im Instrument Master als
 `available` messen und den Live-Test für Identität, Währung, OHLCV, Intervall,
 Adjustment-Art und Analysis Gate wiederholen.
+
+## Externe Darstellungsrechte der Datenprovider (Phase 3, 2026-08-12)
+
+**Status:** BLOCKED – EXTERNAL, technisch fail-closed.
+
+Die vorhandenen API-Schlüssel belegen keine öffentliche Anzeige-,
+Weiterverteilungs- oder Realtime-Lizenz. Deshalb sind externe Providerdaten in
+Preview und Produktion gesperrt, bis der konkrete Vertrag/Tarif geprüft und
+dokumentiert ist. Das gilt aktuell auch für offizielle Quellen wie SEC EDGAR,
+FRED und EZB; öffentlich zugänglich bedeutet nicht automatisch, dass jede Form
+der Weitergabe ohne Prüfung zulässig ist.
+
+Aktivierung erst nach Rechteprüfung:
+
+1. Vertrag/Tarif und Attributionspflicht je Provider dokumentieren.
+2. Provider in `MARKET_DATA_LICENSE_VERIFIED_PROVIDERS` aufnehmen.
+3. Nur für tatsächlich erlaubte Endnutzeranzeige zusätzlich in
+   `MARKET_DATA_EXTERNAL_DISPLAY_PROVIDERS` aufnehmen.
+4. `MARKET_DATA_LICENSE_VERIFIED_AT` setzen.
+5. Erst danach `MARKET_DATA_ALLOW_EXTERNAL_DISPLAY=true` setzen.
+6. Produktions- und Live-Smoke-Test mit Provider-, Qualitäts- und
+   Zeitstempelanzeige wiederholen.
+
+Bis dahin liefert StockPilot keine erfundenen Ersatzwerte: Quotes/News melden
+`unavailable`; SEC/EZB/FRED antworten mit explizitem 503-Rechtehinweis.
