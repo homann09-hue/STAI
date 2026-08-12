@@ -31,6 +31,8 @@ export type ProviderCapability =
   | "historical_bars"
   | "instrument_search"
   | "fundamentals"
+  | "corporate_actions"
+  | "market_calendar"
   | "news"
   | "filings"
   | "macro"
@@ -154,6 +156,9 @@ export const PROVIDER_DEFINITIONS: readonly ProviderDefinition[] = [
       "historical_bars",
       "instrument_search",
       "fundamentals",
+      "corporate_actions",
+      "market_calendar",
+      "news",
     ],
     assetClasses: ALL_MARKET_ASSETS,
     configurationEnv: ["FMP_API_KEY"],
@@ -526,7 +531,9 @@ const ROUTING_PRIORITY: Record<
   historical_bars: ["alpaca", "databento", "fmp"],
   instrument_search: ["fmp"],
   fundamentals: ["fmp", "alpha_vantage"],
-  news: ["marketaux", "newsapi"],
+  corporate_actions: ["fmp"],
+  market_calendar: ["fmp"],
+  news: ["marketaux", "newsapi", "fmp"],
   filings: ["sec_edgar"],
   macro: ["fred", "ecb"],
   crypto_metadata: ["coingecko"],

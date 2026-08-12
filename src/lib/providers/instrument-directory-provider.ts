@@ -1,6 +1,7 @@
 import "server-only";
 
-import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import { z } from "zod";
+import { FmpClient, getFmpClient } from "@/lib/providers/fmp-client";
 import { resolveProviderRoute } from "@/lib/providers/provider-registry";
 import { logEvent } from "@/lib/observability";
 import {
@@ -29,7 +30,6 @@ export { inferAssetClass } from "@/lib/providers/instrument-directory-provider.p
  * behaupten. Siehe docs/BLOCKERS.md.
  */
 
-const FMP_STABLE_BASE = "https://financialmodelingprep.com/stable";
 const PROVIDER_NAME = "FMP";
 const MAX_QUERY_LENGTH = 64;
 const MAX_RESULTS_PER_ENDPOINT = 25;
@@ -69,6 +69,16 @@ interface FmpSearchRow {
   exchange?: unknown;
   exchangeFullName?: unknown;
 }
+
+const fmpSearchRowsSchema = z.array(
+  z.object({
+    symbol: z.unknown().optional(),
+    name: z.unknown().optional(),
+    currency: z.unknown().optional(),
+    exchange: z.unknown().optional(),
+    exchangeFullName: z.unknown().optional(),
+  }).passthrough(),
+);
 
 function providerApiKey() {
   const route = resolveProviderRoute({
@@ -125,17 +135,15 @@ function normalizeRow(
 async function fetchSearchEndpoint(
   endpoint: "search-symbol" | "search-name",
   query: string,
-  apiKey: string,
+  client: FmpClient,
   timeoutMs: number
 ) {
-  const url = new URL(`${FMP_STABLE_BASE}/${endpoint}`);
-  url.searchParams.set("query", query);
-  url.searchParams.set("limit", String(MAX_RESULTS_PER_ENDPOINT));
-  url.searchParams.set("apikey", apiKey);
-
-  const { data, latencyMs } = await fetchBoundedProviderJson<FmpSearchRow[]>(url, PROVIDER_NAME, {
-    timeoutMs
-  });
+  const { data, latencyMs } = await client.request(
+    endpoint,
+    { query, limit: String(MAX_RESULTS_PER_ENDPOINT) },
+    fmpSearchRowsSchema,
+    { timeoutMs },
+  );
 
   return { rows: Array.isArray(data) ? data : [], latencyMs };
 }
@@ -177,10 +185,11 @@ export async function searchProviderInstruments(
   }
 
   const timeoutMs = options.timeoutMs ?? 6500;
+  const client = getFmpClient({ apiKey });
 
   const [bySymbol, byName] = await Promise.allSettled([
-    fetchSearchEndpoint("search-symbol", query, apiKey, timeoutMs),
-    fetchSearchEndpoint("search-name", query, apiKey, timeoutMs)
+    fetchSearchEndpoint("search-symbol", query, client, timeoutMs),
+    fetchSearchEndpoint("search-name", query, client, timeoutMs)
   ]);
 
   const merged = new Map<string, ProviderInstrumentHit>();

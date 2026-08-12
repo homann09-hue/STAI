@@ -7,7 +7,13 @@ import {
   type ExchangeCalendarResult
 } from "@/lib/exchange-calendar";
 import { logEvent } from "@/lib/observability";
-import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import { resolveProviderRoute } from "@/lib/providers/provider-registry";
+import {
+  FmpClient,
+  fmpFailureReason,
+  fmpRowsOrRecordSchema,
+  getFmpClient,
+} from "@/lib/providers/fmp-client";
 
 type EndpointResult = { ok: true; data: unknown; latencyMs: number } | { ok: false; reason: string };
 type CacheEntry = { result: ExchangeCalendarResult; storedAtMs: number };
@@ -19,26 +25,19 @@ const MAX_CACHE_ENTRIES = 100;
 const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<ExchangeCalendarResult>>();
 
-function safeFailureReason(error: unknown) {
-  const message = error instanceof Error ? error.message : "unbekannter Providerfehler";
-  if (message.includes("402") || message.includes("403")) return "im aktiven Providertarif nicht freigeschaltet";
-  if (message.includes("429")) return "Provider-Rate-Limit erreicht";
-  if (/timeout|aborted|Zeitüberschreitung/i.test(message)) return "Provider-Zeitüberschreitung";
-  return "Provider derzeit nicht erreichbar";
-}
-
-async function fetchEndpoint(base: string, path: string, exchange: string, token: string): Promise<EndpointResult> {
-  const url = new URL(`${base}/${path}`);
-  url.searchParams.set("exchange", exchange);
-  url.searchParams.set("apikey", token);
+async function fetchEndpoint(
+  client: FmpClient,
+  path: "exchange-market-hours" | "holidays-by-exchange",
+  exchange: string,
+): Promise<EndpointResult> {
   try {
-    const result = await fetchBoundedProviderJson<unknown>(url, `${PROVIDER} Exchange Calendar`, {
+    const result = await client.request(path, { exchange }, fmpRowsOrRecordSchema, {
       timeoutMs: 8_000,
       maxBytes: 750_000
     });
     return { ok: true, data: result.data, latencyMs: result.latencyMs };
   } catch (error) {
-    const reason = safeFailureReason(error);
+    const reason = fmpFailureReason(error);
     logEvent("warn", "exchange_calendar.provider_failed", { exchange, path, reason });
     return { ok: false, reason };
   }
@@ -80,6 +79,19 @@ export async function fetchExchangeCalendar(exchange: string, now = new Date()):
     return unavailable(normalized, retrievedAt, "Ungültiger Börsencode; es wurde kein Anbieter abgefragt.");
   }
 
+  const route = resolveProviderRoute({
+    capability: "market_calendar",
+    preferredProvider: "fmp",
+  });
+  if (!route.providers.includes("fmp")) {
+    const reason = route.rejected.find((entry) => entry.providerId === "fmp")?.detail;
+    return unavailable(
+      normalized,
+      retrievedAt,
+      `Börsenkalender nicht verfügbar: ${reason ?? "kein freigegebener Provider"}.`,
+    );
+  }
+
   const cached = cache.get(normalized);
   if (cached) {
     const ttl = cached.result.available ? AVAILABLE_TTL_MS : UNAVAILABLE_TTL_MS;
@@ -97,10 +109,10 @@ export async function fetchExchangeCalendar(exchange: string, now = new Date()):
     const token = process.env.FMP_API_KEY;
     if (!token) return unavailable(normalized, retrievedAt, "Börsenkalender nicht verfügbar: FMP_API_KEY ist serverseitig nicht gesetzt.");
 
-    const base = (process.env.FMP_API_BASE_URL ?? "https://financialmodelingprep.com/stable").replace(/\/$/, "");
+    const client = getFmpClient({ apiKey: token });
     const [hoursResponse, holidaysResponse] = await Promise.all([
-      fetchEndpoint(base, "exchange-market-hours", normalized, token),
-      fetchEndpoint(base, "holidays-by-exchange", normalized, token)
+      fetchEndpoint(client, "exchange-market-hours", normalized),
+      fetchEndpoint(client, "holidays-by-exchange", normalized)
     ]);
     const hours = hoursResponse.ok ? normalizeFmpExchangeHours(hoursResponse.data, normalized) : null;
     const holidayResult = holidaysResponse.ok

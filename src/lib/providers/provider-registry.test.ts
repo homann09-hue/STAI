@@ -24,6 +24,22 @@ describe("provider registry", () => {
     expect(result.failoverEnabled).toBe(true);
   });
 
+  it("routes every implemented FMP data domain through the registry", () => {
+    const env = { ...base, FMP_API_KEY: "x" };
+    for (const capability of [
+      "historical_bars",
+      "instrument_search",
+      "fundamentals",
+      "corporate_actions",
+      "market_calendar",
+      "news",
+    ] as const) {
+      expect(
+        resolveProviderRoute({ capability, preferredProvider: "fmp" }, env).providers,
+      ).toContain("fmp");
+    }
+  });
+
   it("keeps prepared adapters out of executable routes", () => {
     const result = resolveProviderRoute(
       {

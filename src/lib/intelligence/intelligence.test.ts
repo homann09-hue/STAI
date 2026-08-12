@@ -14,6 +14,7 @@ import {
   titleSimilarity
 } from "@/lib/intelligence/analysis";
 import { FmpNewsAdapter, SecEdgarAdapter, fetchJsonWithRetry } from "@/lib/intelligence/adapters";
+import type { FmpRequester } from "@/lib/providers/fmp-client";
 import { runIntelligencePipeline } from "@/lib/intelligence/pipeline";
 import type { IntelligenceRepository, IntelligenceSourceState } from "@/lib/intelligence/repository";
 import { intelligenceAnalysisSchema } from "@/lib/intelligence/schemas";
@@ -118,12 +119,27 @@ class MemoryRepository implements IntelligenceRepository {
 
 describe("intelligence source adapters", () => {
   it("normalizes FMP stock news without exposing the API key", async () => {
-    const fetchImpl = vi.fn<typeof fetch>(async () => response(fmpFixture));
-    const batch = await new FmpNewsAdapter({ apiKey: "secret-test-key", fetchImpl, baseDelayMs: 0 }).fetchBatch({ symbols: ["NVDA"] });
+    const client = {
+      request: vi.fn(async () => ({
+        data: fmpFixture,
+        endpoint: "news/stock" as const,
+        latencyMs: 1,
+        receivedAt: new Date().toISOString(),
+      })),
+    };
+    const batch = await new FmpNewsAdapter({
+      apiKey: "secret-test-key",
+      client: client as unknown as FmpRequester,
+    }).fetchBatch({ symbols: ["NVDA"] });
     expect(batch.events).toHaveLength(1);
     expect(batch.events[0]).toMatchObject({ provider: "fmp", symbols: ["NVDA"], sourceType: "company_news" });
     expect(JSON.stringify(batch.events[0])).not.toContain("secret-test-key");
-    expect(String(fetchImpl.mock.calls[0]?.[0])).toContain("/stable/news/stock");
+    expect(client.request).toHaveBeenCalledWith(
+      "news/stock",
+      expect.objectContaining({ symbols: "NVDA" }),
+      expect.anything(),
+      expect.anything(),
+    );
   });
 
   it("maps supported SEC filings and respects official source metadata", async () => {

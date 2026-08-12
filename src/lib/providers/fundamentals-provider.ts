@@ -1,5 +1,6 @@
 import { getMockAsset } from "@/lib/mock/market";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import { fmpRowsSchema, getFmpClient } from "@/lib/providers/fmp-client";
 import { resolveProviderRoute, type ProviderId } from "@/lib/providers/provider-registry";
 import { developmentFixturesAllowed } from "@/lib/runtime-data-policy";
 import type { Fundamentals, FundamentalsFieldSource, MarketDataQuality } from "@/lib/types";
@@ -136,32 +137,22 @@ async function fetchJson<T>(url: URL, providerName: string, timeoutMs = 7000): P
 
 class FmpFundamentalsProvider implements FundamentalsProvider {
   async getFundamentals(symbol: string) {
-    const token = process.env.FMP_API_KEY;
-    if (!token) return null;
-
     try {
-      const baseUrl = process.env.FMP_API_BASE_URL ?? "https://financialmodelingprep.com/stable";
-      const makeUrl = (path: string, params: Record<string, string> = {}) => {
-        const url = new URL(`${baseUrl}/${path}`);
-        url.searchParams.set("symbol", symbol);
-        url.searchParams.set("apikey", token);
-        for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
-        return url;
-      };
+      const client = getFmpClient();
 
       const [profileResult, ratiosResult, incomeResult, cashflowResult, balanceResult] = await Promise.allSettled([
-        fetchJson<Record<string, unknown>[]>(makeUrl("profile"), "FMP profile"),
-        fetchJson<Record<string, unknown>[]>(makeUrl("ratios-ttm"), "FMP ratios"),
-        fetchJson<Record<string, unknown>[]>(makeUrl("income-statement", { period: "annual", limit: "2" }), "FMP income"),
-        fetchJson<Record<string, unknown>[]>(makeUrl("cash-flow-statement", { period: "annual", limit: "1" }), "FMP cashflow"),
-        fetchJson<Record<string, unknown>[]>(makeUrl("balance-sheet-statement", { period: "annual", limit: "1" }), "FMP balance")
+        client.request("profile", { symbol }, fmpRowsSchema),
+        client.request("ratios-ttm", { symbol }, fmpRowsSchema),
+        client.request("income-statement", { symbol, period: "annual", limit: "2" }, fmpRowsSchema),
+        client.request("cash-flow-statement", { symbol, period: "annual", limit: "1" }, fmpRowsSchema),
+        client.request("balance-sheet-statement", { symbol, period: "annual", limit: "1" }, fmpRowsSchema)
       ]);
 
-      const profile = profileResult.status === "fulfilled" ? profileResult.value[0] ?? {} : {};
-      const ratios = ratiosResult.status === "fulfilled" ? ratiosResult.value[0] ?? {} : {};
-      const income = incomeResult.status === "fulfilled" ? incomeResult.value : [];
-      const cashflow = cashflowResult.status === "fulfilled" ? cashflowResult.value[0] ?? {} : {};
-      const balance = balanceResult.status === "fulfilled" ? balanceResult.value[0] ?? {} : {};
+      const profile = profileResult.status === "fulfilled" ? profileResult.value.data[0] ?? {} : {};
+      const ratios = ratiosResult.status === "fulfilled" ? ratiosResult.value.data[0] ?? {} : {};
+      const income = incomeResult.status === "fulfilled" ? incomeResult.value.data : [];
+      const cashflow = cashflowResult.status === "fulfilled" ? cashflowResult.value.data[0] ?? {} : {};
+      const balance = balanceResult.status === "fulfilled" ? balanceResult.value.data[0] ?? {} : {};
       const latestIncome = income[0] ?? {};
       const previousIncome = income[1] ?? {};
       const price = parseNumber(profile.price);

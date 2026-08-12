@@ -1,6 +1,11 @@
 import "server-only";
 
 import { getProviderHealthReport } from "@/lib/provider-health";
+import {
+  FmpClientError,
+  fmpRowsOrRecordSchema,
+  getFmpClient,
+} from "@/lib/providers/fmp-client";
 
 export type ProviderPingStatus = "ok" | "missing_key" | "degraded" | "skipped" | "error";
 
@@ -71,6 +76,53 @@ async function timedCheck(id: string, name: string, url: string | null, configur
   }
 }
 
+async function timedFmpCheck(configured: boolean): Promise<ProviderPingResult> {
+  const checkedAt = new Date().toISOString();
+  if (!configured) {
+    return {
+      id: "fmp",
+      name: "Financial Modeling Prep",
+      status: "missing_key",
+      latencyMs: null,
+      checkedAt,
+      message: "API-Key fehlt oder Provider ist nicht aktiviert.",
+    };
+  }
+
+  const started = Date.now();
+  try {
+    await getFmpClient().request(
+      "quote",
+      { symbol: "AAPL" },
+      fmpRowsOrRecordSchema,
+      { timeoutMs: 2_500, maxBytes: 128_000, userAgent: "StockPilotAI/1.0 provider-health" },
+    );
+    return {
+      id: "fmp",
+      name: "Financial Modeling Prep",
+      status: "ok",
+      latencyMs: Date.now() - started,
+      checkedAt,
+      message: "Ping erfolgreich.",
+    };
+  } catch (error) {
+    const degraded = error instanceof FmpClientError && ["rate_limited", "not_entitled"].includes(error.code);
+    return {
+      id: "fmp",
+      name: "Financial Modeling Prep",
+      status: degraded ? "degraded" : "error",
+      latencyMs: Date.now() - started,
+      checkedAt,
+      message:
+        error instanceof FmpClientError
+          ? error.code === "not_entitled"
+            ? "Provider erreichbar, Testinstrument im Tarif nicht freigeschaltet."
+            : error.message
+          : "Ping fehlgeschlagen oder Timeout.",
+    };
+  }
+}
+
 export async function runProviderPings() {
   const report = getProviderHealthReport();
   const finnhubKey = process.env.FINNHUB_API_KEY;
@@ -81,7 +133,7 @@ export async function runProviderPings() {
 
   const checks = await Promise.all([
     timedCheck("finnhub", "Finnhub", finnhubKey ? `https://finnhub.io/api/v1/quote?symbol=AAPL&token=${encodeURIComponent(finnhubKey)}` : null, Boolean(finnhubKey)),
-    timedCheck("fmp", "Financial Modeling Prep", fmpKey ? `https://financialmodelingprep.com/api/v3/quote-short/AAPL?apikey=${encodeURIComponent(fmpKey)}` : null, Boolean(fmpKey)),
+    timedFmpCheck(Boolean(fmpKey)),
     timedCheck("alpha-vantage", "Alpha Vantage", alphaKey ? `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=AAPL&apikey=${encodeURIComponent(alphaKey)}` : null, Boolean(alphaKey)),
     timedCheck("newsapi", "NewsAPI", newsKey ? `https://newsapi.org/v2/top-headlines?language=en&pageSize=1&apiKey=${encodeURIComponent(newsKey)}` : null, Boolean(newsKey)),
     timedCheck("marketaux", "Marketaux", marketauxKey ? `https://api.marketaux.com/v1/news/all?symbols=AAPL&limit=1&api_token=${encodeURIComponent(marketauxKey)}` : null, Boolean(marketauxKey)),
