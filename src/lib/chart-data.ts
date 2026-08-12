@@ -2,43 +2,30 @@ import { buildTechnicalIndicators } from "@/lib/analysis/technical";
 import type { Candle, ChartRange, TechnicalIndicators } from "@/lib/types";
 
 type UiRange = "1T" | "1W" | "1M" | "3M" | "1J" | "5J" | "Alle";
-const MAX_CLEAN_CANDLES = 2000;
 
-function finiteNumber(value: number | undefined, fallback: number) {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
 
-function positiveNumber(value: number | undefined, fallback: number) {
-  const parsed = finiteNumber(value, fallback);
-  return parsed > 0 ? parsed : fallback;
-}
-
-function safeTimestamp(value: string | undefined) {
-  const date = value ? new Date(value) : null;
-  return date && Number.isFinite(date.getTime()) ? date.toISOString() : new Date().toISOString();
-}
-
-function cleanCandles(candles: Candle[]) {
+export function cleanCandles(candles: Candle[]) {
+  const seen = new Set<string>();
   return candles
-    .slice(-MAX_CLEAN_CANDLES)
-    .filter((candle) => Number.isFinite(candle.close) && candle.close > 0)
-    .map((candle) => {
-      const close = positiveNumber(candle.close, 1);
-      const open = positiveNumber(candle.open, close);
-      const high = Math.max(open, close, finiteNumber(candle.high, close));
-      const low = Math.max(0.01, Math.min(open, close, finiteNumber(candle.low, close)));
-
-      return {
-        ...candle,
-        timestamp: safeTimestamp(candle.timestamp),
-        open,
-        high,
-        low,
-        close,
-        volume: Math.max(0, finiteNumber(candle.volume, 0))
-      };
+    .filter((candle) => {
+      const timestamp = Date.parse(candle.timestamp);
+      const prices = [candle.open, candle.high, candle.low, candle.close];
+      if (!Number.isFinite(timestamp) || timestamp > Date.now() + 5_000) return false;
+      if (!prices.every((value) => Number.isFinite(value) && value > 0)) return false;
+      if (!Number.isFinite(candle.volume) || candle.volume < 0) return false;
+      if (candle.low > Math.min(candle.open, candle.close, candle.high)) return false;
+      if (candle.high < Math.max(candle.open, candle.close, candle.low)) return false;
+      if (candle.adjustedClose !== undefined && (!Number.isFinite(candle.adjustedClose) || candle.adjustedClose <= 0)) return false;
+      const key = `${candle.symbol}:${candle.range}:${new Date(timestamp).toISOString()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
     })
-    .sort((left, right) => new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime());
+    .map((candle) => ({
+      ...candle,
+      timestamp: new Date(candle.timestamp).toISOString(),
+    }))
+    .sort((left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp));
 }
 
 export function rangeToDataKeys(range: UiRange): ChartRange[] {

@@ -292,6 +292,55 @@ export interface Candle {
   volume: number;
 }
 
+/** Kanonischer Providervertrag vor jeder API- oder Analysegrenze. */
+export interface NormalizedBar extends Candle {
+  instrumentId: string | null;
+  providerId: string;
+  providerSymbol: string;
+  venue: string | null;
+  interval: BarInterval;
+  openTime: string;
+  closeTime: string;
+  adjustedCloseType: BarAdjustedCloseType | null;
+  tradeCount: number | null;
+  vwap: number | null;
+  currency: string;
+  /** Bezieht sich ausschliesslich auf open/high/low/close. */
+  isAdjusted: boolean;
+  adjustmentType: BarAdjustmentType;
+  provider: string;
+  providerTimestamp: string | null;
+  receivedTimestamp: string;
+  sessionTimeZone: string | null;
+  quality: MarketDataQuality;
+  qualityStatus: QuoteQualityStatus;
+  qualityScore: number;
+  qualityIssues: string[];
+}
+
+export type BarInterval =
+  | "1m"
+  | "5m"
+  | "15m"
+  | "30m"
+  | "1h"
+  | "4h"
+  | "1d"
+  | "1w"
+  | "1mo";
+
+export type BarAdjustmentType =
+  | "RAW"
+  | "SPLIT_ADJUSTED"
+  | "DIVIDEND_ADJUSTED"
+  | "SPLIT_DIVIDEND_ADJUSTED";
+
+export type BarAdjustedCloseType =
+  | "PROVIDER_ADJUSTED_UNSPECIFIED"
+  | "SPLIT_ADJUSTED"
+  | "DIVIDEND_ADJUSTED"
+  | "SPLIT_DIVIDEND_ADJUSTED";
+
 /**
  * Technische Indikatoren.
  *

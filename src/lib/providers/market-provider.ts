@@ -1,3 +1,4 @@
+import { buildNormalizedBar } from "@/lib/canonical-bar";
 import {
   NO_INDICATORS,
   buildTechnicalIndicators,
@@ -27,6 +28,7 @@ import {
   ProviderHttpResponseError,
 } from "@/lib/providers/http-json";
 import {
+  bindHistoryInstrumentContext,
   NO_HISTORY,
   fetchDailyHistory,
   sliceHistoryRanges,
@@ -37,6 +39,7 @@ import { buildVerifiedProviderDashboard } from "@/lib/provider-dashboard";
 import { developmentFixturesAllowed } from "@/lib/runtime-data-policy";
 import { safeDecodeURIComponent } from "@/lib/validation";
 import type {
+  NormalizedBar,
   Asset,
   AiAnalysis,
   AnalysisLayer,
@@ -91,7 +94,7 @@ export interface HistoricalProvider {
   getCandles(
     symbol: string,
     interval: "1m" | "5m" | "15m" | "1h" | "1d",
-  ): Promise<Candle[]>;
+  ): Promise<NormalizedBar[]>;
 }
 
 export interface MarketDataProvider
@@ -940,14 +943,25 @@ function detailFromProviderQuote(
     metadata: FundamentalsProviderMetadata;
   } | null = null,
 ): AssetDetail {
+  history = bindHistoryInstrumentContext(history, {
+    instrumentId: quote.instrumentId,
+    currency: quote.currency,
+    venue: quote.venue,
+    sessionTimeZone: null,
+  });
+  const analysisCandles =
+    history.barQuality?.sufficientForPriceAnalysis === true &&
+    history.integrity?.backtestStatus !== "blocked"
+      ? history.candles
+      : [];
   const summary = summaryFromNormalizedQuote(quote);
   const candles = history.candles.length
     ? sliceHistoryRanges(history.candles)
     : emptyCandleRanges();
   // Indikatoren nur aus echter Historie. Ohne sie bleibt es bei Luecken statt
   // bei Zahlen, die aus dem Tageskurs abgeleitet waeren.
-  const indicators = history.candles.length
-    ? buildTechnicalIndicators(history.candles)
+  const indicators = analysisCandles.length
+    ? buildTechnicalIndicators(analysisCandles)
     : indicatorsFromQuote(quote);
   const { fundamentals, evidence: fundamentalsEvidence } =
     selectVerifiedFundamentals(fundamentalsResult, {
@@ -958,7 +972,7 @@ function detailFromProviderQuote(
     });
   const scoreEvidence = buildEvidenceBoundScores({
     quote: summary.quote,
-    candles: history.candles,
+    candles: analysisCandles,
     indicators,
     fundamentals,
     fundamentalsEvidence,
@@ -979,12 +993,13 @@ function detailFromProviderQuote(
     base: providerOnlyDataQuality(quote),
   });
   const historicalRisk = calculateHistoricalRiskMetrics({
-    candles: history.candles,
+    candles: analysisCandles,
     provider: history.provider,
     integrityBlocked: history.integrity?.backtestStatus === "blocked",
   });
   const historyConfirmed =
     history.candles.length >= 60 &&
+    history.barQuality?.sufficientForPriceAnalysis === true &&
     history.integrity?.backtestStatus !== "blocked";
   const newsConfirmed = news.length > 0;
   const analysisLayers: AnalysisLayer[] = [
@@ -1000,7 +1015,7 @@ function detailFromProviderQuote(
     {
       label: "Historische Evidenz",
       value: historyConfirmed
-        ? `${history.candles.length} Kerzen`
+        ? `${history.candles.length} Kerzen · ${history.barQuality?.status ?? "UNAVAILABLE"}`
         : "nicht ausreichend",
       status: historyConfirmed ? "positive" : "risk",
       detail: historyConfirmed
@@ -1284,8 +1299,45 @@ class MockMarketDataProvider implements MarketDataProvider {
     return this.getQuote(symbol);
   }
 
-  async getCandles(symbol: string) {
-    return getMockAsset(symbol)?.candles["1D"] ?? [];
+  async getCandles(symbol: string, interval: "1m" | "5m" | "15m" | "1h" | "1d") {
+    if (interval !== "1d") return [];
+    const detail = getMockAsset(symbol);
+    if (!detail) return [];
+    return detail.candles["1D"].flatMap((candle): NormalizedBar[] => {
+      const openTime = new Date(candle.timestamp);
+      if (!Number.isFinite(openTime.getTime())) return [];
+      try {
+        return [
+          buildNormalizedBar({
+            instrumentId: `mock:${detail.asset.type}:${detail.asset.symbol}:${detail.asset.currency}`,
+            providerId: "mock",
+            providerSymbol: detail.asset.symbol,
+            venue: null,
+            symbol: detail.asset.symbol,
+            range: candle.range,
+            interval: "1d",
+            openTime: openTime.toISOString(),
+            closeTime: new Date(openTime.getTime() + 86_400_000).toISOString(),
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close,
+            adjustedClose: candle.adjustedClose,
+            volume: candle.volume,
+            currency: detail.asset.currency,
+            isAdjusted: false,
+            adjustmentType: "RAW",
+            provider: "StockPilot Mock Data",
+            providerTimestamp: null,
+            sessionTimeZone: null,
+            quality: "mock",
+            time: candle.time,
+          }),
+        ];
+      } catch {
+        return [];
+      }
+    });
   }
 
   streamQuotes(symbols: string[], options?: MarketStreamOptions) {

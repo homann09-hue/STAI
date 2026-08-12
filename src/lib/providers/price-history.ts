@@ -25,24 +25,39 @@ import {
   historicalPriceBasisLabel,
   type HistoricalDataIntegrity
 } from "@/lib/analysis/history-integrity";
+import {
+  normalizeBarSeries,
+  type BarSeriesQuality,
+  type CanonicalBarInput,
+} from "@/lib/canonical-bar";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
-import { chartRanges, type Candle, type TimeRange } from "@/lib/types";
+import { chartRanges, type NormalizedBar, type TimeRange } from "@/lib/types";
 
 export type HistoryResult = {
-  candles: Candle[];
+  candles: NormalizedBar[];
   /** Warum die Historie so aussieht. Gehört in die Herkunftsanzeige. */
   note: string;
   /** Der Anbieter, der geantwortet hat — oder null, wenn keiner konnte. */
   provider: string | null;
   /** Maschinenlesbare Aussage darüber, welche Preisbasis tatsächlich vorliegt. */
   integrity: HistoricalDataIntegrity | null;
+  /** Struktur-, Duplikat- und Provenienzstatus der normalisierten Bars. */
+  barQuality: BarSeriesQuality | null;
 };
+
+export interface HistoryInstrumentContext {
+  instrumentId: string | null;
+  currency: string | null;
+  venue: string | null;
+  sessionTimeZone: string | null;
+}
 
 export const NO_HISTORY: HistoryResult = {
   candles: [],
   note: "Keine Kurshistorie verfügbar.",
   provider: null,
-  integrity: null
+  integrity: null,
+  barQuality: null
 };
 
 function isNumber(value: unknown): value is number {
@@ -67,54 +82,109 @@ function parseNumber(value: unknown): number | null {
  * nicht positiv ist. Bewusst kein Auffüllen aus Nachbarwerten: eine
  * interpolierte Kerze ist genau die Erfindung, die diese Datei ersetzt.
  */
-export function parseFmpDailyHistory(symbol: string, raw: unknown): Candle[] {
+export function parseFmpDailyHistoryResult(
+  symbol: string,
+  raw: unknown,
+  context?: HistoryInstrumentContext,
+): ReturnType<typeof normalizeBarSeries> {
   const rows = Array.isArray(raw) ? raw : [];
 
-  const candles = rows.flatMap((row): Candle[] => {
+  const candidates = rows.flatMap((row): CanonicalBarInput[] => {
     if (typeof row !== "object" || row === null) return [];
     const entry = row as Record<string, unknown>;
 
     const date = typeof entry.date === "string" ? entry.date : null;
-    const close = parseNumber(entry.close);
-    if (!date || close === null || close <= 0) return [];
+    if (!date) return [];
 
-    const timestamp = new Date(`${date.slice(0, 10)}T00:00:00.000Z`);
-    if (!Number.isFinite(timestamp.getTime())) return [];
-
-    // Fehlt ein Feld, wird der Schlusskurs eingesetzt -- das ist keine
-    // Schaetzung, sondern die einzige Lesart einer Kerze ohne Spanne.
-    const open = parseNumber(entry.open) ?? close;
-    const high = parseNumber(entry.high) ?? Math.max(open, close);
-    const low = parseNumber(entry.low) ?? Math.min(open, close);
-    const volume = parseNumber(entry.volume) ?? 0;
+    const openTime = new Date(`${date.slice(0, 10)}T00:00:00.000Z`);
+    if (!Number.isFinite(openTime.getTime())) return [];
+    const closeTime = new Date(openTime.getTime() + 86_400_000);
     const adjustedCloseCandidate = parseNumber(entry.adjClose ?? entry.adjustedClose);
-    const adjustedClose =
-      adjustedCloseCandidate !== null && adjustedCloseCandidate > 0
-        ? adjustedCloseCandidate
-        : undefined;
 
     return [
       {
+        instrumentId: context?.instrumentId ?? null,
+        providerId: "fmp",
+        providerSymbol: symbol,
+        venue: context?.venue ?? null,
         symbol,
         range: "MAX",
-        timestamp: timestamp.toISOString(),
+        interval: "1d",
+        openTime: openTime.toISOString(),
+        closeTime: closeTime.toISOString(),
         time: date.slice(0, 10),
-        open,
-        high: Math.max(high, open, close),
-        low: Math.max(0, Math.min(low, open, close)),
-        close,
-        ...(adjustedClose === undefined ? {} : { adjustedClose }),
-        volume: Math.max(0, volume)
+        open: parseNumber(entry.open),
+        high: parseNumber(entry.high),
+        low: parseNumber(entry.low),
+        close: parseNumber(entry.close),
+        adjustedClose: adjustedCloseCandidate,
+        adjustedCloseType:
+          adjustedCloseCandidate !== null
+            ? "PROVIDER_ADJUSTED_UNSPECIFIED"
+            : undefined,
+        volume: parseNumber(entry.volume),
+        tradeCount: parseNumber(entry.trades),
+        vwap: parseNumber(entry.vwap),
+        currency: context?.currency ?? null,
+        isAdjusted: false,
+        adjustmentType: "RAW",
+        provider: "Financial Modeling Prep",
+        providerTimestamp: null,
+        sessionTimeZone: context?.sessionTimeZone ?? null,
+        quality: "historical",
       }
     ];
   });
 
-  // FMP liefert absteigend. Alle Indikatoren erwarten aufsteigende Reihen --
-  // ein RSI auf einer rueckwaerts gelesenen Reihe waere exakt gespiegelt und
-  // damit falsch, ohne falsch auszusehen.
-  return candles.sort(
-    (left, right) => new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime()
+  // Die zentrale Normalisierung sortiert, validiert und dedupliziert. Eine
+  // unvollstaendige Providerzeile wird verworfen, niemals repariert.
+  return normalizeBarSeries(candidates);
+}
+
+export function parseFmpDailyHistory(
+  symbol: string,
+  raw: unknown,
+  context?: HistoryInstrumentContext,
+): NormalizedBar[] {
+  return parseFmpDailyHistoryResult(symbol, raw, context).bars;
+}
+
+/**
+ * Bindet eine bereits validierte Quote-Identitaet an Providerbars. Das ist
+ * keine Schaetzung: unbekannte Felder bleiben unbekannt und die zentrale
+ * Normalisierung bewertet die Reihe danach erneut.
+ */
+export function bindHistoryInstrumentContext(
+  history: HistoryResult,
+  context: HistoryInstrumentContext,
+): HistoryResult {
+  if (!history.candles.length) return history;
+  const rebound = normalizeBarSeries(
+    history.candles.map((bar) => ({
+      ...bar,
+      instrumentId: context.instrumentId,
+      venue: context.venue,
+      currency: context.currency,
+      sessionTimeZone: context.sessionTimeZone,
+      sourceQualityIssues: bar.qualityIssues.filter(
+        (issue) =>
+          issue !== "instrument_id_missing" &&
+          issue !== "venue_missing" &&
+          issue !== "currency_unknown" &&
+          issue !== "session_timezone_missing",
+      ),
+    })),
   );
+  const integrity = assessHistoricalDataIntegrity(
+    rebound.bars,
+    history.integrity?.receivedAt ?? new Date().toISOString(),
+  );
+  return {
+    ...history,
+    candles: rebound.bars,
+    integrity,
+    barQuality: rebound.quality,
+  };
 }
 
 /** Wie viele Kalendertage ein Zeitfenster zurückreicht. */
@@ -135,11 +205,11 @@ const windowDays: Partial<Record<TimeRange, number>> = {
  * eine Ein-Punkt-Reihe als Tageschart auszugeben wäre eine Behauptung über
  * einen Verlauf, der nicht vorliegt.
  */
-export function sliceHistoryRanges(daily: readonly Candle[], now = new Date()): Record<TimeRange, Candle[]> {
+export function sliceHistoryRanges(daily: readonly NormalizedBar[], now = new Date()): Record<TimeRange, NormalizedBar[]> {
   const nowMs = now.getTime();
   const yearStart = Date.UTC(now.getUTCFullYear(), 0, 1);
 
-  const entries = chartRanges.map((range): [TimeRange, Candle[]] => {
+  const entries = chartRanges.map((range): [TimeRange, NormalizedBar[]] => {
     if (range === "1D") return [range, []];
 
     const from =
@@ -156,7 +226,7 @@ export function sliceHistoryRanges(daily: readonly Candle[], now = new Date()): 
     return [range, window];
   });
 
-  return Object.fromEntries(entries) as Record<TimeRange, Candle[]>;
+  return Object.fromEntries(entries) as Record<TimeRange, NormalizedBar[]>;
 }
 
 /**
@@ -165,7 +235,7 @@ export function sliceHistoryRanges(daily: readonly Candle[], now = new Date()): 
  * Getrennt vom Abruf, damit der Zwischenspeicher die ungekürzte Reihe halten
  * kann: die Grenze gehört zum Aufrufer, nicht zum Symbol.
  */
-function applyPlanLimit(result: HistoryResult, limitYears: number | undefined, now: Date): HistoryResult {
+function applyPlanLimitWithoutBarQuality(result: HistoryResult, limitYears: number | undefined, now: Date): HistoryResult {
   if (limitYears === undefined || result.candles.length === 0) return result;
 
   const limited = limitHistoryByYears(result.candles, limitYears, now);
@@ -177,6 +247,27 @@ function applyPlanLimit(result: HistoryResult, limitYears: number | undefined, n
     // Der Hinweis wird angehaengt statt ersetzt: die Herkunft bleibt sichtbar,
     // die Kuerzung kommt dazu.
     note: `${result.note} ${limited.note}`.trim()
+  };
+}
+
+function applyPlanLimit(
+  result: HistoryResult,
+  limitYears: number | undefined,
+  now: Date,
+): HistoryResult {
+  const limited = applyPlanLimitWithoutBarQuality(result, limitYears, now);
+  if (!limited.barQuality || !limited.candles.length) return limited;
+  const normalized = normalizeBarSeries(
+    limited.candles.map((bar) => ({
+      ...bar,
+      sourceQualityIssues: bar.qualityIssues,
+    })),
+    { now },
+  );
+  return {
+    ...limited,
+    candles: normalized.bars,
+    barQuality: normalized.quality,
   };
 }
 
@@ -212,15 +303,22 @@ export async function fetchDailyHistory(
    * Entwicklerwerkzeug an die Premium-Historie. §4 verlangt, dass der Client
    * nie über den Tarif entscheidet.
    */
-  limitYears?: number
+  limitYears?: number,
+  context?: HistoryInstrumentContext,
 ): Promise<HistoryResult> {
   const normalized = symbol.trim().toUpperCase();
   if (!normalized) return NO_HISTORY;
+  const cacheKey = [
+    normalized,
+    context?.instrumentId ?? "unresolved",
+    context?.venue ?? "unknown-venue",
+    context?.currency ?? "XXX",
+  ].join(":");
 
   // Der Zwischenspeicher haelt die **ungekuerzte** Reihe. Die Kuerzung haengt
   // am Tarif des Aufrufers und darf deshalb nicht mit zwischengespeichert
   // werden -- sonst bekaeme der naechste Nutzer die Grenze des vorigen.
-  const cached = historyCache.get(normalized);
+  const cached = historyCache.get(cacheKey);
   if (cached && now.getTime() - cached.storedAtMs < HISTORY_TTL_MS) {
     return applyPlanLimit(cached.result, limitYears, now);
   }
@@ -246,17 +344,23 @@ export async function fetchDailyHistory(
       maxBytes: 2_500_000
     });
 
-    const candles = parseFmpDailyHistory(normalized, data);
+    const parsedHistory = parseFmpDailyHistoryResult(normalized, data, context);
+    const candles = parsedHistory.bars;
     const integrity = assessHistoricalDataIntegrity(candles, new Date().toISOString());
 
     result = candles.length
       ? {
           candles,
-          note: `${candles.length} Tageskerzen von Financial Modeling Prep. Preisbasis: ${historicalPriceBasisLabel(integrity.priceBasis)}.`,
+          note: `${candles.length} Tageskerzen von Financial Modeling Prep. Preisbasis: ${historicalPriceBasisLabel(integrity.priceBasis)}. Bar-Qualität: ${parsedHistory.quality.status}, Score ${parsedHistory.quality.qualityScore}/100; ${parsedHistory.quality.rejected} ungültige und ${parsedHistory.quality.duplicates} doppelte Zeilen verworfen.`,
           provider: "Financial Modeling Prep",
-          integrity
+          integrity,
+          barQuality: parsedHistory.quality
         }
-      : { ...NO_HISTORY, note: "Der Anbieter lieferte keine verwertbaren Tageskerzen." };
+      : {
+          ...NO_HISTORY,
+          note: "Der Anbieter lieferte keine verwertbaren Tageskerzen.",
+          barQuality: parsedHistory.quality
+        };
   } catch (error) {
     const message = error instanceof Error ? error.message : "unbekannter Fehler";
     result = {
@@ -274,7 +378,7 @@ export async function fetchDailyHistory(
     const oldest = historyCache.keys().next().value;
     if (oldest !== undefined) historyCache.delete(oldest);
   }
-  historyCache.set(normalized, { result, storedAtMs: now.getTime() });
+  historyCache.set(cacheKey, { result, storedAtMs: now.getTime() });
 
   return applyPlanLimit(result, limitYears, now);
 }

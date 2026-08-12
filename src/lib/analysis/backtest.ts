@@ -27,6 +27,12 @@ export type BacktestCandle = {
   timestamp: string;
   close: number;
   adjustedClose?: number;
+  isAdjusted?: boolean;
+  adjustmentType?:
+    | "RAW"
+    | "SPLIT_ADJUSTED"
+    | "DIVIDEND_ADJUSTED"
+    | "SPLIT_DIVIDEND_ADJUSTED";
 };
 
 import {
@@ -299,6 +305,10 @@ export function runBacktest(input: BacktestInput): BacktestResult | BacktestRefu
   if (integrity.priceBasis === "adjusted_close") {
     caveats.push(
       "Berechnet mit dem Adjusted Close des Anbieters. Welche Corporate Actions vollständig enthalten sind, wurde nicht gegen einen unabhängigen Ereignis-Ledger abgeglichen."
+    );
+  } else if (integrity.priceBasis === "adjusted_ohlc") {
+    caveats.push(
+      `Berechnet mit einer als ${integrity.ohlcAdjustmentType ?? "angepasst"} gekennzeichneten OHLC-Reihe. Die Corporate Actions wurden nicht gegen einen unabhängigen Ereignis-Ledger abgeglichen.`
     );
   } else {
     caveats.push(
