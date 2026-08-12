@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   instrumentCatalogHitToUniverse,
+  rankInstrumentCatalogHits,
   type InstrumentCatalogHit,
 } from "@/lib/instrument-catalog";
 
@@ -49,6 +50,52 @@ function hit(
 }
 
 describe("Instrumentkatalog in der UI", () => {
+  it("ordnet einen exakten Ticker vor einem haeufiger bestaetigten Suffix-Listing ein", () => {
+    const exact = hit({
+      canonicalId: "stock:nasdaq:aapl:usd",
+      symbol: "AAPL",
+      displaySymbol: "AAPL",
+      name: "Apple Inc.",
+      confirmationCount: 1,
+    });
+    const suffixListing = hit({
+      canonicalId: "stock:neo:aapl.ne:cad",
+      symbol: "AAPL.NE",
+      displaySymbol: "AAPL.NE",
+      name: "Apple CDR",
+      confirmationCount: 100,
+    });
+
+    const result = rankInstrumentCatalogHits([suffixListing, exact], "aapl");
+
+    expect(result.map((item) => item.symbol)).toEqual(["AAPL", "AAPL.NE"]);
+  });
+
+  it("ordnet eine exakte Providerkennung vor einem reinen Namenstreffer ein", () => {
+    const identifierMatch = hit({
+      canonicalId: "stock:nasdaq:aapl:usd",
+      symbol: "AAPL",
+      name: "Apple Inc.",
+      identifiers: [
+        { type: "provider_symbol", value: "US0378331005", provider: "FMP" },
+      ],
+      confirmationCount: 1,
+    });
+    const nameMatch = hit({
+      canonicalId: "stock:otc:example:usd",
+      symbol: "EXAMPLE",
+      name: "US0378331005 Holdings",
+      confirmationCount: 100,
+    });
+
+    const result = rankInstrumentCatalogHits(
+      [nameMatch, identifierMatch],
+      "US0378331005",
+    );
+
+    expect(result[0]?.canonicalId).toBe(identifierMatch.canonicalId);
+  });
+
   it("stellt delayed niemals als realtime dar", () => {
     const result = instrumentCatalogHitToUniverse(hit());
     expect(result.quoteQuality).toBe("delayed");

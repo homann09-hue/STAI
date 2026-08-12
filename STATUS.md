@@ -375,3 +375,11 @@ ueber den laufenden Request hinaus zwischenzuspeichern.
 - Lokal bestanden: Format der TypeScript-Dateien, 16 gezielte Tests, TypeScript, ESLint, 131 Testdateien mit 1.015 Tests, Produktions-Build mit 35 Seiten und 35 Browserflüsse; ein Mobile-Duplikatlauf ist bewusst übersprungen.
 - Lokaler pgTAP-Start war wegen eines vorherigen ENOSPC-Abbruchs von Docker Desktop nicht möglich. Die 41 Instrument-Master-Assertions und die vollständige Migration müssen daher vor jedem Produktionsschritt im isolierten GitHub-Datenbankworkflow bestehen.
 - Produktionsmigration, GitHub-CI, Deployment und Live-Abnahme sind noch ausstehend; dieser Arbeitspunkt ist nicht als abgeschlossen markiert.
+
+## Phase 2 - Produktionsabnahme und Suchranking (2026-08-12)
+
+- PR #65 wurde als `508c30a7d72225dd0cbef12fa8e66fd98b7b14fe` in `main` uebernommen; Anwendung, 224 pgTAP-Pruefungen und Vercel-Vorschau waren erfolgreich.
+- Die kanonische Instrumentmigration ist auf dem Produktionsprojekt `STAI` angewendet. RLS, privilegierte Schreibgrenzen und die neuen Constraints wurden direkt gegen Produktion geprueft.
+- Das StockPilot-Deployment `dpl_3Y7vph8PPxvP5w4s7SAX2TNaTf8w` ist READY; BauPro wurde nicht veraendert oder deployt.
+- Der reale Such-Smoke deckte eine Rankingregression auf: Ein haeufiger bestaetigtes Suffix-Listing konnte den exakten Ticker verdraengen. Der aktive Hotfix priorisiert jetzt exaktes Symbol, exakte Kennung und erst danach Naehe sowie Bestaetigungsdaten.
+- Der Arbeitspunkt bleibt bis zu vollstaendigen lokalen Gates, GitHub-CI, erneutem StockPilot-Deployment und realer Suchpruefung offen.
