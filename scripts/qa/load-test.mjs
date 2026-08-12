@@ -26,8 +26,12 @@ const paths = [
   "/portfolio",
   "/alerts",
   "/api/market/overview",
-  "/api/assets/NVDA",
-  "/api/assets/BTC-USD",
+  // Unverifizierte Instrumente antworten in Produktion absichtlich mit
+  // 403/503. Das ist fachliches Fail-Closed-Verhalten und kein Lastfehler.
+  // Suche und Quote belasten dieselbe Provider-/Cache-Schicht, besitzen aber
+  // auch ohne Display-Rechte einen expliziten HTTP-200-Degraded-Vertrag.
+  "/api/instruments/search?q=AAPL",
+  "/api/market/quotes?symbols=AAPL",
   "/api/news?symbol=NVDA",
   // Auth- und Billing-Gates werden in E2E-Tests separat geprueft. Ein
   // anonymer Lasttest darf erwartete 401/403/503-Antworten nicht als
