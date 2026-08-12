@@ -226,8 +226,8 @@ export function buildNormalizedBar(
   if (vwap === null) issues.push("vwap_missing");
   const qualityIssues = [...new Set(issues)];
   const qualityStatus: QuoteQualityStatus = quality === "unavailable" ? "UNAVAILABLE"
-    : quality === "delayed" || quality === "historical" ? "DELAYED"
-      : qualityIssues.length ? "PARTIAL" : "OK";
+    : qualityIssues.length ? "PARTIAL"
+      : quality === "delayed" || quality === "historical" ? "DELAYED" : "OK";
 
   return {
     instrumentId,

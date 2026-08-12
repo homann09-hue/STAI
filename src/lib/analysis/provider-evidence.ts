@@ -1,4 +1,5 @@
 import type { HistoricalDataIntegrity } from "@/lib/analysis/history-integrity";
+import type { BarSeriesQuality } from "@/lib/canonical-bar";
 import type {
   AssetDetail,
   Candle,
@@ -12,6 +13,7 @@ type ProviderHistory = {
   note: string;
   provider: string | null;
   integrity: HistoricalDataIntegrity | null;
+  barQuality: BarSeriesQuality | null;
 };
 
 type ProviderEvidenceInput = {
@@ -79,7 +81,9 @@ export function assessProviderEvidence({
   const usableCandles = history.candles.filter(isUsableCandle);
   const externalNews = news.filter(isExternalNews);
   const historyUsable =
-    usableCandles.length >= 60 && history.integrity?.backtestStatus !== "blocked";
+    usableCandles.length >= 60 &&
+    history.barQuality?.sufficientForPriceAnalysis === true &&
+    history.integrity?.backtestStatus !== "blocked";
   const quoteUsable = quote.quality !== "mock" && quote.quality !== "unavailable";
   const sufficientForAnalysis = quoteUsable && !base.stale && historyUsable;
   const quoteTemplate =
@@ -134,7 +138,7 @@ export function assessProviderEvidence({
         ? `Fundamentaldaten nur teilweise verifiziert: ${verifiedFundamentals} von ${totalFundamentals} Feldern.`
         : "",
     !historyUsable
-      ? `Historische Kursbasis nicht ausreichend: ${usableCandles.length} von mindestens 60 verwertbaren Kerzen.`
+      ? `Historische Kursbasis nicht ausreichend: ${usableCandles.length} von mindestens 60 numerisch verwertbaren Kerzen; Bar-Qualität ${history.barQuality?.status ?? "UNAVAILABLE"}.`
       : ""
   ];
   const warnings = [
@@ -148,14 +152,17 @@ export function assessProviderEvidence({
     history.integrity?.corporateActionAdjustment === "not_evidenced"
       ? "Historische Schlusskurse sind nicht nachweislich um Corporate Actions bereinigt."
       : "",
+    history.barQuality && !history.barQuality.sufficientForPriceAnalysis
+      ? `Historische Bars sind nicht für Preisanalyse freigegeben: ${history.barQuality.issues.join(", ") || history.barQuality.status}.`
+      : "",
     ...(history.integrity?.issues ?? [])
   ];
 
   const rawScore =
     (quoteUsable ? 35 : 0) +
     (!base.stale ? 10 : 0) +
-    (historyUsable ? 35 : Math.min(20, Math.round(usableCandles.length / 3))) +
-    (history.integrity && history.integrity.backtestStatus !== "blocked" ? 10 : 0) +
+    (historyUsable ? 35 : 0) +
+    (historyUsable && history.integrity?.backtestStatus !== "blocked" ? 10 : 0) +
     (externalNews.length > 0 ? 10 : 0) +
     Math.min(10, Math.round((verifiedFundamentals / totalFundamentals) * 10));
   const qualityCap = quote.quality === "delayed" || quote.quality === "historical" ? 75 : 85;
@@ -175,7 +182,12 @@ export function assessProviderEvidence({
     confidence: sufficientForAnalysis ? Math.min(score, 72) : Math.min(score, 35),
     issues: unique(issues),
     warnings: unique(warnings),
-    contradictions: unique(base.contradictions),
+    contradictions: unique([
+      ...base.contradictions,
+      history.barQuality?.status === "DIVERGENT"
+        ? "Historische Bars enthalten divergente Duplikate oder gemischte Bereinigungsarten."
+        : ""
+    ]),
     sources
   };
 }
