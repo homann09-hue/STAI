@@ -87,7 +87,7 @@ export async function fetchCorporateActions(
     return unavailable(
       normalized,
       retrievedAt,
-      `Corporate Actions nicht verfügbar: ${reason ?? "kein freigegebener Provider"}.`,
+      `Corporate Actions nicht verfügbar: ${reason ?? "Kein freigegebener Provider."}`,
     );
   }
 

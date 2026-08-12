@@ -270,14 +270,14 @@ export async function searchInstrumentCatalog(
     } catch (error) {
       degraded = true;
       providerNote =
-        "Provider-Suche fehlgeschlagen. Es werden nur verifizierte Eintraege des Instrument Masters angezeigt.";
+        "Provider-Suche fehlgeschlagen. Es werden nur verifizierte Einträge des Instrument Masters angezeigt.";
       logEvent("warn", "instrument_catalog.provider_failed", {
         message: error instanceof Error ? error.message : "unknown",
       });
     }
   } else if (query && !capability.searchAvailable) {
     providerNote =
-      "Provider-Suche ist nicht konfiguriert. Es werden nur Eintraege des Instrument Masters angezeigt.";
+      "Provider-Suche ist nicht konfiguriert. Es werden nur Einträge des Instrument Masters angezeigt.";
   }
 
   const results = rankInstrumentCatalogHits(
