@@ -54,6 +54,10 @@ und nicht verfügbare Provider werden mit maschinenlesbarer Begründung
 ausgeschlossen. Der geschützte Health-Endpunkt liefert die Registry ohne
 Secret-Werte unter `marketDataRouting` aus.
 
+API-Routen prüfen die Freigabe vor Cache und Providerabruf. Eine fehlende
+Freigabe wird als `503` gemeldet und niemals als „Instrument nicht gefunden“,
+leere echte Datenreihe oder aktiver Provider ausgegeben.
+
 `implemented` bedeutet nur, dass ausführbarer Adaptercode vorhanden ist, nicht
 dass Tarif, Abdeckung oder Lizenz genügen. `prepared` bedeutet, dass der
 Provider im Zielrouting vorgesehen ist, aber noch nicht ausgeführt wird.
