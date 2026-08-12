@@ -31,6 +31,7 @@ import {
   type CanonicalBarInput,
 } from "@/lib/canonical-bar";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import { resolveProviderRoute } from "@/lib/providers/provider-registry";
 import { chartRanges, type NormalizedBar, type TimeRange } from "@/lib/types";
 
 export type HistoryResult = {
@@ -314,6 +315,24 @@ export async function fetchDailyHistory(
     context?.venue ?? "unknown-venue",
     context?.currency ?? "XXX",
   ].join(":");
+
+  const route = resolveProviderRoute({
+    capability: "historical_bars",
+    assetClass:
+      normalized.endsWith("USD") || normalized.includes("-")
+        ? "crypto"
+        : "equity",
+    preferredProvider: process.env.STOCKPILOT_HISTORY_PROVIDER ?? "fmp",
+  });
+  if (!route.providers.includes("fmp")) {
+    const reason = route.rejected.find(
+      (entry) => entry.providerId === "fmp",
+    )?.detail;
+    return {
+      ...NO_HISTORY,
+      note: `Keine Kurshistorie: ${reason ?? "kein lizenzierter und konfigurierter Historienanbieter verfügbar"}`,
+    };
+  }
 
   // Der Zwischenspeicher haelt die **ungekuerzte** Reihe. Die Kuerzung haengt
   // am Tarif des Aufrufers und darf deshalb nicht mit zwischengespeichert

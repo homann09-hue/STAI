@@ -1,6 +1,7 @@
 import "server-only";
 
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import { resolveProviderRoute } from "@/lib/providers/provider-registry";
 import { logEvent } from "@/lib/observability";
 import {
   inferAssetClass,
@@ -70,8 +71,12 @@ interface FmpSearchRow {
 }
 
 function providerApiKey() {
-  const key = process.env.FMP_API_KEY?.trim();
-  return key && key.length >= 8 ? key : null;
+  const route = resolveProviderRoute({
+    capability: "instrument_search",
+    preferredProvider: "fmp",
+  });
+  if (!route.providers.includes("fmp")) return null;
+  return process.env.FMP_API_KEY?.trim() || null;
 }
 
 function cleanText(value: unknown, maxLength: number) {
@@ -86,7 +91,7 @@ function normalizeSymbol(value: unknown) {
 
 function normalizeCurrency(value: unknown) {
   const cleaned = cleanText(value, 12).toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return /^[A-Z0-9]{2,12}$/.test(cleaned) ? cleaned : "USD";
+  return /^[A-Z0-9]{2,12}$/.test(cleaned) ? cleaned : "XXX";
 }
 
 function normalizeRow(

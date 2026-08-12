@@ -4,6 +4,7 @@ import { derivePolicyRatePath, type PolicyRatePath } from "@/lib/macro/policy-ra
 import { parseSdmxCsv, type MacroObservation } from "@/lib/macro/sdmx";
 import { macroSeriesCatalog, macroSeriesUrl, type MacroSeriesDefinition } from "@/lib/macro/series";
 import { fetchBoundedProviderText } from "@/lib/providers/http-json";
+import { resolveProviderRoute } from "@/lib/providers/provider-registry";
 import { logEvent } from "@/lib/observability";
 
 /**
@@ -32,6 +33,13 @@ const SERIES_TIMEOUT_MS = 5_000;
 type SeriesLoad = { reading: MacroReading; observations: MacroObservation[] } | null;
 
 async function loadSeries(definition: MacroSeriesDefinition, now: Date, observationCount: number): Promise<SeriesLoad> {
+  const route = resolveProviderRoute({
+    capability: "macro",
+    assetClass: "macro",
+    preferredProvider: "ecb",
+  });
+  if (!route.providers.includes("ecb")) return null;
+
   try {
     const { text, latencyMs } = await fetchBoundedProviderText(
       macroSeriesUrl(definition, observationCount),

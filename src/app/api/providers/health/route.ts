@@ -1,6 +1,7 @@
 import { hasPrivilegedAccess, hasStrongAdminSecret } from "@/lib/admin-access";
 import { jsonOk, rateLimit } from "@/lib/api-guard";
 import { getProviderHealthReport } from "@/lib/provider-health";
+import { getProviderRegistrySnapshot } from "@/lib/providers/provider-registry";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,10 @@ export async function GET(request: Request) {
     );
   }
 
-  const report = getProviderHealthReport();
+  const report = {
+    ...getProviderHealthReport(),
+    marketDataRouting: getProviderRegistrySnapshot(),
+  };
 
   return jsonOk(report, {
     headers: {
