@@ -111,6 +111,7 @@ export async function GET(request: Request) {
       return request;
     },
     {
+      policy: "quote",
       staleTtlMs: costControls.quoteStaleTtlMs,
       ttlMs: costControls.quoteTtlMs,
     },

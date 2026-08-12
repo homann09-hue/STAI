@@ -29,7 +29,7 @@ export async function GET(request: Request, { params }: RouteContext) {
   const result = await withCacheFallback(
     `asset:${parsed.data}`,
     () => provider.getAsset(parsed.data),
-    { ttlMs, staleTtlMs }
+    { policy: "asset_detail", ttlMs, staleTtlMs }
   );
   const detail = result.value;
 

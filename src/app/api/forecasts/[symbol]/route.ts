@@ -29,7 +29,7 @@ export async function GET(request: Request, { params }: RouteContext) {
       const detail = await provider.getAsset(parsed.data);
       return detail ? buildForecastLedgerResponse(detail) : null;
     },
-    { ttlMs, staleTtlMs }
+    { policy: "forecast", ttlMs, staleTtlMs }
   );
 
   if (!result.value) {

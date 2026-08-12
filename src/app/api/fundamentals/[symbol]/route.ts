@@ -23,6 +23,7 @@ export async function GET(request: Request, { params }: RouteContext) {
   const result = await withCacheFallback(`fundamentals:${parsed.data}`, () =>
     getFundamentalsWithMetadata(parsed.data)
   , {
+    policy: "fundamentals",
     staleTtlMs: costControls.fundamentalsStaleTtlMs,
     ttlMs: costControls.fundamentalsTtlMs
   }
