@@ -8,17 +8,18 @@ StockPilot AI wird Phase für Phase zu einem belegbar verlässlichen, schnellen,
 
 ## Aktuelle Phase
 
-- **Phase 2:** kanonische Instrument-, Quote- und Bar-Domainmodelle.
-- Kanonisches Instrumentenmodell: abgeschlossen und produktiv belegt.
-- Kanonisches Quote-Modell: abgeschlossen und produktiv belegt.
-- Nächster einzelner Arbeitspunkt: kanonisches Bar-/Kerzenmodell.
+- **Phase 2 abgeschlossen:** kanonische Instrument-, Quote- und Bar-Domainmodelle.
+- Instrument- und Quote-Modell sind produktiv belegt.
+- Bar-Modell, Qualitäts- und Analyse-Gates sind implementiert, lokal/CI geprüft und produktiv deployt.
+- Finaler Live-Bar-Inhaltstest: `BLOCKED – EXTERNAL`, weil der aktive FMP-Tarif aktuell kein geprüftes Symbol mit zugleich verfügbarer Quote und Historie liefert.
+- Nächster einzelner Arbeitspunkt: **Phase 3 – Provider Registry und Routing**.
 
 ## Verbindliche Qualitätsregeln
 
 - Keine erfundenen Marktdaten, Kennzahlen, Quellen oder Währungen.
 - Kein stiller Mock-Fallback und keine unbelegte Echtzeitkennzeichnung.
 - Jeder Datenpunkt behält Provider, fachlichen Datenstand, Eingangszeit und Qualitätsstatus.
-- Unzureichende, stale, divergente oder ungültige Evidenz sperrt aktuelle Analysen.
+- Ungeklärte Instrument-ID/Währung, unzureichende, stale, divergente oder ungültige Evidenz sperrt aktuelle Analysen.
 - Deterministische Berechnungen statt LLM-Rechenlogik; Prognosen bleiben probabilistisch.
 - Nutzerdaten laufen standardmäßig über tokengebundene Supabase-Clients und RLS.
 - Secrets bleiben serverseitig; Providerzugriffe nutzen die zentrale abgesicherte Fetch-Schicht.
@@ -26,7 +27,7 @@ StockPilot AI wird Phase für Phase zu einem belegbar verlässlichen, schnellen,
 
 ## Aktuelle externe Blocker
 
-- FMP bietet im aktiven Tarif kein vollständiges Instrumentverzeichnis und sperrt Quotes symbolweise.
+- FMP bietet im aktiven Tarif kein vollständiges Instrumentverzeichnis und sperrt Quotes symbolweise; der Live-Bar-Inhaltstest ist deshalb derzeit nicht reproduzierbar.
 - Vollständige Realtime-, Börsen- und Display-Rechte erfordern passende Datenverträge.
 - Ein verteilter Produktionscache benötigt eine konfigurierte Redis-/Upstash-Instanz.
 - Native iOS-Veröffentlichung benötigt Apple-Developer-Zugang und Signierung.
@@ -34,17 +35,18 @@ StockPilot AI wird Phase für Phase zu einem belegbar verlässlichen, schnellen,
 
 ## Definition of Done je Arbeitspunkt
 
-Implementierung, Typecheck, Lint, Unit-/Integrationstests, relevante Datenbank- und Browserprüfungen, Produktionsbuild, Security-/Regressionsprüfung, Dokumentation, Commit, Push, CI, StockPilot-Deployment, reale Produktionsprüfung und Fehlerlogkontrolle müssen belegt sein. Erst danach beginnt der nächste Punkt.
+Implementierung, Typecheck, Lint, Unit-/Integrationstests, relevante Datenbank- und Browserprüfungen, Produktionsbuild, Security-/Regressionsprüfung, Dokumentation, Commit, Push, CI, StockPilot-Deployment, reale Produktionsprüfung und Fehlerlogkontrolle müssen belegt sein. Extern unmögliche Live-Nachweise werden mit Messwert, Auswirkung und Aktivierungsschritt als `BLOCKED – EXTERNAL` dokumentiert.
 
 ## Aktueller Produktionsnachweis
 
-- Main: `75ac1052839f4a8bb60625421c07c825db4843b6`
-- Deployment: `dpl_CNqvdkS78XHgo7MyVVKe3gBkVNSp`, READY
+- Main: `02c245cfc92cf475dc865873a37d12f7895279c0`
+- Deployment: `dpl_G2F3HnTSWX7rGD2YpyjorN3xyFFp`, READY
 - Live: `https://stockpilot-ai-beta.vercel.app`
-- Main-CI: `31556173755`, erfolgreich
-- Main-Datenbanktests: `31556173724`, erfolgreich
-- Live-Quote-Stichprobe: FMP-Aktien `DELAYED`; Binance-BTC `NEAR_REALTIME/PARTIAL`; keine unbelegte Echtzeit
-- Produktionsfehlerlog: leer
+- Main-CI: `31558970326`, erfolgreich
+- Main-Datenbanktests: `31558970332`, erfolgreich
+- Lokal: 137 Testdateien / 1.052 Tests; Build 35 Seiten; E2E 35 bestanden / 1 bewusst übersprungen
+- Live: Kernseiten und Health 200; AAPL korrekt `quote_not_entitled`; SPY/MSFT/NVDA korrekt `identity_unverified`
+- Produktionslog im Prüfzeitraum: nur erwartete `info`-Requests, keine Runtime-Fehler
 
 ## Arbeitsregeln
 

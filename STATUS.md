@@ -8,7 +8,10 @@
 - Analyse und Backtest bleiben bei ungeklärter Identität, Währung, Divergenz oder inkonsistenter Bereinigung geschlossen.
 - Synthetische Marktband-Sparklines wurden entfernt; fehlende Historie wird sichtbar als fehlend dargestellt.
 - Lokal belegt: Typecheck, Lint, 137 Testdateien / 1.051 Tests, Build mit 35 statischen Seiten, E2E 35 bestanden / 1 bewusst übersprungen.
-- GitHub-CI und Production-Liveprüfung: ausstehend bis zum Merge dieses Meilensteins.
+- GitHub: PR #70 und Live-Gate-Fix #71 gemergt; Main `02c245cfc92cf475dc865873a37d12f7895279c0`.
+- Main-CI `31558970326` und Datenbanktests `31558970332` erfolgreich.
+- Produktion: `dpl_G2F3HnTSWX7rGD2YpyjorN3xyFFp`, READY, Alias `https://stockpilot-ai-beta.vercel.app`.
+- Live-Fail-closed belegt; echter Provider-Bar-Inhaltstest aktuell `BLOCKED – EXTERNAL` durch symbolweise FMP-Tarifgrenze.
 
 
 ## Aktueller Meilenstein: Phase 2 - Kanonisches Quote-Modell abgeschlossen
