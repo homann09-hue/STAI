@@ -1,22 +1,27 @@
 import "server-only";
 
+import { buildCanonicalInstrument } from "@/lib/canonical-instrument";
 import {
   instrumentDirectoryCapabilityReport,
-  searchProviderInstruments
+  searchProviderInstruments,
 } from "@/lib/providers/instrument-directory-provider";
 import {
   buildCanonicalInstrumentId,
   instrumentRecordFromHit,
   persistInstrumentHits,
-  searchStoredInstruments
+  searchStoredInstruments,
 } from "@/lib/instrument-master-store";
 import { logEvent } from "@/lib/observability";
 import type {
   InstrumentCatalogCoverage,
   InstrumentCatalogHit,
-  InstrumentQuoteStatus
+  InstrumentQuoteStatus,
 } from "@/lib/instrument-catalog";
-import type { InstrumentIdentifier, MarketDataQuality, MarketUniverseAssetClass } from "@/lib/types";
+import type {
+  InstrumentIdentifier,
+  MarketDataQuality,
+  MarketUniverseAssetClass,
+} from "@/lib/types";
 
 export const instrumentCatalogAssetClasses = [
   "stock",
@@ -29,7 +34,7 @@ export const instrumentCatalogAssetClasses = [
   "future",
   "option",
   "warrant",
-  "fund"
+  "fund",
 ] as const satisfies ReadonlyArray<MarketUniverseAssetClass>;
 
 export interface InstrumentCatalogSearchInput {
@@ -39,10 +44,15 @@ export interface InstrumentCatalogSearchInput {
 }
 
 function quoteStatus(value: unknown): InstrumentQuoteStatus {
-  return value === "available" || value === "restricted" || value === "error" ? value : "unknown";
+  return value === "available" || value === "restricted" || value === "error"
+    ? value
+    : "unknown";
 }
 
-function configuredQuality(provider: string, status: InstrumentQuoteStatus): MarketDataQuality {
+function configuredQuality(
+  provider: string,
+  status: InstrumentQuoteStatus,
+): MarketDataQuality {
   if (status !== "available") return "unavailable";
 
   const id = provider.trim().toLowerCase();
@@ -58,23 +68,35 @@ function configuredQuality(provider: string, status: InstrumentQuoteStatus): Mar
             ? "ALPHA_VANTAGE_DATA_QUALITY"
             : "FMP_DATA_QUALITY";
   const configured = process.env[envName] as MarketDataQuality | undefined;
-  const allowed: MarketDataQuality[] = ["realtime", "near_realtime", "delayed", "historical"];
+  const allowed: MarketDataQuality[] = [
+    "realtime",
+    "near_realtime",
+    "delayed",
+    "historical",
+  ];
   return configured && allowed.includes(configured) ? configured : "delayed";
 }
 
-function normalizeIdentifiers(value: unknown, symbol: string, exchange: string, provider: string) {
+function normalizeIdentifiers(
+  value: unknown,
+  symbol: string,
+  exchange: string,
+  provider: string,
+) {
   const identifiers = Array.isArray(value)
     ? value
         .map((item): InstrumentIdentifier | null => {
           if (!item || typeof item !== "object") return null;
           const record = item as Record<string, unknown>;
-          const type = String(record.identifier_type ?? record.type ?? "") as InstrumentIdentifier["type"];
+          const type = String(
+            record.identifier_type ?? record.type ?? "",
+          ) as InstrumentIdentifier["type"];
           const identifierValue = String(record.value ?? "").trim();
           if (!identifierValue) return null;
           return {
             type,
             value: identifierValue,
-            provider: record.provider ? String(record.provider) : undefined
+            provider: record.provider ? String(record.provider) : undefined,
           };
         })
         .filter((item): item is InstrumentIdentifier => Boolean(item))
@@ -82,9 +104,10 @@ function normalizeIdentifiers(value: unknown, symbol: string, exchange: string, 
 
   const fallback: InstrumentIdentifier[] = [
     { type: "ticker", value: symbol },
-    { type: "provider_symbol", value: symbol, provider }
+    { type: "provider_symbol", value: symbol, provider },
   ];
-  if (exchange && exchange !== "unknown") fallback.push({ type: "exchange", value: exchange });
+  if (exchange && exchange !== "unknown")
+    fallback.push({ type: "exchange", value: exchange });
 
   const merged = new Map<string, InstrumentIdentifier>();
   [...identifiers, ...fallback].forEach((item) => {
@@ -98,49 +121,99 @@ function storedHit(row: Record<string, unknown>): InstrumentCatalogHit {
   const symbol = String(row.symbol);
   const exchange = String(row.exchange);
   const status = quoteStatus(row.quote_status);
-
-  return {
+  const identifiers = normalizeIdentifiers(
+    row.identifiers,
+    symbol,
+    exchange,
+    provider,
+  );
+  const canonical = buildCanonicalInstrument({
+    internalInstrumentId: row.id,
     canonicalId: String(row.canonical_id),
     symbol,
+    displaySymbol: row.display_symbol,
     name: String(row.name),
     assetClass: row.asset_class as MarketUniverseAssetClass,
-    exchange,
-    exchangeFullName: row.exchange_full_name === null ? null : String(row.exchange_full_name ?? "") || null,
-    country: row.country === null || row.country === undefined ? null : String(row.country),
+    instrumentType: row.instrument_type,
+    exchangeName: row.exchange_full_name,
+    exchangeCode: row.exchange_code,
+    mic: row.mic,
     currency: String(row.currency),
+    country: row.country,
+    identifiers,
+    primaryProvider: provider,
+    tradingTimezone: row.trading_timezone,
+    pricePrecision: row.price_precision,
+    quantityPrecision: row.quantity_precision,
+    isActive: row.is_active,
+    isDelisted: row.is_delisted,
+  });
+
+  return {
+    ...canonical,
+    exchange,
+    exchangeFullName:
+      row.exchange_full_name === null
+        ? null
+        : String(row.exchange_full_name ?? "") || null,
     provider,
-    identifiers: normalizeIdentifiers(row.identifiers, symbol, exchange, provider),
+    identifiers,
     identityConfidence: Number(row.identity_confidence ?? 0),
-    resolutionStatus: row.resolution_status as InstrumentCatalogHit["resolutionStatus"],
-    resolutionWarnings: Array.isArray(row.resolution_warnings) ? row.resolution_warnings.map(String) : [],
+    resolutionStatus:
+      row.resolution_status as InstrumentCatalogHit["resolutionStatus"],
+    resolutionWarnings: Array.isArray(row.resolution_warnings)
+      ? row.resolution_warnings.map(String)
+      : [],
     origin: "instrument_master",
     quoteStatus: status,
     quoteQuality: configuredQuality(provider, status),
-    quoteCheckedAt: row.quote_checked_at === null ? null : String(row.quote_checked_at ?? "") || null,
+    quoteCheckedAt:
+      row.quote_checked_at === null
+        ? null
+        : String(row.quote_checked_at ?? "") || null,
     discoveredAt: String(row.last_seen_at),
     confirmationCount: Number(row.confirmation_count ?? 0),
-    matchedVia: Array.isArray(row.matched_identifiers) && row.matched_identifiers.length ? "identifier" : null
+    matchedVia:
+      Array.isArray(row.matched_identifiers) && row.matched_identifiers.length
+        ? "identifier"
+        : null,
   };
 }
 
-function providerHit(hit: Awaited<ReturnType<typeof searchProviderInstruments>>["hits"][number]): InstrumentCatalogHit {
+function providerHit(
+  hit: Awaited<ReturnType<typeof searchProviderInstruments>>["hits"][number],
+): InstrumentCatalogHit {
   const record = instrumentRecordFromHit(hit);
-  return {
+  const identifiers = normalizeIdentifiers(
+    [],
+    record.symbol,
+    record.exchange,
+    record.provider,
+  );
+  const canonical = buildCanonicalInstrument({
     canonicalId: buildCanonicalInstrumentId({
       assetClass: hit.assetClass,
       exchange: hit.exchange,
       symbol: hit.symbol,
-      currency: hit.currency
+      currency: hit.currency,
     }),
     symbol: record.symbol,
+    displaySymbol: record.symbol,
     name: record.name,
     assetClass: record.assetClass,
+    instrumentType: record.assetClass,
+    exchangeName: record.exchangeFullName,
+    exchangeCode: record.exchange,
+    currency: record.currency,
+    identifiers,
+    primaryProvider: record.provider,
+  });
+  return {
+    ...canonical,
     exchange: record.exchange,
     exchangeFullName: record.exchangeFullName,
-    country: null,
-    currency: record.currency,
     provider: record.provider,
-    identifiers: normalizeIdentifiers([], record.symbol, record.exchange, record.provider),
+    identifiers,
     identityConfidence: record.identityConfidence,
     resolutionStatus: record.resolutionStatus,
     resolutionWarnings: record.resolutionWarnings,
@@ -150,26 +223,34 @@ function providerHit(hit: Awaited<ReturnType<typeof searchProviderInstruments>>[
     quoteCheckedAt: null,
     discoveredAt: hit.fetchedAt,
     confirmationCount: 1,
-    matchedVia: hit.matchedVia
+    matchedVia: hit.matchedVia,
   };
 }
 
-export async function searchInstrumentCatalog(input: InstrumentCatalogSearchInput = {}) {
+export async function searchInstrumentCatalog(
+  input: InstrumentCatalogSearchInput = {},
+) {
   const query = input.query?.trim().slice(0, 64) ?? "";
   const assetClass = input.assetClass ?? "all";
   const limit = Math.min(200, Math.max(1, Math.floor(input.limit ?? 40)));
   const capability = instrumentDirectoryCapabilityReport();
   const storedRows = await searchStoredInstruments(query, limit, assetClass);
-  const storedResults = storedRows.map((row) => storedHit(row as Record<string, unknown>));
+  const storedResults = storedRows.map((row) =>
+    storedHit(row as Record<string, unknown>),
+  );
   let providerResults: InstrumentCatalogHit[] = [];
   let providerNote = query
     ? "Gespeicherter Instrument Master wurde durchsucht."
     : "Gespeicherter Instrument Master; ohne Verzeichnislizenz wird kein statisches Ersatzuniversum angezeigt.";
   let degraded = false;
-  let persistence: Awaited<ReturnType<typeof persistInstrumentHits>> | null = null;
+  let persistence: Awaited<ReturnType<typeof persistInstrumentHits>> | null =
+    null;
   let providerLatencyMs = 0;
 
-  const needsProviderLookup = Boolean(query) && capability.searchAvailable && storedResults.length < Math.min(5, limit);
+  const needsProviderLookup =
+    Boolean(query) &&
+    capability.searchAvailable &&
+    storedResults.length < Math.min(5, limit);
 
   if (needsProviderLookup) {
     try {
@@ -178,20 +259,24 @@ export async function searchInstrumentCatalog(input: InstrumentCatalogSearchInpu
       degraded = directory.degraded;
       providerNote = directory.capabilityNote;
       const filteredHits = directory.hits.filter(
-        (hit) => assetClass === "all" || hit.assetClass === assetClass
+        (hit) => assetClass === "all" || hit.assetClass === assetClass,
       );
       persistence = await persistInstrumentHits(filteredHits, query);
       const known = new Set(storedResults.map((item) => item.canonicalId));
-      providerResults = filteredHits.map(providerHit).filter((item) => !known.has(item.canonicalId));
+      providerResults = filteredHits
+        .map(providerHit)
+        .filter((item) => !known.has(item.canonicalId));
     } catch (error) {
       degraded = true;
-      providerNote = "Provider-Suche fehlgeschlagen. Es werden nur verifizierte Eintraege des Instrument Masters angezeigt.";
+      providerNote =
+        "Provider-Suche fehlgeschlagen. Es werden nur verifizierte Eintraege des Instrument Masters angezeigt.";
       logEvent("warn", "instrument_catalog.provider_failed", {
-        message: error instanceof Error ? error.message : "unknown"
+        message: error instanceof Error ? error.message : "unknown",
       });
     }
   } else if (query && !capability.searchAvailable) {
-    providerNote = "Provider-Suche ist nicht konfiguriert. Es werden nur Eintraege des Instrument Masters angezeigt.";
+    providerNote =
+      "Provider-Suche ist nicht konfiguriert. Es werden nur Eintraege des Instrument Masters angezeigt.";
   }
 
   const results = [...storedResults, ...providerResults].slice(0, limit);
@@ -201,7 +286,7 @@ export async function searchInstrumentCatalog(input: InstrumentCatalogSearchInpu
     directorySyncAvailable: capability.directorySyncAvailable,
     note: providerNote,
     consequence: capability.consequence,
-    verifiedAt: capability.verifiedAt
+    verifiedAt: capability.verifiedAt,
   };
 
   return {
@@ -211,13 +296,13 @@ export async function searchInstrumentCatalog(input: InstrumentCatalogSearchInpu
     counts: {
       total: results.length,
       fromInstrumentMaster: storedResults.length,
-      fromProviderSearch: providerResults.length
+      fromProviderSearch: providerResults.length,
     },
     persistence,
     coverage,
     degraded,
     provider: "FMP + StockPilot Instrument Master",
     providerLatencyMs,
-    receivedAt: new Date().toISOString()
+    receivedAt: new Date().toISOString(),
   };
 }

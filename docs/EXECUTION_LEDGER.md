@@ -6,10 +6,10 @@ Stand: 2026-08-11
 
 | Feld             | Tatsächlicher Stand                                    |
 | ---------------- | ------------------------------------------------------ |
-| Phase            | Phase 1: bestehende kritische Fehler beheben           |
-| Aktive Aufgabe   | Abschlussnachweis Provider-429-Stabilisierung          |
-| Produktionsstand | `main` auf `743497c0cd7810e451e611899f2b80a7254df4e9`  |
-| Arbeitsbranch    | `codex/phase-1-provider-evidence`                      |
+| Phase            | Phase 2: kanonische Instrument-/Quote-/Bar-Modelle     |
+| Aktive Aufgabe   | Kanonisches Instrumentenmodell                         |
+| Produktionsstand | `main` auf `3231ac6d32a8bcc750aa74467334cd6e6f1f9d27`  |
+| Arbeitsbranch    | `codex/phase-2-canonical-instrument`                   |
 | Repository       | `homann09-hue/STAI`                                    |
 | Produktion       | `https://stockpilot-ai-beta.vercel.app`                |
 | Vercel-Projekt   | ausschließlich `stockpilot-ai`; BauPro blieb unberührt |
@@ -165,3 +165,30 @@ Die früher beobachtete 429-Welle ist damit technisch und produktiv behoben. Ein
 ## Nächster zulässiger Schritt
 
 Den Abschlussnachweis über die vollständigen GitHub-Gates mergen. Danach genau einen weiteren Phase-1-Befund anhand messbarer Sicherheits- oder Produktwirkung auswählen; die übergeordnete Marktreife-Mission bleibt aktiv.
+
+## Aktive Aufgabe - Phase 2 Kanonisches Instrumentenmodell
+
+- **Branch:** `codex/phase-2-canonical-instrument`
+- **Ausgangslücke:** Der Instrument Master unterschied wesentliche Listingfelder wie Instrumenttyp, Börsencode, MIC, Zeitzone, Präzision und Aktiv-/Delistingstatus nicht explizit. API-Treffer trugen keine zentrale kanonische Form.
+- **Domain:** `CanonicalInstrument` und `ProviderInstrumentMapping` bilden alle im Masterprompt verlangten Identitätsfelder ab; unbekannte Werte sind explizit `null`.
+- **Validierung:** MIC, ISIN und FIGI werden formal geprüft. Widersprüchliche Aktiv-/Delistingwerte werden auf der Domainseite zurückgehalten und durch eine Datenbank-Constraint abgewiesen.
+- **Persistenz:** Migration `20260811213000_extend_canonical_instrument_model.sql` ergänzt die Felder und hält die bestehende privilegierte RPC-Signatur stabil.
+- **API:** Instrumentkatalog und Marktuniversum reichen die kanonischen Listingfelder samt tatsächlichen Provider-Mappings bis zur Suchausgabe weiter.
+
+## Lokale Abnahme Phase 2
+
+| Gate                          | Ergebnis                                                   |
+| ----------------------------- | ---------------------------------------------------------- |
+| TypeScript-Format             | bestanden                                                  |
+| Gezielte Domain-/Katalogtests | 4 Dateien / 16 Tests bestanden                             |
+| TypeScript                    | bestanden                                                  |
+| ESLint                        | bestanden, 0 Warnungen                                     |
+| Unit/Integration              | 131 Dateien / 1.015 Tests bestanden                        |
+| Produktions-Build             | bestanden, 35 Seiten                                       |
+| Browser/E2E                   | 35 bestanden, 1 bewusst übersprungen                       |
+| pgTAP-Pläne                   | alle stimmen; Instrument-Suite 41 Assertions               |
+| Lokale Datenbankausführung    | nicht gelaufen: Docker-Backend nach ENOSPC nicht verfügbar |
+
+## Nächster zulässiger Schritt Phase 2
+
+Implementierung committen und über PR-CI prüfen. Der isolierte GitHub-Datenbankworkflow muss die Migration und alle pgTAP-Suiten bestehen. Erst danach darf die Migration auf Supabase-Produktion angewendet werden; anschließend folgen ausschließlich StockPilot-Deployment, reale Such-/Schema-Smokes und Abschlussdokumentation.

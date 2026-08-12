@@ -4,18 +4,34 @@ import type { InstrumentCatalogHit } from "@/lib/instrument-catalog";
 const searchInstrumentCatalog = vi.fn();
 
 vi.mock("@/lib/instrument-catalog-service", () => ({
-  searchInstrumentCatalog: (input: unknown) => searchInstrumentCatalog(input)
+  searchInstrumentCatalog: (input: unknown) => searchInstrumentCatalog(input),
 }));
 
 const providerHit: InstrumentCatalogHit = {
+  internalInstrumentId: null,
   canonicalId: "stock:nasdaq:acme:usd",
   symbol: "ACME",
+  displaySymbol: "ACME",
   name: "Acme Corporation",
   assetClass: "stock",
+  instrumentType: "stock",
+  exchangeName: "Nasdaq Global Market",
+  exchangeCode: "NASDAQ",
+  mic: null,
   exchange: "NASDAQ",
   exchangeFullName: "Nasdaq Global Market",
   country: "US",
   currency: "USD",
+  isin: null,
+  figi: null,
+  providerMappings: [
+    { providerId: "FMP", providerSymbol: "ACME", exchangeCode: "NASDAQ" },
+  ],
+  tradingTimezone: null,
+  pricePrecision: null,
+  quantityPrecision: null,
+  isActive: null,
+  isDelisted: null,
   provider: "FMP",
   identifiers: [{ type: "ticker", value: "ACME" }],
   identityConfidence: 88,
@@ -27,7 +43,7 @@ const providerHit: InstrumentCatalogHit = {
   quoteCheckedAt: null,
   discoveredAt: "2026-08-10T00:00:00.000Z",
   confirmationCount: 1,
-  matchedVia: "symbol"
+  matchedVia: "symbol",
 };
 
 beforeEach(() => {
@@ -40,10 +56,10 @@ beforeEach(() => {
       directorySyncAvailable: false,
       note: "search only",
       consequence: "incomplete",
-      verifiedAt: "2026-08-10"
+      verifiedAt: "2026-08-10",
     },
     provider: "FMP + StockPilot Instrument Master",
-    receivedAt: "2026-08-10T00:00:01.000Z"
+    receivedAt: "2026-08-10T00:00:01.000Z",
   });
 });
 
@@ -53,7 +69,11 @@ describe("dynamisches Marktuniversum", () => {
     const instruments = await getMarketUniverse({ query: "ACME", limit: 20 });
 
     expect(instruments.map((item) => item.symbol)).toEqual(["ACME"]);
-    expect(instruments.some((item) => ["AAPL", "MSFT", "BTC-USD"].includes(item.symbol))).toBe(false);
+    expect(
+      instruments.some((item) =>
+        ["AAPL", "MSFT", "BTC-USD"].includes(item.symbol),
+      ),
+    ).toBe(false);
   });
 
   it("reicht Filter und Limit an den zentralen Katalog weiter", async () => {
@@ -63,7 +83,7 @@ describe("dynamisches Marktuniversum", () => {
     expect(searchInstrumentCatalog).toHaveBeenCalledWith({
       query: "Acme",
       assetClass: "stock",
-      limit: 17
+      limit: 17,
     });
   });
 

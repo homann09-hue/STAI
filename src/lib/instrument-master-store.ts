@@ -2,13 +2,22 @@ import "server-only";
 
 import { logEvent } from "@/lib/observability";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import { assessInstrumentIdentity, buildCanonicalInstrumentId } from "@/lib/instrument-identity";
+import {
+  assessInstrumentIdentity,
+  buildCanonicalInstrumentId,
+} from "@/lib/instrument-identity";
 import type { KnownInstrumentIdentity } from "@/lib/asset-availability";
 import type { QuoteStatus } from "@/lib/quote-entitlement";
 import type { ProviderInstrumentHit } from "@/lib/providers/instrument-directory-provider";
-import type { InstrumentResolutionStatus, MarketUniverseAssetClass } from "@/lib/types";
+import type {
+  InstrumentResolutionStatus,
+  MarketUniverseAssetClass,
+} from "@/lib/types";
 
-export { assessInstrumentIdentity, buildCanonicalInstrumentId } from "@/lib/instrument-identity";
+export {
+  assessInstrumentIdentity,
+  buildCanonicalInstrumentId,
+} from "@/lib/instrument-identity";
 
 /**
  * Persistenz des Instrument Masters.
@@ -41,14 +50,16 @@ export interface PersistResult {
   reason?: string;
 }
 
-export function instrumentRecordFromHit(hit: ProviderInstrumentHit): InstrumentRecord {
+export function instrumentRecordFromHit(
+  hit: ProviderInstrumentHit,
+): InstrumentRecord {
   const identity = assessInstrumentIdentity({
     symbol: hit.symbol,
     name: hit.name,
     exchange: hit.exchange,
     currency: hit.currency,
     assetClass: hit.assetClass,
-    matchedVia: hit.matchedVia
+    matchedVia: hit.matchedVia,
   });
 
   return {
@@ -56,7 +67,7 @@ export function instrumentRecordFromHit(hit: ProviderInstrumentHit): InstrumentR
       assetClass: hit.assetClass,
       exchange: hit.exchange,
       symbol: hit.symbol,
-      currency: hit.currency
+      currency: hit.currency,
     }),
     symbol: hit.symbol,
     name: hit.name,
@@ -67,7 +78,7 @@ export function instrumentRecordFromHit(hit: ProviderInstrumentHit): InstrumentR
     provider: hit.provider,
     identityConfidence: identity.identityConfidence,
     resolutionStatus: identity.resolutionStatus,
-    resolutionWarnings: identity.resolutionWarnings
+    resolutionWarnings: identity.resolutionWarnings,
   };
 }
 
@@ -77,10 +88,15 @@ export function instrumentRecordFromHit(hit: ProviderInstrumentHit): InstrumentR
  */
 export async function persistInstrumentHits(
   hits: ProviderInstrumentHit[],
-  discoveryQuery: string
+  discoveryQuery: string,
 ): Promise<PersistResult> {
   if (hits.length === 0) {
-    return { status: "skipped", stored: 0, skipped: 0, reason: "keine Treffer" };
+    return {
+      status: "skipped",
+      stored: 0,
+      skipped: 0,
+      reason: "keine Treffer",
+    };
   }
 
   const supabase = createSupabaseServiceClient();
@@ -89,7 +105,7 @@ export async function persistInstrumentHits(
       status: "skipped",
       stored: 0,
       skipped: hits.length,
-      reason: "Supabase Service-Client nicht konfiguriert"
+      reason: "Supabase Service-Client nicht konfiguriert",
     };
   }
 
@@ -113,7 +129,7 @@ export async function persistInstrumentHits(
       p_discovery_query: discoveryQuery.slice(0, 120),
       p_identity_confidence: record.identityConfidence,
       p_resolution_status: record.resolutionStatus,
-      p_resolution_warnings: record.resolutionWarnings
+      p_resolution_warnings: record.resolutionWarnings,
     });
 
     if (error) {
@@ -121,7 +137,7 @@ export async function persistInstrumentHits(
       logEvent("warn", "instrument_master.upsert_failed", {
         symbol: record.symbol,
         code: error.code,
-        message: error.message
+        message: error.message,
       });
       continue;
     }
@@ -131,34 +147,44 @@ export async function persistInstrumentHits(
     const instrumentId = typeof data === "string" ? data : null;
     if (!instrumentId) continue;
 
-    const { error: identifierError } = await supabase.from("instrument_identifiers").upsert(
-      [
-        { instrument_id: instrumentId, identifier_type: "ticker", value: record.symbol, provider: null },
+    const { error: identifierError } = await supabase
+      .from("instrument_identifiers")
+      .upsert(
+        [
+          {
+            instrument_id: instrumentId,
+            identifier_type: "ticker",
+            value: record.symbol,
+            provider: null,
+          },
+          {
+            instrument_id: instrumentId,
+            identifier_type: "provider_symbol",
+            value: record.symbol,
+            provider: record.provider,
+          },
+          ...(record.exchange && record.exchange !== "unknown"
+            ? [
+                {
+                  instrument_id: instrumentId,
+                  identifier_type: "exchange" as const,
+                  value: record.exchange,
+                  provider: null,
+                },
+              ]
+            : []),
+        ],
         {
-          instrument_id: instrumentId,
-          identifier_type: "provider_symbol",
-          value: record.symbol,
-          provider: record.provider
+          onConflict: "instrument_id,identifier_type,value",
+          ignoreDuplicates: true,
         },
-        ...(record.exchange && record.exchange !== "unknown"
-          ? [
-              {
-                instrument_id: instrumentId,
-                identifier_type: "exchange" as const,
-                value: record.exchange,
-                provider: null
-              }
-            ]
-          : [])
-      ],
-      { onConflict: "instrument_id,identifier_type,value", ignoreDuplicates: true }
-    );
+      );
 
     if (identifierError) {
       logEvent("warn", "instrument_master.identifier_upsert_failed", {
         symbol: record.symbol,
         code: identifierError.code,
-        message: identifierError.message
+        message: identifierError.message,
       });
     }
   }
@@ -166,7 +192,7 @@ export async function persistInstrumentHits(
   return {
     status: stored > 0 ? "stored" : "failed",
     stored,
-    skipped
+    skipped,
   };
 }
 
@@ -180,20 +206,23 @@ export async function persistInstrumentHits(
  * der Tarif gated offenbar auf Symbolebene. Ein geratener Status waere daher
  * falsche Sicherheit.
  */
-export async function recordInstrumentQuoteStatus(canonicalId: string, status: QuoteStatus) {
+export async function recordInstrumentQuoteStatus(
+  canonicalId: string,
+  status: QuoteStatus,
+) {
   const supabase = createSupabaseServiceClient();
   if (!supabase) return false;
 
   const { data, error } = await supabase.rpc("record_instrument_quote_status", {
     p_canonical_id: canonicalId,
-    p_quote_status: status
+    p_quote_status: status,
   });
 
   if (error) {
     logEvent("warn", "instrument_master.quote_status_failed", {
       canonicalId,
       code: error.code,
-      message: error.message
+      message: error.message,
     });
     return false;
   }
@@ -208,7 +237,10 @@ export async function recordInstrumentQuoteStatus(canonicalId: string, status: Q
  * nur das Symbol kennt. Schlaegt still fehl: eine fehlende Statusmessung darf
  * keinen Nutzerrequest beeintraechtigen.
  */
-export async function markInstrumentQuoteStatusBySymbol(symbol: string, status: QuoteStatus) {
+export async function markInstrumentQuoteStatusBySymbol(
+  symbol: string,
+  status: QuoteStatus,
+) {
   const supabase = createSupabaseServiceClient();
   if (!supabase) return false;
 
@@ -217,14 +249,17 @@ export async function markInstrumentQuoteStatusBySymbol(symbol: string, status: 
 
   const { error } = await supabase
     .from("instruments")
-    .update({ quote_status: status, quote_checked_at: new Date().toISOString() })
+    .update({
+      quote_status: status,
+      quote_checked_at: new Date().toISOString(),
+    })
     .eq("symbol", normalized);
 
   if (error) {
     logEvent("warn", "instrument_master.quote_status_by_symbol_failed", {
       symbol: normalized,
       code: error.code,
-      message: error.message
+      message: error.message,
     });
     return false;
   }
@@ -240,7 +275,7 @@ export async function markInstrumentQuoteStatusBySymbol(symbol: string, status: 
  * bestätigte Listing.
  */
 export async function findInstrumentIdentityBySymbol(
-  symbol: string
+  symbol: string,
 ): Promise<KnownInstrumentIdentity | null> {
   const supabase = createSupabaseServiceClient();
   if (!supabase) return null;
@@ -261,7 +296,7 @@ export async function findInstrumentIdentityBySymbol(
       logEvent("warn", "instrument_master.identity_lookup_failed", {
         symbol: normalized,
         code: error.code,
-        message: error.message
+        message: error.message,
       });
     }
     return null;
@@ -274,11 +309,11 @@ export async function findInstrumentIdentityBySymbol(
     exchange: String(data.exchange),
     currency: String(data.currency),
     provider: String(data.provider),
-    quoteStatus: (["unknown", "available", "restricted", "error"] as const).includes(
-      data.quote_status as QuoteStatus
-    )
+    quoteStatus: (
+      ["unknown", "available", "restricted", "error"] as const
+    ).includes(data.quote_status as QuoteStatus)
       ? (data.quote_status as QuoteStatus)
-      : "unknown"
+      : "unknown",
   };
 }
 
@@ -289,7 +324,7 @@ export async function findInstrumentIdentityBySymbol(
 export async function searchStoredInstruments(
   query: string,
   limit = 20,
-  assetClass: MarketUniverseAssetClass | "all" = "all"
+  assetClass: MarketUniverseAssetClass | "all" = "all",
 ) {
   const supabase = createSupabaseServiceClient();
   if (!supabase) return [];
@@ -303,20 +338,27 @@ export async function searchStoredInstruments(
   if (normalized && !escaped) return [];
 
   const selectColumns =
-    "id,canonical_id,symbol,name,asset_class,exchange,exchange_full_name,country,currency,provider,identity_confidence,resolution_status,resolution_warnings,last_seen_at,confirmation_count,quote_status,quote_checked_at";
+    "id,canonical_id,symbol,display_symbol,name,asset_class,instrument_type,exchange,exchange_full_name,exchange_code,mic,country,currency,trading_timezone,price_precision,quantity_precision,is_active,is_delisted,provider,identity_confidence,resolution_status,resolution_warnings,last_seen_at,confirmation_count,quote_status,quote_checked_at";
   let directQuery = supabase
     .from("instruments")
     .select(selectColumns)
     .order("confirmation_count", { ascending: false });
 
-  if (assetClass !== "all") directQuery = directQuery.eq("asset_class", assetClass);
-  if (escaped) directQuery = directQuery.or(`symbol.ilike.${escaped}%,name.ilike.%${escaped}%`);
+  if (assetClass !== "all")
+    directQuery = directQuery.eq("asset_class", assetClass);
+  if (escaped)
+    directQuery = directQuery.or(
+      `symbol.ilike.${escaped}%,name.ilike.%${escaped}%`,
+    );
 
   const boundedLimit = Math.min(200, Math.max(1, limit));
   const { data, error } = await directQuery.limit(boundedLimit);
 
   if (error) {
-    logEvent("warn", "instrument_master.search_failed", { code: error.code, message: error.message });
+    logEvent("warn", "instrument_master.search_failed", {
+      code: error.code,
+      message: error.message,
+    });
     return [];
   }
 
@@ -333,33 +375,49 @@ export async function searchStoredInstruments(
     if (identifierError) {
       logEvent("warn", "instrument_master.identifier_search_failed", {
         code: identifierError.code,
-        message: identifierError.message
+        message: identifierError.message,
       });
     } else {
-      matchedIdentifierRows = (identifierRows ?? []) as Array<Record<string, unknown>>;
+      matchedIdentifierRows = (identifierRows ?? []) as Array<
+        Record<string, unknown>
+      >;
       const missingIds = [
         ...new Set(
           matchedIdentifierRows
             .map((row) => String(row.instrument_id ?? ""))
-            .filter((id) => id && !byId.has(id))
-        )
+            .filter((id) => id && !byId.has(id)),
+        ),
       ];
 
       if (missingIds.length) {
-        let identifierInstrumentQuery = supabase.from("instruments").select(selectColumns).in("id", missingIds);
+        let identifierInstrumentQuery = supabase
+          .from("instruments")
+          .select(selectColumns)
+          .in("id", missingIds);
         if (assetClass !== "all") {
-          identifierInstrumentQuery = identifierInstrumentQuery.eq("asset_class", assetClass);
+          identifierInstrumentQuery = identifierInstrumentQuery.eq(
+            "asset_class",
+            assetClass,
+          );
         }
-        const { data: identifierInstruments, error: identifierInstrumentError } =
-          await identifierInstrumentQuery.limit(boundedLimit);
+        const {
+          data: identifierInstruments,
+          error: identifierInstrumentError,
+        } = await identifierInstrumentQuery.limit(boundedLimit);
 
         if (identifierInstrumentError) {
-          logEvent("warn", "instrument_master.identifier_instrument_lookup_failed", {
-            code: identifierInstrumentError.code,
-            message: identifierInstrumentError.message
-          });
+          logEvent(
+            "warn",
+            "instrument_master.identifier_instrument_lookup_failed",
+            {
+              code: identifierInstrumentError.code,
+              message: identifierInstrumentError.message,
+            },
+          );
         } else {
-          (identifierInstruments ?? []).forEach((row) => byId.set(String(row.id), row));
+          (identifierInstruments ?? []).forEach((row) =>
+            byId.set(String(row.id), row),
+          );
         }
       }
     }
@@ -367,7 +425,10 @@ export async function searchStoredInstruments(
 
   const rows = [...byId.values()].slice(0, boundedLimit);
   const ids = rows.map((row) => String(row.id));
-  const identifiersByInstrument = new Map<string, Array<Record<string, unknown>>>();
+  const identifiersByInstrument = new Map<
+    string,
+    Array<Record<string, unknown>>
+  >();
 
   if (ids.length) {
     const { data: identifiers, error: identifiersError } = await supabase
@@ -379,7 +440,7 @@ export async function searchStoredInstruments(
     if (identifiersError) {
       logEvent("warn", "instrument_master.identifiers_load_failed", {
         code: identifiersError.code,
-        message: identifiersError.message
+        message: identifiersError.message,
       });
     } else {
       (identifiers ?? []).forEach((identifier) => {
@@ -402,6 +463,6 @@ export async function searchStoredInstruments(
   return rows.map((row) => ({
     ...row,
     identifiers: identifiersByInstrument.get(String(row.id)) ?? [],
-    matched_identifiers: matchedByInstrument.get(String(row.id)) ?? []
+    matched_identifiers: matchedByInstrument.get(String(row.id)) ?? [],
   }));
 }

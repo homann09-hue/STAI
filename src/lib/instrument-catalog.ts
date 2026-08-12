@@ -1,23 +1,19 @@
 import type {
+  CanonicalInstrument,
   InstrumentAnalysisReadiness,
   InstrumentIdentifier,
   InstrumentResolutionStatus,
   MarketDataQuality,
-  MarketUniverseInstrument
+  MarketUniverseInstrument,
 } from "@/lib/types";
 
 export type InstrumentCatalogOrigin = "instrument_master" | "provider_search";
-export type InstrumentQuoteStatus = "unknown" | "available" | "restricted" | "error";
+export type InstrumentQuoteStatus =
+  "unknown" | "available" | "restricted" | "error";
 
-export interface InstrumentCatalogHit {
-  canonicalId: string;
-  symbol: string;
-  name: string;
-  assetClass: MarketUniverseInstrument["assetClass"];
+export interface InstrumentCatalogHit extends CanonicalInstrument {
   exchange: string;
   exchangeFullName: string | null;
-  country: string | null;
-  currency: string;
   provider: string;
   identifiers: InstrumentIdentifier[];
   identityConfidence: number;
@@ -47,12 +43,18 @@ function readinessFor(hit: InstrumentCatalogHit): {
 } {
   const blockers: string[] = [];
 
-  if (hit.resolutionStatus === "invalid") blockers.push("Instrumentidentitaet ist ungueltig.");
-  if (hit.resolutionStatus === "ambiguous") blockers.push("Instrumentidentitaet ist mehrdeutig.");
-  if (hit.quoteStatus === "unknown") blockers.push("Kursverfuegbarkeit wurde noch nicht gemessen.");
-  if (hit.quoteStatus === "restricted") blockers.push("Kursdaten sind im aktiven Tarif gesperrt.");
-  if (hit.quoteStatus === "error") blockers.push("Letzter Kursabruf ist fehlgeschlagen.");
-  if (hit.quoteQuality === "unavailable") blockers.push("Keine verifizierte Kursqualitaet vorhanden.");
+  if (hit.resolutionStatus === "invalid")
+    blockers.push("Instrumentidentitaet ist ungueltig.");
+  if (hit.resolutionStatus === "ambiguous")
+    blockers.push("Instrumentidentitaet ist mehrdeutig.");
+  if (hit.quoteStatus === "unknown")
+    blockers.push("Kursverfuegbarkeit wurde noch nicht gemessen.");
+  if (hit.quoteStatus === "restricted")
+    blockers.push("Kursdaten sind im aktiven Tarif gesperrt.");
+  if (hit.quoteStatus === "error")
+    blockers.push("Letzter Kursabruf ist fehlgeschlagen.");
+  if (hit.quoteQuality === "unavailable")
+    blockers.push("Keine verifizierte Kursqualitaet vorhanden.");
 
   if (
     hit.resolutionStatus === "invalid" ||
@@ -74,7 +76,9 @@ function readinessFor(hit: InstrumentCatalogHit): {
   return { status: "ready", blockers };
 }
 
-export function instrumentCatalogHitToUniverse(hit: InstrumentCatalogHit): MarketUniverseInstrument {
+export function instrumentCatalogHitToUniverse(
+  hit: InstrumentCatalogHit,
+): MarketUniverseInstrument {
   const readiness = readinessFor(hit);
   const coverage: MarketUniverseInstrument["coverage"] =
     hit.quoteStatus === "available"
@@ -96,14 +100,27 @@ export function instrumentCatalogHitToUniverse(hit: InstrumentCatalogHit): Marke
 
   return {
     symbol: hit.symbol,
-    displaySymbol: hit.symbol,
+    displaySymbol: hit.displaySymbol,
     normalizedSymbol: hit.symbol,
     canonicalId: hit.canonicalId,
+    internalInstrumentId: hit.internalInstrumentId,
     name: hit.name,
     assetClass: hit.assetClass,
+    instrumentType: hit.instrumentType,
     exchange: hit.exchange,
+    exchangeName: hit.exchangeName,
+    exchangeCode: hit.exchangeCode,
+    mic: hit.mic,
     country: hit.country ?? "nicht geliefert",
     currency: hit.currency,
+    isin: hit.isin,
+    figi: hit.figi,
+    providerMappings: hit.providerMappings,
+    tradingTimezone: hit.tradingTimezone,
+    pricePrecision: hit.pricePrecision,
+    quantityPrecision: hit.quantityPrecision,
+    isActive: hit.isActive,
+    isDelisted: hit.isDelisted,
     identifiers: hit.identifiers,
     identityConfidence: hit.identityConfidence,
     resolutionStatus: hit.resolutionStatus,
@@ -123,6 +140,6 @@ export function instrumentCatalogHitToUniverse(hit: InstrumentCatalogHit): Marke
     origin: hit.origin,
     quoteStatus: hit.quoteStatus,
     quoteCheckedAt: hit.quoteCheckedAt,
-    discoveredAt: hit.discoveredAt
+    discoveredAt: hit.discoveredAt,
   };
 }
