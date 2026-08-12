@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ChainedQuoteProvider, resetMarketProviderRuntimeStateForTests } from "@/lib/providers/market-provider";
+import {
+  ChainedQuoteProvider,
+  resetMarketProviderRuntimeStateForTests,
+} from "@/lib/providers/market-provider";
 import type { MarketDataQuality, NormalizedQuote } from "@/lib/types";
+import { buildNormalizedQuote } from "@/lib/canonical-quote";
 
 /**
  * Der Test, der vor dem zweiten Schlüssel nicht möglich war.
@@ -25,22 +29,34 @@ type FakeProvider = {
   getQuotes: (symbols: string[]) => Promise<NormalizedQuote[]>;
 };
 
-function quoteFrom(symbol: string, provider: string, quality: MarketDataQuality, price: number): NormalizedQuote {
-  return {
+function quoteFrom(
+  symbol: string,
+  provider: string,
+  quality: MarketDataQuality,
+  price: number,
+): NormalizedQuote {
+  return buildNormalizedQuote({
+    instrumentId: `stock:test:${symbol.toLowerCase()}:usd`,
     symbol,
-    price,
+    providerId: provider.toLowerCase().replace(/\s+/g, "_"),
+    providerSymbol: symbol,
+    venue: "TEST",
+    last: price,
+    currency: "USD",
     previousClose: price,
     change: 0,
     changePercent: 0,
     high: price,
     low: price,
     open: price,
-    timestamp: "2026-08-08T12:00:00.000Z",
+    eventTimestamp: "2026-08-08T12:00:00.000Z",
+    providerTimestamp: "2026-08-08T12:00:00.000Z",
+    receivedTimestamp: "2026-08-08T12:00:00.010Z",
     provider,
     quality,
     latencyMs: 10,
-    marketStatus: "unknown"
-  } as NormalizedQuote;
+    marketStatus: "unknown",
+  });
 }
 
 function fake(
@@ -48,7 +64,7 @@ function fake(
   id: "fmp" | "finnhub",
   quality: MarketDataQuality,
   behaviour: "answers" | "throws" | "empty",
-  price = 100
+  price = 100,
 ): FakeProvider {
   return {
     providerName: name,
@@ -60,14 +76,18 @@ function fake(
       if (behaviour === "empty") return null;
       return quoteFrom(symbol, name, quality, price);
     }),
-    getQuotes: async () => []
+    getQuotes: async () => [],
   };
 }
 
 // Die Kette erwartet die interne QuoteProvider-Schnittstelle. Die Attrappen
 // erfuellen sie strukturell; der Cast haelt den Test frei von Netzwerkcode.
 const chainOf = (...providers: FakeProvider[]) =>
-  new ChainedQuoteProvider(providers as unknown as ConstructorParameters<typeof ChainedQuoteProvider>[0]);
+  new ChainedQuoteProvider(
+    providers as unknown as ConstructorParameters<
+      typeof ChainedQuoteProvider
+    >[0],
+  );
 
 afterEach(async () => {
   await resetMarketProviderRuntimeStateForTests();
@@ -76,7 +96,13 @@ afterEach(async () => {
 describe("Ausfall der ersten Kursquelle", () => {
   it("weicht auf die zweite aus, wenn die erste einen Fehler wirft", async () => {
     const primary = fake("FMP", "fmp", "delayed", "throws");
-    const secondary = fake("Finnhub", "finnhub", "near_realtime", "answers", 313.33);
+    const secondary = fake(
+      "Finnhub",
+      "finnhub",
+      "near_realtime",
+      "answers",
+      313.33,
+    );
 
     const quote = await chainOf(primary, secondary).getQuote("AAPL");
 
@@ -89,15 +115,29 @@ describe("Ausfall der ersten Kursquelle", () => {
     // Ein leeres Ergebnis ist genauso ein Ausfall wie ein Fehler -- der Nutzer
     // merkt keinen Unterschied.
     const primary = fake("FMP", "fmp", "delayed", "empty");
-    const secondary = fake("Finnhub", "finnhub", "near_realtime", "answers", 313.33);
+    const secondary = fake(
+      "Finnhub",
+      "finnhub",
+      "near_realtime",
+      "answers",
+      313.33,
+    );
 
-    expect((await chainOf(primary, secondary).getQuote("MSFT"))?.price).toBe(313.33);
+    expect((await chainOf(primary, secondary).getQuote("MSFT"))?.price).toBe(
+      313.33,
+    );
   });
 
   it("fragt die zweite gar nicht erst, wenn die erste antwortet", async () => {
     // Sonst wuerde jede Anfrage doppelt Kosten verursachen.
     const primary = fake("FMP", "fmp", "delayed", "answers", 312.0);
-    const secondary = fake("Finnhub", "finnhub", "near_realtime", "answers", 313.33);
+    const secondary = fake(
+      "Finnhub",
+      "finnhub",
+      "near_realtime",
+      "answers",
+      313.33,
+    );
 
     const quote = await chainOf(primary, secondary).getQuote("NVDA");
 
@@ -110,7 +150,7 @@ describe("Ausfall der ersten Kursquelle", () => {
     // Mock-Rueckfall -- die Kette erfindet keinen Kurs.
     const chain = chainOf(
       fake("FMP", "fmp", "delayed", "throws"),
-      fake("Finnhub", "finnhub", "near_realtime", "throws")
+      fake("Finnhub", "finnhub", "near_realtime", "throws"),
     );
 
     expect(await chain.getQuote("TSLA")).toBeNull();
@@ -121,7 +161,7 @@ describe("Ausfall der ersten Kursquelle", () => {
     // FMP-Kurs erscheinen.
     const quote = await chainOf(
       fake("FMP", "fmp", "delayed", "throws"),
-      fake("Finnhub", "finnhub", "near_realtime", "answers", 313.33)
+      fake("Finnhub", "finnhub", "near_realtime", "answers", 313.33),
     ).getQuote("AMZN");
 
     expect(quote?.provider).toBe("Finnhub");
@@ -135,7 +175,7 @@ describe("Ausfall der ersten Kursquelle", () => {
     // verzoegerte Ersatz nicht als near-realtime durchgehen.
     const quote = await chainOf(
       fake("Finnhub", "finnhub", "near_realtime", "throws"),
-      fake("FMP", "fmp", "delayed", "answers", 312.0)
+      fake("FMP", "fmp", "delayed", "answers", 312.0),
     ).getQuote("GOOGL");
 
     expect(quote?.provider).toBe("FMP");
@@ -144,7 +184,13 @@ describe("Ausfall der ersten Kursquelle", () => {
 
   it("stops a delayed FMP batch after the first 429 and resolves through the fallback", async () => {
     const fmp = fake("FMP", "fmp", "delayed", "answers");
-    const finnhub = fake("Finnhub", "finnhub", "near_realtime", "answers", 401.25);
+    const finnhub = fake(
+      "Finnhub",
+      "finnhub",
+      "near_realtime",
+      "answers",
+      401.25,
+    );
     vi.mocked(fmp.getQuote).mockRejectedValue(new Error("FMP HTTP 429"));
 
     const symbols = ["ORCL", "IBM", "CSCO"];

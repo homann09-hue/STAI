@@ -349,18 +349,23 @@ export function AssetDetailView({
       dayHigh: liveQuote.high ?? detail.quote.dayHigh,
       dayLow: liveQuote.low ?? detail.quote.dayLow,
       volume: liveQuote.volume ?? detail.quote.volume,
-      delayedByMinutes: liveQuote.quality === "delayed" ? Math.max(detail.quote.delayedByMinutes, 15) : 0,
+      delayedByMinutes:
+        liveQuote.reportedDelaySeconds !== null
+          ? Math.ceil(liveQuote.reportedDelaySeconds / 60)
+          : liveQuote.quality === "delayed"
+            ? detail.quote.delayedByMinutes
+            : 0,
       asOf: liveQuote.timestamp,
-      bid: liveQuote.bid,
-      ask: liveQuote.ask,
-      spread: liveQuote.spread,
+      bid: liveQuote.bid ?? undefined,
+      ask: liveQuote.ask ?? undefined,
+      spread: liveQuote.spread ?? undefined,
       open: liveQuote.open ?? detail.quote.open,
       previousClose: liveQuote.previousClose ?? detail.quote.previousClose,
       fiftyTwoWeekHigh: liveQuote.fiftyTwoWeekHigh ?? detail.quote.fiftyTwoWeekHigh,
       fiftyTwoWeekLow: liveQuote.fiftyTwoWeekLow ?? detail.quote.fiftyTwoWeekLow,
       provider: liveQuote.provider,
       quality: liveQuote.quality,
-      latencyMs: liveQuote.latencyMs,
+      latencyMs: liveQuote.latencyMs ?? undefined,
       marketStatus: liveQuote.marketStatus
     };
   }, [detail.asset.symbol, detail.quote, stream.quotes]);

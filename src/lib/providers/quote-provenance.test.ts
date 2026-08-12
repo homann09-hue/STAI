@@ -1,20 +1,27 @@
 import { describe, expect, it } from "vitest";
 import type { NormalizedQuote } from "@/lib/types";
+import { buildNormalizedQuote } from "@/lib/canonical-quote";
 import { summarizeQuoteProviders } from "./quote-provenance";
 
 function quote(symbol: string, provider: string): NormalizedQuote {
-  return {
+  return buildNormalizedQuote({
+    instrumentId: `stock:nasdaq:${symbol.toLowerCase()}:usd`,
     symbol,
     assetType: "stock",
-    price: 1,
+    providerId: "finnhub",
+    providerSymbol: symbol,
+    venue: "XNAS",
+    last: 1,
     currency: "USD",
     change: 0,
     changePercent: 0,
-    timestamp: "2026-08-11T18:00:00.000Z",
+    eventTimestamp: "2026-08-11T18:00:00.000Z",
+    providerTimestamp: "2026-08-11T18:00:00.000Z",
+    receivedTimestamp: "2026-08-11T18:00:00.050Z",
     provider,
     quality: "near_realtime",
     marketStatus: "unknown",
-  };
+  });
 }
 
 describe("summarizeQuoteProviders", () => {

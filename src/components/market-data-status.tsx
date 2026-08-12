@@ -43,7 +43,7 @@ export function MarketDataStatus({ quote, compact = false }: { quote: Quote | No
   const timestamp = timestampOf(quote);
   const formattedTimestamp = formatStatusTimestamp(timestamp);
   const provider = safeProvider(quote.provider);
-  const latency = formatLatency(quote.latencyMs);
+  const latency = formatLatency(quote.latencyMs ?? undefined);
 
   return (
     <div className={`rounded-md border px-3 py-2 ${display.tone}`}>

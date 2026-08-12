@@ -1,3 +1,4 @@
+import { buildNormalizedQuote } from "@/lib/canonical-quote";
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
 import type {
   AssetDetail,
@@ -100,17 +101,20 @@ function hasUsableFundamentals(detail: AssetDetail) {
 }
 
 function normalizedFromDetail(detail: AssetDetail): NormalizedQuote {
-  return {
+  return buildNormalizedQuote({
+    instrumentId: null,
     symbol: detail.asset.symbol,
     name: detail.asset.name,
     assetType: detail.asset.type,
-    price: detail.quote.price,
+    providerId: detail.quote.quality === "mock" ? "mock" : "unavailable",
+    providerSymbol: detail.asset.symbol,
+    venue: detail.asset.exchange,
+    last: detail.quote.price,
     currency: detail.asset.currency,
     change: detail.quote.change,
     changePercent: detail.quote.changePercent,
     bid: detail.quote.bid,
     ask: detail.quote.ask,
-    spread: detail.quote.spread,
     volume: detail.quote.volume,
     high: detail.quote.dayHigh,
     low: detail.quote.dayLow,
@@ -118,12 +122,13 @@ function normalizedFromDetail(detail: AssetDetail): NormalizedQuote {
     previousClose: detail.quote.previousClose,
     fiftyTwoWeekHigh: detail.quote.fiftyTwoWeekHigh,
     fiftyTwoWeekLow: detail.quote.fiftyTwoWeekLow,
-    timestamp: detail.quote.asOf,
+    eventTimestamp: detail.quote.asOf,
+    providerTimestamp: detail.quote.asOf,
     provider: detail.quote.provider,
     quality: detail.quote.quality,
     latencyMs: detail.quote.latencyMs,
     marketStatus: detail.quote.marketStatus
-  };
+  });
 }
 
 function getPointQuality(quote: NormalizedQuote, label: string, value: string | number | null) {
