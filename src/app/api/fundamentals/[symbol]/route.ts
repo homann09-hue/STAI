@@ -29,17 +29,20 @@ export async function GET(request: Request, { params }: RouteContext) {
   }
   );
   const fundamentals = result.value.fundamentals;
+  const effectiveQuality = result.fromCache && fundamentals
+    ? "cached"
+    : result.value.metadata.quality;
   const responseHeaders = {
     ...cacheControlHeaders(costControls.fundamentalsTtlMs, costControls.fundamentalsStaleTtlMs),
     "X-StockPilot-Cost-Ttl-Ms": `${costControls.fundamentalsTtlMs}`,
     "X-StockPilot-Cache": result.fromCache ? "fallback" : "fresh",
-    "X-StockPilot-Data-Quality": result.fromCache ? "cached" : result.value.metadata.quality
+    "X-StockPilot-Data-Quality": effectiveQuality
   };
   const responseBody = {
     ...result.value,
     metadata: {
       ...result.value.metadata,
-      quality: result.fromCache ? "cached" : result.value.metadata.quality,
+      quality: effectiveQuality,
       cache: {
         fromCache: result.fromCache,
         storedAt: result.cacheStoredAt,
