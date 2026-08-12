@@ -60,3 +60,64 @@ Stand: 2026-08-12
 ## Nächster zulässiger Schritt
 
 Phase 3 beginnt mit der Bestandsaufnahme und Vereinheitlichung der Provider Registry und der Routing-Matrix. Das erste Ziel ist eine zentrale, konfigurierbare Auswahl nach Capability, Assetklasse, Lizenz, Health und Datenqualität, ohne Providerpriorität im Frontend und ohne einen gesperrten FMP-Quote als stillen Mock-/Fallbackpfad zu ersetzen.
+
+## 2026-08-12 — Phase 3: Provider Registry und Routing
+
+**Ziel:** Eine einzige, typisierte und provider-unabhängige Entscheidung für
+externe Datenzugriffe mit ehrlicher Lizenz-, Capability- und
+Failover-Behandlung.
+
+**Implementiert:**
+
+- Registry für Alpaca, Twelve Data, Finnhub, FMP, Alpha Vantage,
+  Massive/Polygon, EODHD, Databento, Binance, Coinbase, Marketaux, NewsAPI,
+  SEC EDGAR, FRED, EZB und CoinGecko.
+- Maschinenlesbare Lizenzpolicy mit Umgebung, interner/externer Nutzung,
+  Redistribution, Derived Data, Attribution, Verzögerung, Feed-Typ und
+  Verifikationszeitpunkt.
+- Routing nach Capability, Assetklasse, Markt, bevorzugtem Provider,
+  Konfiguration, Enable-Flag, Lizenz und Health.
+- Gesunde Provider vor degradierten; unavailable/open-circuit ausgeschlossen.
+- Migration von Quote-Kette, Krypto-Auswahl, Historie, Instrumentensuche,
+  Fundamentals, News, SEC und Makrodaten.
+- Secret-freier Registry-Snapshot im geschützten Health-Endpunkt.
+- Fehlende Providerwährung bleibt `XXX` statt erfundenem `USD`.
+- Live-Redteam-Regressionsschutz für SEC- und Makro-Rechtesperren.
+
+**Lokale Evidenz:**
+
+- `npm run typecheck`: erfolgreich.
+- `npm run lint`: erfolgreich.
+- `npm test`: 139 Dateien, 1.065 Tests, alle erfolgreich.
+- `npm run build`: erfolgreich, 35 Seiten.
+- `npm run test:e2e`: 35 erfolgreich, 1 bewusst übersprungen.
+- `git diff --check`: erfolgreich.
+- Secret-Musterscan im Diff: kein Treffer.
+
+**GitHub-/Datenbank-Evidenz:**
+
+- PR #73: https://github.com/homann09-hue/STAI/pull/73
+- PR #74: https://github.com/homann09-hue/STAI/pull/74
+- Implementierungs-Merge: `3d072ed477fec4d57b196460947625cedd59d00d`.
+- Finaler Fix-Merge: `cda7624f0923b2bc920a72f46338b79f42643a14`.
+- PR CI/DB: `31560753764`, `31560753799`, `31561327284`,
+  `31561327285` — erfolgreich.
+- Main CI/DB: `31560928157`, `31560928148`, `31561509219`,
+  `31561509315` — erfolgreich.
+
+**Produktions-Evidenz:**
+
+- Deployment: `dpl_ERhonfRua42y6NqVrFxpkHdv956z`, READY.
+- Alias: `https://stockpilot-ai-beta.vercel.app`.
+- HTML/API-Smoke: Dashboard, Märkte, AAPL-Detail und Health 200.
+- Quotes: 200, keine Quotes, Provider „Kein verifizierter
+  Marktdatenanbieter“.
+- News: 200, leer, Qualität `unavailable`.
+- SEC: 503, externe Anzeige für SEC EDGAR nicht verifiziert.
+- EZB: 503, externe Anzeige für EZB nicht verifiziert.
+- FRED: 503, externe Anzeige für FRED nicht verifiziert.
+- Vercel Error-Logs: keine Fehler im Prüfzeitraum.
+- BauPro: nicht geändert und nicht deployt.
+
+**Ergebnis:** Phase 3 abgeschlossen. Nächster Punkt ist Phase 4: Caching, Rate
+Limits und Circuit Breaker.
