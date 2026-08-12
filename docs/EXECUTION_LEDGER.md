@@ -202,3 +202,30 @@ Implementierung committen und über PR-CI prüfen. Der isolierte GitHub-Datenban
 - **Korrektur:** Exaktes Symbol, exaktes Anzeigesymbol und exakte Kennung erhalten voneinander getrennte absolute Relevanzstufen. Symbol-/Namensnaehe folgt danach; Aufloesungs-, Kurs-, Herkunfts-, Konfidenz- und Bestaetigungswerte entscheiden nur innerhalb einer Relevanzstufe.
 - **Status:** Implementierung und Regressionstests angelegt; alle lokalen und externen Abschlussgates stehen noch aus.
 - **Projektgrenze:** Ausschliesslich StockPilot; BauPro bleibt unberuehrt.
+
+## Abschlussnachweis - Kanonisches Instrumentenmodell und Suchranking
+
+| Beleg                 | Ergebnis                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| Domain und Persistenz | PR #65, Merge `508c30a7d72225dd0cbef12fa8e66fd98b7b14fe`                                    |
+| Suchranking-Hotfix    | PR #66, Merge `9b49193ba724cb860dbf6f326d75d93fb1f8f8b8`                                    |
+| Lokale Gates          | TypeScript, ESLint, 131 Dateien / 1.017 Tests, Build mit 35 Seiten                          |
+| Browser               | 35 bestanden, 1 redundanter Desktop-Mobile-Lauf bewusst uebersprungen                       |
+| PR-CI                 | `31553969385` erfolgreich                                                                   |
+| PR-Datenbank          | `31553969403` erfolgreich; 10 Dateien / 224 pgTAP-Pruefungen                                |
+| Finale Main-CI        | `31554156481` erfolgreich                                                                   |
+| Finale Main-Datenbank | `31554156442` erfolgreich                                                                   |
+| Supabase-Produktion   | Migration `20260812012358`; Schema, Constraints, RLS und RPC-Rechte direkt geprueft         |
+| Produktionsdeployment | `dpl_3xBgzmgrzzciZd67sFZ6uPyMG4Jt`, READY                                                   |
+| Live-Alias            | `https://stockpilot-ai-beta.vercel.app`                                                     |
+| Live-Smoke            | Startseite, Maerkte, AAPL und Health HTTP 200                                               |
+| Rankingregression     | Drei wiederholte Suchen: `AAPL` / NASDAQ / `stock:nasdaq:aapl:usd` jeweils Rang 1           |
+| Transparenz           | `coverage.complete: false`, `mode: search_driven`; unbekannte Referenzfelder bleiben `null` |
+| Produktionslog        | keine Fehler im Abnahmezeitraum                                                             |
+| Projektgrenze         | nur `stockpilot-ai`; BauPro nicht veraendert oder deployt                                   |
+
+Der Instrumenten-Arbeitspunkt ist abgeschlossen. Die uebergeordnete Marktreife-Mission bleibt aktiv.
+
+## Naechster einzelner Arbeitspunkt - Kanonisches Quote-Modell
+
+Phase 2 wird mit einem zentralen Quote-Vertrag fortgesetzt. Er muss Instrument-/Provider-/Venue-Identitaet, Bid/Ask/Last und Groessen, OHLC, Previous Close, Change, Volumen, VWAP, Marktphase, Event-/Provider-/Empfangszeit, Realtime-Nachweis, gemeldete Verzoegerung, Feedtyp und Quality Status providerunabhaengig abbilden. Bestehende Quote-Pfade werden erst nach Bestandsaudit migriert; keine unbelegte Echtzeitannahme und kein Parallelmodell.
