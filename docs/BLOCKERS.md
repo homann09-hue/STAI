@@ -384,3 +384,14 @@ Aktivierung erst nach Rechteprüfung:
 
 Bis dahin liefert StockPilot keine erfundenen Ersatzwerte: Quotes/News melden
 `unavailable`; SEC/EZB/FRED antworten mit explizitem 503-Rechtehinweis.
+
+## Phase-4-Ergänzung zu BLOCKER-010 vom 2026-08-12
+
+Die Anwendungsschicht ist vollständig vorbereitet und produktiv belegt:
+atomare Zähler, Request-Coalescing, besitzersichere verteilte Sperren,
+providerbezogene Budgets, Circuit-Zustände und Upstash-Timeouts sind
+implementiert. Ohne konfigurierte `UPSTASH_REDIS_REST_URL` und
+`UPSTASH_REDIS_REST_TOKEN` meldet Health weiterhin
+`sharedConfigured: false`; mehrere Vercel-Instanzen koordinieren dann nicht
+global. Dieser externe Infrastrukturpunkt bleibt deshalb offen und wird nicht
+als horizontal abgeschlossen bezeichnet.

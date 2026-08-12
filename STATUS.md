@@ -1,5 +1,18 @@
 # StockPilot AI Status
 
+## 2026-08-12 – Phase 4: Caching, Rate Limits und Circuit Breaker
+
+- Eine zentrale Resilience-Laufzeit schützt sämtliche HTTP-Providerzugriffe mit providerbezogenen Budgets, Burst-Grenzen, begrenzter Parallelität und Warteschlangen.
+- Netzwerkfehler, Timeouts, HTTP 408/429 und 5xx werden nur begrenzt mit Backoff, Jitter und `Retry-After` wiederholt. 401/402/403, Lizenz-, Symbol- und Eingabefehler werden nicht wiederholt.
+- Wiederholte transiente Fehler öffnen einen geteilten Circuit Breaker. Nach Ablauf darf exakt ein Half-open-Prüfabruf starten; Provider bleiben voneinander isoliert.
+- Identische gleichzeitige Providerabfragen werden gebündelt. Der gemeinsame Cache nutzt atomare Zähler, besitzersichere Sperren, begrenzte Upstash-Laufzeiten und fachlich typisierte Cachefenster bis 30 Tage.
+- Quotes, Assets, Dashboard, Fundamentals, News, Makro, Analysen, Forecasts und Professional-Daten tragen explizite Cacheklassen; geschützte Health-Diagnosen zeigen nur aggregierte Resilience-Zustände ohne URLs oder Secrets.
+- Lokal belegt: Typecheck, Lint, 142 Testdateien / 1.082 Tests, Build mit 35 statischen Seiten, E2E 35 bestanden / 1 bewusst übersprungen, Stress und Chaos bestanden.
+- Lastnachweis: 2.000 aktive Sitzungen, 0 abgelehnte und 0 fehlerhafte Antworten, `p95` 367 ms, maximal 444 ms. 500 gleichzeitige Release-Gate-Anfragen ebenfalls ohne Fehler.
+- GitHub: PR #76 gemergt; Main `a9de16bfe9a633283b8199764dca702939e13874`. PR-CI `31563071386`, PR-DB `31563071330`, Main-CI `31563261983` und Main-DB `31563262143` erfolgreich.
+- Produktion: `dpl_BNgRtaHEupghcb6XgXX2PjiNm7fj`, READY, Alias `https://stockpilot-ai-beta.vercel.app`; Kernseiten und APIs HTTP 200, keine Runtime-Fehler im Prüfzeitraum.
+- BauPro blieb unverändert. Nächster einzelner Arbeitspunkt: Phase 5 – FMP-Adapter härten.
+
 ## 2026-08-12 – Phase 2: Kanonisches Bar-/Kerzenmodell
 
 - Verbindlicher NormalizedBar-Vertrag mit Instrument, Provider, Intervall, UTC-Grenzen, OHLCV, Trade Count, VWAP, Währung, Provenienz und Qualitätsstatus.
