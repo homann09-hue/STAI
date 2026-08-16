@@ -12,15 +12,15 @@ Gewinne.
 
 ## Aktuelle Phase
 
-- **Phase 9: SEC EDGAR, CI-Abnahme offen.**
+- **Phase 10: FRED, Implementierung startet.**
 - Phase 8 Finnhub ist als Commit `c743961` auf GitHub gepusht.
 - SEC-Formulare, historische Submission-Segmente, Metadaten, CIK-Auflösung,
   Deduplizierung, Neu-Erkennung und Fair-Access-Limit sind implementiert.
-- Syntaxcheck und ein direkter SEC-Modultest mit 19 Pruefungen sind gruen.
-  Vitest und Projekt-Typecheck starten wegen lokaler Workspace-I/O nicht
-  innerhalb des vereinbarten kurzen Zeitfensters; selbst ein isolierter
-  `1 + 1`-Smoke-Test bleibt vor dem Teststart stehen.
-- Phase 9 wird als CI-Pruefkandidat veroeffentlicht und noch nicht als fertig gemeldet.
+- Phase 9 ist in Draft-PR `#87` vollstaendig gruen: TypeScript, ESLint,
+  Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke,
+  Performance-/Enterprise-Gates sowie Supabase-RLS und Integritaet.
+- Phase 10 erweitert die bestehende FRED-Anbindung um Lebenszyklusdaten,
+  Revisionsstatus und die noch fehlenden Zielreihen.
 - Vercel bleibt auf Nutzerwunsch bis spaeter verschoben.
 
 ## Verbindliche Qualitaetsregeln
