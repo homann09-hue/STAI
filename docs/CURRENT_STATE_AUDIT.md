@@ -150,7 +150,9 @@ angesehen.
 
 Vollabzug des Universums, ISIN/FIGI, Screener über das Gesamtuniversum,
 Point-in-Time-Historie, Corporate Actions, Handelskalender, Optionen, Anleihen,
-Analysten, Insider, Short Interest, US-Makro (bis ein FRED-Schlüssel vorliegt).
+Analysten, Insider und Short Interest. US-Makrowerte sind über den offiziellen
+FRED-CSV-Export verfügbar; Erstveröffentlichung und Revisionsvergleich brauchen
+zusätzlich `FRED_API_KEY`.
 
 ## 14. Was ist eher Show als Mehrwert
 

@@ -18,6 +18,20 @@ export type MacroFreshness = "current" | "delayed" | "outdated";
 
 export type MacroTrend = "rising" | "falling" | "flat" | "unknown";
 
+export type MacroRevisionStatus = "not_available" | "unrevised" | "revised";
+
+export type MacroDataLifecycle = {
+  /** Stichtag der wirtschaftlichen Beobachtung. */
+  observationDate: string;
+  /** Datum der ersten bei FRED verfügbaren Veröffentlichung. */
+  firstPublishedAt: string | null;
+  /** Bis zu welchem FRED-Vintage der Revisionsvergleich reicht. */
+  vintageAsOf: string | null;
+  revisionStatus: MacroRevisionStatus;
+  initialValue: number | null;
+  revisionDelta: number | null;
+};
+
 /**
  * Einheiten, die eine Reihe haben kann.
  *
@@ -54,6 +68,8 @@ export type MacroReading = {
   valueSuffix: string | null;
   source: string;
   sourceUrl: string;
+  /** Optional, weil nicht jede öffentliche Quelle Vintage-Daten liefert. */
+  dataLifecycle?: MacroDataLifecycle;
   /** Warum ein Wert mit Vorsicht zu lesen ist. Leer, wenn nichts dagegen spricht. */
   caveats: string[];
 };
@@ -68,6 +84,7 @@ export type MacroReading = {
 const freshnessThresholds: Record<MacroFrequency, { current: number; delayed: number }> = {
   daily: { current: 7, delayed: 30 },
   business_daily: { current: 7, delayed: 30 },
+  weekly: { current: 14, delayed: 35 },
   monthly: { current: 60, delayed: 120 },
   // Quartalsreihen erscheinen mit deutlichem Abstand: das BIP eines Quartals
   // liegt erst rund zwei Monate spaeter vor. 150 Tage sind dort normal und

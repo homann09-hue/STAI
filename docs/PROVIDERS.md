@@ -33,10 +33,12 @@ was im Code sonst vorbereitet ist.
 | Polygon | ✅ | ja | 6× |
 | Databento | ✅ | ja | 3× |
 | **ECB Data Portal** | ✅ | **nein** | Makro |
+| **FRED** | ✅ | optional | US-Makro, Vintage-/Revisionen mit Schlüssel |
 
-**Aus dem Masterprompt noch nicht angebunden:** FRED, CoinGecko, Reddit.
-FRED braucht einen kostenlosen Schlüssel, CoinGecko und Reddit sind nicht
-begonnen.
+**Aus dem Masterprompt noch nicht angebunden:** CoinGecko, Reddit.
+FRED nutzt mit `FRED_API_KEY` die offizielle JSON-API einschließlich
+Erstveröffentlichung und Revisionsvergleich. Ohne Schlüssel bleibt der
+offizielle CSV-Export aktiv; die UI kennzeichnet dann fehlende Vintage-Daten.
 
 ## Eigenschaften je Quelle
 
@@ -46,6 +48,7 @@ eine Quelle auftreten darf — nicht eine Messung des Einzelabrufs.
 | Quelle | Märkte | Qualitätsstufe | Realtime | Kosten | Historie | Lizenz |
 |---|---|---|---|---|---|---|
 | **ECB** | Euroraum-Makro | aktuell/verzögert je Reihe, **gemessen** | n/a | keine | jahrzehntelang | Weiterverwendung mit Quellenangabe |
+| **FRED** | US-Makro | aktuell/verzögert je Reihenfrequenz | n/a | API-Schlüssel kostenlos; CSV ohne Schlüssel | je Reihe | Public Domain oder Quellenangabe je Reihe; kommerzielle Einordnung offen |
 | **FMP** | global, Aktien/ETF/Krypto/Forex | `delayed` | nein im aktuellen Tarif | Basic kostenlos | ungeprüft | eigene Display-Lizenz nötig |
 | **Finnhub** | global | `near_realtime` | tarifabhängig | ungeprüft | ungeprüft | ungeprüft |
 | **Binance / Coinbase** | Krypto | `near_realtime` | ja | keine | ungeprüft | Nutzungsbedingungen ungeprüft |

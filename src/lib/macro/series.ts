@@ -29,7 +29,7 @@ export type MacroCategory =
  * Erhebungsfrequenz. Sie bestimmt, ab wann ein Wert als veraltet gilt — eine
  * Monatsreihe ist nach zwei Wochen nicht alt, eine Tagesreihe schon.
  */
-export type MacroFrequency = "daily" | "business_daily" | "monthly" | "quarterly";
+export type MacroFrequency = "daily" | "business_daily" | "weekly" | "monthly" | "quarterly";
 
 export type MacroSeriesDefinition = {
   id: string;

@@ -11,8 +11,8 @@
  * die Übersetzung ohne Abruf prüfbar bleibt.
  */
 
-import type { MacroReadingSource } from "@/lib/macro/analysis";
-import { fredCitation, type FredFrequency, type FredSeriesDefinition } from "@/lib/macro/fred";
+import type { MacroDataLifecycle, MacroReadingSource } from "@/lib/macro/analysis";
+import { fredCitation, type FredFrequency, type FredObservation, type FredSeriesDefinition } from "@/lib/macro/fred";
 import type { MacroFrequency } from "@/lib/macro/series";
 
 /**
@@ -28,6 +28,7 @@ import type { MacroFrequency } from "@/lib/macro/series";
  */
 const frequencyMap: Record<FredFrequency, MacroFrequency> = {
   daily: "business_daily",
+  weekly: "weekly",
   monthly: "monthly",
   quarterly: "quarterly"
 };
@@ -35,6 +36,20 @@ const frequencyMap: Record<FredFrequency, MacroFrequency> = {
 /** Die Seite, auf der die Reihe samt Lizenzstand nachlesbar ist. */
 export function fredSeriesPageUrl(series: FredSeriesDefinition) {
   return `https://fred.stlouisfed.org/series/${series.seriesId}`;
+}
+
+export function toMacroDataLifecycle(observations: readonly FredObservation[]): MacroDataLifecycle | undefined {
+  const latest = observations.at(-1);
+  if (!latest) return undefined;
+  const initialValue = latest.initialValue ?? null;
+  return {
+    observationDate: latest.period,
+    firstPublishedAt: latest.firstPublishedAt ?? null,
+    vintageAsOf: latest.realtimeEnd ?? null,
+    revisionStatus: latest.revisionStatus ?? "not_available",
+    initialValue,
+    revisionDelta: initialValue === null ? null : Number((latest.value - initialValue).toFixed(6))
+  };
 }
 
 /**

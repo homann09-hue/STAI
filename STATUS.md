@@ -564,3 +564,11 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - SEC-Abrufe teilen ein konservatives Fair-Access-Limit; nur offizielle SEC-Hosts bleiben erlaubt.
 - API validiert Formularfilter und Limit und liefert Provider-, Qualitäts- und Zeitstatus.
 - Syntaxcheck und ein direkter SEC-Modultest mit 19 Funktions- und Sicherheitsprüfungen sind grün. GitHub-CI ist vollständig grün: TypeScript, ESLint, Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates sowie Supabase-Migrationen, RLS und Integrität. Draft-PR: `#87`.
+
+## Phase 10 - FRED (2026-08-17, CI-Abnahme offen)
+
+- US-Katalog von 13 auf 23 Reihen erweitert: PCE/Kern-PCE, Treasury 2/5/30 Jahre, M2, Industrieproduktion und drei Liquiditätsreihen.
+- Server-only JSON-Client nutzt mit `FRED_API_KEY` Erstveröffentlichungen und Revisionsvergleich; ohne Schlüssel bleibt der offizielle CSV-Fallback aktiv und kennzeichnet fehlende Vintage-Daten.
+- Beobachtungsdatum, Erstveröffentlichung, Vintage-Stand und Revision werden getrennt modelliert und angezeigt.
+- API- und CSV-Abrufe laufen in begrenzten Batches durch zentrale SSRF-, Timeout-, Größen-, Cache- und Rate-Limit-Schutzschichten.
+- Syntaxcheck für 11 Dateien, direkter FRED-Modultest mit 19 Prüfungen und Diff-Hygiene sind grün. Vollständige CI-Abnahme steht aus.
