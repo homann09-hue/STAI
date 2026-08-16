@@ -7,6 +7,7 @@ import {
 export type MarketProviderId =
   | "mock"
   | "unavailable"
+  | "alpaca"
   | "finnhub"
   | "twelve_data"
   | "eodhd"
@@ -28,6 +29,7 @@ export type QuoteChain = {
 
 function asMarketProviderId(id: ProviderId): MarketProviderId | null {
   return id === "finnhub" ||
+    id === "alpaca" ||
     id === "twelve_data" ||
     id === "eodhd" ||
     id === "massive" ||

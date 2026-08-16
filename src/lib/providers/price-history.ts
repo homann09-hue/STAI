@@ -21,6 +21,10 @@
 
 import { limitHistoryByYears } from "@/lib/billing/history-limit";
 import {
+  AlpacaClientError,
+  getAlpacaClient,
+} from "@/lib/providers/alpaca-client";
+import {
   assessHistoricalDataIntegrity,
   historicalPriceBasisLabel,
   type HistoricalDataIntegrity
@@ -335,12 +339,15 @@ export async function fetchDailyHistory(
     preferredProvider: process.env.STOCKPILOT_HISTORY_PROVIDER,
   });
   if (
+    !route.providers.includes("alpaca") &&
     !route.providers.includes("fmp") &&
     !route.providers.includes("twelve_data")
   ) {
     const reason = route.rejected.find(
       (entry) =>
-        entry.providerId === "twelve_data" || entry.providerId === "fmp",
+        entry.providerId === "alpaca" ||
+        entry.providerId === "twelve_data" ||
+        entry.providerId === "fmp",
     )?.detail;
     return {
       ...NO_HISTORY,
@@ -361,10 +368,58 @@ export async function fetchDailyHistory(
 
   let result: HistoryResult | null = null;
   const failureNotes: string[] = [];
+  const alpacaIsPreferred =
+    route.providers.includes("alpaca") &&
+    route.providers.indexOf("alpaca") <
+      Math.min(
+        ...["twelve_data", "fmp"]
+          .filter((provider) => route.providers.includes(provider as "twelve_data" | "fmp"))
+          .map((provider) => route.providers.indexOf(provider as "twelve_data" | "fmp")),
+        Number.POSITIVE_INFINITY,
+      );
   const twelveIsPreferred =
     route.providers.includes("twelve_data") &&
     (!route.providers.includes("fmp") ||
       route.providers.indexOf("twelve_data") < route.providers.indexOf("fmp"));
+
+  const loadAlpaca = async () => {
+    try {
+      const response = await getAlpacaClient().getHistoricalBars(
+        normalized,
+        "1d",
+        {
+          limit: 5_000,
+          instrumentId: context?.instrumentId,
+          currency: context?.currency,
+          now,
+        },
+      );
+      const parsedHistory = response.data;
+      const candles = parsedHistory.bars;
+      const integrity = assessHistoricalDataIntegrity(candles, now.toISOString());
+      if (!candles.length) {
+        failureNotes.push("Alpaca lieferte keine verwertbaren Tageskerzen");
+        return;
+      }
+      result = {
+        candles,
+        note: `${candles.length} rohe Tageskerzen von Alpaca ${getAlpacaClient().feed.toUpperCase()}. Preisbasis: ${historicalPriceBasisLabel(integrity.priceBasis)}. Bar-Qualität: ${parsedHistory.quality.status}, Score ${parsedHistory.quality.qualityScore}/100; ${parsedHistory.quality.rejected} ungültige und ${parsedHistory.quality.duplicates} doppelte Zeilen verworfen.`,
+        provider: "Alpaca",
+        integrity,
+        barQuality: parsedHistory.quality,
+      };
+    } catch (error) {
+      failureNotes.push(
+        error instanceof AlpacaClientError
+          ? error.code === "not_entitled"
+            ? "Der Alpaca-Tarif deckt diesen Feed oder dieses Instrument nicht ab"
+            : error.message
+          : "Alpaca-Abruf fehlgeschlagen",
+      );
+    }
+  };
+
+  if (alpacaIsPreferred) await loadAlpaca();
 
   if (twelveIsPreferred) {
     try {
@@ -497,6 +552,10 @@ export async function fetchDailyHistory(
           : "Twelve Data Abruf fehlgeschlagen",
       );
     }
+  }
+
+  if (!result && !alpacaIsPreferred && route.providers.includes("alpaca")) {
+    await loadAlpaca();
   }
 
   result ??= {

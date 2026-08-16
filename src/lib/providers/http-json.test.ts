@@ -70,4 +70,37 @@ describe("bounded provider JSON", () => {
       retryAfterMs: 12_000
     } satisfies Partial<ProviderHttpResponseError>);
   });
+
+  it("forwards only allowlisted server-side provider headers without putting secrets in the URL", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchImpl);
+
+    await fetchBoundedProviderJson(
+      new URL("https://data.alpaca.markets/v2/stocks/AAPL/snapshot"),
+      "Alpaca",
+      {
+        requestHeaders: {
+          "APCA-API-KEY-ID": "key-id",
+          "APCA-API-SECRET-KEY": "server-secret",
+          Cookie: "must-not-pass",
+        },
+      },
+    );
+
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [
+      RequestInfo | URL,
+      RequestInit | undefined,
+    ];
+    expect(String(url)).not.toContain("server-secret");
+    expect(init?.headers).toMatchObject({
+      "APCA-API-KEY-ID": "key-id",
+      "APCA-API-SECRET-KEY": "server-secret",
+    });
+    expect(init?.headers).not.toHaveProperty("Cookie");
+  });
 });

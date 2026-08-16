@@ -149,6 +149,29 @@ export interface NormalizedQuote {
   marketStatus: MarketStatus;
 }
 
+/** Providerunabhängiges, unverändertes Handelsereignis. */
+export interface NormalizedTrade {
+  instrumentId: string | null;
+  symbol: string;
+  providerId: string;
+  providerSymbol: string;
+  venue: string | null;
+  price: number;
+  size: number;
+  tradeId: string | null;
+  conditions: string[];
+  tape: string | null;
+  eventTimestamp: string;
+  providerTimestamp: string;
+  receivedTimestamp: string;
+  provider: string;
+  quality: MarketDataQuality;
+  feedType: QuoteFeedType;
+  isRealtime: boolean;
+  reportedDelaySeconds: number | null;
+  qualityIssues: string[];
+}
+
 export interface MarketDataFreshness {
   mode: RefreshMode;
   intervalMs?: RefreshInterval;

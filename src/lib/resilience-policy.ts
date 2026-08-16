@@ -133,6 +133,12 @@ const cachePolicies: Record<ProviderCacheKind, CachePolicyDefinition> = {
 const requestDefaults: Partial<
   Record<ProviderId, Partial<ProviderRequestPolicy>>
 > = {
+  alpaca: {
+    requestsPerMinute: 200,
+    burstCapacity: 20,
+    maxConcurrency: 4,
+    maxRetries: 1,
+  },
   alpha_vantage: {
     requestsPerMinute: 5,
     burstCapacity: 1,
