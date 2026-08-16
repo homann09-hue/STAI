@@ -79,3 +79,12 @@ leere echte Datenreihe oder aktiver Provider ausgegeben.
 `implemented` bedeutet nur, dass ausführbarer Adaptercode vorhanden ist, nicht
 dass Tarif, Abdeckung oder Lizenz genügen. `prepared` bedeutet, dass der
 Provider im Zielrouting vorgesehen ist, aber noch nicht ausgeführt wird.
+
+## Alpaca rights gate – 2026-08-16
+
+Technische Unterstützung ist implementiert, aber externe Anzeige- und
+Weitergaberechte sind **nicht bestätigt**. IEX darf nicht als konsolidierter
+US-Gesamtmarkt bezeichnet werden. SIP darf nur bei passendem Plan und
+Vertragsrecht als SIP ausgewiesen werden. Bis zur schriftlichen Bestätigung
+bleibt Alpaca in Produktion deaktiviert; technische Verfügbarkeit ersetzt
+keine Lizenzfreigabe.

@@ -133,6 +133,7 @@ function provider(item: ProviderHealthItem): ProviderHealthItem {
 }
 
 export function getProviderHealthReport(now = new Date()): ProviderHealthReport {
+  const alpacaConfigured = hasEnv("ALPACA_API_KEY_ID") && hasEnv("ALPACA_API_SECRET_KEY");
   const finnhubConfigured = hasEnv("FINNHUB_API_KEY");
   const twelveDataConfigured =
     hasEnv("TWELVE_DATA_API_KEY") || hasEnv("TWELVEDATA_API_KEY");
@@ -153,6 +154,45 @@ export function getProviderHealthReport(now = new Date()): ProviderHealthReport 
     getProviderLicensePolicy(id).externalDisplayAllowed;
 
   const items: ProviderHealthItem[] = [
+    provider({
+      id: "alpaca",
+      name: "Alpaca",
+      category: "market",
+      status: alpacaConfigured
+        ? providerCanRun("alpaca")
+          ? "configured"
+          : "license_required"
+        : "missing_key",
+      quality:
+        alpacaConfigured && providerCanRun("alpaca")
+          ? process.env.ALPACA_DATA_FEED === "delayed_sip"
+            ? "delayed"
+            : "realtime"
+          : "unavailable",
+      configured: alpacaConfigured,
+      secretEnv: ["ALPACA_API_KEY_ID", "ALPACA_API_SECRET_KEY"],
+      capabilities: [
+        "US-Aktien- und ETF-Snapshots",
+        "Bid/Ask samt Größen",
+        "Trades und Quotes per WebSocket",
+        "rohe historische Kerzen",
+        "US-Marktstatus",
+      ],
+      limitations: [
+        "Basic-Realtime umfasst nur IEX, nicht den konsolidierten US-Markt",
+        "Basic: 30 WebSocket-Symbole und meist nur eine Verbindung",
+        "SIP-Realtime und externe Anzeige sind tarif- und lizenzabhängig",
+      ],
+      fallback: "Twelve Data, Finnhub, FMP oder klar nicht verfügbar",
+      userImpact: alpacaConfigured
+        ? providerCanRun("alpaca")
+          ? "US-Marktdaten können intern mit sichtbarer IEX-/SIP-Herkunft geladen werden."
+          : "Alpaca ist konfiguriert, bleibt für externe Anzeige aber gesperrt."
+        : "Alpaca bleibt deaktiviert; andere verifizierte Provider dürfen übernehmen.",
+      nextAction: alpacaConfigured
+        ? "Konkreten Tarif und Display-Rechte prüfen; IEX niemals als Gesamtmarkt ausgeben."
+        : "Alpaca-Schlüssel ausschließlich serverseitig setzen.",
+    }),
     provider({
       id: "finnhub",
       name: "Finnhub",

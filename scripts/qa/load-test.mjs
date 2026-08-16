@@ -188,10 +188,22 @@ function summarizeOutcomes(outcomes) {
   const httpFailures = fulfilled.filter((result) => !result.ok);
   const slowRequests = fulfilled.filter((result) => result.duration > slowRequestThresholdMs);
   const durations = fulfilled.map((result) => result.duration);
+  const rejectionReasons = rejected.reduce((accumulator, outcome) => {
+    const reason = outcome.reason;
+    const label =
+      reason && typeof reason === "object" && "code" in reason && typeof reason.code === "string"
+        ? reason.code
+        : reason instanceof Error
+          ? reason.message
+          : "unknown_transport_error";
+    accumulator[label] = (accumulator[label] ?? 0) + 1;
+    return accumulator;
+  }, {});
 
   return {
     requests: outcomes.length,
     rejected: rejected.length,
+    rejectionReasons,
     failedHttp: httpFailures.length,
     slowRequests: slowRequests.length,
     p50: Math.round(percentile(durations, 50)),

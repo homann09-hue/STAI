@@ -28,6 +28,7 @@ export type ProviderCapability =
   | "quote"
   | "quote_batch"
   | "stream_quotes"
+  | "stream_trades"
   | "historical_bars"
   | "instrument_search"
   | "market_status"
@@ -114,10 +115,17 @@ export const PROVIDER_DEFINITIONS: readonly ProviderDefinition[] = [
   {
     id: "alpaca",
     name: "Alpaca",
-    adapterStatus: "prepared",
-    capabilities: ["quote", "quote_batch", "stream_quotes", "historical_bars"],
+    adapterStatus: "implemented",
+    capabilities: [
+      "quote",
+      "quote_batch",
+      "stream_quotes",
+      "stream_trades",
+      "historical_bars",
+      "market_status",
+    ],
     assetClasses: ["equity", "etf"],
-    configurationEnv: ["ALPACA_API_KEY", "ALPACA_API_SECRET"],
+    configurationEnv: ["ALPACA_API_KEY_ID", "ALPACA_API_SECRET_KEY"],
     enableEnv: "MARKET_DATA_ENABLE_ALPACA",
     feedType: "realtime",
     maximumKnownDelay: 0,
@@ -477,6 +485,19 @@ export function getProviderLicensePolicy(
     env.MARKET_DATA_EXTERNAL_DISPLAY_PROVIDERS,
   );
   const verifiedByDeployment = verifiedProviders.has(providerId);
+  const alpacaFeed = (env.ALPACA_DATA_FEED ?? "iex").trim().toLowerCase();
+  const feedType =
+    definition.id === "alpaca"
+      ? alpacaFeed === "delayed_sip"
+        ? "delayed"
+        : alpacaFeed === "iex" || alpacaFeed === "sip"
+          ? "realtime"
+          : "unknown"
+      : definition.feedType;
+  const maximumKnownDelay =
+    definition.id === "alpaca" && alpacaFeed === "delayed_sip"
+      ? 900
+      : definition.maximumKnownDelay;
   const licenseVerified = verifiedByDeployment;
   const externalDisplayAllowed =
     parseBoolean(env.MARKET_DATA_ALLOW_EXTERNAL_DISPLAY, false) &&
@@ -491,13 +512,15 @@ export function getProviderLicensePolicy(
     redistributionAllowed: false,
     derivedDataAllowed: verifiedByDeployment,
     attributionRequired: definition.attributionRequired,
-    maximumKnownDelay: definition.maximumKnownDelay,
-    feedType: definition.feedType,
+    maximumKnownDelay,
+    feedType,
     licenseVerified,
     licenseVerifiedAt: verifiedByDeployment
       ? (env.MARKET_DATA_LICENSE_VERIFIED_AT ?? null)
       : null,
-    notes: definition.officialPublicSource
+    notes: definition.id === "alpaca" && alpacaFeed === "iex"
+      ? "IEX ist ein einzelner Handelsplatz und kein konsolidierter US-Gesamtmarkt; externe Anzeige bleibt bis zur Rechteprüfung gesperrt."
+      : definition.officialPublicSource
       ? "Offizielle öffentliche Quelle; externe Anzeige bleibt bis zur dokumentierten Rechteprüfung gesperrt."
       : licenseVerified
         ? "Nutzungsrechte wurden deploymentseitig bestätigt; der konkrete Tarif bleibt maßgeblich."
@@ -520,6 +543,7 @@ const ROUTING_PRIORITY: Record<
   readonly ProviderId[]
 > = {
   quote: [
+    "alpaca",
     "twelve_data",
     "finnhub",
     "massive",
@@ -528,6 +552,7 @@ const ROUTING_PRIORITY: Record<
     "alpha_vantage",
   ],
   quote_batch: [
+    "alpaca",
     "twelve_data",
     "finnhub",
     "massive",
@@ -536,9 +561,10 @@ const ROUTING_PRIORITY: Record<
     "alpha_vantage",
   ],
   stream_quotes: ["alpaca", "twelve_data", "databento"],
+  stream_trades: ["alpaca"],
   historical_bars: ["alpaca", "twelve_data", "databento", "fmp"],
   instrument_search: ["twelve_data", "fmp"],
-  market_status: ["twelve_data"],
+  market_status: ["alpaca", "twelve_data"],
   fundamentals: ["fmp", "alpha_vantage"],
   corporate_actions: ["fmp"],
   market_calendar: ["fmp"],

@@ -316,3 +316,15 @@ FMP-Adapter härten.
 
 **Ergebnis:** Phase 5 abgeschlossen. Nächster einzelner Punkt ist Phase 6:
 Twelve Data.
+
+## Phase 7 Alpaca implementation evidence – 2026-08-16
+
+- Technische Implementierung und lokale/CI-Abnahme bestanden.
+- Commit `f891187`, PR `#85`.
+- CI `31969442452` und Datenbank-CI `31969442515` bestanden.
+- Preview ausschließlich für Vercel-Projekt `stockpilot-ai` bestanden.
+- Externer Blocker: keine Produktionsschlüssel und keine bestätigten externen
+  Anzeigerechte.
+- Nächste Aktion: Vertrag aktivieren, Secrets setzen und echten Feed-Smoke
+  durchführen.
+- Evidenz: `docs/PHASE_7_ALPACA_EVIDENCE.md`.

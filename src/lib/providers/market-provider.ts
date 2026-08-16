@@ -1,5 +1,15 @@
 import { buildNormalizedBar } from "@/lib/canonical-bar";
 import {
+  getAlpacaBatchLimit,
+  getAlpacaClient,
+  getAlpacaFeed,
+  getAlpacaStreamSymbolLimit,
+  isAlpacaStreamingEnabled,
+  streamAlpacaQuotes,
+  streamAlpacaTrades,
+} from "@/lib/providers/alpaca-client";
+import { alpacaFeedMetadata } from "@/lib/providers/alpaca-normalization";
+import {
   NO_INDICATORS,
   buildTechnicalIndicators,
 } from "@/lib/analysis/technical";
@@ -67,6 +77,7 @@ import type {
   MacroFactor,
   NewsItem,
   NormalizedQuote,
+  NormalizedTrade,
   ProfessionalScores,
   TechnicalIndicators,
   TimeRange,
@@ -119,6 +130,10 @@ export interface MarketDataProvider
     HistoricalProvider {
   getDashboard(): Promise<DashboardData>;
   getAsset(symbol: string): Promise<AssetDetail | null>;
+  streamTrades?(
+    symbols: string[],
+    options?: MarketStreamOptions,
+  ): AsyncIterable<NormalizedTrade[]>;
 }
 
 type QuoteProvider = NearRealtimeProvider & {
@@ -132,6 +147,10 @@ type QuoteProvider = NearRealtimeProvider & {
   ) => AsyncIterable<NormalizedQuote[]>;
   /** Echte Provider-Batchroute; Cache/Backoff bleiben zentral. */
   getQuotesBatch?: (symbols: string[]) => Promise<NormalizedQuote[]>;
+  streamTrades?: (
+    symbols: string[],
+    options?: MarketStreamOptions,
+  ) => AsyncIterable<NormalizedTrade[]>;
 };
 
 class ProviderConfigurationError extends Error {}
@@ -1638,6 +1657,49 @@ async function* streamFinnhubWebSocket(
   }
 }
 
+class AlpacaQuoteProvider extends HttpQuoteProvider {
+  private readonly feed = getAlpacaFeed();
+  private readonly metadata = alpacaFeedMetadata(this.feed);
+  readonly providerName = this.metadata.providerLabel;
+  readonly providerId = "alpaca" as const;
+  readonly quality = this.metadata.quality;
+  readonly streamMode: StreamMode = isAlpacaStreamingEnabled()
+    ? "provider_websocket"
+    : "rest_polling";
+
+  async getQuote(symbol: string) {
+    const result = await getAlpacaClient({ feed: this.feed }).getSnapshot(symbol);
+    return result.data;
+  }
+
+  async getQuotesBatch(symbols: string[]) {
+    const result = await getAlpacaClient({ feed: this.feed }).getSnapshots(
+      symbols.slice(0, getAlpacaBatchLimit()),
+    );
+    return result.data;
+  }
+
+  streamQuotes(symbols: string[], options?: MarketStreamOptions) {
+    if (
+      this.streamMode !== "provider_websocket" ||
+      uniqueSymbols(symbols).length > getAlpacaStreamSymbolLimit()
+    ) {
+      return pollQuotes(this, symbols, options);
+    }
+    return streamAlpacaQuotes(symbols, {
+      signal: options?.signal,
+      feed: this.feed,
+    });
+  }
+
+  streamTrades(symbols: string[], options?: MarketStreamOptions) {
+    return streamAlpacaTrades(symbols, {
+      signal: options?.signal,
+      feed: this.feed,
+    });
+  }
+}
+
 class FinnhubQuoteProvider extends HttpQuoteProvider {
   readonly providerName = "Finnhub";
   readonly providerId = "finnhub" as const;
@@ -2288,17 +2350,24 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
       capability: "historical_bars",
       assetClass: isCryptoSymbol(symbol) ? "crypto" : "equity",
     });
-    if (route.providers.includes("twelve_data")) {
+    for (const providerId of route.providers) {
       try {
-        const outputsize = interval === "1m" ? 390 : interval === "1d" ? 1_500 : 500;
-        const result = await getTwelveDataClient().getHistoricalBars(
-          symbol,
-          interval,
-          { outputsize },
-        );
-        if (result.data.bars.length) return result.data.bars;
+        if (providerId === "alpaca") {
+          const limit = interval === "1m" ? 390 : interval === "1d" ? 1_500 : 500;
+          const result = await getAlpacaClient().getHistoricalBars(symbol, interval, { limit });
+          if (result.data.bars.length) return result.data.bars;
+        }
+        if (providerId === "twelve_data") {
+          const outputsize = interval === "1m" ? 390 : interval === "1d" ? 1_500 : 500;
+          const result = await getTwelveDataClient().getHistoricalBars(
+            symbol,
+            interval,
+            { outputsize },
+          );
+          if (result.data.bars.length) return result.data.bars;
+        }
       } catch (error) {
-        logEvent("warn", "twelve_data.history_failed_over", {
+        logEvent("warn", `${providerId}.history_failed_over`, {
           symbol,
           interval,
           message: error instanceof Error ? error.message : "unknown",
@@ -2328,6 +2397,14 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
 
     return pollQuotes(this, symbols, options);
   }
+
+  streamTrades(symbols: string[], options?: MarketStreamOptions) {
+    return this.quoteProvider.streamTrades
+      ? this.quoteProvider.streamTrades(symbols, options)
+      : (async function* emptyTradeStream() {
+          yield* [] as NormalizedTrade[][];
+        })();
+  }
 }
 
 // `autoProviderId` und `selectedProviderId` sind entfallen: die Rangfolge
@@ -2342,6 +2419,8 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
  */
 function createQuoteProvider(id: MarketProviderId): QuoteProvider | null {
   switch (id) {
+    case "alpaca":
+      return new AlpacaQuoteProvider();
     case "finnhub":
       return new FinnhubQuoteProvider();
     case "twelve_data":
@@ -2430,6 +2509,21 @@ export class ChainedQuoteProvider implements QuoteProvider {
       const quote = resolved.get(symbol);
       return quote ? [quote] : [];
     });
+  }
+
+  streamQuotes(symbols: string[], options?: MarketStreamOptions) {
+    const primary = this.chain[0];
+    return primary.streamMode === "provider_websocket" && primary.streamQuotes
+      ? primary.streamQuotes(symbols, options)
+      : pollQuotes(this, symbols, options);
+  }
+
+  streamTrades(symbols: string[], options?: MarketStreamOptions) {
+    return this.chain[0].streamTrades
+      ? this.chain[0].streamTrades(symbols, options)
+      : (async function* emptyTradeStream() {
+          yield* [] as NormalizedTrade[][];
+        })();
   }
 }
 

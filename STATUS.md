@@ -538,3 +538,11 @@ Circuit Breaker**.
 - Ausschließlich `stockpilot-ai` wurde deployt; BauPro blieb unberührt.
 
 Nächster einzelner Arbeitspunkt gemäß Masterplan: **Phase 6 — Twelve Data**.
+
+## Phase 7 – Alpaca-Realtime (2026-08-16)
+
+Status: **IMPLEMENTIERT / AKTIVIERUNG BLOCKED – EXTERNAL**. REST, WebSocket,
+Historie, Normalisierung, Resilience, Provenienz und Tests sind integriert.
+GitHub-CI, pgTAP und Vercel-Preview für `stockpilot-ai` sind grün.
+Produktionsschlüssel und externe Anzeigerechte fehlen; deshalb bleibt der
+Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.

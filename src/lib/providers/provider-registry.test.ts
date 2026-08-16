@@ -59,7 +59,7 @@ describe("provider registry", () => {
     ).not.toContain("twelve_data");
   });
 
-  it("keeps prepared adapters out of executable routes", () => {
+  it("routes the implemented Alpaca adapter only with the official credential pair", () => {
     const result = resolveProviderRoute(
       {
         capability: "quote",
@@ -69,17 +69,53 @@ describe("provider registry", () => {
       },
       {
         ...base,
-        ALPACA_API_KEY: "x",
-        ALPACA_API_SECRET: "x",
+        ALPACA_API_KEY_ID: "x",
+        ALPACA_API_SECRET_KEY: "x",
       },
     );
-    expect(result.providers).not.toContain("alpaca");
-    expect(result.rejected).toContainEqual(
-      expect.objectContaining({
-        providerId: "alpaca",
-        reason: "adapter_not_implemented",
-      }),
-    );
+    expect(result.providers[0]).toBe("alpaca");
+    expect(
+      resolveProviderRoute(
+        { capability: "quote", preferredProvider: "alpaca" },
+        { ...base, ALPACA_API_KEY_ID: "x" },
+      ).providers,
+    ).not.toContain("alpaca");
+  });
+
+  it("exposes Alpaca quote, trade stream, history and market-status capabilities", () => {
+    const env = {
+      ...base,
+      ALPACA_API_KEY_ID: "x",
+      ALPACA_API_SECRET_KEY: "x",
+    };
+    for (const capability of [
+      "quote",
+      "quote_batch",
+      "stream_quotes",
+      "stream_trades",
+      "historical_bars",
+      "market_status",
+    ] as const) {
+      expect(
+        resolveProviderRoute({ capability, preferredProvider: "alpaca" }, env).providers,
+      ).toEqual(["alpaca"]);
+    }
+  });
+
+  it("marks delayed SIP as delayed and IEX as a single-venue realtime feed", () => {
+    const credentials = {
+      ...base,
+      ALPACA_API_KEY_ID: "x",
+      ALPACA_API_SECRET_KEY: "x",
+    };
+    expect(getProviderLicensePolicy("alpaca", credentials)).toMatchObject({
+      feedType: "realtime",
+      maximumKnownDelay: 0,
+    });
+    expect(getProviderLicensePolicy("alpaca", {
+      ...credentials,
+      ALPACA_DATA_FEED: "delayed_sip",
+    })).toMatchObject({ feedType: "delayed", maximumKnownDelay: 900 });
   });
 
   it("does not silently cast an unknown explicit provider", () => {

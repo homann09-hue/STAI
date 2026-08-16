@@ -10,6 +10,7 @@ const DEFAULT_ALLOWED_PROVIDER_HOSTS = [
   // jeden EU-Subdomainserver zum erlaubten Ziel machen.
   "data-api.ecb.europa.eu",
   "alphavantage.co",
+  "api.alpaca.markets",
   "binance.com",
   "coinbase.com",
   "databento.com",
@@ -25,6 +26,8 @@ const DEFAULT_ALLOWED_PROVIDER_HOSTS = [
   "massive.com",
   "newsapi.org",
   "polygon.io",
+  "data.alpaca.markets",
+  "paper-api.alpaca.markets",
   "twelvedata.com",
   // Zwei einzelne Hosts der SEC statt "sec.gov": `data.sec.gov` liefert die
   // Einreichungsliste, `www.sec.gov` die Originaldokumente.
@@ -56,10 +59,31 @@ export type ProviderJsonRequestOptions<T> = {
   maxBytes?: number;
   /** Serverseitiger Authorization-Wert; wird weder URL noch Request-Key. */
   authorization?: string;
+  /** Serverseitige Provider-Header. Nur explizit erlaubte Namen passieren. */
+  requestHeaders?: Readonly<Record<string, string>>;
   /** Erlaubt Validierung im Resilience-Scope, damit Body-Fehler retried werden. */
   parseJson?: (value: unknown) => T;
   captureResponseHeaders?: readonly string[];
 };
+
+const ALLOWED_PROVIDER_REQUEST_HEADERS = new Set([
+  "apca-api-key-id",
+  "apca-api-secret-key",
+]);
+
+function safeProviderRequestHeaders(
+  headers: Readonly<Record<string, string>> | undefined,
+) {
+  if (!headers) return {};
+  return Object.fromEntries(
+    Object.entries(headers).flatMap(([name, value]) => {
+      const normalized = name.trim().toLowerCase();
+      if (!ALLOWED_PROVIDER_REQUEST_HEADERS.has(normalized)) return [];
+      if (!value || /[\r\n]/.test(value)) return [];
+      return [[name, value] as const];
+    }),
+  );
+}
 
 function parseRetryAfterMs(value: string | null, nowMs = Date.now()) {
   if (!value) return undefined;
@@ -220,6 +244,7 @@ export async function fetchBoundedProviderJson<T>(
             ...(options.authorization
               ? { Authorization: options.authorization }
               : {}),
+            ...safeProviderRequestHeaders(options.requestHeaders),
           },
           signal: controller.signal
         });

@@ -2,6 +2,11 @@ import "server-only";
 
 import { getProviderHealthReport } from "@/lib/provider-health";
 import {
+  AlpacaClientError,
+  getAlpacaClient,
+  getAlpacaCredentials,
+} from "@/lib/providers/alpaca-client";
+import {
   FmpClientError,
   fmpRowsOrRecordSchema,
   getFmpClient,
@@ -171,8 +176,45 @@ async function timedTwelveDataCheck(
   }
 }
 
+async function timedAlpacaCheck(configured: boolean): Promise<ProviderPingResult> {
+  const checkedAt = new Date().toISOString();
+  if (!configured) {
+    return {
+      id: "alpaca",
+      name: "Alpaca",
+      status: "missing_key",
+      latencyMs: null,
+      checkedAt,
+      message: "API-Key fehlt oder Provider ist nicht aktiviert.",
+    };
+  }
+  const started = Date.now();
+  try {
+    const result = await getAlpacaClient().healthCheck();
+    return {
+      id: "alpaca",
+      name: "Alpaca",
+      status: result.status,
+      latencyMs: result.latencyMs,
+      checkedAt,
+      message: result.message,
+    };
+  } catch (error) {
+    const degraded = error instanceof AlpacaClientError && ["rate_limited", "not_entitled"].includes(error.code);
+    return {
+      id: "alpaca",
+      name: "Alpaca",
+      status: degraded ? "degraded" : "error",
+      latencyMs: Date.now() - started,
+      checkedAt,
+      message: error instanceof AlpacaClientError ? error.message : "Ping fehlgeschlagen oder Timeout.",
+    };
+  }
+}
+
 export async function runProviderPings() {
   const report = getProviderHealthReport();
+  const alpacaCredentials = getAlpacaCredentials();
   const finnhubKey = process.env.FINNHUB_API_KEY;
   const fmpKey = process.env.FMP_API_KEY;
   const twelveDataKey = getTwelveDataApiKey();
@@ -181,6 +223,7 @@ export async function runProviderPings() {
   const marketauxKey = process.env.MARKETAUX_API_KEY;
 
   const checks = await Promise.all([
+    timedAlpacaCheck(Boolean(alpacaCredentials)),
     timedCheck("finnhub", "Finnhub", finnhubKey ? `https://finnhub.io/api/v1/quote?symbol=AAPL&token=${encodeURIComponent(finnhubKey)}` : null, Boolean(finnhubKey)),
     timedFmpCheck(Boolean(fmpKey)),
     timedTwelveDataCheck(Boolean(twelveDataKey)),
