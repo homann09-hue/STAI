@@ -556,3 +556,11 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - News-Fallback und Provider-Health an den zentralen Finnhub-Client angeschlossen.
 - Tarifgrenzen gemessen und als `not_entitled` statt als leere oder erfundene Daten modelliert.
 - Verifikation: Typecheck und Lint gruen; 156 Testdateien mit 1.161 Tests gruen. Der lokale Produktions-Build wurde wegen reproduzierbar blockierter Workspace-I/O abgebrochen; Turbopack und Webpack lieferten dabei keinen Codefehler. Vercel-Deployment ist auf Nutzerwunsch verschoben.
+
+## Phase 9 - SEC EDGAR (2026-08-17, CI-Abnahme offen)
+
+- Vollständige Ziel-Formularliste inklusive 13F-HR, S-1, 20-F und 6-K ergänzt.
+- Historische SEC-Submission-Segmente, Metadaten, direkte CIK-Auflösung, Deduplizierung und Neu-Erkennung implementiert.
+- SEC-Abrufe teilen ein konservatives Fair-Access-Limit; nur offizielle SEC-Hosts bleiben erlaubt.
+- API validiert Formularfilter und Limit und liefert Provider-, Qualitäts- und Zeitstatus.
+- Syntaxcheck und ein direkter SEC-Modultest mit 19 Funktions- und Sicherheitsprüfungen sind grün. Selbst ein isolierter Vitest-Smoke-Test mit `1 + 1` startet lokal nicht innerhalb von 10 Sekunden; der Blocker liegt damit vor dem SEC-Test. Projekt-Typecheck/Lint zeigen im selben Zeitfenster ebenfalls keine Startausgabe. Der Stand wird deshalb als CI-Prüfkandidat, nicht als vollständig abgenommen, veröffentlicht.

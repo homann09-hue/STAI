@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { filingUrls, parseRecentFilings, rawFilingDocumentUrl, secUserAgent, trackedFilingForms } from "@/lib/sec/edgar";
+import {
+  deduplicateFilings,
+  detectNewFilings,
+  filingUrls,
+  isTrackedFilingForm,
+  normalizeCikIdentifier,
+  parseRecentFilings,
+  rawFilingDocumentUrl,
+  secUserAgent,
+  trackedFilingForms,
+} from "@/lib/sec/edgar";
 
 /**
  * §31 verlangt Originaldokumente mit Link. Die Tests prüfen deshalb vor allem
@@ -17,7 +27,15 @@ const submissions = {
       filingDate: ["2026-06-17", "2026-07-31", "2026-07-30"],
       reportDate: ["2026-06-15", "2026-06-27", ""],
       primaryDocument: ["xslF345X06/form4.xml", "aapl-20260627.htm", "aapl-8k.htm"],
-      primaryDocDescription: ["FORM 4", "10-Q", ""]
+      primaryDocDescription: ["FORM 4", "10-Q", ""],
+      acceptanceDateTime: ["2026-06-17T18:30:00.000Z", "2026-07-31T12:00:00.000Z", ""],
+      act: ["34", "34", "34"],
+      fileNumber: ["001-36743", "001-36743", "001-36743"],
+      filmNumber: ["261234567", "261234568", "261234569"],
+      items: ["", "", "2.02"],
+      size: [12000, 250000, 45000],
+      isXBRL: [0, 1, 1],
+      isInlineXBRL: [0, 1, 1]
     }
   }
 };
@@ -47,6 +65,11 @@ describe("Linkbildung", () => {
 
     expect(new URL(documentUrl).hostname).toBe("www.sec.gov");
     expect(new URL(indexUrl).hostname).toBe("www.sec.gov");
+  });
+
+  it("entfernt Pfadnavigation aus dem von der SEC gemeldeten Dokumentnamen", () => {
+    expect(filingUrls("320193", "0001-26-1", "../../secret.htm").documentUrl)
+      .toBe("https://www.sec.gov/Archives/edgar/data/320193/0001261/secret.htm");
   });
 });
 
@@ -106,9 +129,60 @@ describe("Auswertung der Einreichungsliste", () => {
   });
 
   it("kennt die von §31 genannten Formulararten", () => {
-    for (const form of ["10-K", "10-Q", "8-K", "4"]) {
+    for (const form of ["10-K", "10-Q", "8-K", "4", "SC 13D", "SC 13G", "13F-HR", "S-1", "20-F", "6-K"]) {
       expect(trackedFilingForms[form]).toBeTruthy();
     }
+  });
+
+  it("akzeptiert Berichtigungen aller verfolgten Formulare", () => {
+    expect(isTrackedFilingForm("20-f/a")).toBe(true);
+    expect(isTrackedFilingForm("6-k/a")).toBe(true);
+    expect(isTrackedFilingForm("N-PORT")).toBe(false);
+  });
+
+  it("liefert Berichtigungen auch beim Filter auf das Basisformular", () => {
+    const amended = {
+      filings: {
+        recent: {
+          accessionNumber: ["0000320193-26-000099"],
+          form: ["10-K/A"],
+          filingDate: ["2026-08-17"],
+          primaryDocument: ["amended-10k.htm"]
+        }
+      }
+    };
+
+    expect(parseRecentFilings("0000320193", amended, ["10-K"]).map((filing) => filing.form))
+      .toEqual(["10-K/A"]);
+  });
+
+  it("übernimmt prüfbare SEC-Metadaten ohne sie zu erfinden", () => {
+    const filings = parseRecentFilings("0000320193", submissions);
+    expect(filings[0]).toMatchObject({
+      acceptedAt: "2026-06-17T18:30:00.000Z",
+      act: "34",
+      fileNumber: "001-36743",
+      size: 12000,
+      isXbrl: false,
+      isInlineXbrl: false,
+    });
+    expect(filings[2].items).toBe("2.02");
+  });
+
+  it("dedupliziert nach Aktennummer und erkennt nur neue Filings", () => {
+    const filings = parseRecentFilings("0000320193", submissions);
+    expect(deduplicateFilings([filings[0], filings[0], filings[1]])).toHaveLength(2);
+    expect(detectNewFilings(filings, new Set([filings[0].accessionNumber])))
+      .toEqual([filings[1], filings[2]]);
+  });
+});
+
+describe("CIK-Auflösung", () => {
+  it("normalisiert direkte CIK-Eingaben ohne Netzabruf", () => {
+    expect(normalizeCikIdentifier("CIK320193")).toBe("0000320193");
+    expect(normalizeCikIdentifier("0000320193")).toBe("0000320193");
+    expect(normalizeCikIdentifier("CIK0")).toBeNull();
+    expect(normalizeCikIdentifier("AAPL")).toBeNull();
   });
 });
 
@@ -146,14 +220,22 @@ describe("Kennung gegenüber der SEC", () => {
     // fremde Adresse einzutragen waere eine Falschangabe gegenueber einer
     // Behoerde.
     const previous = process.env.SEC_CONTACT_EMAIL;
+    const previousUserAgent = process.env.SEC_EDGAR_USER_AGENT;
     delete process.env.SEC_CONTACT_EMAIL;
+    delete process.env.SEC_EDGAR_USER_AGENT;
 
     expect(secUserAgent()).toContain("contact-not-configured");
 
     process.env.SEC_CONTACT_EMAIL = "team@example.com";
     expect(secUserAgent()).toBe("StockPilotAI/0.1 team@example.com");
 
+    process.env.SEC_EDGAR_USER_AGENT = "StockPilotAI Operations ops@example.com";
+    expect(secUserAgent()).toBe("StockPilotAI Operations ops@example.com");
+    delete process.env.SEC_EDGAR_USER_AGENT;
+
     if (previous === undefined) delete process.env.SEC_CONTACT_EMAIL;
     else process.env.SEC_CONTACT_EMAIL = previous;
+    if (previousUserAgent === undefined) delete process.env.SEC_EDGAR_USER_AGENT;
+    else process.env.SEC_EDGAR_USER_AGENT = previousUserAgent;
   });
 });

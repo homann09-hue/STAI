@@ -1,6 +1,6 @@
 # StockPilot AI Operating Card
 
-Stand: 2026-08-16
+Stand: 2026-08-17
 
 ## Oberstes Produktziel
 
@@ -12,16 +12,16 @@ Gewinne.
 
 ## Aktuelle Phase
 
-- **Phase 7: Alpaca Realtime.**
-- REST, Batch, Trades, Market Clock, historische Bars, WebSocket-Lifecycle,
-  Provider-Routing, Resilience und Provenienz sind implementiert.
-- PR `#85` ist als Main-Commit `2189a9d` gemergt; App-CI und pgTAP sind gruen.
-- Der exakte Merge-Build `dpl_2pXDTqyxsc3oR6a2x5MagSwDnUTt` ist als Preview
-  READY.
-- Phase 7 bleibt offen, bis ein neuer Production-Deploy und der reale
-  Produktions-Smoke belegt sind.
-- Danach bleibt die echte Alpaca-Aktivierung getrennt `BLOCKED - EXTERNAL`,
-  solange Zugangsdaten und Display-/Redistributionsrechte fehlen.
+- **Phase 9: SEC EDGAR, CI-Abnahme offen.**
+- Phase 8 Finnhub ist als Commit `c743961` auf GitHub gepusht.
+- SEC-Formulare, historische Submission-Segmente, Metadaten, CIK-Auflösung,
+  Deduplizierung, Neu-Erkennung und Fair-Access-Limit sind implementiert.
+- Syntaxcheck und ein direkter SEC-Modultest mit 19 Pruefungen sind gruen.
+  Vitest und Projekt-Typecheck starten wegen lokaler Workspace-I/O nicht
+  innerhalb des vereinbarten kurzen Zeitfensters; selbst ein isolierter
+  `1 + 1`-Smoke-Test bleibt vor dem Teststart stehen.
+- Phase 9 wird als CI-Pruefkandidat veroeffentlicht und noch nicht als fertig gemeldet.
+- Vercel bleibt auf Nutzerwunsch bis spaeter verschoben.
 
 ## Verbindliche Qualitaetsregeln
 

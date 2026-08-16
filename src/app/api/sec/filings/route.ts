@@ -1,6 +1,6 @@
 import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
 import { resolveProviderRoute } from "@/lib/providers/provider-registry";
-import { fetchCompanyFilings, hasSecContact } from "@/lib/sec/edgar";
+import { fetchCompanyFilings, hasSecContact, isTrackedFilingForm, normalizeFilingForm } from "@/lib/sec/edgar";
 import { validateSymbol } from "@/lib/validation";
 
 /**
@@ -34,15 +34,21 @@ export async function GET(request: Request) {
     );
   }
 
-  const requestedForms = (searchParams.get("forms") ?? "")
+  const rawForms = (searchParams.get("forms") ?? "")
     .split(",")
-    .map((form) => form.trim())
+    .map(normalizeFilingForm)
     .filter((form) => form.length > 0 && form.length <= 12)
     .slice(0, 10);
+  const requestedForms = rawForms.filter(isTrackedFilingForm);
+  if (rawForms.length > 0 && requestedForms.length !== rawForms.length) {
+    return jsonError("Mindestens eine nicht unterstützte SEC-Formularart wurde angefragt.", 400);
+  }
+  const requestedLimit = Number(searchParams.get("limit") ?? 40);
+  const limit = Number.isSafeInteger(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 100)) : 40;
 
   const result = await fetchCompanyFilings(parsed.data, {
     forms: requestedForms.length ? requestedForms : undefined,
-    limit: 40
+    limit
   });
 
   if (!result) {
@@ -67,6 +73,9 @@ export async function GET(request: Request) {
       companyName: result.companyName,
       available: true,
       filings: result.filings,
+      provider: "SEC EDGAR",
+      quality: "historical",
+      lastUpdated: new Date().toISOString(),
       note: result.note,
       contactConfigured: hasSecContact(),
       disclaimer:

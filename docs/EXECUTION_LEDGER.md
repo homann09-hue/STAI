@@ -1,12 +1,12 @@
 # StockPilot AI Execution Ledger
 
-Stand: 2026-08-16
+Stand: 2026-08-17
 
 ## Aktueller Arbeitszustand
 
 | Feld | Tatsaechlicher Stand |
 | --- | --- |
-| Phase | Phase 7: Alpaca Realtime, technisch abgenommen, Production-Deploy offen |
+| Phase | Phase 9: SEC EDGAR erweitert, CI-Abnahme offen |
 | Repository | `homann09-hue/STAI` |
 | Main | `2189a9d2471eb95a40867592a37cd9345390839b` |
 | PR | `#85`, gemergt |
@@ -89,3 +89,9 @@ deshalb fail-closed und erzeugt keine falsche Live-Anzeige.
 - **Decision:** Trade-WebSocket nicht als Quote-Stream ausgeben; tarifgesperrte Domains bleiben implementiert, antworten aber explizit mit `not_entitled`.
 - **Security:** REST-Key aus URLs entfernt und auf allowgelisteten Server-Header umgestellt.
 - **Verification:** Typecheck gruen, Lint ohne Warnungen, 156 Testdateien / 1.161 Tests gruen. Lokaler Build durch Workspace-I/O blockiert und nach Nutzerwunsch zeitbegrenzt abgebrochen; kein Build- oder Compilerfehler ausgegeben. Vercel verschoben.
+
+### 2026-08-17 - Phase 9 SEC EDGAR (CI-Abnahme offen)
+
+- **Implementiert:** 10-K, 10-Q, 8-K, Form 4, SC 13D/13G, 13F-HR, S-1, 20-F und 6-K inklusive Berichtigungen; direkte CIK-Auflösung; historische Submission-Segmente; Metadaten; Deduplizierung; Neu-Erkennung; gemeinsames Fair-Access-Limit; strengere API-Filter.
+- **Pipeline:** Die bestehende Intelligence-Persistenz nutzt die SEC-Aktennummer als externe ID und den Cursor zur Erkennung neuer Filings.
+- **Verification:** Syntaxcheck der fünf geänderten TypeScript-Dateien und direkter SEC-Modultest mit 19 Funktions- und Sicherheitsprüfungen grün. Vitest und Projekt-Typecheck wurden nach 10-20 Sekunden ohne Dateistart gemäß Nutzerwunsch abgebrochen. Auch ein isolierter `1 + 1`-Smoke-Test mit eigenem Root und eigener Minimal-Konfiguration erzeugte keine Startausgabe; der lokale Blocker liegt damit vor den SEC-Tests. Veröffentlichung als CI-Prüfkandidat, nicht als vollständig abgenommene Phase.

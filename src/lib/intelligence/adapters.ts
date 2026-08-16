@@ -282,7 +282,7 @@ const secSubmissionSchema = z
   })
   .passthrough();
 
-const supportedSecForms = new Set(["8-K", "8-K/A", "10-Q", "10-Q/A", "10-K", "10-K/A", "4", "4/A", "SC 13D", "SC 13D/A", "SC 13G", "SC 13G/A", "13F-HR", "13F-HR/A"]);
+const supportedSecForms = new Set(["8-K", "8-K/A", "10-Q", "10-Q/A", "10-K", "10-K/A", "4", "4/A", "SC 13D", "SC 13D/A", "SC 13G", "SC 13G/A", "13F-HR", "13F-HR/A", "S-1", "S-1/A", "20-F", "20-F/A", "6-K", "6-K/A"]);
 
 function secCursorMap(cursor: AdapterCursor | undefined) {
   return cursor && typeof cursor === "object" ? { ...cursor } : {};
@@ -306,8 +306,6 @@ export class SecEdgarAdapter implements IntelligenceSourceAdapter {
     latencyClass: "near_real_time" as const
   };
 
-  private lastRequestAt = 0;
-
   constructor(
     private readonly options: {
       userAgent?: string;
@@ -318,13 +316,6 @@ export class SecEdgarAdapter implements IntelligenceSourceAdapter {
       maxAttempts?: number;
     } = {}
   ) {}
-
-  private async respectFairAccess() {
-    const minimumIntervalMs = Math.max(this.options.minimumIntervalMs ?? 125, 100);
-    const waitMs = Math.max(0, this.lastRequestAt + minimumIntervalMs - Date.now());
-    if (waitMs) await sleep(waitMs);
-    this.lastRequestAt = Date.now();
-  }
 
   private async fetchEntity(entity: SecEntityRequest, request: AdapterFetchRequest, receivedAt: string) {
     const userAgent = this.options.userAgent ?? process.env.SEC_EDGAR_USER_AGENT;
@@ -350,17 +341,19 @@ export class SecEdgarAdapter implements IntelligenceSourceAdapter {
     }
 
     const cik = entity.cik.replace(/\D/g, "").padStart(10, "0").slice(-10);
-    await this.respectFairAccess();
-    const payload = await fetchJsonWithRetry<unknown>(new URL(`${this.descriptor.baseUrl}/CIK${cik}.json`), "SEC EDGAR", {
-      fetchImpl: this.options.fetchImpl,
-      baseDelayMs: this.options.baseDelayMs,
-      timeoutMs: this.options.timeoutMs ?? Number(process.env.STOCKPILOT_INTELLIGENCE_READ_TIMEOUT_MS || 2_500),
-      maxAttempts: this.options.maxAttempts ?? 1,
-      headers: {
-        "User-Agent": userAgent,
-        "Accept-Encoding": "gzip, deflate"
-      }
-    });
+    const payload = await runWithSecFairAccess(
+      () => fetchJsonWithRetry<unknown>(new URL(`${this.descriptor.baseUrl}/CIK${cik}.json`), "SEC EDGAR", {
+        fetchImpl: this.options.fetchImpl,
+        baseDelayMs: this.options.baseDelayMs,
+        timeoutMs: this.options.timeoutMs ?? Number(process.env.STOCKPILOT_INTELLIGENCE_READ_TIMEOUT_MS || 2_500),
+        maxAttempts: this.options.maxAttempts ?? 1,
+        headers: {
+          "User-Agent": userAgent,
+          "Accept-Encoding": "gzip, deflate"
+        }
+      }),
+      this.options.minimumIntervalMs,
+    );
     const parsed = secSubmissionSchema.safeParse(payload);
     if (!parsed.success) throw new ProviderAdapterError("SEC EDGAR", "SEC EDGAR lieferte ein unerwartetes Submissions-Schema.", null, false);
 
@@ -454,3 +447,4 @@ export class SecEdgarAdapter implements IntelligenceSourceAdapter {
     return { events, nextCursor, receivedAt };
   }
 }
+import { runWithSecFairAccess } from "@/lib/sec/edgar";
