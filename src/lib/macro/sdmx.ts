@@ -14,6 +14,10 @@ export type MacroObservation = {
   /** Zeitpunkt wie geliefert: "2026-06-18" oder "2025-12". */
   period: string;
   value: number;
+  releaseTime?: string | null;
+  vintageAsOf?: string | null;
+  initialValue?: number | null;
+  revisionState?: "not_available" | "unrevised" | "revised";
 };
 
 /**
@@ -66,6 +70,12 @@ function parseNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function parseTimestamp(value: string) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
 export type SdmxParseResult = {
   observations: MacroObservation[];
   /** Zeilen, die verworfen wurden. Sichtbar, statt still zu verschwinden. */
@@ -90,6 +100,9 @@ export function parseSdmxCsv(csv: string): SdmxParseResult {
   const header = splitCsvRow(rows[0]).map((column) => column.toUpperCase());
   const periodIndex = header.indexOf("TIME_PERIOD");
   const valueIndex = header.indexOf("OBS_VALUE");
+  const validFromIndex = header.indexOf("VALID_FROM");
+  const validToIndex = header.indexOf("VALID_TO");
+  const lastUpdateIndex = header.indexOf("LAST_UPDATE");
 
   // Ohne diese beiden Spalten ist die Antwort keine Zeitreihe. Das ist ein
   // Formatfehler und kein leeres Ergebnis.
@@ -97,7 +110,7 @@ export function parseSdmxCsv(csv: string): SdmxParseResult {
     throw new Error("SDMX-Antwort enthält keine Zeitreihenspalten.");
   }
 
-  const observations: MacroObservation[] = [];
+  const candidates = new Map<string, Array<{ value: number; validFrom: string | null; validTo: string | null }>>();
   let rejectedRows = 0;
 
   for (const row of rows.slice(1)) {
@@ -110,8 +123,33 @@ export function parseSdmxCsv(csv: string): SdmxParseResult {
       continue;
     }
 
-    observations.push({ period, value });
+    const validFrom = parseTimestamp(
+      (validFromIndex >= 0 ? fields[validFromIndex] : "")
+      || (lastUpdateIndex >= 0 ? fields[lastUpdateIndex] : "")
+      || ""
+    );
+    const validTo = parseTimestamp(validToIndex >= 0 ? fields[validToIndex] ?? "" : "");
+    const entries = candidates.get(period) ?? [];
+    entries.push({ value, validFrom, validTo });
+    candidates.set(period, entries);
   }
+
+  const observations = [...candidates.entries()].map(([period, entries]): MacroObservation => {
+    const ordered = [...entries].sort((left, right) => (left.validFrom ?? "").localeCompare(right.validFrom ?? ""));
+    const initial = ordered[0];
+    const current = [...ordered].reverse().find((entry) => entry.validTo === null) ?? ordered.at(-1) ?? initial;
+    const hasLifecycle = ordered.some((entry) => entry.validFrom !== null);
+    if (!hasLifecycle) return { period, value: current.value };
+
+    return {
+      period,
+      value: current.value,
+      releaseTime: initial.validFrom,
+      vintageAsOf: current.validFrom,
+      initialValue: initial.value,
+      revisionState: Math.abs(current.value - initial.value) > 1e-9 ? "revised" : "unrevised"
+    };
+  });
 
   // Aufsteigend nach Zeit. Die EZB liefert bereits so, aber die Analyse
   // rechnet mit „letzter Eintrag ist der aktuellste" — darauf darf sie sich

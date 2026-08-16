@@ -38,15 +38,23 @@ export function fredSeriesPageUrl(series: FredSeriesDefinition) {
   return `https://fred.stlouisfed.org/series/${series.seriesId}`;
 }
 
-export function toMacroDataLifecycle(observations: readonly FredObservation[]): MacroDataLifecycle | undefined {
+export function toMacroDataLifecycle(
+  observations: readonly FredObservation[],
+  series: FredSeriesDefinition
+): MacroDataLifecycle | undefined {
   const latest = observations.at(-1);
   if (!latest) return undefined;
   const initialValue = latest.initialValue ?? null;
   return {
-    observationDate: latest.period,
-    firstPublishedAt: latest.firstPublishedAt ?? null,
+    seriesKey: series.seriesId,
+    frequency: frequencyMap[series.frequency],
+    unit: series.unit,
+    region: "us",
+    provider: "FRED",
+    observationTime: latest.period,
+    releaseTime: latest.firstPublishedAt ?? null,
     vintageAsOf: latest.realtimeEnd ?? null,
-    revisionStatus: latest.revisionStatus ?? "not_available",
+    revisionState: latest.revisionStatus ?? "not_available",
     initialValue,
     revisionDelta: initialValue === null ? null : Number((latest.value - initialValue).toFixed(6))
   };

@@ -32,7 +32,7 @@ was im Code sonst vorbereitet ist.
 | SEC EDGAR | ✅ | User-Agent | 6× |
 | Polygon | ✅ | ja | 6× |
 | Databento | ✅ | ja | 3× |
-| **ECB Data Portal** | ✅ | **nein** | Makro |
+| **ECB Data Portal** | ✅ | **nein** | 13 Euroraum-Reihen, SDMX-Historie/Revisionen |
 | **FRED** | ✅ | optional | US-Makro, Vintage-/Revisionen mit Schlüssel |
 
 **Aus dem Masterprompt noch nicht angebunden:** CoinGecko, Reddit.

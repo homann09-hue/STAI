@@ -82,7 +82,7 @@ async function loadSeries(definition: FredSeriesDefinition, now: Date, observati
   return {
     reading: {
       ...reading,
-      dataLifecycle: toMacroDataLifecycle(observations),
+      dataLifecycle: toMacroDataLifecycle(observations, definition),
       caveats: [...reading.caveats, ...extra]
     },
     observations

@@ -12,7 +12,7 @@ Gewinne.
 
 ## Aktuelle Phase
 
-- **Phase 11: ECB, Analyse startet.**
+- **Phase 11: ECB, CI-Abnahme offen.**
 - Phase 8 Finnhub ist als Commit `c743961` auf GitHub gepusht.
 - SEC-Formulare, historische Submission-Segmente, Metadaten, CIK-Auflösung,
   Deduplizierung, Neu-Erkennung und Fair-Access-Limit sind implementiert.
@@ -26,6 +26,11 @@ Gewinne.
 - Phase 10 ist in Draft-PR `#88` vollstaendig gruen: TypeScript, ESLint,
   Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke,
   Performance-/Enterprise-Gates sowie Supabase-RLS und Integritaet.
+- Phase 11 erweitert ECB auf 13 verifizierte Reihen. SDMX-Historienfelder
+  trennen Beobachtung, Erstveroeffentlichung, Vintage und Revision; Quelle und
+  Serienkennung stehen an jeder Makrokarte.
+- Syntaxcheck, direkter ECB-Modultest mit 9 Pruefungen und Diff-Hygiene sind
+  gruen. Vollstaendige CI-Abnahme steht aus.
 - Vercel bleibt auf Nutzerwunsch bis spaeter verschoben.
 
 ## Verbindliche Qualitaetsregeln

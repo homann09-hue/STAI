@@ -572,3 +572,11 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - Beobachtungsdatum, Erstveröffentlichung, Vintage-Stand und Revision werden getrennt modelliert und angezeigt.
 - API- und CSV-Abrufe laufen in begrenzten Batches durch zentrale SSRF-, Timeout-, Größen-, Cache- und Rate-Limit-Schutzschichten.
 - Syntaxcheck für 11 Dateien, direkter FRED-Modultest mit 19 Prüfungen und Diff-Hygiene sind grün. GitHub-CI ist vollständig grün: TypeScript, ESLint, Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates sowie Supabase-Migrationen, RLS und Integrität. Draft-PR: `#88`.
+
+## Phase 11 - ECB SDMX (2026-08-17, CI-Abnahme offen)
+
+- Offizielle Reihen für Bankkredite an nichtfinanzielle Unternehmen und tägliche Überschussliquidität ergänzt und direkt gegen das ECB Data Portal verifiziert.
+- SDMX-Abrufe nutzen `detail=full` und `includeHistory=true`; `VALID_FROM`/`VALID_TO` trennen Beobachtung, Erstveröffentlichung, aktuellen Vintage und Revision.
+- Das providerübergreifende Lebenszyklusmodell speichert Serienkennung, Frequenz, Einheit, Region, Provider, Beobachtungszeit, Veröffentlichungszeit und Revisionsstatus.
+- Jede Makrokarte zeigt ihre konkrete Primärquelle und Serienkennung; ECB-Zeitstempel werden lesbar formatiert.
+- Syntaxcheck für 12 Dateien, direkter ECB-Modultest mit 9 Prüfungen und Diff-Hygiene sind grün. Vollständige CI-Abnahme steht aus.

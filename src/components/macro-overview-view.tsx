@@ -43,6 +43,7 @@ const trendIcon: Record<MacroTrend, typeof ArrowRight> = {
  */
 function digitsFor(unit: MacroReading["unit"]) {
   if (unit === "percent" || unit === "usd") return 2;
+  if (unit === "eur") return 0;
   if (unit === "thousands") return 0;
   return 4;
 }
@@ -75,6 +76,17 @@ function formatChange(reading: MacroReading) {
   return reading.unit === "percent"
     ? `${sign}${value} Prozentpunkte`
     : `${sign}${value}${reading.valueSuffix ? ` ${reading.valueSuffix}` : ""}`;
+}
+
+function formatLifecycleTime(value: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString("de-DE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Berlin"
+  });
 }
 
 function ReadingCard({ reading }: { reading: MacroReading }) {
@@ -110,15 +122,17 @@ function ReadingCard({ reading }: { reading: MacroReading }) {
       {reading.dataLifecycle ? (
         <div className="mt-3 rounded-2xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">
           <p>
-            {reading.dataLifecycle.firstPublishedAt
-              ? `Erstveröffentlichung ${reading.dataLifecycle.firstPublishedAt}`
+            {reading.dataLifecycle.releaseTime
+              ? `Erstveröffentlichung ${formatLifecycleTime(reading.dataLifecycle.releaseTime)}`
               : "Erstveröffentlichung nicht verfügbar"}
-            {reading.dataLifecycle.vintageAsOf ? ` · Vintage geprüft bis ${reading.dataLifecycle.vintageAsOf}` : ""}
+            {reading.dataLifecycle.vintageAsOf
+              ? ` · Vintage geprüft bis ${formatLifecycleTime(reading.dataLifecycle.vintageAsOf)}`
+              : ""}
           </p>
           <p className="mt-1">
-            {reading.dataLifecycle.revisionStatus === "revised"
+            {reading.dataLifecycle.revisionState === "revised"
               ? `Revidiert: ${reading.dataLifecycle.revisionDelta?.toLocaleString("de-DE", { maximumFractionDigits: 6 }) ?? "n/a"} gegenüber dem Erstwert`
-              : reading.dataLifecycle.revisionStatus === "unrevised"
+              : reading.dataLifecycle.revisionState === "unrevised"
                 ? "Seit der Erstveröffentlichung nicht revidiert"
                 : "Revisionsstand nicht verfügbar"}
           </p>
@@ -126,6 +140,17 @@ function ReadingCard({ reading }: { reading: MacroReading }) {
       ) : null}
 
       <p className="mt-3 text-xs leading-relaxed text-muted">{reading.explanation}</p>
+
+      <a
+        href={reading.sourceUrl}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="mt-3 inline-flex items-center gap-1.5 text-xs text-cyan underline-offset-2 hover:underline"
+      >
+        {reading.source}
+        {reading.dataLifecycle ? ` · ${reading.dataLifecycle.seriesKey}` : ""}
+        <ExternalLink className="h-3 w-3" aria-hidden="true" />
+      </a>
 
       {reading.caveats.length > 0 ? (
         <ul className="mt-3 space-y-1">

@@ -60,18 +60,23 @@ describe("Beobachtung, Veröffentlichung und Revision", () => {
       firstPublishedAt: "2026-07-15",
       initialValue: 100.9,
       revisionStatus: "revised"
-    }])).toEqual({
-      observationDate: "2026-06-01",
-      firstPublishedAt: "2026-07-15",
+    }], series("us_cpi"))).toEqual({
+      seriesKey: "CPIAUCSL",
+      frequency: "monthly",
+      unit: "index",
+      region: "us",
+      provider: "FRED",
+      observationTime: "2026-06-01",
+      releaseTime: "2026-07-15",
       vintageAsOf: "2026-08-17",
-      revisionStatus: "revised",
+      revisionState: "revised",
       initialValue: 100.9,
       revisionDelta: 0.5
     });
   });
 
   it("behauptet ohne Vintage-Daten keine Revision", () => {
-    expect(toMacroDataLifecycle([{ period: "2026-06-01", value: 101.4 }])?.revisionStatus)
+    expect(toMacroDataLifecycle([{ period: "2026-06-01", value: 101.4 }], series("us_cpi"))?.revisionState)
       .toBe("not_available");
   });
 });
