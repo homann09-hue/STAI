@@ -69,6 +69,7 @@ export type ProviderJsonRequestOptions<T> = {
 const ALLOWED_PROVIDER_REQUEST_HEADERS = new Set([
   "apca-api-key-id",
   "apca-api-secret-key",
+  "x-finnhub-token",
 ]);
 
 function safeProviderRequestHeaders(

@@ -153,6 +153,22 @@ describe("intelligence source adapters", () => {
     expect(batch.events[0].credibilityMetadata.isPrimarySource).toBe(true);
   });
 
+  it.each(["S-1", "20-F", "6-K"])("maps %s SEC filings into the intelligence pipeline", async (form) => {
+    const fixture = structuredClone(secFixture);
+    fixture.filings.recent.form[0] = form;
+    const batch = await new SecEdgarAdapter({
+      userAgent: "StockPilotAI test@example.com",
+      fetchImpl: vi.fn(async () => response(fixture)),
+      baseDelayMs: 0,
+      minimumIntervalMs: 100,
+    }).fetchBatch({ secEntities: [{ cik: "320193", symbol: "AAPL" }] });
+    expect(batch.events[0]).toMatchObject({
+      provider: "sec_edgar",
+      externalId: "0000320193-26-000001",
+      metadata: { form },
+    });
+  });
+
   it("applies the SEC batch limit globally instead of once per company", async () => {
     const fetchImpl = vi.fn(async () => response(secFixture));
     const batch = await new SecEdgarAdapter({

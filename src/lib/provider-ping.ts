@@ -16,6 +16,11 @@ import {
   getTwelveDataClient,
   TwelveDataClientError,
 } from "@/lib/providers/twelve-data-client";
+import {
+  FinnhubClientError,
+  getFinnhubApiKey,
+  getFinnhubClient,
+} from "@/lib/providers/finnhub-client";
 
 export type ProviderPingStatus = "ok" | "missing_key" | "degraded" | "skipped" | "error";
 
@@ -212,10 +217,39 @@ async function timedAlpacaCheck(configured: boolean): Promise<ProviderPingResult
   }
 }
 
+async function timedFinnhubCheck(configured: boolean): Promise<ProviderPingResult> {
+  const checkedAt = new Date().toISOString();
+  if (!configured) {
+    return {
+      id: "finnhub",
+      name: "Finnhub",
+      status: "missing_key",
+      latencyMs: null,
+      checkedAt,
+      message: "API-Key fehlt oder Provider ist nicht aktiviert.",
+    };
+  }
+  const started = Date.now();
+  try {
+    const result = await getFinnhubClient().healthCheck();
+    return { id: "finnhub", name: "Finnhub", checkedAt, ...result };
+  } catch (error) {
+    const degraded = error instanceof FinnhubClientError && ["rate_limited", "not_entitled"].includes(error.code);
+    return {
+      id: "finnhub",
+      name: "Finnhub",
+      status: degraded ? "degraded" : "error",
+      latencyMs: Date.now() - started,
+      checkedAt,
+      message: error instanceof FinnhubClientError ? error.message : "Ping fehlgeschlagen oder Timeout.",
+    };
+  }
+}
+
 export async function runProviderPings() {
   const report = getProviderHealthReport();
   const alpacaCredentials = getAlpacaCredentials();
-  const finnhubKey = process.env.FINNHUB_API_KEY;
+  const finnhubKey = getFinnhubApiKey();
   const fmpKey = process.env.FMP_API_KEY;
   const twelveDataKey = getTwelveDataApiKey();
   const alphaKey = process.env.ALPHA_VANTAGE_API_KEY;
@@ -224,7 +258,7 @@ export async function runProviderPings() {
 
   const checks = await Promise.all([
     timedAlpacaCheck(Boolean(alpacaCredentials)),
-    timedCheck("finnhub", "Finnhub", finnhubKey ? `https://finnhub.io/api/v1/quote?symbol=AAPL&token=${encodeURIComponent(finnhubKey)}` : null, Boolean(finnhubKey)),
+    timedFinnhubCheck(Boolean(finnhubKey)),
     timedFmpCheck(Boolean(fmpKey)),
     timedTwelveDataCheck(Boolean(twelveDataKey)),
     timedCheck("alpha-vantage", "Alpha Vantage", alphaKey ? `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=AAPL&apikey=${encodeURIComponent(alphaKey)}` : null, Boolean(alphaKey)),

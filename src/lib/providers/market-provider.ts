@@ -1,3 +1,4 @@
+import { getFinnhubClient, streamFinnhubTrades } from "@/lib/providers/finnhub-client";
 import { buildNormalizedBar } from "@/lib/canonical-bar";
 import {
   getAlpacaBatchLimit,
@@ -1537,126 +1538,6 @@ abstract class HttpQuoteProvider implements QuoteProvider {
   }
 }
 
-async function* streamFinnhubWebSocket(
-  provider: FinnhubQuoteProvider,
-  symbols: string[],
-  options?: MarketStreamOptions,
-): AsyncIterable<NormalizedQuote[]> {
-  const token = process.env.FINNHUB_API_KEY;
-
-  if (!token || typeof WebSocket === "undefined") {
-    yield* pollQuotes(provider, symbols, options);
-    return;
-  }
-
-  const normalizedSymbols = uniqueSymbols(symbols);
-  const socket = new WebSocket(
-    `wss://ws.finnhub.io?token=${encodeURIComponent(token)}`,
-  );
-  const maxQueuedBatches = 32;
-  const queue: NormalizedQuote[][] = [];
-  let done = false;
-  let wake: (() => void) | null = null;
-  const wakeReader = () => {
-    wake?.();
-    wake = null;
-  };
-
-  options?.signal?.addEventListener(
-    "abort",
-    () => {
-      done = true;
-      socket.close();
-      wakeReader();
-    },
-    { once: true },
-  );
-
-  socket.addEventListener("open", () => {
-    for (const symbol of normalizedSymbols) {
-      socket.send(
-        JSON.stringify({
-          type: "subscribe",
-          symbol: symbolForProvider(symbol, "finnhub"),
-        }),
-      );
-    }
-  });
-
-  socket.addEventListener("message", (event) => {
-    try {
-      const payload = JSON.parse(String(event.data)) as {
-        type?: string;
-        data?: Array<{ s?: string; p?: number; v?: number; t?: number }>;
-      };
-
-      if (payload.type !== "trade" || !payload.data?.length) return;
-
-      const quotes = payload.data
-        .map((trade) => {
-          const providerSymbol = String(trade.s ?? "");
-          const symbol =
-            normalizedSymbols.find(
-              (item) => symbolForProvider(item, "finnhub") === providerSymbol,
-            ) ??
-            providerSymbol.replace(/^BINANCE:/, "").replace("USDT", "-USD");
-          const price = parseNumber(trade.p);
-          if (!price) return null;
-
-          return toNormalizedQuote({
-            symbol,
-            price,
-            volume: parseNumber(trade.v),
-            lastSize: parseNumber(trade.v),
-            timestamp: trade.t ? new Date(trade.t).toISOString() : nowIso(),
-            providerId: provider.providerId,
-            providerSymbol,
-            provider: "Finnhub WebSocket",
-            quality: provider.quality,
-            latencyMs: trade.t ? Math.max(0, Date.now() - trade.t) : undefined,
-            marketStatus: "unknown",
-          });
-        })
-        .filter((quote): quote is NormalizedQuote => Boolean(quote));
-
-      if (quotes.length) {
-        if (queue.length >= maxQueuedBatches) queue.shift();
-        queue.push(quotes);
-        wakeReader();
-      }
-    } catch {
-      queue.push([]);
-      wakeReader();
-    }
-  });
-
-  socket.addEventListener("error", () => {
-    done = true;
-    wakeReader();
-  });
-
-  socket.addEventListener("close", () => {
-    done = true;
-    wakeReader();
-  });
-
-  try {
-    while (!done && !options?.signal?.aborted) {
-      const next = queue.shift();
-      if (next) {
-        if (next.length) yield next;
-        continue;
-      }
-
-      await new Promise<void>((resolve) => {
-        wake = resolve;
-      });
-    }
-  } finally {
-    socket.close();
-  }
-}
-
 class AlpacaQuoteProvider extends HttpQuoteProvider {
   private readonly feed = getAlpacaFeed();
   private readonly metadata = alpacaFeedMetadata(this.feed);
@@ -1704,43 +1585,27 @@ class FinnhubQuoteProvider extends HttpQuoteProvider {
   readonly providerName = "Finnhub";
   readonly providerId = "finnhub" as const;
   readonly quality = envQuality("FINNHUB_DATA_QUALITY", "near_realtime");
-  readonly streamMode: StreamMode =
-    process.env.FINNHUB_STREAM_ENABLED === "true"
-      ? "provider_websocket"
-      : "rest_polling";
+  // Finnhub WebSocket liefert Trades, keine vollstaendigen Bid/Ask-Quotes.
+  // Quote-Ansichten bleiben deshalb bewusst im REST-Polling.
+  readonly streamMode: StreamMode = "rest_polling";
 
   async getQuote(symbol: string) {
-    const token = process.env.FINNHUB_API_KEY;
-    if (!token) throw new ProviderConfigurationError("FINNHUB_API_KEY fehlt");
-
     const providerSymbol = symbolForProvider(symbol, this.providerId);
-    const url = new URL("https://finnhub.io/api/v1/quote");
-    url.searchParams.set("symbol", providerSymbol);
-    url.searchParams.set("token", token);
-
-    const { data, latencyMs } = await fetchJson<Record<string, unknown>>(
-      url,
-      this.providerName,
-    );
-    const price = parseNumber(data.c);
-    if (!price) return null;
-
-    const previousClose = parseNumber(data.pc);
+    const { quote, latencyMs } = await getFinnhubClient({ quality: this.quality }).getQuote(providerSymbol);
+    if (!quote) return null;
 
     return toNormalizedQuote({
       symbol,
-      price,
+      price: quote.price,
       providerId: this.providerId,
       providerSymbol,
-      previousClose,
-      change: parseNumber(data.d),
-      changePercent: parseNumber(data.dp),
-      high: parseNumber(data.h),
-      low: parseNumber(data.l),
-      open: parseNumber(data.o),
-      timestamp: parseNumber(data.t)
-        ? new Date(Number(data.t) * 1000).toISOString()
-        : nowIso(),
+      previousClose: quote.previousClose ?? undefined,
+      change: quote.change ?? undefined,
+      changePercent: quote.changePercent ?? undefined,
+      high: quote.high ?? undefined,
+      low: quote.low ?? undefined,
+      open: quote.open ?? undefined,
+      timestamp: quote.timestamp,
       provider: this.providerName,
       quality: this.quality,
       latencyMs,
@@ -1749,9 +1614,31 @@ class FinnhubQuoteProvider extends HttpQuoteProvider {
   }
 
   streamQuotes(symbols: string[], options?: MarketStreamOptions) {
-    if (this.streamMode !== "provider_websocket")
-      return pollQuotes(this, symbols, options);
-    return streamFinnhubWebSocket(this, symbols, options);
+    return pollQuotes(this, symbols, options);
+  }
+
+  streamTrades(symbols: string[], options?: MarketStreamOptions) {
+    if (process.env.FINNHUB_STREAM_ENABLED !== "true") {
+      return (async function* disabledFinnhubTradeStream() {
+        yield* [] as NormalizedTrade[][];
+      })();
+    }
+    const symbolPairs = uniqueSymbols(symbols).map((symbol) => ({
+      symbol,
+      providerSymbol: symbolForProvider(symbol, this.providerId),
+    }));
+    const originalByProvider = new Map(
+      symbolPairs.map(({ symbol, providerSymbol }) => [providerSymbol, symbol]),
+    );
+    return streamFinnhubTrades(
+      symbolPairs.map(({ providerSymbol }) => providerSymbol),
+      {
+        signal: options?.signal,
+        quality: this.quality,
+        resolveSymbol: (providerSymbol) =>
+          originalByProvider.get(providerSymbol) ?? providerSymbol,
+      },
+    );
   }
 }
 
