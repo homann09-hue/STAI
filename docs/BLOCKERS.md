@@ -422,3 +422,17 @@ Resubscribe.
    aufnehmen und externe Anzeige global freigeben.
 5. Live-Contract-Test für US-Aktie, Xetra-Aktie, ETF, Index, Forex und Krypto
    durchführen; Quota-, Delay- und Marktstatusangaben gegenprüfen.
+
+## Alpaca production activation – BLOCKED – EXTERNAL
+
+**Nachweis vom 2026-08-16:** In Vercel Production für `stockpilot-ai`
+existieren weder `ALPACA_API_KEY_ID` noch `ALPACA_API_SECRET_KEY`. Externe
+Anzeige-/Redistributionsrechte wurden nicht belegt.
+
+**Auswirkung:** Der Adapter bleibt fail-closed. Die App zeigt keine
+Alpaca-Daten als live an und nutzt nur belegte Provider oder einen expliziten
+Nicht-verfügbar-Status.
+
+**Auflösung:** Konto und Plan bereitstellen, Rechte schriftlich bestätigen,
+serverseitige Secrets setzen, Feed wählen, Provider aktivieren und den echten
+Quote-/Trade-/Bar-/Reconnect-Smoke abnehmen.

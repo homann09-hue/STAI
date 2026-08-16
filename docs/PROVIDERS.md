@@ -186,3 +186,11 @@ Falschauskunft an genau der Stelle, an der StockPilot Ehrlichkeit verspricht.
 
 Gegengeprueft, indem das Failover absichtlich entfernt wurde: drei der sechs
 Zusicherungen wurden rot.
+
+## Alpaca – implementiert, Produktion noch nicht aktiviert
+
+Unterstützt werden Einzel-/Batch-Snapshots, letzte Trades, Market Clock,
+historische Bars sowie Quote-/Trade-WebSockets. IEX wird als einzelner
+Handelsplatz und nicht als konsolidierter US-Markt ausgewiesen;
+`delayed_sip` bleibt immer delayed. Ohne Schlüssel, Vertrag und bestätigte
+Anzeigerechte ist der Adapter deaktiviert. Details: `docs/ALPACA_ADAPTER.md`.
