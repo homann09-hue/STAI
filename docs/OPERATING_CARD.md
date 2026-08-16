@@ -12,7 +12,7 @@ Gewinne.
 
 ## Aktuelle Phase
 
-- **Phase 11: ECB, CI-Abnahme offen.**
+- **Phase 11 abgeschlossen; als Naechstes Phase 12 CoinGecko.**
 - Phase 8 Finnhub ist als Commit `c743961` auf GitHub gepusht.
 - SEC-Formulare, historische Submission-Segmente, Metadaten, CIK-Auflösung,
   Deduplizierung, Neu-Erkennung und Fair-Access-Limit sind implementiert.
@@ -29,8 +29,11 @@ Gewinne.
 - Phase 11 erweitert ECB auf 13 verifizierte Reihen. SDMX-Historienfelder
   trennen Beobachtung, Erstveroeffentlichung, Vintage und Revision; Quelle und
   Serienkennung stehen an jeder Makrokarte.
-- Syntaxcheck, direkter ECB-Modultest mit 9 Pruefungen und Diff-Hygiene sind
-  gruen. Vollstaendige CI-Abnahme steht aus.
+- Phase 11 ist in Draft-PR `#89` vollstaendig gruen: TypeScript, ESLint,
+  1.177 Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke,
+  Performance-/Enterprise-Gates, Sprach-, Dependency-, Lizenz- und
+  institutionelle Pruefungen. Supabase-RLS/Integritaet war im ersten Lauf
+  desselben PR gruen.
 - Vercel bleibt auf Nutzerwunsch bis spaeter verschoben.
 
 ## Verbindliche Qualitaetsregeln

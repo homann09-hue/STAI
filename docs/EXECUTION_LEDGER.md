@@ -6,7 +6,7 @@ Stand: 2026-08-17
 
 | Feld | Tatsaechlicher Stand |
 | --- | --- |
-| Phase | Phase 11: ECB, CI-Abnahme offen |
+| Phase | Phase 11 abgeschlossen; als Nächstes Phase 12 CoinGecko |
 | Repository | `homann09-hue/STAI` |
 | Main | `2189a9d2471eb95a40867592a37cd9345390839b` |
 | PR | `#85`, gemergt |
@@ -103,9 +103,9 @@ deshalb fail-closed und erzeugt keine falsche Live-Anzeige.
 - **Betrieb:** `FRED_API_KEY` aktiviert die offizielle JSON-API. Der offizielle CSV-Fallback bleibt ohne Schlüssel verfügbar, behauptet aber keine Vintage-Daten. Abrufe laufen gebündelt und zentral begrenzt.
 - **Verification:** Syntaxcheck für 11 Dateien, direkter FRED-Modultest mit 19 Prüfungen und Diff-Hygiene grün. GitHub-CI vollständig grün: TypeScript, ESLint, Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates sowie Supabase-Migrationen, RLS und Integrität. Draft-PR `#88`.
 
-### 2026-08-17 - Phase 11 ECB SDMX (CI-Abnahme offen)
+### 2026-08-17 - Phase 11 ECB SDMX (abgeschlossen)
 
 - **Abdeckung:** Offiziell verifizierte Reihen für Unternehmenskredite und Überschussliquidität ergänzen Zinsen, Inflation, M3, FX, Wachstum, Konsum und Renditen auf 13 ECB-Reihen.
 - **Lebenszyklus:** SDMX `VALID_FROM`/`VALID_TO` werden zu Erstveröffentlichung, aktuellem Vintage, Erstwert und Revisionsstatus normalisiert; mehrere Vintages desselben Beobachtungszeitraums zählen nicht als zwei Perioden.
 - **Transparenz:** Jede Karte nennt Primärquelle und Serienkennung. Fehlende Historienfelder führen zu `not_available`, nie zu einer erfundenen Revision.
-- **Verification:** Syntaxcheck für 12 Dateien, direkter ECB-Modultest mit 9 Prüfungen und Diff-Hygiene grün. Vollständige GitHub-CI steht aus.
+- **Verification:** Syntaxcheck für 12 Dateien, direkter ECB-Modultest mit 9 Prüfungen und Diff-Hygiene grün. Nach Aktualisierung eines veralteten URL-Vertragstests ist GitHub-CI vollständig grün: TypeScript, ESLint, 1.177 Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates, Sprachprüfung, Dependency-/Lizenzprüfung und institutionelle Kontrollen. Supabase-RLS/Integrität war im ersten Lauf desselben PR grün. Draft-PR `#89`.

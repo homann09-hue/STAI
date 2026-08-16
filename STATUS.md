@@ -573,10 +573,10 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - API- und CSV-Abrufe laufen in begrenzten Batches durch zentrale SSRF-, Timeout-, Größen-, Cache- und Rate-Limit-Schutzschichten.
 - Syntaxcheck für 11 Dateien, direkter FRED-Modultest mit 19 Prüfungen und Diff-Hygiene sind grün. GitHub-CI ist vollständig grün: TypeScript, ESLint, Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates sowie Supabase-Migrationen, RLS und Integrität. Draft-PR: `#88`.
 
-## Phase 11 - ECB SDMX (2026-08-17, CI-Abnahme offen)
+## Phase 11 - ECB SDMX (2026-08-17, abgeschlossen)
 
 - Offizielle Reihen für Bankkredite an nichtfinanzielle Unternehmen und tägliche Überschussliquidität ergänzt und direkt gegen das ECB Data Portal verifiziert.
 - SDMX-Abrufe nutzen `detail=full` und `includeHistory=true`; `VALID_FROM`/`VALID_TO` trennen Beobachtung, Erstveröffentlichung, aktuellen Vintage und Revision.
 - Das providerübergreifende Lebenszyklusmodell speichert Serienkennung, Frequenz, Einheit, Region, Provider, Beobachtungszeit, Veröffentlichungszeit und Revisionsstatus.
 - Jede Makrokarte zeigt ihre konkrete Primärquelle und Serienkennung; ECB-Zeitstempel werden lesbar formatiert.
-- Syntaxcheck für 12 Dateien, direkter ECB-Modultest mit 9 Prüfungen und Diff-Hygiene sind grün. Vollständige CI-Abnahme steht aus.
+- Syntaxcheck für 12 Dateien, direkter ECB-Modultest mit 9 Prüfungen und Diff-Hygiene sind grün. Nach Korrektur eines veralteten URL-Vertragstests ist GitHub-CI vollständig grün: TypeScript, ESLint, 1.177 Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates, Sprachprüfung, Dependency-/Lizenzprüfung und institutionelle Kontrollen. Supabase-RLS/Integrität war im ersten Lauf desselben PR grün. Draft-PR: `#89`.
