@@ -436,3 +436,22 @@ Nicht-verfügbar-Status.
 **Auflösung:** Konto und Plan bereitstellen, Rechte schriftlich bestätigen,
 serverseitige Secrets setzen, Feed wählen, Provider aktivieren und den echten
 Quote-/Trade-/Bar-/Reconnect-Smoke abnehmen.
+
+## BLOCKER-013 - Vercel Deployment-Tageslimit
+
+**Status:** `BLOCKED - EXTERNAL`, gemessen am 2026-08-16.
+
+Sowohl ein neuer Production-Deploy als auch die Promotion des bereits
+erfolgreich gebauten Phase-7-Previews antworteten mit HTTP 402 und dem
+Vercel-Code `api-deployments-free-per-day` nach mehr als 100 Deployments im
+rollierenden Tagesfenster.
+
+**Auswirkung:** Main und Preview enthalten Phase 7, die oeffentliche
+Production bleibt sicher auf dem vorherigen READY-Deployment. Der Preview
+wird nicht auf die Live-Aliase gelegt, weil ihm Production-Environment-Werte
+fehlen koennen. BauPro ist nicht betroffen.
+
+**Aufloesung:** Nach Ablauf des Limits den StockPilot-only-Workflow
+`vercel-manual.yml` mit Ziel `production` und der Bestaetigungsphrase
+ausfuehren. Danach Deployment-ID, Live-Alias, Health, Kernseiten,
+Provider-Fail-Closed, DR, Enterprise, Last und Logs erneut belegen.
