@@ -546,3 +546,13 @@ Historie, Normalisierung, Resilience, Provenienz und Tests sind integriert.
 GitHub-CI, pgTAP und Vercel-Preview für `stockpilot-ai` sind grün.
 Produktionsschlüssel und externe Anzeigerechte fehlen; deshalb bleibt der
 Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
+
+
+## Phase 8 - Finnhub control/fallback adapter (2026-08-16)
+
+- REST-Authentifizierung auf serverseitigen `X-Finnhub-Token` umgestellt.
+- Zod-validierte Clients fuer Quote, Suche, Profil, News, Earnings, Analystentrends, Kursziele, Insider, Wirtschaftskalender und Kerzen ergaenzt.
+- WebSocket semantisch korrigiert: Trade-Stream statt unechter Quote-Stream, mit Einzelverbindungs-Lease, Reconnect, Resubscribe, Symbolgrenze und Backpressure-Abbruch.
+- News-Fallback und Provider-Health an den zentralen Finnhub-Client angeschlossen.
+- Tarifgrenzen gemessen und als `not_entitled` statt als leere oder erfundene Daten modelliert.
+- Verifikation: Typecheck und Lint gruen; 156 Testdateien mit 1.161 Tests gruen. Der lokale Produktions-Build wurde wegen reproduzierbar blockierter Workspace-I/O abgebrochen; Turbopack und Webpack lieferten dabei keinen Codefehler. Vercel-Deployment ist auf Nutzerwunsch verschoben.

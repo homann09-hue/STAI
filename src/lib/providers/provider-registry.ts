@@ -35,6 +35,12 @@ export type ProviderCapability =
   | "fundamentals"
   | "corporate_actions"
   | "market_calendar"
+  | "company_profile"
+  | "earnings_calendar"
+  | "analyst_consensus"
+  | "price_target"
+  | "insider_transactions"
+  | "economic_calendar"
   | "news"
   | "filings"
   | "macro"
@@ -154,7 +160,20 @@ export const PROVIDER_DEFINITIONS: readonly ProviderDefinition[] = [
     id: "finnhub",
     name: "Finnhub",
     adapterStatus: "implemented",
-    capabilities: ["quote", "quote_batch"],
+    capabilities: [
+      "quote",
+      "quote_batch",
+      "stream_trades",
+      "historical_bars",
+      "instrument_search",
+      "company_profile",
+      "earnings_calendar",
+      "analyst_consensus",
+      "price_target",
+      "insider_transactions",
+      "economic_calendar",
+      "news",
+    ],
     assetClasses: ["equity", "etf", "index", "forex", "crypto"],
     configurationEnv: ["FINNHUB_API_KEY"],
     enableEnv: "MARKET_DATA_ENABLE_FINNHUB",
@@ -561,14 +580,20 @@ const ROUTING_PRIORITY: Record<
     "alpha_vantage",
   ],
   stream_quotes: ["alpaca", "twelve_data", "databento"],
-  stream_trades: ["alpaca"],
-  historical_bars: ["alpaca", "twelve_data", "databento", "fmp"],
-  instrument_search: ["twelve_data", "fmp"],
+  stream_trades: ["alpaca", "finnhub"],
+  historical_bars: ["alpaca", "twelve_data", "finnhub", "databento", "fmp"],
+  instrument_search: ["twelve_data", "finnhub", "fmp"],
   market_status: ["alpaca", "twelve_data"],
   fundamentals: ["fmp", "alpha_vantage"],
   corporate_actions: ["fmp"],
   market_calendar: ["fmp"],
-  news: ["marketaux", "newsapi", "fmp"],
+  company_profile: ["finnhub"],
+  earnings_calendar: ["finnhub"],
+  analyst_consensus: ["finnhub"],
+  price_target: ["finnhub"],
+  insider_transactions: ["finnhub"],
+  economic_calendar: ["finnhub"],
+  news: ["marketaux", "newsapi", "finnhub", "fmp"],
   filings: ["sec_edgar"],
   macro: ["fred", "ecb"],
   crypto_metadata: ["coingecko"],

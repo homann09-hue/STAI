@@ -194,3 +194,26 @@ historische Bars sowie Quote-/Trade-WebSockets. IEX wird als einzelner
 Handelsplatz und nicht als konsolidierter US-Markt ausgewiesen;
 `delayed_sip` bleibt immer delayed. Ohne Schlüssel, Vertrag und bestätigte
 Anzeigerechte ist der Adapter deaktiviert. Details: `docs/ALPACA_ADAPTER.md`.
+
+
+## Finnhub Phase 8: Kontroll- und Fallback-Provider (2026-08-16)
+
+Der Adapter nutzt REST-Schluessel ausschliesslich ueber den serverseitigen Header `X-Finnhub-Token`. Der Schluessel erscheint nicht mehr in REST-URLs oder Health-Check-Logs. Der WebSocket benoetigt den Token laut Anbieterprotokoll in der Verbindungs-URL; diese URL bleibt serverseitig und darf nicht protokolliert werden.
+
+Live gegen den aktuell konfigurierten Tarif gemessen:
+
+| Bereich | Ergebnis | Produktstatus |
+|---|---:|---|
+| Quote | HTTP 200 | nutzbar, Qualitaet weiterhin symbol-/feedabhaengig |
+| Symbolsuche | HTTP 200 | nutzbar |
+| Unternehmensprofil | HTTP 200 | nutzbar |
+| Unternehmensnews | HTTP 200 | nutzbar, Relevanz bleibt `null` wenn nicht geliefert |
+| Earnings-Kalender | HTTP 200 | nutzbar |
+| Analystentrends | HTTP 200 | nutzbar |
+| Insider-Transaktionen | HTTP 200 | nutzbar |
+| Historische Kerzen | HTTP 403 | Adapter fertig, Tarif nicht freigeschaltet |
+| Kursziele | HTTP 403 | Adapter fertig, Tarif nicht freigeschaltet |
+| Wirtschaftskalender | HTTP 403 | Adapter fertig, Tarif nicht freigeschaltet |
+| Trade-WebSocket | Verbindung erfolgreich | serverseitig vorbereitet; keine Trades im Markt-geschlossen-Smoke-Test |
+
+Der WebSocket wird bewusst als **Trade-Stream** modelliert. Er liefert keine vollstaendigen Bid-/Ask-Quotes und darf deshalb nicht fuer Spread-Anzeigen oder als Beleg einer Level-1-Quote verwendet werden. Fuer sichtbare Quotes bleibt Finnhub im REST-Polling. Eine Prozess-Lease verhindert mehr als eine aktive Verbindung je API-Key; Symbolzahl und Rueckstau sind hart begrenzt.

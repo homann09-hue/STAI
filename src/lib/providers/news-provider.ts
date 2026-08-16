@@ -2,6 +2,7 @@ import { getMockNews } from "@/lib/mock/market";
 import { classifySubjects, detectEvents, type ProviderEntity } from "@/lib/news/classification";
 import { clusterNews } from "@/lib/news/dedupe";
 import { fetchBoundedProviderJson } from "@/lib/providers/http-json";
+import { getFinnhubClient } from "@/lib/providers/finnhub-client";
 import {
   resolveProviderRoute,
   type ProviderId,
@@ -83,6 +84,10 @@ function safeNewsSymbol(value: unknown, fallback = "MARKET") {
 }
 
 function safeNewsTimestamp(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    const timestamp = value < 10_000_000_000 ? value * 1_000 : value;
+    return new Date(timestamp).toISOString();
+  }
   if (typeof value === "string") {
     const timestamp = new Date(value).getTime();
     if (Number.isFinite(timestamp)) return new Date(timestamp).toISOString();
@@ -145,13 +150,14 @@ function hasConfiguredNewsProvider() {
 
 function normalizeNewsProviderId(provider: string) {
   if (provider === "news_api") return "newsapi";
-  if (provider === "marketaux" || provider === "newsapi" || provider === "auto" || provider === "mock") return provider;
+  if (provider === "marketaux" || provider === "newsapi" || provider === "finnhub" || provider === "auto" || provider === "mock") return provider;
   return "auto";
 }
 
 function newsProviderLabel(provider: string) {
   if (provider === "marketaux") return "Marketaux";
   if (provider === "newsapi" || provider === "news_api") return "NewsAPI";
+  if (provider === "finnhub") return "Finnhub";
   if (provider === "auto") return "News Provider Auto-Fallback";
   if (provider === "unavailable") return "Kein News-Provider";
   return "StockPilot Mock News Feed";
@@ -361,6 +367,50 @@ class NewsApiProvider implements NewsProvider {
   }
 }
 
+class FinnhubNewsProvider implements NewsProvider {
+  async getNews(symbol?: string) {
+    const client = getFinnhubClient();
+    const now = new Date();
+    const to = now.toISOString().slice(0, 10);
+    const fromDate = new Date(now);
+    fromDate.setUTCDate(fromDate.getUTCDate() - 14);
+    const rows = symbol
+      ? await client.getCompanyNews(symbol, fromDate.toISOString().slice(0, 10), to)
+      : await client.getMarketNews("general");
+
+    return rows
+      .filter((item) => safeNewsText(item.headline, "", 240) && safeExternalNewsUrl(item.url) !== "#")
+      .map<NewsItem>((item, index) => {
+        const title = safeNewsText(item.headline, "Finnhub Meldung", 240);
+        const summary = safeNewsText(item.summary, "Meldung von Finnhub. Bitte Originalquelle pruefen.", 420);
+        const text = `${title} ${summary}`.toLowerCase();
+        const sentiment: Sentiment =
+          /beats|surges|rises|growth|record|upgrade|profit/.test(text)
+            ? "positive"
+            : /falls|drops|misses|lawsuit|probe|risk|downgrade|loss/.test(text)
+              ? "negative"
+              : "neutral";
+        const sourceUrl = safeExternalNewsUrl(item.url);
+        const fallbackId = `finnhub-${index}-${sourceUrl}`;
+        return enrich(
+          {
+            id: safeNewsId(item.id ?? fallbackId, fallbackId),
+            symbol: safeNewsSymbol(symbol ?? item.related),
+            title,
+            source: item.source ? `Finnhub / ${safeNewsText(item.source, "Quelle offen", 90)}` : "Finnhub",
+            publishedAt: safeNewsTimestamp(item.datetime),
+            relevance: null,
+            sentiment,
+            impactScore: null,
+            summary,
+            url: sourceUrl,
+          },
+          [],
+        );
+      });
+  }
+}
+
 class FallbackNewsProvider implements NewsProvider {
   constructor(private readonly providers: NewsProvider[]) {}
 
@@ -389,6 +439,7 @@ export function getNewsProvider(): NewsProvider {
 function getNewsProviderAttempts(provider: string) {
   const marketaux = new MarketauxNewsProvider();
   const newsApi = new NewsApiProvider();
+  const finnhub = new FinnhubNewsProvider();
   const attempts: Array<{ id: string; provider: NewsProvider }> = [];
 
   if (provider === "mock" && developmentFixturesAllowed()) {
@@ -400,6 +451,7 @@ function getNewsProviderAttempts(provider: string) {
     preferredProvider: provider === "auto" ? null : provider,
   });
   const adapters: Partial<Record<ProviderId, NewsProvider>> = {
+    finnhub,
     marketaux,
     newsapi: newsApi,
   };

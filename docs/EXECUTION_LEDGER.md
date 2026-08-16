@@ -80,3 +80,12 @@ deshalb fail-closed und erzeugt keine falsche Live-Anzeige.
 4. Kernseiten, Health, Provider-Fail-Closed, DR, Enterprise, 2.000 aktive
    Sitzungen und Produktionslogs pruefen.
 5. Production-Nachweis dokumentieren; Phase 7 erst danach bewerten.
+
+
+### 2026-08-16 - Phase 8 Finnhub
+
+- **Scope:** Finnhub als Kontroll- und Fallback-Provider, kein UI-Redesign und kein Vercel-Deployment.
+- **Evidence:** Quote/Search/Profile/News/Earnings/Recommendations/Insider HTTP 200; Candles/Price Target/Economic Calendar HTTP 403; WebSocket-Verbindung erfolgreich, Markt geschlossen ohne Trade-Nachricht.
+- **Decision:** Trade-WebSocket nicht als Quote-Stream ausgeben; tarifgesperrte Domains bleiben implementiert, antworten aber explizit mit `not_entitled`.
+- **Security:** REST-Key aus URLs entfernt und auf allowgelisteten Server-Header umgestellt.
+- **Verification:** Typecheck gruen, Lint ohne Warnungen, 156 Testdateien / 1.161 Tests gruen. Lokaler Build durch Workspace-I/O blockiert und nach Nutzerwunsch zeitbegrenzt abgebrochen; kein Build- oder Compilerfehler ausgegeben. Vercel verschoben.

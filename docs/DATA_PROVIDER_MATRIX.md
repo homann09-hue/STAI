@@ -18,3 +18,17 @@ FMP measurements from 2026-08-07 are authoritative for the configured plan:
 legacy directory endpoints return 403, the stable screener returns 402, search
 works, and quote access is gated per symbol. No availability heuristic is used.
 
+
+
+## Finnhub entitlement matrix (gemessen 2026-08-16)
+
+| Capability | Adapter | Aktueller Tarif | Fallback-Verhalten |
+|---|---|---|---|
+| US-Aktien-Quote | aktiv | teilweise/symbolabhaengig | naechster lizenzierter Quote-Provider |
+| Forex/Krypto-Quote | aktiv | instrumentabhaengig | keine erfundenen Werte |
+| Trade-WebSocket | aktiv | Verbindung verfuegbar | REST-Polling nur fuer Quotes, nicht fuer Trades |
+| Suche/Profil | aktiv | verfuegbar | leeres/verifiziertes Ergebnis |
+| News/Earnings/Analystentrends/Insider | aktiv | verfuegbar | naechster echter Provider oder leer |
+| Kerzen/Kursziele/Wirtschaftskalender | aktiv | HTTP 403 | `not_entitled`, kein Mock |
+
+Eine Capability in der Registry beschreibt den vorhandenen Adapter, nicht die Freischaltung des aktuellen Tarifs. Die Laufzeit prueft die echte Providerantwort und gibt Tarifgrenzen explizit weiter.

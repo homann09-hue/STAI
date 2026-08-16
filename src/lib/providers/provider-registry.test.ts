@@ -40,6 +40,25 @@ describe("provider registry", () => {
     }
   });
 
+  it("routes every implemented Finnhub control domain when configured", () => {
+    const env = { ...base, FINNHUB_API_KEY: "x" };
+    for (const capability of [
+      "quote",
+      "stream_trades",
+      "historical_bars",
+      "instrument_search",
+      "company_profile",
+      "earnings_calendar",
+      "analyst_consensus",
+      "price_target",
+      "insider_transactions",
+      "economic_calendar",
+      "news",
+    ] as const) {
+      expect(resolveProviderRoute({ capability, preferredProvider: "finnhub" }, env).providers).toContain("finnhub");
+    }
+  });
+
   it("routes every implemented Twelve Data domain only when configured", () => {
     const env = { ...base, TWELVE_DATA_API_KEY: "x" };
     for (const capability of [
