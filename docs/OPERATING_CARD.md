@@ -12,7 +12,7 @@ Gewinne.
 
 ## Aktuelle Phase
 
-- **Phase 10: FRED, CI-Abnahme offen.**
+- **Phase 11: ECB, Analyse startet.**
 - Phase 8 Finnhub ist als Commit `c743961` auf GitHub gepusht.
 - SEC-Formulare, historische Submission-Segmente, Metadaten, CIK-Auflösung,
   Deduplizierung, Neu-Erkennung und Fair-Access-Limit sind implementiert.
@@ -23,8 +23,9 @@ Gewinne.
   Erstveroeffentlichung, Vintage und Revision. Mit `FRED_API_KEY` arbeitet der
   serverseitige JSON-Client; ohne Schluessel bleibt nur der klar markierte
   offizielle CSV-Fallback.
-- Syntaxcheck, direkter FRED-Modultest mit 19 Pruefungen und Diff-Hygiene sind
-  gruen. Vollstaendige CI-Abnahme steht aus.
+- Phase 10 ist in Draft-PR `#88` vollstaendig gruen: TypeScript, ESLint,
+  Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke,
+  Performance-/Enterprise-Gates sowie Supabase-RLS und Integritaet.
 - Vercel bleibt auf Nutzerwunsch bis spaeter verschoben.
 
 ## Verbindliche Qualitaetsregeln

@@ -6,7 +6,7 @@ Stand: 2026-08-17
 
 | Feld | Tatsaechlicher Stand |
 | --- | --- |
-| Phase | Phase 10: FRED, CI-Abnahme offen |
+| Phase | Phase 11: ECB, Analyse startet |
 | Repository | `homann09-hue/STAI` |
 | Main | `2189a9d2471eb95a40867592a37cd9345390839b` |
 | PR | `#85`, gemergt |
@@ -96,9 +96,9 @@ deshalb fail-closed und erzeugt keine falsche Live-Anzeige.
 - **Pipeline:** Die bestehende Intelligence-Persistenz nutzt die SEC-Aktennummer als externe ID und den Cursor zur Erkennung neuer Filings.
 - **Verification:** Syntaxcheck der fünf geänderten TypeScript-Dateien und direkter SEC-Modultest mit 19 Funktions- und Sicherheitsprüfungen grün. GitHub-CI vollständig grün: TypeScript, ESLint, Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates sowie Supabase-Migrationen, RLS und Integrität. Draft-PR `#87`.
 
-### 2026-08-17 - Phase 10 FRED (CI-Abnahme offen)
+### 2026-08-17 - Phase 10 FRED (abgeschlossen)
 
 - **Katalog:** 23 offizielle US-Reihen für Leitzins, CPI/Kern-CPI, PCE/Kern-PCE, Arbeitsmarkt, Treasury-Laufzeiten, Zinskurve, M2, Produktion, Einzelhandel, Stimmung, Dollar, Öl und Liquidität.
 - **Lebenszyklus:** Beobachtungsdatum, Erstveröffentlichung, Vintage-Stand, Erstwert und Revision sind getrennte Felder; NFP-Ableitungen rechnen auch den Erstwert als Monatsdifferenz.
 - **Betrieb:** `FRED_API_KEY` aktiviert die offizielle JSON-API. Der offizielle CSV-Fallback bleibt ohne Schlüssel verfügbar, behauptet aber keine Vintage-Daten. Abrufe laufen gebündelt und zentral begrenzt.
-- **Verification:** Syntaxcheck für 11 Dateien, direkter FRED-Modultest mit 19 Prüfungen und Diff-Hygiene grün. Vollständige GitHub-CI steht aus.
+- **Verification:** Syntaxcheck für 11 Dateien, direkter FRED-Modultest mit 19 Prüfungen und Diff-Hygiene grün. GitHub-CI vollständig grün: TypeScript, ESLint, Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates sowie Supabase-Migrationen, RLS und Integrität. Draft-PR `#88`.
