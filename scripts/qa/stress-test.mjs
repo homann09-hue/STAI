@@ -12,7 +12,10 @@ const levels = (process.env.STOCKPILOT_STRESS_LEVELS ?? "100,200,250,500,1000,20
   .map((value) => Number(value.trim()))
   .filter((value) => Number.isFinite(value) && value > 0);
 const timeoutMs = Number(process.env.STOCKPILOT_STRESS_TIMEOUT_MS) || 15000;
-const socketLimit = Number(process.env.STOCKPILOT_STRESS_SOCKETS) || 256;
+const configuredSocketLimit = Number(process.env.STOCKPILOT_STRESS_SOCKETS);
+const socketLimit = Number.isFinite(configuredSocketLimit) && configuredSocketLimit > 0
+  ? configuredSocketLimit
+  : Math.max(512, releaseGateConcurrency);
 const slowThresholdMs = Number(process.env.STOCKPILOT_STRESS_SLOW_MS) || 15000;
 const hardThresholdMs = Number(process.env.STOCKPILOT_STRESS_HARD_MS) || 20000;
 const paths = [
@@ -55,6 +58,12 @@ if (!levels.includes(requiredPeakConcurrency)) {
 
 if (!levels.includes(releaseGateConcurrency) || releaseGateConcurrency > requiredPeakConcurrency) {
   throw new Error("Stress release gate must be one of the configured levels and no larger than the 2,000-user probe.");
+}
+
+if (socketLimit < releaseGateConcurrency) {
+  throw new Error(
+    `Stress socket pool (${socketLimit}) must cover the release gate (${releaseGateConcurrency}) to avoid an artificial client bottleneck.`
+  );
 }
 
 if (!isLocalBaseUrl() && process.env.STOCKPILOT_QA_ALLOW_REMOTE_2000 !== "true") {

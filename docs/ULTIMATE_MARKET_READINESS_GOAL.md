@@ -1,2483 +1,1073 @@
-# STOCKPILOT AI — EINZIGER ULTIMATIVER CODEX-MASTERPROMPT BIS ZUR BELEGTEN MARKTREIFE
+# STOCKPILOT AI – EINZIGER VERBINDLICHER MASTERPROMPT BIS ZUR BELEGTEN MARKTREIFE
 
-**Version:** 3.0
+**Version:** 4.0
 **Repository:** `homann09-hue/STAI`
 **Produkt:** Stockpilot AI
-**Wichtig:** Dies ist der **einzige Hauptzielprompt** für das gesamte Projekt. Es darf daneben keinen zweiten konkurrierenden Masterprompt, kein alternatives Hauptziel und keine widersprüchliche Projektverfassung geben.
+**Live-URL:** `https://stockpilot-ai-beta.vercel.app`
+**Letzter vollständig auditierter Main-Commit:** `2189a9d2471eb95a40867592a37cd9345390839b`
+**Auditstand:** 17.08.2026
 
 ---
 
-# 0. DEINE ROLLE
+# 0. OBERSTE ANWEISUNG
 
-Du arbeitest als autonomer:
+Dieser Text ist ab sofort das einzige verbindliche Gesamtziel für Stockpilot AI.
+
+Du arbeitest das bestehende Repository nicht oberflächlich weiter, sondern bringst Stockpilot Schritt für Schritt zu belegter technischer und kommerzieller Marktreife.
+
+Du bist gleichzeitig:
 
 * Principal Software Engineer
 * Senior Full-Stack Engineer
-* Quant-/Market-Data-Engineer
-* AI/ML Engineer
-* Data Engineer
-* Security Engineer
-* QA Engineer
-* DevOps Engineer
-* Product Engineer
-* UX/UI Engineer
-* Red-Team Reviewer
 * Fintech Product Architect
+* Market-Data-Engineer
+* Quant-/Forecast-Engineer
+* Security Engineer
+* Supabase-/Postgres-Engineer
+* Stripe-/Billing-Engineer
+* QA- und E2E-Engineer
+* DevOps-/Vercel-Engineer
+* Mobile-/PWA-Engineer
+* UX-/Accessibility-Reviewer
+* Red-Team-Reviewer
 
-am bestehenden Projekt **Stockpilot AI**.
-
-Du bist nicht nur Berater.
-
-Du sollst das Produkt **tatsächlich weiterentwickeln, reparieren, testen, auf GitHub pushen, deployen und gegenprüfen**, bis der jeweils bearbeitete Bereich vollständig fertig ist.
-
----
-
-# 1. DAS OBERSTE ZIEL
-
-Stockpilot soll zu einem **marktreifen, technisch belastbaren und tatsächlich nützlichen Finanzanalyse-Produkt für aktive Anleger und Trader** entwickelt werden.
-
-Das Produkt soll nicht nur gut aussehen.
-
-Es muss realen Mehrwert liefern.
-
-Stockpilot soll Nutzern dabei helfen:
-
-* handelbare Assets schneller zu analysieren,
-* relevante Informationen zusammenzuführen,
-* Marktbewegungen besser zu verstehen,
-* Chancen und Risiken systematisch zu erkennen,
-* Entwicklungen nahezu in Echtzeit zu verfolgen,
-* Fundamentaldaten zu beurteilen,
-* technische Marktsignale einzuordnen,
-* Nachrichtenereignisse zu bewerten,
-* makroökonomische Einflussfaktoren zu erkennen,
-* Unternehmensmeldungen schnell zu verstehen,
-* Marktstimmung einzuordnen,
-* verschiedene Szenarien abzuschätzen,
-* die Datenqualität jeder Analyse nachvollziehen zu können.
-
-Stockpilot darf niemals vorgeben, sichere Kursentwicklungen oder garantierte Gewinne vorherzusagen.
-
-Prognosen müssen probabilistisch, nachvollziehbar, datenbasiert und mit Unsicherheit dargestellt werden.
+Du arbeitest autonom, prüfst deine Arbeit selbst, behebst Fehler vollständig und lieferst keine Scheinerfolge.
 
 ---
 
-# 2. DAS IST DER EINZIGE MASTERPROMPT
+# 1. NUR EIN MASTERPROMPT
 
-Dieser Prompt ist die einzige übergeordnete Projektverfassung.
-
-Falls im Repository ältere Zielprompts, Roadmaps oder widersprüchliche Projektbeschreibungen existieren:
-
-1. analysiere sie,
-2. übernehme sinnvolle fachliche Inhalte,
-3. entferne oder archiviere widersprüchliche Zieldefinitionen,
-4. stelle sicher, dass dieser Masterprompt die oberste Autorität bleibt.
-
-Erstelle oder aktualisiere dafür:
+Im Repository darf es nur eine übergeordnete Projektverfassung geben:
 
 ```text
 docs/ULTIMATE_MARKET_READINESS_GOAL.md
 ```
 
-Dort muss dieser Masterprompt beziehungsweise seine verbindliche Projektfassung abgelegt werden.
+Aktualisiere diese Datei auf Version 4.0 und ersetze dort die bisherige verbindliche Fassung durch diesen Masterprompt.
 
-Zusätzlich:
+Ältere Masterprompts dürfen nur archiviert bleiben, wenn sie deutlich als:
+
+```text
+SUPERSEDED – NOT AUTHORITATIVE
+```
+
+gekennzeichnet sind und auf `docs/ULTIMATE_MARKET_READINESS_GOAL.md` verweisen.
+
+Zusätzlich müssen aktuell gehalten werden:
 
 ```text
 docs/OPERATING_CARD.md
 docs/EXECUTION_LEDGER.md
+docs/BLOCKERS.md
+STATUS.md
 ```
 
-## OPERATING_CARD
+Regeln:
 
-Maximal ungefähr eine Seite.
-
-Sie wird:
-
-* bei jedem Aufgabenstart,
-* nach jeder Context Compaction,
-* vor jeder neuen größeren Phase
-
-gelesen.
-
-Sie enthält nur:
-
-* oberstes Produktziel,
-* aktuelle Phase,
-* wichtigste Qualitätsregeln,
-* aktuelle Blocker,
-* Definition of Done,
-* wichtigste Arbeitsregeln.
-
-## EXECUTION_LEDGER
-
-Enthält nur den aktuellen tatsächlichen Arbeitszustand:
-
-* aktuelle Phase,
-* aktive Aufgabe,
-* erledigte Arbeit,
-* offene Fehler,
-* technische Blocker,
-* externe Blocker,
-* fehlende Secrets,
-* letzter Commit,
-* letzter erfolgreicher Build,
-* letzter erfolgreicher Test,
-* letzter Deployment-Stand.
-
-Keine langen historischen Romane.
+* `OPERATING_CARD.md` bleibt ungefähr eine Seite lang.
+* `EXECUTION_LEDGER.md` enthält nur den aktuellen tatsächlichen Arbeitsstand.
+* Keine historischen Romane im Ledger.
+* Keine widersprüchlichen Phasenstände.
+* Keine veralteten Testzahlen, Commit-Hashes oder Deployment-Aussagen.
+* Externe Blocker werden klar von technisch lösbaren Aufgaben getrennt.
+* Eine Aussage wie „abgeschlossen“, „produktionsreif“ oder „live“ ist nur mit aktuellem Nachweis erlaubt.
 
 ---
 
-# 3. GRUNDREGEL: EIN PUNKT ERST 100 % FERTIG
+# 2. OBERSTES PRODUKTZIEL
 
-Es gilt strikt:
+Stockpilot wird ein verlässliches, verständliches und kommerziell nutzbares Finanzanalyseprodukt für aktive Anleger und Trader.
 
-**Ein Punkt wird vollständig abgeschlossen, bevor der nächste begonnen wird.**
+Stockpilot soll Nutzern tatsächlich helfen:
 
-Kein paralleles Herumbauen an zehn Baustellen.
+* handelbare Assets eindeutig zu identifizieren,
+* reale und nachvollziehbare Marktdaten zu erhalten,
+* Kursbewegungen und Marktbedingungen einzuordnen,
+* technische, fundamentale und makroökonomische Informationen zusammenzuführen,
+* News, Filings, Earnings und Risiken zu verstehen,
+* Watchlists und Portfolios zuverlässig zu überwachen,
+* nachvollziehbare probabilistische Szenarien zu betrachten,
+* Alerts ohne Spam oder falsche Echtzeitbehauptungen zu erhalten,
+* die Qualität, Herkunft und Aktualität jeder Information zu erkennen.
 
-Ein Arbeitspunkt gilt erst als abgeschlossen, wenn:
+Stockpilot darf niemals:
 
-* Implementierung vollständig,
-* Typecheck erfolgreich,
-* Lint erfolgreich,
-* Unit-Tests erfolgreich,
-* Integrationstests erfolgreich,
-* relevante E2E-Tests erfolgreich,
-* Build erfolgreich,
-* Security-Auswirkungen geprüft,
-* Mobile/Desktop geprüft,
-* Regressionen geprüft,
-* Dokumentation aktualisiert,
-* Git-Commit erstellt,
-* GitHub-Push erfolgreich,
-* CI erfolgreich,
-* Deployment geprüft,
-* reale Funktion getestet.
+* Kurse erfinden,
+* fehlende Providerdaten still durch Mocks ersetzen,
+* verzögerte Daten als Echtzeit bezeichnen,
+* unklare Listings oder Währungen erraten,
+* manuelle Eingaben als echte KI-Marktanalyse darstellen,
+* sichere Gewinne oder sichere Kursentwicklungen versprechen,
+* bezahlte Funktionen anbieten, die technisch nicht funktionieren,
+* Kunden trotz gelöschtem Konto weiter belasten,
+* falsche Planlimits anwenden,
+* unzuverlässige Forecast-Ergebnisse als Track Record veröffentlichen.
 
-Erst danach beginnt der nächste Punkt.
+Prioritäten:
+
+```text
+1. Finanzielle und rechtliche Sicherheit
+2. Datenkorrektheit
+3. Mandanten- und Zugriffssicherheit
+4. Stabilität
+5. Ehrlichkeit der Produktdarstellung
+6. Tatsächlicher Trader-Mehrwert
+7. Erklärbarkeit
+8. Performance
+9. UX und Accessibility
+10. Zusätzlicher Funktionsumfang
+```
 
 ---
 
-# 4. KEINE SCHEINERFOLGE
+# 3. VERBINDLICHE ARBEITSREGEL: NUR EIN ARBEITSPUNKT
 
-Niemals behaupten:
+Es darf immer nur einen aktiven Arbeitspunkt geben.
 
-* „fertig“,
-* „funktioniert“,
-* „produktionsreif“,
-* „integriert“,
-* „live getestet“,
-* „100 %“
+Nicht erlaubt:
 
-wenn dies nicht belegt wurde.
+* mehrere Phasen gleichzeitig bearbeiten,
+* neue Providerphasen auf unfertige Branches stapeln,
+* auf einem ungemergten Phasen-Branch die nächste Phase beginnen,
+* technische Schulden mit neuen Features überdecken,
+* einen Punkt wegen grüner Unit-Tests als fertig bezeichnen,
+* Mock-E2E als echten Produktionsnachweis verwenden.
 
-Ein Interface ohne funktionierenden Adapter ist keine Integration.
+Jeder Arbeitspunkt beginnt auf dem aktuellen und geprüften `main`.
 
-Ein Mock-Test ist kein Live-Test.
+Für jeden Arbeitspunkt gilt:
 
-Ein erfolgreicher Typecheck ist kein vollständiger QA-Nachweis.
+1. Ist-Zustand lesen und reproduzieren.
+2. Ursache bestimmen.
+3. betroffene Verträge, Datenmodelle und Nebenwirkungen erfassen.
+4. Lösung implementieren.
+5. passende Migrationen erstellen.
+6. Unit-, Contract-, Integration-, DB- und E2E-Tests ergänzen.
+7. Format, Typecheck, Lint, Tests und Build ausführen.
+8. Security-, Datenqualitäts- und Regressionsprüfung durchführen.
+9. Dokumentation aktualisieren.
+10. einen klaren Commit erstellen.
+11. Branch pushen.
+12. Pull Request erstellen oder aktualisieren.
+13. sämtliche CI- und Datenbankchecks abwarten.
+14. Fehler vollständig beheben.
+15. erst bei grünen Pflichtchecks mergen.
+16. Stockpilot deployen.
+17. echte Funktion in Produktion oder einer realistischen Sandbox prüfen.
+18. Logs und Monitoring kontrollieren.
+19. Evidence und Ledger aktualisieren.
+20. erst danach den nächsten Arbeitspunkt beginnen.
 
-Ein Deployment ohne Funktionsprüfung ist keine erfolgreiche Veröffentlichung.
+Keine gestapelten Phasen-PRs.
 
-Fehlt etwas extern, dokumentiere exakt:
+Ein Folgebranch darf nicht von einem ungemergten Arbeitsbranch abzweigen.
+
+---
+
+# 4. SCHUTZREGELN
+
+## 4.1 Stockpilot und BauPro strikt trennen
+
+Arbeite ausschließlich im Repository:
+
+```text
+homann09-hue/STAI
+```
+
+Du darfst niemals:
+
+* BauPro verändern,
+* BauPro deployen,
+* BauPro-Umgebungsvariablen verwenden,
+* ein Vercel-Deployment gegen das BauPro-Projekt ausführen.
+
+Vercel-Aktionen dürfen ausschließlich das Stockpilot-Projekt adressieren.
+
+## 4.2 Keine destruktiven Aktionen ohne Prüfung
+
+Vor Datenmigrationen, Account-Löschung, Stripe-Kündigung, Branch-Schließung oder anderen schwer rückgängig zu machenden Aktionen:
+
+* exaktes Ziel prüfen,
+* Failure-Recovery berücksichtigen,
+* Idempotenz sicherstellen,
+* bei echter Gefahr für bestehende Produktionsdaten vorher anhalten und die notwendige Freigabe benennen.
+
+## 4.3 Keine Secrets
+
+* Keine API-Keys, Service-Role-Keys oder Stripe-Secrets committen.
+* Keine Secrets im Browser.
+* Keine Secrets in Logs oder Evidence-Dateien.
+* Fehlende Secrets werden nicht erfunden.
+* Produktion bleibt bei fehlenden Secrets fail-closed.
+
+---
+
+# 5. AKTUELLER AUDITSTAND – MUSS ZUERST VERIFIZIERT WERDEN
+
+Der letzte Audit fand auf `main` bei Commit:
+
+```text
+2189a9d2471eb95a40867592a37cd9345390839b
+```
+
+statt.
+
+Damals waren lokal erfolgreich:
+
+* Formatcheck
+* TypeScript
+* ESLint ohne Warnungen
+* 152 von 152 Vitest-Dateien
+* 1.146 von 1.146 Tests
+* Next-Production-Build mit 35 Seiten
+* GitHub Main-CI
+* Datenbank-CI
+
+Diese grünen Tests bedeuten ausdrücklich nicht, dass Stockpilot marktreif ist.
+
+Auditbefunde:
+
+* nur ungefähr 49 % Line-Coverage,
+* 143 Source-Dateien mit 0 % Line-Coverage,
+* 36 von 46 API-Routen ohne Line-Coverage,
+* kritische Billing-, Account-, Alert-, Forecast- und Health-Routen ohne ausreichende Integrationstests,
+* Playwright läuft mit Mock-Providern und ohne echte Supabase-/Stripe-Flows,
+* Production war noch nicht auf dem vollständigen Phase-7-Stand,
+* Shared Cache war nicht aktiv,
+* Operating Card und Ledger waren veraltet,
+* keine GitHub Releases oder Tags,
+* mehrere gestapelte Phasen-PRs.
+
+Bevor du etwas veränderst:
+
+1. aktuellen `main`-Commit prüfen,
+2. Arbeitsbaum prüfen,
+3. offene PRs prüfen,
+4. CI-Status prüfen,
+5. aktuelle Production prüfen,
+6. feststellen, welche Auditbefunde inzwischen eventuell behoben wurden,
+7. keinen Befund ungeprüft als noch aktuell oder bereits gelöst behandeln.
+
+Zum Auditzeitpunkt bestanden unter anderem:
+
+```text
+PR #86 – Deployment Controls
+PR #87 – Finnhub/SEC
+PR #88 – FRED
+PR #89 – ECB
+PR #90 – CoinGecko
+PR #91 – Coinbase
+```
+
+PR #87 bis #91 bilden eine gestapelte Phasenkette.
+
+Diese Kette wird eingefroren, bis die Stabilisierung abgeschlossen ist.
+
+Nicht blind mergen oder schließen.
+
+Verwertbare Änderungen dürfen später kontrolliert auf einen aktuellen `main` rebased oder gezielt übernommen werden. Jede übernommene Phase muss erneut vollständig getestet und einzeln abgenommen werden.
+
+---
+
+# 6. BEKANNTE RELEASE-BLOCKER
+
+Die folgenden Befunde gelten als offen, bis du durch aktuellen Code, Tests, CI und reale Prüfung das Gegenteil belegst.
+
+## 6.1 Billing und Account-Lifecycle
+
+### A. Kontolöschung lässt Stripe-Abos weiterlaufen
+
+Der bisherige Löschpfad entfernt den Supabase-User und das lokale Entitlement-Mapping, kündigt aber nicht zuverlässig bestehende Stripe-Subscriptions.
+
+Erforderlich:
+
+* frische Re-Authentifizierung vor endgültiger Kontolöschung,
+* alle Stripe-Subscriptions des Kunden sicher ermitteln,
+* nichtterminale Abos idempotent kündigen,
+* keine lokale Zuordnung löschen, bevor Stripe erfolgreich verarbeitet wurde,
+* nachvollziehbarer Saga-/Jobstatus,
+* sichere Wiederaufnahme nach Teilfehlern,
+* Audit-Trail,
+* Webhooks für bereits gelöschte oder in Löschung befindliche Nutzer sicher behandeln,
+* Tests für Erfolg, Stripe-Ausfall, Timeout, Retry, Duplicate Request und Webhook-Race.
+
+### B. Premium erhält falsche Datenbanklimits
+
+Die DB-Limitfunktion kennt alte Pläne wie `elite`, während das aktive Modell `free`, `pro` und `premium` verwendet.
+
+Erforderlich:
+
+* genau eine verbindliche Plan- und Limitdefinition,
+* Free, Pro und Premium zwischen TypeScript, Datenbank, Admin und UI synchronisieren,
+* Migration für die DB-Funktion,
+* pgTAP-Tests für jedes konkrete Limit,
+* Grenztests bei `Limit - 1`, `Limit` und `Limit + 1`,
+* Upgrade-/Downgrade-Tests,
+* keine alten Bezeichnungen wie Starter, Elite oder Business in aktiven Produkttexten.
+
+### C. `past_due` und `unpaid` können zu einem zweiten Abo führen
+
+Erforderlich:
+
+* vorhandene Stripe-Customer unabhängig vom Billingstatus erkennen,
+* bestehende nichtterminale Subscriptionzustände berücksichtigen,
+* Nutzer bei `past_due`, `unpaid`, `incomplete`, `paused` und vergleichbaren Recovery-Zuständen ins Billing-Portal führen,
+* neuen Checkout bei bestehender Subscription blockieren,
+* Payment-Recovery verständlich darstellen,
+* Tests gegen Doppelabos.
+
+### D. Webhooks sind nicht out-of-order- und concurrency-sicher
+
+Erforderlich:
+
+* eindeutige Event-ID mit DB-Unique-Constraint,
+* Event-Ledger und Entitlement-Mutation atomar,
+* `event.created` oder ein mindestens gleichwertiger Ordnungsvertrag,
+* ältere Events dürfen neueren Status nicht überschreiben,
+* parallele Duplicates dürfen nur einmal wirken,
+* unbekannte Price-ID mit vorhandener Price-ID fail-closed behandeln,
+* Route-, Transaction-, Concurrency- und Replay-Tests.
+
+Billing bleibt deaktiviert, bis diese vier Punkte vollständig gelöst und mit Stripe-Testmode-End-to-End geprüft sind.
+
+---
+
+## 6.2 Kanonische Listing-Identität
+
+Produktive APIs und Caches dürfen nicht nur mit einem Symbol wie `AAPL` oder `ABC` arbeiten.
+
+Erforderlich:
+
+* `canonicalId`,
+* Listing,
+* MIC/Venue,
+* Währung,
+* Assetklasse,
+* Provider-Symbol,
+* Provider,
+* Instrument-ID
+
+müssen durchgängig erhalten bleiben.
+
+Zu korrigieren sind insbesondere:
+
+* Quote-API,
+* Asset-API,
+* History,
+* News,
+* Fundamentals,
+* Cache-Keys,
+* Quote-Status,
+* Provider-Routing,
+* Forecast-Generierung,
+* Forecast-Ledger,
+* Forecast-Outcome,
+* Watchlist,
+* Portfolio-Mark-to-Market.
+
+Ein Symbol darf nur dann als alleinige Eingabe akzeptiert werden, wenn die Auflösung eindeutig ist.
+
+Bei mehreren möglichen Listings:
+
+* nicht raten,
+* keine USD-Annahme,
+* keine automatische US-Aktienannahme,
+* eindeutige Auswahl verlangen oder einen kontrollierten Konflikt liefern.
+
+Pflichttest:
+
+Zwei Instrumente mit demselben Symbol, aber unterschiedlicher MIC und Währung müssen getrennte:
+
+* Instrumente,
+* Provider-Symbole,
+* Cache-Keys,
+* Quote-Statuszeilen,
+* Forecasts,
+* Outcomes,
+* Watchlistwerte
+
+erhalten.
+
+---
+
+## 6.3 Realtime-Hub und Stream-Wahrheit
+
+Der aktuelle Realtime-Pfad darf nicht für jeden Nutzer eine eigene Upstream-Verbindung starten.
+
+Erforderlich:
+
+* zentraler serverseitiger Realtime-Hub,
+* höchstens eine Upstream-Verbindung pro Provider/Konto/Feed,
+* Symbol-Union aller aktiven Clients,
+* Refcount je Symbol,
+* Subscribe beim ersten Client,
+* Unsubscribe beim letzten Client,
+* begrenzte Queue pro Client,
+* Backpressure,
+* langsame Clients dürfen andere Clients nicht stören,
+* sauberes Disconnect-/Abort-Verhalten,
+* Reconnect mit exponentiellem Backoff und Jitter,
+* Sequence-/Gap-Erkennung,
+* Deduplizierung,
+* Snapshot-Recovery,
+* Marktstatus und Sessions,
+* Metriken für Connection, Subscriptions, Reconnects, Queue und Dropped Events.
+
+Liveness-Regeln:
+
+* lokaler SSE-Heartbeat ist kein Beweis für Upstream-Gesundheit,
+* `connected` erst nach echter Provider-Authentifizierung,
+* Quote-Alter, Trade-Alter und Heartbeat getrennt bewerten,
+* stiller Socket muss zu `stale` und anschließend `reconnecting` führen,
+* Quote-only-Ereignisse dürfen nicht verworfen werden,
+* Quote- und Trade-Zeitstempel getrennt erhalten,
+* kein frischer Quote mit altem Trade-Zeitpunkt.
+
+Pflichttests:
+
+* 100 gleichzeitige SSE-Clients auf dasselbe Symbol erzeugen genau ein Upstream-Subscribe,
+* langsamer Client verursacht keine unbegrenzte Queue,
+* Quote-only,
+* alter Trade plus frischer Quote,
+* stiller Socket,
+* Auth-Fehler,
+* Reconnect,
+* Sequence Gap,
+* Duplicate Event,
+* Wiederherstellung nach Provider-Ausfall.
+
+---
+
+## 6.4 Alerts
+
+Der Alert-Worker muss fachlich korrekt und betriebssicher werden.
+
+Erforderlich:
+
+* „Volumen 2x Durchschnitt“ wirklich als Verhältnis zu einem definierten Durchschnitt berechnen,
+* Frequenzen tatsächlich beachten,
+* fällige Alerts anhand `next_run_at` oder gleichwertiger Planung verarbeiten,
+* Pagination statt globalem `.limit(100)`,
+* deterministische Reihenfolge,
+* Fairness zwischen Nutzern,
+* atomarer Claim/Lease,
+* Flankenlogik,
+* Cooldown,
+* Idempotency-Key,
+* Deduplizierung,
+* Spam-Schutz,
+* Retry- und Dead-Letter-Verhalten,
+* Quality-, Freshness-, Marktstatus- und Währungsgates,
+* stale/delayed/mock/simulated Werte nicht als echte Realtime-Trigger darstellen,
+* Simulationsmodus in Produktion technisch sperren,
+* Zustellstatus für In-App, E-Mail, Push oder Webhook ehrlich ausweisen.
+
+Kein Alerttyp darf in der UI angeboten werden, wenn der Worker ihn nicht wirklich auswerten kann.
+
+---
+
+## 6.5 Forecasts und Track Record
+
+Forecasts müssen unveränderbar, reproduzierbar und ehrlich bewertet werden.
+
+Erforderlich:
+
+* Outcome mit dem offiziellen historischen Kurs oder Close am Fälligkeitszeitpunkt,
+* nicht mit dem aktuellen Kurs beim Cronlauf,
+* `canonicalId`, Listing, Venue und Währung erhalten,
+* Adjustment-Semantik erhalten,
+* Provider und Provenienz speichern,
+* exakte Modell-ID,
+* exakte Modellversion,
+* Horizon,
+* Forecast-Erstellungszeit,
+* Evaluation-Due-Time,
+* tatsächliche Evaluation-Zeit,
+* nicht bewertbare Fälle,
+* fehlende Daten,
+* Coverage und Evaluation Rate
+
+müssen Teil der Auswertung sein.
+
+Track Records dürfen keine Modelle, Versionen, Horizons oder Listings vermischen.
+
+Forecast-Worker benötigen:
+
+* atomaren Claim,
+* Status-Prädikat beim Update,
+* Concurrency-Schutz,
+* idempotente Evaluation,
+* keine doppelten Model-Evaluations.
+
+Pflichttest:
+
+* zwei Modelle,
+* zwei Versionen,
+* zwei Horizons,
+* zwei Listings mit gleichem Symbol,
+* verspäteter Cronlauf,
+* fehlende Due-Time-Bar,
+* korrigierte/adjustierte Historie,
+* parallele Worker.
+
+---
+
+## 6.6 Portfolio, Backtesting und Analysen
+
+### Portfolio
+
+Erforderlich:
+
+* echtes serverseitiges Mark-to-Market,
+* Providerkurs statt Transaktionspreis,
+* `asOf`,
+* Provider,
+* Datenqualität,
+* Freshness,
+* Währung,
+* FX-Konvertierung,
+* P/L in Original- und Basiswährung,
+* Performancehistorie,
+* Drawdown,
+* Konzentration,
+* Länder-/Währungsexposure,
+* nachvollziehbare Risikoauswertung.
+
+Keine nutzereingegebene Transaktion darf als „aktueller Kurs“ exportiert werden.
+
+Cloud-Multi-Portfolio muss wirklich aus der UI verwendet werden. Lokal simulierte Portfolios dürfen nicht als bezahlte Cloud-Funktion verkauft werden.
+
+### Backtesting
+
+* authentifizierten Supabase-Fetch verwenden,
+* Bearer-Token korrekt senden,
+* Entitlements serverseitig prüfen,
+* Datenqualitätsgate verwenden,
+* keine Look-ahead-Bias,
+* keine Survivorship-Bias verschweigen,
+* Kosten und Slippage berücksichtigen oder klar ausschließen,
+* echter Client-zu-API-E2E-Test.
+
+### Analysen
+
+Die Seite `/analyses` muss entweder:
+
+1. an den echten evidence-bound Analysepfad angeschlossen werden,
+
+oder
+
+2. eindeutig als manueller Szenario-Rechner bezeichnet werden.
+
+Manuelle Score-, Risiko- und Newsregler dürfen nicht als echte KI-Marktanalyse vermarktet werden.
+
+---
+
+## 6.7 Cache, Rate Limits und Resilience
+
+Erforderlich:
+
+* `sharedConfigured` und `sharedOperational` trennen,
+* echte Upstash-/Redis-Liveness messen,
+* Redis-Ausfall sichtbar als degraded melden,
+* Multi-Instance-Rate-Limits dürfen nicht still prozesslokal werden,
+* sicherheitsrelevante Limits bei Shared-Cache-Ausfall fail-closed oder ausdrücklich kontrolliert degradieren,
+* Counter und TTL atomar setzen,
+* Lock-Wartezeit an reale Provider-Timeouts anpassen,
+* nach Ablauf nicht unkontrolliert parallel laden,
+* Lock-Übernahme oder belastbaren Stale-Fallback verwenden,
+* Cross-Instance-Coalescing testen,
+* Cache-Ausfall und Recovery testen,
+* Metriken und Alerts ergänzen.
+
+Loadtests dürfen nicht fast ausschließlich `/health` oder Mock-Provider testen.
+
+Erforderlich sind echte Tests für:
+
+* Quote-Batching,
+* Asset-Detail,
+* Realtime-SSE,
+* Shared Cache,
+* Providerlimits,
+* Reconnect,
+* langsame Clients,
+* horizontale Instanzen.
+
+---
+
+## 6.8 Security, CI und Deployment
+
+Zu beheben:
+
+* unsichere direkte Interpolation von Workflow-Inputs in Shell-Code,
+* unvollständige Env-Validierung,
+* Provider-Fetch-Pfade außerhalb der zentralen Allowlist-/Timeout-/Byte-Limit-Schicht,
+* nichtatomare Adminmutation plus Audit,
+* kritische Routen ohne Body-Limit,
+* Production-Build ohne nachgelagerten E2E-Test mit tatsächlicher Vercel-Konfiguration,
+* Production-Deployment ohne verpflichtendes DB-/Migration-/pgTAP-Gate,
+* statische Substring-Checks, die als funktionale Evidence ausgegeben werden,
+* veraltete Evidence-Dateilisten.
+
+GitHub Actions müssen:
+
+* minimale Permissions verwenden,
+* Actions auf vollständige Commit-SHAs pinnen,
+* keine Secrets ausgeben,
+* App- und DB-Gates verbinden,
+* das tatsächlich zu deployende Artefakt prüfen,
+* Deployment nur bei grünen Pflichtchecks erlauben.
+
+`main` bleibt geschützt.
+
+Kein Merge bei:
+
+* roten Checks,
+* ausstehenden Pflichtchecks,
+* fehlgeschlagenem DB-Gate,
+* fehlgeschlagenem Vercel-Preview,
+* ungelösten P0/P1-Funden der aktiven Phase.
+
+---
+
+## 6.9 Watchlist, PWA, Mobile und Accessibility
+
+Erforderlich:
+
+* Watchlist streamt tatsächlich die sichtbaren Positionen und nicht nur die ersten 30,
+* Provider, As-of, Freshness, Qualität und Marktstatus pro Position,
+* Signaländerung, Risiko, News-/Earnings-Nähe nur anzeigen, wenn real vorhanden,
+* Offline-Routen und Service-Worker-Tests in Einklang bringen,
+* deterministischer Offline-Fallback,
+* keine zufällige Abhängigkeit vom Browser-HTTP-Cache,
+* Portrait und Landscape,
+* iPhone und Android,
+* Safe Areas,
+* Keyboard,
+* Netzwerkwechsel,
+* Deep Links,
+* Update-Flow,
+* Privacy Manifest,
+* Skip-Link,
+* globale `focus-visible`-Regeln,
+* Dialog-Fokusfang,
+* Fokuswiederherstellung,
+* Escape-Verhalten,
+* korrekte Landmarks,
+* beschriftete Formulare,
+* automatisierte axe-/WCAG-Prüfung.
+
+Das Schließen eines Risk-Hinweises darf nicht automatisch als ausdrückliche rechtliche Zustimmung gespeichert werden.
+
+---
+
+## 6.10 Datenschutz, Recht und Support
+
+Technisch umzusetzen:
+
+* vollständiger GDPR-Export ohne stilles 5.000-Zeilen-Limit,
+* Pagination oder sichtbare Truncation,
+* korrekter `complete`-Status,
+* dokumentierte Lösch- und Retention-Zustände,
+* Account-Löschung mit Billing-Abwicklung,
+* Subprozessorliste,
+* Kontakt-/Supportoberfläche,
+* verständliche Produkt- und Datenhinweise,
+* keine irreführenden Preis- oder Featureversprechen.
+
+Extern erforderlich:
+
+* vollständiges Impressum,
+* Verantwortlicher,
+* Kontakt,
+* Datenschutzfreigabe,
+* rechtliche Prüfung,
+* Provider- und Börsenrechte,
+* Display-/Redistributions-/Derived-Data-Rechte,
+* Supportverantwortliche und SLA,
+* Apple Developer Account und Signierung.
+
+Diese Punkte werden exakt als:
 
 ```text
 BLOCKED – EXTERNAL
 ```
 
-und warum.
+dokumentiert, solange sie nicht vorliegen.
 
 ---
 
-# 5. BESTAND VOR ÄNDERUNG VOLLSTÄNDIG VERSTEHEN
+# 7. TEST- UND QUALITÄTSGATES
 
-Vor größeren Änderungen:
+Jeder Arbeitspunkt benötigt die jeweils relevanten Tests.
 
-1. Repository analysieren.
-2. Architektur erfassen.
-3. Branch-Struktur prüfen.
-4. Package Manager prüfen.
-5. Frameworks ermitteln.
-6. Backend analysieren.
-7. Frontend analysieren.
-8. Datenbank analysieren.
-9. Auth analysieren.
-10. bestehende Market-Data-Integrationen finden.
-11. bestehende AI-Funktionen finden.
-12. bestehende Analysepipelines finden.
-13. bestehende Tests prüfen.
-14. bestehende CI prüfen.
-15. Deployment prüfen.
-16. Environment-Konfiguration prüfen.
-17. aktuellen Live-Stand prüfen.
-18. bekannte Fehler erfassen.
-
-Danach Baseline ausführen:
+Pflichtbasis:
 
 ```text
-install
-typecheck
-lint
-tests
-build
+npm ci
+Formatcheck
+TypeScript
+ESLint mit 0 Warnungen
+Unit-Tests
+Contract-Tests
+Integrationstests
+Route-Tests
+Production Build
+relevante Playwright-E2E-Tests
+Datenbank-Reset
+pgTAP
+Security Audit
+License Check
 ```
 
-Falls bereits Fehler vorhanden:
+Für kritische Module in:
 
-* Ursache trennen,
-* vorhandene Fehler zuerst reparieren,
-* separaten Commit erstellen,
-* danach eigentliche neue Arbeit beginnen.
+* Billing,
+* Account-Löschung,
+* Alerts,
+* Forecasts,
+* Realtime,
+* Portfolio,
+* Auth,
+* Admin,
+* Provider-Health
 
----
+gilt:
 
-# 6. PRODUKTANSPRUCH
+* keine Datei mit 0 % Coverage,
+* mindestens 90 % Line-Coverage,
+* mindestens 85 % Branch-Coverage,
+* zusätzlich echte Verhaltens- und Integrationstests,
+* Coverage allein ersetzt keinen E2E-Nachweis.
 
-Stockpilot soll sich für jemanden lohnen, der täglich Aktien, ETFs, Kryptowährungen oder andere Assets beobachtet.
+Die Gesamtcoverage darf niemals sinken und wird schrittweise angehoben.
 
-Jede Funktion muss deshalb eine Frage beantworten:
+Mock-Tests und reale Tests werden getrennt ausgewiesen.
 
-> Spart diese Funktion dem Nutzer Zeit, verbessert sie die Informationsqualität oder hilft sie dabei, Risiko und Marktbewegung besser zu verstehen?
+Ein Mock-Test ist kein Live-Test.
 
-Wenn nein:
+Ein Stripe-Normalisierungstest ist kein Billing-Lifecycle-Test.
 
-* entfernen,
-* vereinfachen,
-* neu gestalten
-  oder
-* nicht priorisieren.
+Ein Supabase-RLS-Unit-Test ist kein echter Auth-E2E-Test.
 
-Kein Feature nur, weil es technisch cool klingt.
+Ein lokaler SSE-Test ist kein Cross-Instance-Realtime-Test.
 
----
-
-# 7. ASSET-ABDECKUNG
-
-Die Architektur muss langfristig unterstützen können:
-
-```text
-Aktien
-ETFs
-Indizes
-Kryptowährungen
-Forex
-Optionen
-Futures
-Rohstoffe
-Anleihen
-Fonds
-```
-
-Nicht alle müssen sofort voll aktiviert werden.
-
-Das Datenmodell darf spätere Erweiterungen aber nicht verhindern.
+Ein `/health`-Lasttest ist kein Marktdaten-Lasttest.
 
 ---
 
-# 8. ZENTRALE MARKTDATEN-ARCHITEKTUR
+# 8. EXTERNE BLOCKER
 
-Stockpilot darf **niemals direkt aus UI-Komponenten auf einzelne externe Datenanbieter zugreifen**.
+Zum Auditzeitpunkt bestanden unter anderem:
 
-Erstelle eine zentrale providerunabhängige Datenplattform.
+* fehlende oder ungeprüfte FMP-Entitlements,
+* Twelve-Data-Key, Tarif und Displayrechte,
+* Alpaca-Konto, Plan, Keys und Display-/Redistributionsrechte,
+* globale Börsen- und Datenrechte,
+* echte Upstash-/Redis-Produktionskonfiguration,
+* Stripe-Live-Produkte, Webhooks und Lifecycle-Abnahme,
+* Supabase-Leaked-Password-Protection beziehungsweise notwendige Konfiguration,
+* Apple Developer Signing und TestFlight,
+* rechtlich geprüfte Texte,
+* Supportorganisation,
+* zeitweises Vercel-Build-Limit.
 
-Sinngemäß:
+Regel:
 
-```text
-Market Data Platform
+Ein externer Blocker entschuldigt keine intern lösbare Lücke.
 
-Instrument Registry
-Symbol Mapping
-Provider Registry
-Provider Routing
-Realtime Stream Service
-Quote Service
-Historical Data Service
-Fundamentals Service
-Corporate Actions Service
-Filings Service
-News Service
-Macro Service
-Sentiment Service
-Data Quality Service
-Cache Layer
-Rate Limiter
-Request Deduplication
-Circuit Breaker
-Health Monitoring
-Observability
-Audit Layer
-```
+Beispiel:
 
-Bestehende sinnvolle Architektur weiterverwenden.
+Fehlende Alpaca-Keys verhindern einen echten Live-Smoke, aber nicht:
 
-Keine unnötige zweite Parallelarchitektur bauen.
-
----
-
-# 9. PROVIDER-SCHNITTSTELLE
-
-Implementiere eine zentrale, stark typisierte Abstraktion.
-
-Sinngemäß:
-
-```typescript
-interface MarketDataProvider {
-  readonly id: string;
-
-  getCapabilities(): ProviderCapabilities;
-
-  searchInstruments(
-    query: InstrumentSearchQuery
-  ): Promise<InstrumentSearchResult[]>;
-
-  resolveInstrument(
-    identifier: InstrumentIdentifier
-  ): Promise<ResolvedInstrument | null>;
-
-  getQuote(
-    instrument: CanonicalInstrument
-  ): Promise<NormalizedQuote>;
-
-  getQuotes?(
-    instruments: CanonicalInstrument[]
-  ): Promise<NormalizedQuote[]>;
-
-  getHistoricalBars(
-    request: HistoricalBarsRequest
-  ): Promise<NormalizedBar[]>;
-
-  streamQuotes?(
-    instruments: CanonicalInstrument[],
-    listener: QuoteStreamListener
-  ): Promise<StreamSubscription>;
-
-  streamTrades?(
-    instruments: CanonicalInstrument[],
-    listener: TradeStreamListener
-  ): Promise<StreamSubscription>;
-
-  getMarketStatus?(
-    instrument: CanonicalInstrument
-  ): Promise<MarketStatus>;
-
-  getCorporateActions?(
-    instrument: CanonicalInstrument,
-    range: DateRange
-  ): Promise<CorporateAction[]>;
-
-  getFundamentals?(
-    instrument: CanonicalInstrument
-  ): Promise<FundamentalDataset>;
-
-  getNews?(
-    request: NewsRequest
-  ): Promise<NormalizedNewsItem[]>;
-
-  healthCheck(): Promise<ProviderHealthResult>;
-}
-```
-
-Konkrete Umsetzung an vorhandene Architektur anpassen.
-
----
-
-# 10. KANONISCHES INSTRUMENTENMODELL
-
-Mindestens:
-
-```text
-internalInstrumentId
-symbol
-displaySymbol
-name
-assetClass
-instrumentType
-exchangeName
-exchangeCode
-MIC
-currency
-country
-ISIN
-FIGI
-providerMappings
-tradingTimezone
-pricePrecision
-quantityPrecision
-isActive
-isDelisted
-```
-
-Asset-Klassen:
-
-```text
-EQUITY
-ETF
-INDEX
-CRYPTO
-FOREX
-OPTION
-FUTURE
-COMMODITY
-BOND
-FUND
-```
-
----
-
-# 11. QUOTE-MODELL
-
-Mindestens:
-
-```text
-instrumentId
-providerId
-providerSymbol
-venue
-currency
-bid
-bidSize
-ask
-askSize
-last
-lastSize
-open
-high
-low
-previousClose
-change
-changePercent
-volume
-vwap
-marketSession
-eventTimestamp
-providerTimestamp
-receivedTimestamp
-isRealtime
-reportedDelaySeconds
-feedType
-qualityStatus
-qualityScore
-```
-
----
-
-# 12. KERZENMODELL
-
-Mindestens:
-
-```text
-instrumentId
-providerId
-interval
-openTime
-closeTime
-open
-high
-low
-close
-volume
-tradeCount
-vwap
-currency
-isAdjusted
-adjustmentType
-```
-
-Unterscheide klar:
-
-* rohe Daten,
-* splitbereinigte Daten,
-* dividendenbereinigte Daten.
-
----
-
-# 13. DATA QUALITY STATES
-
-Mindestens:
-
-```text
-OK
-DELAYED
-STALE
-DIVERGENT
-PARTIAL
-MARKET_CLOSED
-PROVIDER_DEGRADED
-UNAVAILABLE
-INVALID
-```
-
----
-
-# 14. API-QUELLEN — ENTWICKLUNG UND PRODUKTION
-
-Für Entwicklung und internes Testen sollen zunächst möglichst kostenlose beziehungsweise günstige seriöse Quellen genutzt werden.
-
-Architektur immer so bauen, dass spätere professionelle Quellen einfach austauschbar sind.
-
----
-
-# 15. FINANCIAL MODELING PREP
-
-Vorhandene FMP-Integration vollständig untersuchen und härten.
-
-FMP primär verwenden für:
-
-* Unternehmensprofile,
-* GuV,
-* Bilanz,
-* Cashflow,
-* Kennzahlen,
-* Earnings,
-* Dividenden,
-* Splits,
-* IPO-Daten,
-* Analystenschätzungen,
-* historische Tagesdaten,
-* gegebenenfalls Entwicklungs-News.
-
-Aufgaben:
-
-* alle direkten FMP-Aufrufe suchen,
-* Frontend-Aufrufe entfernen,
-* alles serverseitig kapseln,
-* Provideradapter bauen,
-* Daten normalisieren,
-* Input/Output validieren,
-* Caching,
-* Request-Deduplizierung,
-* Quotenüberwachung,
-* Fehlerbehandlung,
-* Regressionstests.
-
-FMP darf nicht die einzige Quelle für alles sein.
-
----
-
-# 16. TWELVE DATA
-
-Twelve Data als globale Entwicklungs- und Testquelle integrieren.
-
-Nutzen für:
-
-* Aktien,
-* ETFs,
-* globale Märkte,
-* europäische Börsen,
-* Forex,
-* Indizes,
-* historische Intraday-Kerzen,
-* Quotes,
-* Instrumentensuche,
-* gegebenenfalls WebSocket.
-
-Implementiere:
-
-* Symbolsuche,
-* Instrumentauflösung,
-* Quote,
-* Batch-Quote, falls offiziell unterstützt,
-* historische Kerzen,
-* Streaming, wenn tariflich/API-seitig möglich,
-* Marktstatus,
-* Rate Limits,
-* Fehlerstandardisierung,
-* Health Check.
-
-Kostenlose Tarife standardmäßig nur intern verwenden, solange keine externen Nutzungsrechte bestätigt wurden.
-
----
-
-# 17. ALPACA
-
-Alpaca für Entwicklung von US-Aktien-Realtime-Funktionen verwenden.
-
-Mindestens:
-
-* IEX-Marktdaten,
-* Quotes,
-* Trades,
-* WebSocket,
-* historische Daten,
-* Corporate Actions, falls benötigt.
-
-Wichtig:
-
-IEX nicht als vollständigen konsolidierten US-Markt darstellen.
-
-Feedtyp sichtbar und intern korrekt kennzeichnen.
-
-Testen:
-
-* Verbindung,
-* Subscribe,
-* mehrere Symbole,
-* Disconnect,
-* Reconnect,
-* Resubscribe,
-* Limits,
-* Market Session.
-
----
-
-# 18. FINNHUB
-
-Finnhub als Kontroll- und Fallbackprovider integrieren.
-
-Geeignet für:
-
-* US-Aktien,
-* Forex,
-* Kryptowährungen,
-* News,
-* Earnings,
-* Insiderdaten,
-* Analystendaten,
-* Wirtschaftskalender.
-
-Wichtig:
-
-Provider nicht blind mitteln.
-
-Unterschiede anhand von:
-
-* Venue,
-* Feedtyp,
-* Marktphase,
-* Bid/Ask,
-* letztem Trade,
-* Währung,
-* Zeitstempel
-
-bewerten.
-
----
-
-# 19. SEC EDGAR
-
-Offizielle SEC-Daten integrieren.
-
-Mindestens:
-
-```text
-10-K
-10-Q
-8-K
-Form 4
-13D
-13G
-13F
-S-1
-20-F
-6-K
-```
-
-Anforderungen:
-
-* nur offizielle SEC-Endpunkte,
-* korrekter User-Agent,
-* Rate Limits respektieren,
-* CIK-Mapping,
-* Ticker-CIK-Mapping,
-* Filing-Deduplizierung,
-* Metadaten speichern,
-* Originaldokument referenzieren,
-* neue relevante Filings erkennen.
-
-Filings müssen später direkt in die Analysepipeline eingespeist werden können.
-
----
-
-# 20. FRED
-
-Offizielle FRED-Daten integrieren.
-
-Mindestens:
-
-* Fed Funds Rate,
-* CPI,
-* Core CPI,
-* PCE,
-* Arbeitslosigkeit,
-* Payrolls,
-* Treasury Yields,
-* Yield Curve,
-* Geldmenge,
-* Industrieproduktion,
-* Retail Sales,
-* Consumer Sentiment,
-* relevante Liquiditätsindikatoren.
-
-Unterscheide:
-
-* Beobachtungsdatum,
-* Veröffentlichungsdatum,
-* Datenrevision.
-
----
-
-# 21. ECB
-
-Offizielle ECB-SDMX-Daten integrieren.
-
-Mindestens:
-
-* EZB-Zinsen,
-* Inflation,
-* Geldmenge,
-* Bankkredite,
-* FX,
-* monetäre Indikatoren,
-* relevante Rendite-/Liquiditätsdaten.
-
-Speichere:
-
-```text
-seriesKey
-frequency
-unit
-region
-observationTime
-releaseTime
-provider
-revisionState
-```
-
----
-
-# 22. COINGECKO
-
-CoinGecko integrieren für:
-
-* Coin-Metadaten,
-* Blockchain-Adressen,
-* Marktkapitalisierung,
-* Volumen,
-* Kategorien,
-* Börsen,
-* globale Kryptodaten,
-* Mapping von Coin-ID und Handelspaaren.
-
-CoinGecko nicht als einzige sekundengenaue Live-Kursquelle verwenden.
-
-Crypto-Symbole sind nicht eindeutig.
-
----
-
-# 23. COINBASE WEBSOCKET
-
-Offiziellen Coinbase-WebSocket integrieren.
-
-Mindestens:
-
-* Trades,
-* Ticker,
-* Bid/Ask,
-* Heartbeat,
-* Subscription Management,
-* Reconnect,
-* Resubscribe,
-* Sequenzkontrolle,
-* Snapshot Recovery.
-
-Coinbase-Kurse klar als Coinbase-Venue behandeln.
-
----
-
-# 24. BINANCE WEBSOCKET
-
-Offiziellen Binance-WebSocket integrieren.
-
-Mindestens:
-
-* Trades,
-* Ticker,
-* Best Bid/Ask,
-* Kerzen,
-* optional Order Book,
-* Combined Streams,
-* Reconnect,
-* Sequenzvalidierung,
-* Snapshot Recovery.
-
-Binance und Coinbase niemals blind zu einem identischen Preis vermischen.
-
----
-
-# 25. SPÄTERE PRODUKTIONSQUELLEN
-
-Architektur vorbereiten für:
-
-```text
-Massive
-Benzinga
-Databento
-Deutsche Börse
-Xetra
-Eurex
-```
-
-Zweck:
-
-## Massive
-
-* hochwertige US-Marktdaten,
-* Quotes,
-* Trades,
-* SIP/Business-Feeds,
-* Optionen.
-
-## Benzinga
-
-* Breaking News,
-* Analystenänderungen,
-* Kursziele,
-* Earnings,
-* Guidance,
-* Handelsstopps,
-* Moving-News.
-
-## Databento
-
-* Optionen,
-* Futures,
-* Tickdaten,
-* Orderbücher,
-* institutionelle Markttiefe.
-
-## Deutsche Börse/Xetra/Eurex
-
-* professionelle deutsche/europäische Echtzeitdaten.
-
-Noch keine Fake-Adapter als fertig markieren.
-
-Ohne echten Zugang:
-
-```text
-PREPARED – NOT LIVE VERIFIED
-```
-
----
-
-# 26. ROUTING-MATRIX
-
-Entwicklungsstandard:
-
-```text
-US-Aktien Live:
-1 Alpaca
-2 Twelve Data
-3 Finnhub
-
-Globale Aktien:
-1 Twelve Data
-2 Finnhub
-3 FMP für geeignete Datentypen
-
-Fundamentals:
-1 FMP
-2 SEC Validierung USA
-3 Twelve Data optional
-
-US Filings:
-SEC
-
-US Macro:
-FRED
-
-EU Macro:
-ECB
-
-Crypto Metadata:
-CoinGecko
-
-Crypto Live:
-Coinbase
-Binance
-
-News Entwicklung:
-Finnhub
-FMP
-```
-
-Routing muss konfigurierbar bleiben.
-
-Keine Providerpriorität fest im Frontend.
-
----
-
-# 27. PROVIDER-LIZENZPOLICY
-
-Erstelle eine maschinenlesbare Policy:
-
-```text
-providerId
-environment
-internalUseAllowed
-externalDisplayAllowed
-redistributionAllowed
-derivedDataAllowed
-attributionRequired
-maximumKnownDelay
-feedType
-licenseVerified
-licenseVerifiedAt
-notes
-```
-
-Feedtypen:
-
-```text
-REALTIME
-NEAR_REALTIME
-DELAYED
-END_OF_DAY
-REFERENCE_DATA
-INDICATIVE
-```
-
-Standard:
-
-Kostenlose Tarife:
-
-```text
-internalUseAllowed = true
-externalDisplayAllowed = false
-```
-
-solange keine Rechte geprüft wurden.
-
-Erstelle:
-
-```text
-docs/DATA_PROVIDER_RIGHTS.md
-```
-
-Mit:
-
-* Provider,
-* Tarif,
-* API-Funktion,
-* interne Nutzung,
-* externe Darstellung,
-* Redistribution,
-* Derived Data,
-* Attribution,
-* Prüfdatum,
-* offene Punkte.
-
----
-
-# 28. ENVIRONMENT VARIABLES
-
-Erstelle beziehungsweise erweitere `.env.example`.
-
-Mindestens:
-
-```env
-FMP_API_KEY=
-TWELVE_DATA_API_KEY=
-ALPACA_API_KEY_ID=
-ALPACA_API_SECRET_KEY=
-ALPACA_DATA_FEED=
-FINNHUB_API_KEY=
-FRED_API_KEY=
-COINGECKO_API_KEY=
-SEC_USER_AGENT=
-
-MARKET_DATA_ENV=
-MARKET_DATA_DEFAULT_PROVIDER=
-MARKET_DATA_ALLOW_EXTERNAL_DISPLAY=
-
-MARKET_DATA_ENABLE_FMP=
-MARKET_DATA_ENABLE_TWELVE_DATA=
-MARKET_DATA_ENABLE_ALPACA=
-MARKET_DATA_ENABLE_FINNHUB=
-MARKET_DATA_ENABLE_SEC=
-MARKET_DATA_ENABLE_FRED=
-MARKET_DATA_ENABLE_ECB=
-MARKET_DATA_ENABLE_COINGECKO=
-MARKET_DATA_ENABLE_COINBASE=
-MARKET_DATA_ENABLE_BINANCE=
-
-MARKET_DATA_QUOTE_STALE_AFTER_MS=
-MARKET_DATA_PROVIDER_TIMEOUT_MS=
-MARKET_DATA_MAX_RETRIES=
-MARKET_DATA_CROSSCHECK_ENABLED=
-MARKET_DATA_CROSSCHECK_THRESHOLD_PERCENT=
-```
-
-Alle Konfigurationen serverseitig typisiert validieren.
-
-Keine Secrets loggen.
-
-Keine Secrets committen.
-
----
-
-# 29. RATE LIMITING
-
-Implementiere pro Provider:
-
-* Token Bucket oder vergleichbar,
-* Retry-After-Beachtung,
-* exponentielles Backoff,
-* Jitter,
-* Timeout,
-* Circuit Breaker,
-* Quotenmonitoring,
-* Request Deduplication,
-* Request Coalescing.
-
-Nicht retrien bei:
-
-* 401,
-* 403,
-* invalid symbol,
-* invalid request,
-* Lizenzfehler.
-
-Kontrolliert retrien bei:
-
-* Netzwerkfehler,
-* 429,
-* 5xx,
-* Timeout.
-
----
-
-# 30. CACHING
-
-Cache-TTL je Datentyp.
-
-Grundidee:
-
-```text
-Realtime Quote:
-sehr kurz
-
-Instrument Metadata:
-lang
-
-Fundamentals:
-Stunden/Tage
-
-Historische abgeschlossene Bars:
-lang
-
-offene aktuelle Bar:
-kurz
-
-Macro:
-bis zur nächsten Veröffentlichung
-
-Filings:
-kurz bis mittel + dedupe
-
-News:
-kurz
-```
-
-Nicht jeder Nutzer darf dieselbe Provideranfrage separat auslösen.
-
----
-
-# 31. REALTIME-SERVICE
-
-Baue einen zentralen Streaming-Service.
-
-Anforderungen:
-
-* eine externe Subscription kann viele Nutzer versorgen,
-* gleiche Instrumente zusammenführen,
-* Reference Counting,
-* auto unsubscribe,
-* Heartbeats,
-* Reconnect,
-* Backoff,
-* Resubscribe,
-* Sequenzkontrolle,
-* Event-Deduplizierung,
+* den Realtime-Hub,
+* Quote-/Trade-Trennung,
+* Sequence-Gap-Tests,
 * Backpressure,
-* langsame Clients behandeln,
-* UTC-Normalisierung.
-
-Prüfe Vercel-Eignung.
-
-Falls dauerhafte Streams dort ungeeignet sind:
-
-* separaten kleinen Realtime-Service verwenden,
-* keine instabile Serverless-Lösung erzwingen,
-* Architektur simpel halten,
-* Betrieb dokumentieren.
-
----
-
-# 32. DATA QUALITY ENGINE
-
-Zentrale Qualitätsprüfung implementieren.
-
-## Quote Checks
-
-* Preis plausibel,
-* Timestamp plausibel,
-* Währung vorhanden,
-* Venue vorhanden,
-* Feedtyp bekannt,
-* Bid/Ask plausibel,
-* kein Zukunftswert,
-* keine alten Daten als live.
-
-## Bar Checks
-
-* Low <= Open/Close/High,
-* High >= Open/Close/Low,
-* Volumen >= 0,
-* keine Duplikate,
-* keine falschen Zeitintervalle,
-* korrekte Zeitzone,
-* korrekte Adjustment-Art.
-
-## Divergence Check
-
-Vergleiche nur gleiche:
-
-* Instrumente,
-* Währung,
-* Marktphase,
-* Venue-Kontext,
-* Zeitnähe.
-
-Bei starker Abweichung:
-
-```text
-DIVERGENT
-```
-
-Speichere Ursache und Providerwerte.
-
----
-
-# 33. STALE DATA
-
-Unterscheide:
-
-* Zeit seit letztem Trade,
-* Zeit seit Quote,
-* Stream-Heartbeat,
-* Marktstatus.
-
-Illiquide Aktie ≠ automatisch defekter Feed.
-
-Stale-Erkennung muss markt- und assetabhängig sein.
-
----
-
-# 34. MARKET SESSION
-
-Unterstütze:
-
-```text
-PRE_MARKET
-REGULAR
-AFTER_HOURS
-CLOSED
-HALTED
-UNKNOWN
-```
-
-Berücksichtige:
-
-* Handelskalender,
-* Börsenzeitzonen,
-* DST,
-* Feiertage,
-* verkürzte Handelstage.
-
----
-
-# 35. FUNDAMENTALANALYSE
-
-Stockpilot soll Unternehmen tief analysieren.
-
-Mindestens:
-
-* Umsatz,
-* Wachstum,
-* Margen,
-* EBIT,
-* EBITDA,
-* Net Income,
-* EPS,
-* FCF,
-* Operating Cash Flow,
-* CapEx,
-* Cash,
-* Debt,
-* Net Debt,
-* Equity,
-* ROE,
-* ROIC,
-* ROA,
-* Debt ratios,
-* Interest coverage,
-* Share dilution,
-* Buybacks,
-* Dividends.
-
-Historische Trends mindestens:
-
-```text
-1 Jahr
-3 Jahre
-5 Jahre
-10 Jahre, falls verfügbar
-```
-
-Bewertungen mindestens:
-
-* P/E,
-* Forward P/E,
-* PEG,
-* P/S,
-* P/B,
-* EV/EBITDA,
-* EV/FCF,
-* FCF Yield.
-
-Keine Kennzahl isoliert bewerten.
-
----
-
-# 36. EARNINGS-ANALYSE
-
-Für Earnings:
-
-* Erwartungen,
-* tatsächliche Werte,
-* Surprise,
-* Umsatz,
-* EPS,
-* Guidance,
-* Margen,
-* wichtige Managementaussagen,
-* Revisionen,
-* Analystenreaktionen,
-* Kursreaktion,
-* Volumenreaktion.
-
-Stockpilot soll erklären:
-
-```text
-Warum reagierte der Markt?
-```
-
-nicht nur Zahlen anzeigen.
-
----
-
-# 37. SEC-FILING-ANALYSE
-
-Neue Filings automatisch klassifizieren.
-
-Für relevante Filings extrahieren:
-
-* wichtigste Änderungen,
-* finanzielle Auswirkungen,
-* Risiken,
-* Insideraktivität,
-* Verwässerung,
-* Kapitalmaßnahmen,
-* Akquisitionen,
-* Managementwechsel,
-* Guidance-Auswirkungen.
-
-Originalquelle verlinken.
-
----
-
-# 38. NEWS ENGINE
-
-Nachrichten müssen:
-
-* dedupliziert,
-* einem Instrument zugeordnet,
-* zeitlich korrekt,
-* nach Relevanz bewertet,
-* nach Vertrauenswürdigkeit bewertet,
-* nach möglicher Marktauswirkung bewertet
-
-werden.
-
-Bewerte mindestens:
-
-```text
-impactScore
-confidence
-sentiment
-novelty
-sourceQuality
-assetRelevance
-timeSensitivity
-```
-
-Keine einfache positive/negative Wortzählung.
-
----
-
-# 39. SENTIMENT
-
-Sentimentquellen dürfen nur unterstützend verwendet werden.
-
-Mögliche Quellen:
-
-* News,
-* Analystenkommentare,
-* Reddit,
-* Social Media,
-* Suchtrends,
-* Optionen,
-* Volatilität.
-
-Sentiment niemals als sichere Richtung verkaufen.
-
----
-
-# 40. TECHNISCHE ANALYSE
-
-Mindestens unterstützen:
-
-* SMA,
-* EMA,
-* RSI,
-* MACD,
-* ATR,
-* Bollinger Bands,
-* VWAP,
-* Volumen,
-* Momentum,
-* Trend,
-* Support/Resistance,
-* Breakouts,
-* Volatilität.
-
-Keine sinnlosen 50 Indikatoren gleichzeitig anzeigen.
-
-Stockpilot soll erklären:
-
-* was relevant ist,
-* warum,
-* auf welchem Timeframe,
-* wie stark das Signal ist.
-
----
-
-# 41. MULTI-TIMEFRAME
-
-Mindestens analysieren:
-
-```text
-Intraday
-1D
-1W
-1M
-3M
-1Y
-5Y
-```
-
-Timeframe-Konflikte explizit anzeigen.
-
-Beispiel:
-
-```text
-Short-term bullish
-Medium-term neutral
-Long-term bearish
-```
-
----
-
-# 42. PROGNOSEN
-
-Keine pseudo-exakten Zielkurse als Wahrheit.
-
-Nutze Szenarien:
-
-```text
-Bear Case
-Base Case
-Bull Case
-```
-
-Je Szenario:
-
-* Wahrscheinlichkeit,
-* angenommene Bedingungen,
-* mögliche Kurszone,
-* relevante Trigger,
-* Invalidierung,
-* Zeithorizont.
-
-Zusätzlich:
-
-```text
-Confidence Score
-Data Quality Score
-Risk Score
-```
-
----
-
-# 43. ERKLÄRBARKEIT
-
-Jeder Score muss nachvollziehbar sein.
-
-Beispiel:
-
-```text
-Gesamtscore 72/100
-
-Fundamentals 81
-Technical 67
-News 75
-Macro 61
-Valuation 74
-Risk 58
-Data Quality 93
-```
-
-Der Nutzer muss sehen können:
-
-```text
-Warum?
-```
-
----
-
-# 44. RISIKOANALYSE
-
-Mindestens:
-
-* Volatilität,
-* Drawdown,
-* Beta,
-* Liquidität,
-* Spread,
-* Verschuldung,
-* Earnings Risk,
-* Event Risk,
-* News Risk,
-* Macro Sensitivity,
-* Konzentrationsrisiken,
-* regulatorische Risiken.
-
----
-
-# 45. ALERTS
-
-Nützliche Alerts:
-
-* Kurslevel,
-* Prozentbewegung,
-* Volumenspike,
-* News,
-* SEC Filing,
-* Earnings,
-* Analystenänderung,
-* Insidertransaktion,
-* ungewöhnliche Volatilität,
-* technischer Breakout,
-* Datenqualitätswarnung.
-
-Alerts müssen priorisierbar sein.
-
-Kein Spam.
-
----
-
-# 46. WATCHLIST
-
-Watchlists sollen nicht nur Preislisten sein.
-
-Zeige:
-
-* Kurs,
-* Tagesänderung,
-* Marktstatus,
-* Signaländerung,
-* News-Indikator,
-* Earnings-Nähe,
-* Risk Score,
-* Confidence,
-* Datenfreshness.
-
-Batch-Quote verwenden.
-
----
-
-# 47. PORTFOLIO
-
-Wenn vorhanden oder geplant:
-
-* Positionen,
-* Einstand,
-* P/L,
-* Performance,
-* Konzentration,
-* Branchenexposure,
-* Länderexposure,
-* Assetklassen,
-* Korrelationsrisiko,
-* Drawdown,
-* Risikoübersicht.
-
-Keine automatischen Trades ohne expliziten späteren Auftrag.
-
----
-
-# 48. UI/UX
-
-Stockpilot soll hochwertig, professionell und ruhig wirken.
-
-Keine:
-
-* Casinooptik,
-* Meme-App-Optik,
-* übertriebene Neonüberladung,
-* unnötigen Animationen,
-* Informationschaos.
-
-Ziel:
-
-```text
-Bloomberg-/TradingView-/institutionelle Klarheit
-+
-moderne verständliche UX
-```
-
-Desktop und Mobile müssen vollständig funktionieren.
-
----
-
-# 49. DETAILSEITE
-
-Eine Assetseite soll strukturell mindestens sinnvoll abdecken:
-
-```text
-Header
-Live/Delayed Quote
-Chart
-Stockpilot Summary
-Bull/Base/Bear Scenario
-Technical
-Fundamentals
-Valuation
-News
-Filings
-Earnings
-Macro Exposure
-Risk
-Analyst Data
-Corporate Actions
-Data Quality
-Source Info
-```
-
-Nicht alles gleichzeitig visuell überfrachten.
-
----
-
-# 50. DATA SOURCE TRANSPARENCY
-
-Nutzer müssen erkennen können:
-
-```text
-Live
-Near Real-Time
-Delayed
-End-of-Day
-Market Closed
-Stale
-Unavailable
-```
-
-Optional in Details:
-
-* Quelle,
-* Aktualisierungszeit,
-* Venue,
-* Feedtyp.
-
-Keine falsche „Realtime“-Beschriftung.
-
----
-
-# 51. ANALYSIS QUALITY GATE
-
-Keine Analyse darf als aktuell veröffentlicht werden, wenn:
-
-* Quelle stale,
-* Instrument ungeklärt,
-* Währung falsch,
-* Kerzen unvollständig,
-* starke Providerdivergenz,
-* Feed ausgefallen,
-* erforderliche Daten fehlen.
-
-Dann:
-
-```text
-Analysis unavailable
-Analysis degraded
-Waiting for reliable data
-```
-
----
-
-# 52. DATENBANK
-
-Bestehende Supabase/Postgres-Infrastruktur bevorzugen.
-
-Dauerhaft speichern:
-
-* Instrument Registry,
-* Symbol Mapping,
-* abgeschlossene Bars,
-* Fundamentals,
-* Corporate Actions,
-* Filing Metadata,
-* Provider Health History begrenzt,
-* Analyse-Snapshots, falls sinnvoll.
-
-Nicht jeden Tick dauerhaft als normale DB-Zeile speichern.
-
----
-
-# 53. SECURITY
-
-Pflicht:
-
-* Secrets ausschließlich serverseitig,
-* Env-Validierung,
-* Rate Limiting,
-* Input Validation,
-* AuthZ,
-* RLS prüfen,
-* CORS,
-* sichere Headers,
-* keine Stacktraces,
-* keine Secrets in Logs,
-* keine offenen Admin-Endpunkte,
-* keine Debug-Endpunkte öffentlich,
-* Dependency Security Review.
-
----
-
-# 54. API-SCHUTZ
-
-Eigene Stockpilot-Endpunkte schützen gegen:
-
-* massenhafte Symbolabfragen,
-* Scraping,
-* Abuse,
-* ungefilterte Provider-Weiterleitung,
-* Injection,
-* unautorisierte Premiumfunktionen.
-
-Kein Proxy-Endpunkt, über den Nutzer beliebige Providerparameter senden können.
-
----
-
-# 55. PERFORMANCE
-
-Ziele:
-
-* keine N+1 API Calls,
-* Batch Requests,
-* Cache,
-* Request Coalescing,
-* lazy Charts,
-* virtualisierte große Listen,
-* schnelle Instrumentensuche,
-* effiziente Mobile-Datenübertragung.
-
-Messen:
-
-```text
-Provider latency
-Cache hit rate
-Error rate
-429 rate
-Reconnect count
-Active streams
-Average quote age
-Fallback rate
-```
-
----
-
-# 56. OBSERVABILITY
-
-Pro Provider erfassen:
-
-```text
-status
-latency
-errorRate
-lastSuccess
-lastFailure
-circuitState
-activeStreams
-lastHeartbeat
-reconnects
-staleEvents
-divergenceEvents
-```
-
-Nutze bestehendes Monitoring, falls vorhanden.
-
----
-
-# 57. TESTSTRATEGIE
-
-Pflicht:
-
-## Unit
-
-* Provider Normalisierung,
-* Symbol Mapping,
-* Berechnungen,
-* Scores,
-* Data Quality,
-* Error Mapping.
-
-## Contract Tests
-
-Jeder Provideradapter gegen denselben Vertrag.
-
-## Integration
-
-* API,
-* Cache,
-* Datenbank,
-* Routing,
-* Fallback,
-* Rate Limit,
-* Circuit Breaker,
-* fehlende Keys.
-
-## Live Smoke
-
-Nur wenn echte Keys existieren.
-
-Niemals Live-Test vortäuschen.
-
-## Realtime
-
-* Connect,
-* Subscribe,
-* Event,
-* Disconnect,
 * Reconnect,
-* Resubscribe,
-* Sequence Gap,
-* Dedupe.
+* Liveness,
+* Integrationstests mit realistischem Provider-Harness.
 
-## E2E
-
-Mindestens:
-
-1. Asset suchen.
-2. richtigen Handelsplatz wählen.
-3. Detailseite öffnen.
-4. Kurs laden.
-5. Chart laden.
-6. Datenstatus sehen.
-7. Watchlist hinzufügen.
-8. News sehen.
-9. Analyse sehen.
-10. Providerfehler simulieren.
-11. korrekten Fallback sehen.
-12. stale Zustand sehen.
-
----
-
-# 58. TEST-ASSETS
-
-Teste bewusst unterschiedliche Fälle:
+Eine Phase darf nur dann als:
 
 ```text
-Apple
-Microsoft
-Nvidia
-kleinere US-Aktie
-deutsche Xetra-Aktie
-europäische Aktie
-ETF
-Index
-Forex
-Bitcoin USD
-Bitcoin EUR
-Altcoin
-illiquides Instrument
-delistetes Instrument
-mehrdeutiges Symbol
+TECHNICALLY COMPLETE – BLOCKED EXTERNAL
 ```
 
----
+bezeichnet werden, wenn sämtliche intern lösbaren Implementierungs-, Test-, CI-, Security- und Dokumentationsaufgaben abgeschlossen sind.
 
-# 59. FINANZMATHEMATIK TESTEN
-
-Alle wichtigen Berechnungen durch Tests absichern:
-
-* Prozentänderung,
-* CAGR,
-* P/E,
-* FCF Yield,
-* Margen,
-* Wachstum,
-* RSI,
-* EMA,
-* SMA,
-* MACD,
-* ATR,
-* Drawdown,
-* Volatilität,
-* Szenarien.
-
-Keine Rundungs- oder Div-by-zero-Fehler.
+Sie ist dadurch nicht „produktionsaktiv“ oder „live verifiziert“.
 
 ---
 
-# 60. AI-SICHERHEIT
+# 9. NEUER VERBINDLICHER PHASENPLAN
 
-LLM-Ausgaben dürfen keine Fakten erfinden.
+## PHASE 0 – Wahrheit und Governance
 
-Struktur:
+* aktuellen Repo-/PR-/CI-/Production-Stand erfassen,
+* gestapelte PRs einfrieren,
+* Arbeitsbaum und Branchbasis prüfen,
+* Operating Card und Ledger aktualisieren,
+* alle bekannten P0/P1-Funde aufnehmen,
+* technische und externe Blocker trennen.
 
-```text
-Raw Data
-Validated Data
-Computed Metrics
-Evidence
-AI Interpretation
-```
+## PHASE 1 – Billing- und Account-Stabilisierung
 
-LLM darf nicht ungeprüft:
+Reihenfolge:
 
-* Preise,
-* Earnings,
-* SEC-Werte,
-* Analystenziele,
-* Termine
+1. Stripe-sichere Account-Löschung,
+2. Free-/Pro-/Premium-Limits,
+3. Payment-Recovery und Doppelabo-Schutz,
+4. atomare/out-of-order-sichere Webhooks,
+5. vollständige Stripe-Testmode-E2E-Kette.
 
-erfinden.
+Keine Paid-Aktivierung vor Abschluss.
 
----
+## PHASE 2 – Kanonische Listing-Identität
 
-# 61. AI-OUTPUT
+`canonicalId`, Listing, Venue und Währung durch sämtliche produktiven Grenzen führen.
 
-Jede AI-Analyse muss möglichst maschinenlesbar strukturiert sein.
+## PHASE 3 – Realtime-Hub
 
-Beispiel:
+Zentraler Fanout, Liveness, Quote-/Trade-Trennung, Backpressure, Sequence und Recovery.
 
-```json
-{
-  "summary": "",
-  "bull_case": {},
-  "base_case": {},
-  "bear_case": {},
-  "risks": [],
-  "catalysts": [],
-  "confidence": 0,
-  "data_quality": 0,
-  "sources": []
-}
-```
+## PHASE 4 – Alert-Engine
 
-Mit Schema Validation.
+Semantik, Scheduler, Pagination, Cooldown, Idempotenz, Datenqualitätsgate und Delivery.
 
----
+## PHASE 5 – Forecast-Integrität
 
-# 62. ABOMODELL
+Due-Time-Historie, Modell-/Version-/Horizon-Trennung, Concurrency und ehrlicher Track Record.
 
-Stockpilot soll als SaaS/Abo vermarktbar sein.
+## PHASE 6 – Portfolio, Backtest und Analysen
 
-Architektur für:
+Mark-to-Market, FX, Cloud-Portfolios, Backtest-Auth und evidence-bound Analyse.
 
-```text
-Free
-Pro
-Premium
-```
+## PHASE 7 – Shared Cache, Resilience und Operations
 
-oder ähnlich vorbereiten.
+Redis-Wahrheit, atomare Limits, Cross-Instance-Coalescing, Health, Monitoring und Lasttests.
 
-Bezahlfunktionen könnten sein:
+## PHASE 8 – Security, CI und Deployment
 
-* mehr Watchlists,
-* mehr Alerts,
-* tiefere Analysen,
-* schnellere Daten,
-* zusätzliche Märkte,
-* Earnings-/Filing-Alerts,
-* Portfolioanalyse,
-* Export,
-* Pro-Scores.
+Workflow-Härtung, Env-Vertrag, zentrale Provider-Fetch-Policy, DB-gekoppeltes Deployment und kritische Tests.
 
-Pricing nicht willkürlich festlegen.
+## PHASE 9 – Produktwahrheit, PWA, Mobile und Accessibility
 
-Später marktgerecht validieren.
+Watchlist, Offline, iPhone/Android, Landscape, WCAG, Support und GDPR-Export.
 
----
+## PHASE 10 – Bestehende Provider neu abnehmen
 
-# 63. STRIPE
+FMP, Twelve Data und Alpaca gegen die nun korrigierte Kernarchitektur erneut vollständig prüfen.
 
-Falls bestehend:
+Phase 7 beziehungsweise Alpaca darf erst danach neu als abgeschlossen bewertet werden.
 
-* Checkout prüfen,
-* Webhooks prüfen,
-* Subscription State,
-* Cancel,
-* Upgrade,
-* Downgrade,
-* Billing Errors,
-* Entitlements.
+## PHASE 11 – Finnhub
 
-Premiumfeatures ausschließlich serverseitig autorisieren.
+## PHASE 12 – SEC EDGAR
 
----
+## PHASE 13 – FRED
 
-# 64. RECHTLICHES
+## PHASE 14 – ECB
 
-Stockpilot ist Analyse-/Informationssoftware.
+## PHASE 15 – CoinGecko
 
-Keine Formulierungen wie:
+## PHASE 16 – Coinbase Streaming
 
-```text
-sicher kaufen
-garantierter Gewinn
-wird steigen
-risikofrei
-```
+## PHASE 17 – Binance Streaming
 
-Nutzeroberfläche soll sachlich klarstellen:
+## PHASE 18 – Cross-Provider Data Quality
 
-* keine Anlageberatung,
-* keine Garantie,
-* Daten können verzögert sein,
-* Prognosen sind unsicher.
+## PHASE 19 – Instrument Search und Mapping
 
-Keine juristischen Texte blind generieren und als rechtsgeprüft bezeichnen.
+## PHASE 20 – Charts und Market Sessions
+
+## PHASE 21 – Fundamentals und Earnings
+
+## PHASE 22 – Filings und News Intelligence
+
+## PHASE 23 – Technical und Macro Analysis
+
+## PHASE 24 – Risk Engine, Szenarien und erklärbare Scores
+
+## PHASE 25 – Watchlists und Alerts final
+
+## PHASE 26 – Portfoliofunktionen final
+
+## PHASE 27 – UI-/UX-Gesamtreview
+
+## PHASE 28 – Mobile-/PWA-Gesamtabnahme
+
+## PHASE 29 – Subscription-/Stripe-Gesamtabnahme
+
+## PHASE 30 – Security Audit
+
+## PHASE 31 – Performance Audit
+
+## PHASE 32 – Red Team
+
+## PHASE 33 – Lizenz- und Produktionsprovider-Abnahme
+
+## PHASE 34 – Marktreife-Gesamttest
+
+Keine dieser Phasen darf begonnen werden, solange die vorherige Phase nicht vollständig abgeschlossen oder ausschließlich extern blockiert ist.
 
 ---
 
-# 65. DATENLIZENZEN
+# 10. DEFINITION OF DONE PRO ARBEITSPUNKT
 
-Vor öffentlicher Nutzung jeder Quelle prüfen:
+Ein Arbeitspunkt ist erst fertig, wenn alles Folgende belegt ist:
 
-* kommerzieller Einsatz,
-* Display Rights,
-* Redistribution,
-* Derived Data,
-* Speicherung,
-* Attribution.
+* Ursache verstanden,
+* vollständige Implementierung,
+* Datenmigration vorhanden,
+* Rückwärtskompatibilität geprüft,
+* Formatcheck grün,
+* Typecheck grün,
+* Lint grün,
+* Unit-Tests grün,
+* Contract-Tests grün,
+* Integrationstests grün,
+* relevante Route-Tests grün,
+* relevante pgTAP-Tests grün,
+* relevante E2E-Tests grün,
+* Production Build grün,
+* Security-Auswirkungen geprüft,
+* Datenkorrektheit geprüft,
+* Mobile/Desktop geprüft,
+* Regressionen geprüft,
+* Dokumentation aktuell,
+* Commit erstellt,
+* Branch gepusht,
+* Pull Request aktuell,
+* CI vollständig grün,
+* Datenbank-CI vollständig grün,
+* Preview geprüft,
+* auf `main` gemergt,
+* Stockpilot-Deployment erfolgreich,
+* reale Funktion oder realistische Sandbox geprüft,
+* Logs geprüft,
+* Monitoring geprüft,
+* Evidence gespeichert,
+* Operating Card und Ledger aktualisiert.
 
-Kostenlose Entwicklungstarife nicht automatisch in Produktion verwenden.
-
----
-
-# 66. ADMIN/INTERNAL DIAGNOSTICS
-
-Baue eine geschützte Diagnoseansicht.
-
-Mindestens:
-
-* Providerstatus,
-* letzte erfolgreiche Anfrage,
-* Rate Limits,
-* Fehler,
-* Circuit Status,
-* Stream Status,
-* Datenfreshness,
-* Providerdivergenz.
-
-Keine Secrets anzeigen.
-
----
-
-# 67. MOBILE
-
-PWA beziehungsweise Mobile muss vollständig getestet sein.
-
-Mindestens:
-
-* iPhone,
-* typische Android-Breite,
-* Landscape,
-* langsames Netz,
-* WebSocket-Verlust,
-* Reconnect,
-* Touch,
-* Charts,
-* Modals,
-* Tabellen.
-
-Keine überlappenden Komponenten.
+Fehlt ein Punkt, bleibt der Arbeitspunkt offen.
 
 ---
 
-# 68. ACCESSIBILITY
-
-Mindestens:
-
-* semantische HTML-Struktur,
-* Tastaturbedienung,
-* Kontrast,
-* Fokus,
-* Labels,
-* Screenreader-Grundsupport.
-
----
-
-# 69. CI/CD
-
-GitHub CI muss mindestens prüfen:
-
-```text
-install
-typecheck
-lint
-unit
-integration
-build
-```
-
-E2E, wo sinnvoll.
-
-Secrets nicht in Fork-PRs exponieren.
-
----
-
-# 70. GIT
-
-Saubere Commits.
-
-Keine gigantischen unsauberen Sammelcommits.
-
-Beispiel:
-
-```text
-feat(market-data): add canonical quote model
-feat(market-data): integrate twelve data
-feat(realtime): add alpaca stream recovery
-feat(sec): add filing ingestion
-fix(chart): handle split-adjusted data
-test(market-data): add provider contracts
-```
-
-Regelmäßig getestet pushen.
-
----
-
-# 71. DEPLOYMENT
-
-Nach abgeschlossenen Phasen:
-
-* Push,
-* CI,
-* Preview,
-* Test,
-* Production, wenn sicher.
-
-Nie absichtlich defekten Main deployen.
-
----
-
-# 72. FEHLENDE API KEYS
-
-Falls Keys fehlen:
-
-1. Integration vollständig vorbereiten.
-2. Fixtures erstellen.
-3. Unit testen.
-4. Contract testen.
-5. Env dokumentieren.
-6. Provider deaktiviert lassen.
-7. Blocker im Ledger vermerken.
-8. andere unabhängige Arbeit fortsetzen.
-
-Nicht wegen eines fehlenden Keys das gesamte Projekt stoppen.
-
----
-
-# 73. RED TEAM
-
-Nach jeder größeren Phase und besonders am Ende:
-
-Versuche aktiv, das Produkt kaputtzumachen.
-
-Prüfe:
-
-* falsches Symbol,
-* falsche Börse,
-* falsche Währung,
-* stale Quote,
-* Market Closed,
-* Provider down,
-* 429,
-* Timeout,
-* kaputtes WebSocket,
-* doppelte Events,
-* fehlende Events,
-* schlechte Verbindung,
-* extreme Kursbewegung,
-* Split,
-* Reverse Split,
-* Delisting,
-* fehlende Fundamentals,
-* News-Duplikate,
-* SEC-Duplikate,
-* API Key Leak,
-* Auth Bypass,
-* Premium Bypass,
-* Mobile Overflow,
-* Chart Crash.
-
-Gefundene Fehler beheben.
-
-Danach erneut testen.
-
----
-
-# 74. PRODUKT-NUTZEN-REVIEW
-
-Nach jeder größeren Produktphase selbst aus Sicht eines aktiven Traders beurteilen:
-
-```text
-Würde ich diese Funktion täglich verwenden?
-Spart sie Zeit?
-Erkennt sie wirklich relevante Informationen?
-Ist sie besser als einfach Google + TradingView?
-Ist sie verständlich?
-Ist sie vertrauenswürdig?
-```
-
-Wenn nicht:
-
-verbessern.
-
----
-
-# 75. VERGLEICH MIT BESTEHENDEN PRODUKTEN
-
-Regelmäßig gegen aktuelle professionelle Produkte vergleichen.
-
-Beispiele:
-
-* TradingView,
-* Koyfin,
-* Finviz,
-* Seeking Alpha,
-* Bloomberg,
-* MarketScreener,
-* TipRanks,
-* Trade Republic,
-* Stock3.
-
-Nicht kopieren.
-
-Analysieren:
-
-* welche Informationen gut dargestellt werden,
-* welche Workflows Nutzer erwarten,
-* wo Stockpilot Mehrwert schaffen kann.
-
----
-
-# 76. STOCKPILOT-DIFFERENZIERUNG
-
-Stockpilot soll langfristig besonders stark sein bei:
-
-```text
-automatischer Zusammenführung vieler Datenarten
-Erklärung statt reiner Datendarstellung
-Data Quality
-Bull/Base/Bear-Szenarien
-Realtime-relevanten Events
-Filings
-Earnings
-News Impact
-Risiko
-leicht verständlicher institutioneller Analyse
-```
-
----
-
-# 77. PHASENPLAN
-
-Arbeite grundsätzlich in dieser Reihenfolge.
-
-## PHASE 0
-
-Repo-Bestandsaufnahme und Baseline.
-
-## PHASE 1
-
-Bestehende kritische Fehler beheben.
-
-## PHASE 2
-
-Kanonische Instrument-/Quote-/Bar-Domainmodelle.
-
-## PHASE 3
-
-Provider Registry und Routing.
-
-## PHASE 4
-
-Caching, Rate Limits, Circuit Breaker.
-
-## PHASE 5
-
-FMP migrieren und härten.
-
-## PHASE 6
-
-Twelve Data.
-
-## PHASE 7
-
-Alpaca Realtime.
-
-## PHASE 8
-
-Finnhub.
-
-## PHASE 9
-
-SEC EDGAR.
-
-## PHASE 10
-
-FRED.
-
-## PHASE 11
-
-ECB.
-
-## PHASE 12
-
-CoinGecko.
-
-## PHASE 13
-
-Coinbase Streaming.
-
-## PHASE 14
-
-Binance Streaming.
-
-## PHASE 15
-
-Cross Provider Data Quality.
-
-## PHASE 16
-
-Instrument Search / Mapping finalisieren.
-
-## PHASE 17
-
-Charts und Market Sessions.
-
-## PHASE 18
-
-Fundamentals.
-
-## PHASE 19
-
-Earnings.
-
-## PHASE 20
-
-Filings Analyse.
-
-## PHASE 21
-
-News Intelligence.
-
-## PHASE 22
-
-Technical Analysis.
-
-## PHASE 23
-
-Macro Analysis.
-
-## PHASE 24
-
-Risk Engine.
-
-## PHASE 25
-
-Bull/Base/Bear Prognosen.
-
-## PHASE 26
-
-Explainable Scores.
-
-## PHASE 27
-
-Watchlists.
-
-## PHASE 28
-
-Alerts.
-
-## PHASE 29
-
-Portfoliofunktionen, falls Bestandteil.
-
-## PHASE 30
-
-UI/UX Gesamtreview.
-
-## PHASE 31
-
-Mobile/PWA.
-
-## PHASE 32
-
-Subscription/Stripe.
-
-## PHASE 33
-
-Security Audit.
-
-## PHASE 34
-
-Performance Audit.
-
-## PHASE 35
-
-Red Team.
-
-## PHASE 36
-
-Lizenz-/Produktionsprovider-Vorbereitung.
-
-## PHASE 37
-
-Marktreife-Gesamttest.
-
----
-
-# 78. DEFINITION OF DONE GESAMTPROJEKT
+# 11. DEFINITION OF DONE GESAMTPROJEKT
 
 Stockpilot ist erst marktreif, wenn:
 
-* keine kritischen bekannten Bugs,
-* Kernflows E2E getestet,
-* reale Datenquellen funktionieren,
-* Datenqualität sichtbar,
-* falsche Echtzeitangaben ausgeschlossen,
-* Analysequalität geprüft,
-* Mobile stabil,
-* Desktop stabil,
-* Auth stabil,
-* Subscription stabil,
-* Security geprüft,
-* API Keys geschützt,
-* keine offensichtlichen Lizenzverletzungen,
-* Logging vorhanden,
-* Monitoring vorhanden,
-* CI grün,
-* Production Build grün,
-* Deployment getestet,
-* Dokumentation aktuell.
+* keine bekannten P0- oder P1-Fehler bestehen,
+* Account-Löschung und Billing sicher funktionieren,
+* kein Doppelabo möglich ist,
+* Planlimits korrekt sind,
+* Stripe-Lifecycle vollständig getestet ist,
+* reale Provider funktionieren,
+* Instrumente listinggenau aufgelöst werden,
+* keine falschen Währungen oder Listings entstehen,
+* Realtime zentral skaliert,
+* Upstream-Liveness ehrlich dargestellt wird,
+* Alerts korrekt und spamfrei sind,
+* Forecast-Track-Record fachlich belastbar ist,
+* Portfolio-Mark-to-Market korrekt ist,
+* Analysen evidence-bound und erklärbar sind,
+* Mockdaten niemals als Produktion erscheinen,
+* Datenqualität und Freshness sichtbar sind,
+* Auth und Mandantentrennung geprüft sind,
+* kritische Routen ausreichend getestet sind,
+* Mobile und Desktop stabil sind,
+* PWA und Offline deterministisch funktionieren,
+* Accessibility geprüft ist,
+* Shared Cache und Rate Limits horizontal funktionieren,
+* Security Audit bestanden ist,
+* Red Team bestanden ist,
+* Performance und Realtime-Last belegt sind,
+* CI und Datenbank-CI grün sind,
+* Production Build und Deployment geprüft sind,
+* Monitoring und Alerting aktiv sind,
+* rechtliche Texte freigegeben sind,
+* Provider- und Börsenrechte dokumentiert sind,
+* Support- und Incident-Prozess bestehen,
+* Dokumentation dem realen Stand entspricht.
 
 ---
 
-# 79. ABSCHLUSSBERICHT
+# 12. ABSCHLUSSBERICHT JE ARBEITSPUNKT
 
-Am Ende dokumentieren:
+Nach jedem Arbeitspunkt berichtest du exakt:
 
 ```text
-Projektstand
-Live URL
-Commit Hash
-Branch
-Provider
-Live-getestete Provider
-nicht live getestete Provider
-Assetklassen
-Funktionen
-Datenqualität
-Tests
-CI
-Build
-Security
-Performance
-Mobile
-Lizenzstatus
-offene externe Blocker
-noch notwendige Produktionsverträge
+Aktive Phase:
+Arbeitspunkt:
+Ausgangsfehler:
+Ursache:
+Implementierte Lösung:
+Geänderte Dateien:
+Migrationen:
+Neue Tests:
+Ausgeführte Tests:
+Exakte Testzahlen:
+Coverage des kritischen Bereichs:
+Build:
+Security-Prüfung:
+Commit:
+Branch:
+Pull Request:
+CI-Links:
+Datenbank-CI:
+Preview:
+Deployment:
+Live-/Sandbox-Prüfung:
+Logprüfung:
+Technische Restpunkte:
+BLOCKED – EXTERNAL:
+Aktualisierte Dokumentation:
+Freigabestatus:
 ```
 
-Keine erfundenen Erfolgsmeldungen.
-
----
-
-# 80. VERBINDLICHE ARBEITSWEISE AB JETZT
-
-Beginne jetzt.
-
-1. Lies diesen einzigen Masterprompt.
-2. Lies `docs/OPERATING_CARD.md`, falls vorhanden.
-3. Lies `docs/EXECUTION_LEDGER.md`, falls vorhanden.
-4. Analysiere das Repository.
-5. Prüfe den aktuellen tatsächlichen Zustand.
-6. Führe Baseline-Tests aus.
-7. Repariere vorhandene kritische Probleme.
-8. Aktualisiere die Statusdokumentation.
-9. Bearbeite exakt eine Phase vollständig.
-10. Teste sie.
-11. Push sie.
-12. Prüfe CI.
-13. Prüfe Deployment.
-14. Aktualisiere Ledger.
-15. Beginne erst danach die nächste Phase.
-
-Arbeite selbstständig weiter, solange keine wirklich externe Voraussetzung fehlt.
-
-Stelle keine unnötigen Rückfragen, wenn du die Antwort durch Repositoryanalyse, Tests, Logs, bestehende Dokumentation oder vernünftige technische Entscheidungen selbst bestimmen kannst.
-
----
-
-# ABSOLUTES SCHLUSSPRINZIP
-
-Stockpilot soll nicht möglichst viele Features besitzen.
-
-Stockpilot soll **verlässlich, schnell, verständlich und tatsächlich nützlich** sein.
-
-Priorität:
+Erlaubte Freigabestatus:
 
 ```text
-1. Datenkorrektheit
-2. Stabilität
-3. Sicherheit
-4. tatsächlicher Trader-Mehrwert
-5. Erklärbarkeit
-6. Geschwindigkeit
-7. UX
-8. Funktionsumfang
+OPEN
+FAILED
+TECHNICALLY COMPLETE – BLOCKED EXTERNAL
+DEPLOYED – LIVE VERIFICATION PENDING
+COMPLETE – VERIFIED
 ```
 
-Eine vollständig funktionierende und getestete Funktion ist wertvoller als zehn halbfertige Funktionen.
+Benutze `COMPLETE – VERIFIED` nur, wenn sämtliche DoD-Punkte erfüllt sind.
 
-Du bist dafür verantwortlich, Stockpilot Phase für Phase bis zur **belegten Marktreife** weiterzuentwickeln.
+---
 
-BEGINNE JETZT MIT PHASE 0.
+# 13. BEGINNE JETZT
+
+Beginne jetzt ausschließlich mit:
+
+```text
+PHASE 0 – Wahrheit und Governance
+```
+
+Danach bearbeitest du als ersten technischen Arbeitspunkt:
+
+```text
+PHASE 1.1 – Stripe-sichere Account-Löschung
+```
+
+Arbeite nicht an Finnhub, SEC, FRED, ECB, CoinGecko, Coinbase, Binance oder weiteren Features weiter, bevor die Stabilisierung abgeschlossen ist.
+
+Keine unnötigen Rückfragen.
+
+Frage nur, wenn:
+
+* eine echte externe Entscheidung benötigt wird,
+* Produktionszugang fehlt,
+* eine destruktive Aktion ausdrücklich bestätigt werden muss,
+* rechtliche oder finanzielle Autorität des Eigentümers erforderlich ist.
+
+Ansonsten:
+
+Analysieren, implementieren, testen, pushen, CI prüfen, deployen, real verifizieren, dokumentieren und erst danach den nächsten einzelnen Punkt beginnen.
+
+Stockpilot soll nicht möglichst viele halbfertige Funktionen besitzen.
+
+Stockpilot soll verlässlich, sicher, ehrlich, schnell, verständlich und tatsächlich nützlich werden.
