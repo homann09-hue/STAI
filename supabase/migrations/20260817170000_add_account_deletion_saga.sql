@@ -159,9 +159,9 @@ begin
 end;
 $$;
 
-revoke all on function public.claim_account_deletion(uuid, uuid) from public, anon, authenticated;
-revoke all on function public.claim_account_deletion_recovery(uuid, uuid) from public, anon, authenticated;
-revoke all on function public.record_account_deletion_step(uuid, uuid, text, text, jsonb, text, text[], text[]) from public, anon, authenticated;
+revoke execute on function public.claim_account_deletion(uuid, uuid) from public, anon, authenticated;
+revoke execute on function public.claim_account_deletion_recovery(uuid, uuid) from public, anon, authenticated;
+revoke execute on function public.record_account_deletion_step(uuid, uuid, text, text, jsonb, text, text[], text[]) from public, anon, authenticated;
 grant execute on function public.claim_account_deletion(uuid, uuid) to service_role;
 grant execute on function public.claim_account_deletion_recovery(uuid, uuid) to service_role;
 grant execute on function public.record_account_deletion_step(uuid, uuid, text, text, jsonb, text, text[], text[]) to service_role;
