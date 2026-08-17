@@ -118,6 +118,13 @@ deshalb fail-closed und erzeugt keine falsche Live-Anzeige.
 - **Resilienz:** Heartbeat-Watchdog, exponentieller Reconnect, Resubscribe, Kapazitaetsgrenze, isolierter Backpressure-Abbruch und bestehender REST-Fallback.
 - **Lizenz:** Technischer WebSocket ist oeffentlich; externe kommerzielle Anzeige bleibt bis zur dokumentierten Rechtepruefung `near_realtime` und fail-closed konfigurierbar.
 
+### 2026-08-17 - Phase 14 Binance Streaming
+
+- **Scope:** Offizieller Spot-Market-Data-WebSocket fuer Ticker, Book-Ticker, Trades und laufende Kerzen ueber einen gemeinsamen Prozess-Hub.
+- **Identitaet:** Binance-Produkt, Venue und Handelswaehrung bleiben erhalten; ein `BTCUSDT`-Feed wird nicht als identischer Coinbase-`BTC-USD`-Preis ausgegeben.
+- **Resilienz:** Kombinierte Abos, 24-Stunden-Rotation, Watchdog, Reconnect, Sequenzpruefung, Kapazitaetsgrenze und isolierter Backpressure-Abbruch.
+- **Grenze:** Kein lokales Depth-Orderbuch, daher keine unbelegte Snapshot-Synchronitaet. Best Bid/Ask basiert auf dem offiziellen `bookTicker`.
+
 ### 2026-08-17 - Phase 11 ECB SDMX (abgeschlossen)
 
 - **Abdeckung:** Offiziell verifizierte Reihen für Unternehmenskredite und Überschussliquidität ergänzen Zinsen, Inflation, M3, FX, Wachstum, Konsum und Renditen auf 13 ECB-Reihen.

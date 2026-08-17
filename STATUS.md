@@ -593,6 +593,15 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - `*-USDC`-Identitaeten werden nicht still auf `*-USD` umgedeutet.
 - Betriebsvertrag und Aktivierung: `docs/COINBASE_STREAMING.md`.
 
+## Phase 14 - Binance Streaming (2026-08-17, implementiert)
+
+- Geteilter offizieller Market-Data-WebSocket fuer Ticker, Best Bid/Ask, Trades und laufende Kerzen.
+- Eine kombinierte Verbindung je Serverprozess ersetzt eine Providerverbindung pro Nutzer.
+- Binance-Venue, `BTCUSDT`-Provideridentitaet und USDT-Waehrung bleiben getrennt von Coinbase sichtbar.
+- Reconnect, 24-Stunden-Rotation, Inaktivitaets-Watchdog, Trade-Sequenzpruefung, Book-Update-Pruefung und Client-isolierter Rueckstau-Schutz sind integriert.
+- Voll-Orderbuch und Snapshot-Recovery werden nicht behauptet; Bid/Ask stammt transparent aus `bookTicker`.
+- Betriebsvertrag: `docs/BINANCE_STREAMING.md`.
+
 ## Phase 11 - ECB SDMX (2026-08-17, abgeschlossen)
 
 - Offizielle Reihen für Bankkredite an nichtfinanzielle Unternehmen und tägliche Überschussliquidität ergänzt und direkt gegen das ECB Data Portal verifiziert.
