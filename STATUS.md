@@ -619,3 +619,11 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - Das providerübergreifende Lebenszyklusmodell speichert Serienkennung, Frequenz, Einheit, Region, Provider, Beobachtungszeit, Veröffentlichungszeit und Revisionsstatus.
 - Jede Makrokarte zeigt ihre konkrete Primärquelle und Serienkennung; ECB-Zeitstempel werden lesbar formatiert.
 - Syntaxcheck für 12 Dateien, direkter ECB-Modultest mit 9 Prüfungen und Diff-Hygiene sind grün. Nach Korrektur eines veralteten URL-Vertragstests ist GitHub-CI vollständig grün: TypeScript, ESLint, 1.177 Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates, Sprachprüfung, Dependency-/Lizenzprüfung und institutionelle Kontrollen. Supabase-RLS/Integrität war im ersten Lauf desselben PR grün. Draft-PR: `#89`.
+
+## Phase 16 - Sichtbare anbieteruebergreifende Kurspruefung (2026-08-17)
+
+- Zentrale UI-Zustaende fuer bestaetigte, divergierende, nicht vergleichbare, veraltete und nur aus einer Quelle stammende Kurse.
+- Keine Mittelung: Der Primaerkurs bleibt unveraendert; Divergenz wird als Analyseblocker erklaert.
+- Integration in Marktband, Dashboard-Listen, Watchlist und Asset-Detailseite.
+- Zugängliche Labels, Tooltips und Komponententests dokumentieren die erlaubten Aussagen.
+- Details: `docs/DATA_TRUST_UI.md`.

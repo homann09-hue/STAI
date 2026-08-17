@@ -17,7 +17,7 @@ const RankedRow = memo(function RankedRow({ item, rank, liveQuote }: { item: Ass
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-mono font-semibold text-mist">{item.asset.symbol}</p>
-          <DataQualityBadge quality={quote.quality} marketStatus={quote.marketStatus} />
+          <DataQualityBadge quality={quote.quality} marketStatus={quote.marketStatus} quote={liveQuote} />
         </div>
         <p className="truncate text-xs text-muted">{item.asset.name}</p>
         <p className="mt-1 text-[11px] text-muted">Volumen {formatCompact(quote.volume)}</p>
@@ -154,7 +154,11 @@ export function WatchlistTable({ items, liveQuotes }: { items: AssetSummary[]; l
               </div>
               <RealtimePrice price={quote.price} currency={item.asset.currency} />
               <PriceChangeLabel change={quote.change} changePercent={quote.changePercent} currency={item.asset.currency} />
-              <DataQualityBadge quality={quote.quality} marketStatus={quote.marketStatus} />
+              <DataQualityBadge
+                quality={quote.quality}
+                marketStatus={quote.marketStatus}
+                quote={liveQuotes[item.asset.symbol]}
+              />
             </Link>
           );
         }) : (

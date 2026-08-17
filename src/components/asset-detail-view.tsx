@@ -28,6 +28,7 @@ import {
 import { CandlestickChart, PriceLineChart } from "@/components/charts";
 import { AssetDecisionPanel } from "@/components/asset-decision-panel";
 import { MarketDataStatus } from "@/components/market-data-status";
+import { QuoteVerificationBadge } from "@/components/data-quality-indicator";
 import { HistoricalRiskPanel } from "@/components/historical-risk-panel";
 import { NewsList } from "@/components/news-list";
 import { TechnicalTrendPanel } from "@/components/technical-trend-panel";
@@ -466,6 +467,9 @@ export function AssetDetailView({
             </div>
             <div className="text-left sm:text-right">
               <MarketDataStatus quote={displayedQuote} />
+              <div className="mt-2 flex sm:justify-end">
+                <QuoteVerificationBadge quote={stream.quotes[detail.asset.symbol]} />
+              </div>
             </div>
           </div>
         </div>
