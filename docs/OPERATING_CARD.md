@@ -84,6 +84,6 @@ aber nie als erfolgreicher Live-Nachweis umgedeutet.
 
 ## Naechste Aktion
 
-Phase 14 in GitHub-CI pruefen und den Binance-Market-Data-WebSocket mit einem
-realen BTCUSDT-Smoke belegen. Vercel bleibt bis zum Reset des Build-Limits
-unangetastet; danach ausschliesslich das StockPilot-Projekt deployen.
+Phase 15 in GitHub-CI pruefen und kontrollierte Gleichlauf-, Divergenz-,
+Waehrungs- und Zeitversatzfaelle belegen. Danach Phase 16 Instrument Search und
+Mapping finalisieren. Production und BauPro bleiben unangetastet.
