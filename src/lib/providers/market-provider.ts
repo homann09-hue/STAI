@@ -1,4 +1,10 @@
 import { getFinnhubClient, streamFinnhubTrades } from "@/lib/providers/finnhub-client";
+import {
+  getCoinbaseStreamSymbolLimit,
+  isCoinbaseStreamingEnabled,
+  streamCoinbaseQuotes,
+} from "@/lib/providers/coinbase-client";
+import { isCoinbaseStreamProductSupported } from "@/lib/providers/coinbase-normalization";
 import { buildNormalizedBar } from "@/lib/canonical-bar";
 import {
   getAlpacaBatchLimit,
@@ -1943,9 +1949,12 @@ class BinanceQuoteProvider extends HttpQuoteProvider {
 }
 
 class CoinbaseQuoteProvider extends HttpQuoteProvider {
-  readonly providerName = "Coinbase Exchange";
+  readonly providerName = "Coinbase Advanced Trade";
   readonly providerId = "coinbase" as const;
   readonly quality = envQuality("COINBASE_DATA_QUALITY", "near_realtime");
+  readonly streamMode: StreamMode = isCoinbaseStreamingEnabled()
+    ? "provider_websocket"
+    : "rest_polling";
 
   async getQuote(symbol: string) {
     if (!isCryptoSymbol(symbol)) return null;
@@ -1985,11 +1994,35 @@ class CoinbaseQuoteProvider extends HttpQuoteProvider {
       marketStatus: "open",
     });
   }
+
+  streamQuotes(symbols: string[], options?: MarketStreamOptions) {
+    const requested = uniqueSymbols(symbols);
+    const originalByProvider = new Map(
+      requested.map((symbol) => [
+        symbolForProvider(symbol, this.providerId),
+        symbol,
+      ]),
+    );
+    const providerSymbols = [...originalByProvider.keys()];
+    if (
+      this.streamMode !== "provider_websocket" ||
+      providerSymbols.length > getCoinbaseStreamSymbolLimit() ||
+      providerSymbols.some((symbol) => !isCoinbaseStreamProductSupported(symbol))
+    ) {
+      return pollQuotes(this, symbols, options);
+    }
+    return streamCoinbaseQuotes(providerSymbols, {
+      signal: options?.signal,
+      quality: this.quality,
+      resolveSymbol: (providerSymbol) =>
+        originalByProvider.get(providerSymbol) ?? providerSymbol,
+    });
+  }
 }
 
 function selectedCryptoProviderId(): MarketProviderId | null {
   const provider = (
-    process.env.STOCKPILOT_CRYPTO_PROVIDER ?? "binance"
+    process.env.STOCKPILOT_CRYPTO_PROVIDER ?? "coinbase"
   ).toLowerCase();
 
   if (provider === "none" || provider === "off") return null;
@@ -2275,6 +2308,15 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
   }
 
   streamQuotes(symbols: string[], options?: MarketStreamOptions) {
+    const requested = uniqueSymbols(symbols);
+    if (
+      requested.length > 0 &&
+      requested.every((symbol) => isCryptoSymbol(symbol)) &&
+      this.cryptoProvider?.streamMode === "provider_websocket" &&
+      this.cryptoProvider.streamQuotes
+    ) {
+      return this.cryptoProvider.streamQuotes(requested, options);
+    }
     if (
       this.quoteProvider.streamMode === "provider_websocket" &&
       this.quoteProvider.streamQuotes

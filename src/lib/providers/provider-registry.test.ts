@@ -264,6 +264,12 @@ describe("provider registry", () => {
         base,
       ).providers,
     ).not.toContain("binance");
+    expect(
+      resolveProviderRoute(
+        { capability: "stream_quotes", assetClass: "crypto" },
+        base,
+      ).providers,
+    ).toEqual(["coinbase"]);
   });
 
   it("routes the keyless CoinGecko adapter only for crypto metadata", () => {

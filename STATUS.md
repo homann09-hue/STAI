@@ -584,6 +584,15 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - GitHub-CI `31981310385` vollständig grün: TypeScript, ESLint, 159 Testdateien / 1.195 Tests, Produktions-Build, Browser-Smoke, Performance, Enterprise-, Sprach-, Dependency-, Lizenz- und institutionelle Gates. pgTAP `31981310384` inklusive Migrationen, RLS und Integrität grün. Draft-PR: `#90`.
 - Vercel-Preview ausschließlich wegen `api-deployments-free-per-day` blockiert; weder StockPilot-Production noch BauPro wurden verändert.
 
+## Phase 13 - Coinbase Streaming (2026-08-17, implementiert)
+
+- Oeffentlicher Advanced-Trade-WebSocket fuer Kryptokurse serverseitig integriert.
+- Ein geteilter Hub verteilt eine Upstream-Verbindung an viele SSE-Nutzer und begrenzt die aktive Produktmenge.
+- Ticker, Bid/Ask, Mengen, 24h-Spanne, 52-Wochen-Spanne, Volumen, Providerzeit und gemessene Latenz werden ohne Ersatzwerte normalisiert.
+- Reconnect, Heartbeat-Watchdog, Sequenzluecken-Erkennung, Client-isolierter Rueckstau-Schutz und REST-Fallback sind eingebaut.
+- `*-USDC`-Identitaeten werden nicht still auf `*-USD` umgedeutet.
+- Betriebsvertrag und Aktivierung: `docs/COINBASE_STREAMING.md`.
+
 ## Phase 11 - ECB SDMX (2026-08-17, abgeschlossen)
 
 - Offizielle Reihen für Bankkredite an nichtfinanzielle Unternehmen und tägliche Überschussliquidität ergänzt und direkt gegen das ECB Data Portal verifiziert.
