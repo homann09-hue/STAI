@@ -2073,9 +2073,8 @@ function selectedCryptoProviderIds(): MarketProviderId[] {
     assetClass: "crypto",
     preferredProvider: provider === "auto" ? undefined : provider,
   });
-  return route.providers.filter(
-    (selected): selected is MarketProviderId =>
-      selected === "coinbase" || selected === "binance",
+  return route.providers.flatMap((selected): MarketProviderId[] =>
+    selected === "coinbase" || selected === "binance" ? [selected] : [],
   );
 }
 
