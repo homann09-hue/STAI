@@ -1,52 +1,47 @@
 # Execution Ledger
 
-Stand: 2026-08-17
+Stand: 2026-08-18
 Gesamtstatus: **OPEN**
 
-<!-- ACTIVE_WORKPOINT: PHASE-0-GOVERNANCE-V4 -->
+<!-- ACTIVE_WORKPOINT: PHASE-1-1-ACCOUNT-DELETION -->
 
 ## Aktive Phase
 
 | Feld | Aktueller, belegter Stand |
 |---|---|
-| Aktive Phase | Phase 0 – Wahrheit und Governance |
-| Arbeitspunkt | Projektverfassung v4, Lieferweg, Evidenz und QA-Gate konsolidieren |
-| Ausgangsfehler | Mehrere widersprüchliche Statusstände, gestapelte PRs und roter Red-Team-Lauf |
-| Ursache | Frühere Arbeit wurde vor Merge/Deployment des Vorgängers gestapelt; lokaler Stress-Client hatte nur 256 Sockets für ein 500er Gate |
-| Implementierte Lösung | PRs #87–#97 eingefroren; eine Autorität; ein aktiver Arbeitspunkt; Governance-Gate; Socket-Pool deckt Release-Gate ab |
-| Branch | `codex/phase-0-governance-v4` direkt von `main` |
-| Basis-Commit | `2189a9d2471eb95a40867592a37cd9345390839b` |
-| Pull Request | [#99](https://github.com/homann09-hue/STAI/pull/99) |
+| Aktive Phase | Phase 1.1 – Stripe-sichere Account-Löschung |
+| Arbeitspunkt | Billing vor Identitätslöschung sicher abschließen und Teilfehler wiederaufnehmbar machen |
+| Ausgangsfehler | Supabase-User konnte gelöscht werden, während Stripe-Subscriptions weiterliefen |
+| Ursache | Ein synchroner Admin-Delete ohne Stripe-Discovery, Saga, Lease, Audit-Trail oder Recovery |
+| Implementierung | Re-Auth-Gate, Stripe-Customer-/Subscription-Discovery, idempotente Kündigung, DB-Saga, Recovery-Cron und Webhook-Tombstone |
+| Branch | `codex/phase-1-1-account-deletion` direkt von verifiziertem `main` |
+| Basis-Commit | `9d5f91776c4f197e961037a1dda093aa28f54321` |
+| Pull Request | noch nicht erstellt |
 | Status | OPEN |
 
 ## Verifikationsstand
 
 | Prüfung | Evidenz | Status |
 |---|---|---|
-| Aktueller `main` | StockPilot CI Run 31969837599 | erfolgreich |
-| Datenbank-CI | Run 31969837593 | erfolgreich |
-| Live-Monitoring | Run 32039456654 | erfolgreich |
-| Pull-Request-CI | [Run 32040324387](https://github.com/homann09-hue/STAI/actions/runs/32040324387) | erfolgreich |
-| Unit-Tests | 152 Dateien / 1.146 Tests | erfolgreich |
-| Coverage gesamt | 47,61 % Statements / 45,29 % Branches / 47,20 % Functions / 49,41 % Lines | Gate erfolgreich |
-| Build | 35 statische Seiten erzeugt | erfolgreich |
-| Browser-E2E | 35 bestanden / 1 übersprungen | erfolgreich |
-| Datenbank-CI | [Run 32040324335](https://github.com/homann09-hue/STAI/actions/runs/32040324335), 10 Dateien / 224 Assertions | erfolgreich |
-| Red-Team | [Run 32040526871](https://github.com/homann09-hue/STAI/actions/runs/32040526871) | erfolgreich |
-| 500er Release-Gate | 500/500 HTTP 200, 0 Timeouts, p95 6.101 ms | erfolgreich |
-| 2.000 aktive Sessions | 2.000/2.000 HTTP 200, 0 Fehler | erfolgreich |
-| 2.000er Sofortspitze | 1.657/2.000 HTTP 200, 343 Timeouts | nicht-gatende Kapazitätsgrenze dokumentiert |
-| Dependency Audit | 0 bekannte Schwachstellen | erfolgreich |
-| Production Health | `/api/health`, geprüft 2026-08-17 | HTTP 200 |
-| Branch Protection | GitHub API zweimal HTTP 503 | nicht verifiziert |
+| Phase-0-Merge | PR #99, Merge `9d5f91776c4f197e961037a1dda093aa28f54321` | erfolgreich |
+| Phase-0-Produktion | `dpl_2ZDn9sQbFaemkmdQmWDszXGMUpaQ`, Root/Health HTTP 200 | erfolgreich |
+| Phase-1.1 gezielte Tests | 5 Dateien / 52 Tests | erfolgreich |
+| Kritische Coverage | Löschservice 98,36 % Lines / 85,58 % Branches; Account- und Recovery-Routen 100 % Lines | Gate erfolgreich |
+| Typecheck | isolierte attributfreie Arbeitskopie | erfolgreich |
+| Gezielter ESLint | 0 Warnungen | erfolgreich |
+| Vollständige Unit-/Route-Tests | 157 Dateien / 1.198 Tests | erfolgreich |
+| Gesamt-Coverage | 48,76 % Statements / 46,17 % Branches / 47,63 % Functions / 50,60 % Lines | Gate erfolgreich |
+| Production Build | Next.js 16.3, 35 statische Seiten, TypeScript erfolgreich | erfolgreich |
+| Datenbank-Reset und pgTAP | 11 Dateien / 253 Assertions | erfolgreich |
+| Vollständiger ESLint | 0 Warnungen | erfolgreich |
+| Dependency Audit | npm moderate/high: 0 bekannte Schwachstellen | erfolgreich |
+| Lizenzprüfung | nur bekannte transitive Sharp/libvips-LGPL-Prüfliste | erfolgreich mit Review-Hinweis |
+| Browser-E2E | 37 erfolgreich / 1 Desktop-spezifisch übersprungen | erfolgreich |
+| Stripe-Testmode-E2E | Testkunde, aktive Subscription und signierter Webhook fehlen | BLOCKED – EXTERNAL |
+| Pull-Request-CI / Preview | PR noch nicht erstellt | OPEN |
 
-## Eingefrorene Arbeit
+## Nächster zulässiger Schritt
 
-PRs #87 bis #97 sind Entwürfe und mit einem Freeze-Hinweis versehen. Sie werden
-weder blind gemergt noch geschlossen. Wiederverwendbare Änderungen dürfen erst
-nach Stabilisierung einzeln auf den dann verifizierten `main` übernommen werden.
-
-## Nächster zulässiger Arbeitspunkt
-
-Erst nach `COMPLETE – VERIFIED` für Phase 0: **Phase 1.1 – Stripe-safe account
-deletion**. Keine Provider- oder Feature-Arbeit vorher.
+Änderungen committen, pushen und genau einen Phase-1.1-PR eröffnen. Danach CI,
+Preview, Produktionsmigration und StockPilot-Deployment verifizieren. Der echte
+Stripe-Testmode-Nachweis bleibt bis zur externen Testkonfiguration offen.
