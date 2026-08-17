@@ -73,6 +73,7 @@ const ALLOWED_PROVIDER_REQUEST_HEADERS = new Set([
   "apca-api-key-id",
   "apca-api-secret-key",
   "x-finnhub-token",
+  "x-api-key",
   "x-cg-demo-api-key",
   "x-cg-pro-api-key",
 ]);

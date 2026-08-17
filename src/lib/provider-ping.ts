@@ -2,6 +2,10 @@ import "server-only";
 
 import { getProviderHealthReport } from "@/lib/provider-health";
 import {
+  fetchBoundedProviderJson,
+  ProviderHttpResponseError,
+} from "@/lib/providers/http-json";
+import {
   AlpacaClientError,
   getAlpacaClient,
   getAlpacaCredentials,
@@ -33,7 +37,17 @@ export type ProviderPingResult = {
   message: string;
 };
 
-async function timedCheck(id: string, name: string, url: string | null, configured: boolean): Promise<ProviderPingResult> {
+type ProviderPingRequestOptions = {
+  requestHeaders?: Readonly<Record<string, string>>;
+};
+
+export async function pingProviderEndpoint(
+  id: string,
+  name: string,
+  url: URL | null,
+  configured: boolean,
+  options: ProviderPingRequestOptions = {},
+): Promise<ProviderPingResult> {
   const checkedAt = new Date().toISOString();
 
   if (!configured) {
@@ -61,32 +75,34 @@ async function timedCheck(id: string, name: string, url: string | null, configur
   const started = Date.now();
 
   try {
-    const response = await fetch(url, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(2500)
+    const response = await fetchBoundedProviderJson<unknown>(url, name, {
+      timeoutMs: 2_500,
+      maxBytes: 128_000,
+      userAgent: "StockPilotAI/1.0 provider-health",
+      requestHeaders: options.requestHeaders,
     });
-    const latencyMs = Date.now() - started;
 
     return {
       id,
       name,
-      status: response.ok ? "ok" : response.status === 429 ? "degraded" : "error",
-      latencyMs,
+      status: "ok",
+      latencyMs: response.latencyMs,
       checkedAt,
-      message: response.ok
-        ? "Ping erfolgreich."
-        : response.status === 429
-          ? "Rate-Limit aktiv."
-          : `HTTP ${response.status}.`
+      message: "Ping erfolgreich.",
     };
-  } catch {
+  } catch (error) {
+    const isRateLimited =
+      error instanceof ProviderHttpResponseError && error.status === 429;
+
     return {
       id,
       name,
-      status: "error",
+      status: isRateLimited ? "degraded" : "error",
       latencyMs: Date.now() - started,
       checkedAt,
-      message: "Ping fehlgeschlagen oder Timeout."
+      message: isRateLimited
+        ? "Rate-Limit aktiv."
+        : "Ping fehlgeschlagen, Antwort ungültig oder Timeout.",
     };
   }
 }
@@ -261,11 +277,41 @@ export async function runProviderPings() {
     timedFinnhubCheck(Boolean(finnhubKey)),
     timedFmpCheck(Boolean(fmpKey)),
     timedTwelveDataCheck(Boolean(twelveDataKey)),
-    timedCheck("alpha-vantage", "Alpha Vantage", alphaKey ? `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=AAPL&apikey=${encodeURIComponent(alphaKey)}` : null, Boolean(alphaKey)),
-    timedCheck("newsapi", "NewsAPI", newsKey ? `https://newsapi.org/v2/top-headlines?language=en&pageSize=1&apiKey=${encodeURIComponent(newsKey)}` : null, Boolean(newsKey)),
-    timedCheck("marketaux", "Marketaux", marketauxKey ? `https://api.marketaux.com/v1/news/all?symbols=AAPL&limit=1&api_token=${encodeURIComponent(marketauxKey)}` : null, Boolean(marketauxKey)),
-    timedCheck("binance", "Binance", "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", true),
-    timedCheck("coinbase", "Coinbase", "https://api.coinbase.com/v2/prices/BTC-USD/spot", true)
+    pingProviderEndpoint(
+      "alpha-vantage",
+      "Alpha Vantage",
+      alphaKey
+        ? new URL(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=AAPL&apikey=${encodeURIComponent(alphaKey)}`)
+        : null,
+      Boolean(alphaKey),
+    ),
+    pingProviderEndpoint(
+      "newsapi",
+      "NewsAPI",
+      newsKey ? new URL("https://newsapi.org/v2/top-headlines?language=en&pageSize=1") : null,
+      Boolean(newsKey),
+      newsKey ? { requestHeaders: { "X-Api-Key": newsKey } } : {},
+    ),
+    pingProviderEndpoint(
+      "marketaux",
+      "Marketaux",
+      marketauxKey
+        ? new URL(`https://api.marketaux.com/v1/news/all?symbols=AAPL&limit=1&api_token=${encodeURIComponent(marketauxKey)}`)
+        : null,
+      Boolean(marketauxKey),
+    ),
+    pingProviderEndpoint(
+      "binance",
+      "Binance",
+      new URL("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"),
+      true,
+    ),
+    pingProviderEndpoint(
+      "coinbase",
+      "Coinbase",
+      new URL("https://api.coinbase.com/v2/prices/BTC-USD/spot"),
+      true,
+    ),
   ]);
 
   return {
