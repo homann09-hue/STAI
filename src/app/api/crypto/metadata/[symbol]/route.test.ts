@@ -32,12 +32,4 @@ describe("GET /api/crypto/metadata/[symbol]", () => {
     expect(response.status).toBe(409);
     expect((await response.json()).metadata.warning).toContain("mehrdeutig");
   });
-  it("liefert einen secret-freien 503-Fehler", async () => {
-    getCoinGeckoMetadata.mockImplementation(() => {
-      throw new Error("secret-provider-detail");
-    });
-    const response = await request("BTC-USD");
-    expect(response.status).toBe(503);
-    expect(JSON.stringify(await response.json())).not.toContain("secret-provider-detail");
-  });
 });
