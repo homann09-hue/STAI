@@ -1,5 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
-import { jsonError, jsonOk, rateLimit } from "@/lib/api-guard";
+import { z } from "zod";
+import {
+  jsonError,
+  jsonOk,
+  parseJsonBody,
+  rateLimit,
+  requireSameOrigin,
+} from "@/lib/api-guard";
 import { requireAdmin } from "@/lib/billing/admin-guard";
 import { buildAdminAccountsView, type ProfileRow } from "@/lib/billing/admin-accounts";
 import { parseManualGrant, planManualGrant } from "@/lib/billing/manual-grant";
@@ -21,6 +28,14 @@ export const dynamic = "force-dynamic";
 const MAX_LISTED = 200;
 const MAX_ENTITLEMENT_ROWS = 5_000;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const manualGrantRequestSchema = z
+  .object({
+    userId: z.string().regex(uuidPattern),
+    plan: z.string().max(32),
+    months: z.union([z.number(), z.string().max(4)]).optional(),
+    reason: z.string().max(500).optional(),
+  })
+  .strict();
 
 const privateHeaders = { "cache-control": "no-store, private", "x-content-type-options": "nosniff" };
 
@@ -88,18 +103,18 @@ export async function POST(request: Request) {
   const limited = await rateLimit(request);
   if (limited) return limited;
 
+  const originBlocked = requireSameOrigin(request);
+  if (originBlocked) return originBlocked;
+
   const admin = await requireAdmin(request);
   if (!admin.ok) return admin.response;
 
   const supabase = createSupabaseServiceClient();
   if (!supabase) return jsonError("Ohne Datenbankanbindung nicht änderbar.", 503, privateHeaders);
 
-  let body: Record<string, unknown>;
-  try {
-    body = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return jsonError("Die Anfrage war kein gültiges JSON.", 400, privateHeaders);
-  }
+  const parsedBody = await parseJsonBody(request, manualGrantRequestSchema);
+  if (!parsedBody.ok) return parsedBody.response;
+  const body = parsedBody.data;
 
   const userId = typeof body.userId === "string" ? body.userId : "";
   if (!uuidPattern.test(userId)) return jsonError("Es fehlt ein gültiges Konto.", 400, privateHeaders);

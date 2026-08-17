@@ -45,7 +45,8 @@
     "cap:sync:ios": "npm run cap:prepare && npx cap sync ios",
     "cap:open:ios": "npm run cap:prepare && npx cap open ios",
     "ci:local": "bash scripts/qa/ci-local.sh",
-    "security:provider-boundary": "node scripts/qa/provider-boundary-check.mjs"
+    "security:provider-boundary": "node scripts/qa/provider-boundary-check.mjs",
+    "security:api-perimeter": "node scripts/qa/api-perimeter-check.mjs"
   },
   "dependencies": {
     "@capacitor/core": "8.4.1",
