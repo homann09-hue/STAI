@@ -47,6 +47,10 @@ const preparedProvider = "StockPilot Provider Contract Prepared";
 const now = () => new Date().toISOString();
 const MAX_PROFESSIONAL_SYMBOLS = Math.max(12, Math.min(80, Number(process.env.STOCKPILOT_PROFESSIONAL_SYMBOL_LIMIT) || 36));
 
+function referenceMarketQuality(quality: "delayed" | "cached" | undefined): MarketDataQuality {
+  return quality ? "delayed" : "unavailable";
+}
+
 function point(input: {
   label: string;
   value: string | number | null;
@@ -373,7 +377,7 @@ function cryptoProfile(
   const risk = detail.historicalRisk;
   const trendPoint = detail.scoreEvidence?.dimensions.trend;
   const resolved = reference?.value.status === "resolved" ? reference.value.data : null;
-  const referenceQuality = reference?.quality ?? "unavailable";
+  const referenceQuality = referenceMarketQuality(reference?.quality);
   const referenceUpdatedAt = resolved?.market.lastUpdated ?? resolved?.fetchedAt ?? updatedAt;
   const rp = (label: string, value: string | number | null, note: string) => point({
     label,
@@ -416,7 +420,7 @@ function cryptoProfile(
     totalSupply: rp("Total Supply", resolved?.market.totalSupply ?? null, "Von CoinGecko gemeldeter Gesamtbestand."),
     maxSupply: rp("Max Supply", resolved?.market.maxSupply ?? null, "Fehlt, wenn kein Maximalbestand definiert oder geliefert ist."),
     fullyDilutedValuation: rp("Fully Diluted Valuation", resolved?.market.fullyDilutedValuation ?? null, "CoinGecko-Referenzwert; keine StockPilot-Schätzung."),
-    dominance: point({ label: "Dominanz", value: dominance, unit: "%", provider: dominance === null ? preparedProvider : "CoinGecko / StockPilot deterministic", quality: dominance === null ? "unavailable" : (globalReference?.quality ?? "delayed"), updatedAt: globalReference?.value.fetchedAt ?? updatedAt, availability: dominance === null ? "provider_missing" : "available", note: "Deterministisch aus Coin-Marktkapitalisierung und CoinGecko-Gesamtmarkt berechnet." }),
+    dominance: point({ label: "Dominanz", value: dominance, unit: "%", provider: dominance === null ? preparedProvider : "CoinGecko / StockPilot deterministic", quality: dominance === null ? "unavailable" : referenceMarketQuality(globalReference?.quality), updatedAt: globalReference?.value.fetchedAt ?? updatedAt, availability: dominance === null ? "provider_missing" : "available", note: globalReference?.fromCache ? "Deterministisch aus gecachten CoinGecko-Referenzwerten berechnet." : "Deterministisch aus Coin-Marktkapitalisierung und CoinGecko-Gesamtmarkt berechnet." }),
     fundingRates: prepared("Funding Rates"),
     openInterest: prepared("Open Interest"),
     onChainData: rp("On-Chain-Daten", resolved?.blockchainAddresses.length ? `${resolved.blockchainAddresses.length} gemeldete Netzwerkadresse(n)` : null, "Nur Stammdaten; keine On-Chain-Aktivitätsanalyse."),
@@ -608,13 +612,13 @@ class StockPilotProfessionalDataProvider implements ProfessionalDataProvider {
         prepared("Nasdaq 100", "Kein lizenzierter Indexfeed im aktuellen Report."),
         prepared("DAX", "Kein lizenzierter Indexfeed im aktuellen Report."),
         globalReference
-          ? point({ label: "Krypto-Gesamtmarkt", value: globalReference.value.totalMarketCapUsd, provider: "CoinGecko", quality: globalReference.quality, updatedAt: globalReference.value.providerUpdatedAt ?? globalReference.value.fetchedAt, availability: globalReference.value.totalMarketCapUsd === null ? "provider_missing" : "available", note: "CoinGecko-Referenz-Snapshot; kein sekündlicher Live-Kurs." })
+          ? point({ label: "Krypto-Gesamtmarkt", value: globalReference.value.totalMarketCapUsd, provider: "CoinGecko", quality: referenceMarketQuality(globalReference.quality), updatedAt: globalReference.value.providerUpdatedAt ?? globalReference.value.fetchedAt, availability: globalReference.value.totalMarketCapUsd === null ? "provider_missing" : "available", note: globalReference.fromCache ? "Gecachter CoinGecko-Referenz-Snapshot; kein sekündlicher Live-Kurs." : "CoinGecko-Referenz-Snapshot; kein sekündlicher Live-Kurs." })
           : prepared("Krypto-Gesamtmarkt", "CoinGecko ist nicht verfügbar oder nicht freigeschaltet."),
         globalReference
-          ? point({ label: "Aktive Kryptowährungen", value: globalReference.value.activeCryptocurrencies, provider: "CoinGecko", quality: globalReference.quality, updatedAt: globalReference.value.providerUpdatedAt ?? globalReference.value.fetchedAt, availability: globalReference.value.activeCryptocurrencies === null ? "provider_missing" : "available", note: "Vom Referenzprovider gemeldete Marktbreite." })
+          ? point({ label: "Aktive Kryptowährungen", value: globalReference.value.activeCryptocurrencies, provider: "CoinGecko", quality: referenceMarketQuality(globalReference.quality), updatedAt: globalReference.value.providerUpdatedAt ?? globalReference.value.fetchedAt, availability: globalReference.value.activeCryptocurrencies === null ? "provider_missing" : "available", note: globalReference.fromCache ? "Gecachte, vom Referenzprovider gemeldete Marktbreite." : "Vom Referenzprovider gemeldete Marktbreite." })
           : prepared("Aktive Kryptowährungen"),
         globalReference
-          ? point({ label: "Krypto-24h-Volumen", value: globalReference.value.totalVolumeUsd, provider: "CoinGecko", quality: globalReference.quality, updatedAt: globalReference.value.providerUpdatedAt ?? globalReference.value.fetchedAt, availability: globalReference.value.totalVolumeUsd === null ? "provider_missing" : "available", note: "Aggregierter CoinGecko-Referenzwert." })
+          ? point({ label: "Krypto-24h-Volumen", value: globalReference.value.totalVolumeUsd, provider: "CoinGecko", quality: referenceMarketQuality(globalReference.quality), updatedAt: globalReference.value.providerUpdatedAt ?? globalReference.value.fetchedAt, availability: globalReference.value.totalVolumeUsd === null ? "provider_missing" : "available", note: globalReference.fromCache ? "Aggregierter, gecachter CoinGecko-Referenzwert." : "Aggregierter CoinGecko-Referenzwert." })
           : prepared("Krypto-24h-Volumen")
       ],
       equityScreener: rows.filter((row) => row.asset.type === "stock"),
