@@ -1,17 +1,11 @@
-# Archivierter Masterprompt
+# SUPERSEDED – NOT AUTHORITATIVE
 
-Stand: 2026-08-11
-Status: **SUPERSEDED / HISTORICAL**
+This historical master prompt is no longer an authority for StockPilot AI.
 
-Dieses Dokument ist keine aktive Projektverfassung mehr. Der einzige verbindliche
-Masterprompt für StockPilot AI ist:
+The only authoritative project constitution is
+[`docs/ULTIMATE_MARKET_READINESS_GOAL.md`](ULTIMATE_MARKET_READINESS_GOAL.md).
+Current operational truth is maintained in `docs/OPERATING_CARD.md`,
+`docs/EXECUTION_LEDGER.md`, `docs/BLOCKERS.md`, and `STATUS.md`.
 
-- `docs/ULTIMATE_MARKET_READINESS_GOAL.md`
-
-Die kompakte Betriebssteuerung steht in:
-
-- `docs/OPERATING_CARD.md`
-- `docs/EXECUTION_LEDGER.md`
-
-Historische Anforderungen bleiben über die Git-Historie nachvollziehbar. Bei
-Widersprüchen gilt ausschließlich die aktuelle Marktreife-Projektverfassung.
+Historical versions remain available in Git history. They must not be used to
+justify implementation, release, or completion claims.

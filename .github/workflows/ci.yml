@@ -41,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Governance consistency
+        run: npm run governance:check
+
       - name: Format hygiene
         run: npm run format:check
 
