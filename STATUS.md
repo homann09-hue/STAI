@@ -573,7 +573,7 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - API- und CSV-Abrufe laufen in begrenzten Batches durch zentrale SSRF-, Timeout-, Größen-, Cache- und Rate-Limit-Schutzschichten.
 - Syntaxcheck für 11 Dateien, direkter FRED-Modultest mit 19 Prüfungen und Diff-Hygiene sind grün. GitHub-CI ist vollständig grün: TypeScript, ESLint, Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates sowie Supabase-Migrationen, RLS und Integrität. Draft-PR: `#88`.
 
-## Phase 12 - CoinGecko-Referenzdaten (2026-08-17, Implementierung)
+## Phase 12 - CoinGecko-Referenzdaten (2026-08-17, abgeschlossen)
 
 - Serverseitiger Referenzadapter für Coin-ID, Handelspaare, Kategorien, Blockchain-Adressen, Market Cap, Volumen, Supply, Börsen und globale Kryptomarktbreite.
 - Mehrdeutige Symbole werden mit 409 abgewiesen statt nach Rang geraten; fehlende Providerfelder bleiben leer.
@@ -581,6 +581,8 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - Profi-Kryptoansicht um Identität, Rang, Kategorien, Adressen, Total Supply, Börsenabdeckung und deterministisch berechnete Dominanz erweitert.
 - Optionaler API-Key bleibt in allowgelisteten Server-Headern. Produktion bleibt bis zur Rechteprüfung fail-closed.
 - Betriebsvertrag: `docs/COINGECKO_ADAPTER.md`.
+- GitHub-CI `31981310385` vollständig grün: TypeScript, ESLint, 159 Testdateien / 1.195 Tests, Produktions-Build, Browser-Smoke, Performance, Enterprise-, Sprach-, Dependency-, Lizenz- und institutionelle Gates. pgTAP `31981310384` inklusive Migrationen, RLS und Integrität grün. Draft-PR: `#90`.
+- Vercel-Preview ausschließlich wegen `api-deployments-free-per-day` blockiert; weder StockPilot-Production noch BauPro wurden verändert.
 
 ## Phase 11 - ECB SDMX (2026-08-17, abgeschlossen)
 

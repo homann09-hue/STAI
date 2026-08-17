@@ -103,12 +103,13 @@ deshalb fail-closed und erzeugt keine falsche Live-Anzeige.
 - **Betrieb:** `FRED_API_KEY` aktiviert die offizielle JSON-API. Der offizielle CSV-Fallback bleibt ohne Schlüssel verfügbar, behauptet aber keine Vintage-Daten. Abrufe laufen gebündelt und zentral begrenzt.
 - **Verification:** Syntaxcheck für 11 Dateien, direkter FRED-Modultest mit 19 Prüfungen und Diff-Hygiene grün. GitHub-CI vollständig grün: TypeScript, ESLint, Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates sowie Supabase-Migrationen, RLS und Integrität. Draft-PR `#88`.
 
-### 2026-08-17 - Phase 12 CoinGecko (Implementierung)
+### 2026-08-17 - Phase 12 CoinGecko (abgeschlossen)
 
 - **Scope:** Krypto-Referenzdaten, Coin-ID-/Paar-Mapping, globale Marktbreite und Börsenabdeckung; keine Ablösung der schnellen Coinbase-/Binance-Kurse.
 - **Sicherheit:** Exakte Host-Allowlist, optionale Schlüssel nur in freigegebenen Server-Headern, begrenzte Antwortgröße, Timeout, Rate Limit, Resilience und Cache.
 - **Korrektheit:** Mehrdeutige Symbole bleiben explizit mehrdeutig. Fehlende Supply-/Marktfelder bleiben `null`; es entstehen keine Ersatzwerte.
 - **Produkt:** Profi-Kryptoansicht zeigt CoinGecko-Provenienz und kennzeichnet Referenz-Snapshots als `DELAYED` oder `CACHED`, nie als Realtime.
+- **Verification:** GitHub-CI `31981310385` vollständig grün: TypeScript, ESLint, 159 Testdateien / 1.195 Tests, Produktions-Build, Browser-Smoke, Performance sowie alle Enterprise-/Security-Gates. pgTAP `31981310384` grün. Vercel-Preview nur durch das externe Tageslimit blockiert. Draft-PR `#90`.
 
 ### 2026-08-17 - Phase 11 ECB SDMX (abgeschlossen)
 

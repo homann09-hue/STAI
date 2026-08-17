@@ -12,7 +12,7 @@ Gewinne.
 
 ## Aktuelle Phase
 
-- **Phase 12 CoinGecko ist implementiert; Verifikation und GitHub-CI folgen.**
+- **Phase 12 CoinGecko ist abgeschlossen und vollständig durch GitHub-CI sowie pgTAP verifiziert.**
 - Phase 8 Finnhub ist als Commit `c743961` auf GitHub gepusht.
 - SEC-Formulare, historische Submission-Segmente, Metadaten, CIK-Auflösung,
   Deduplizierung, Neu-Erkennung und Fair-Access-Limit sind implementiert.
@@ -38,6 +38,9 @@ Gewinne.
   Kategorien, Market Cap, Supply, Börsenabdeckung und globale Kryptomarktbreite
   über CoinGecko. Coinbase/Binance bleiben schnelle Kursquellen; CoinGecko wird
   nie als sekündlicher Live-Feed bezeichnet.
+- Phase 12 ist in Draft-PR `#90` grün: TypeScript, ESLint, 159 Testdateien /
+  1.195 Tests, Produktions-Build, Browser-Smoke, Performance-, Enterprise-,
+  Sprach-, Dependency-, Lizenz-, institutionelle und Supabase-RLS-Prüfungen.
 - Vercel bleibt auf Nutzerwunsch bis spaeter verschoben.
 
 ## Verbindliche Qualitaetsregeln
