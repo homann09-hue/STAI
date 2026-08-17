@@ -602,6 +602,16 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - Voll-Orderbuch und Snapshot-Recovery werden nicht behauptet; Bid/Ask stammt transparent aus `bookTicker`.
 - Betriebsvertrag: `docs/BINANCE_STREAMING.md`.
 
+## Phase 15 - Cross-Provider Data Quality (2026-08-17, implementiert)
+
+- Bis zu vier Providerbeobachtungen werden deterministisch kontrolliert; Standard sind zwei.
+- Primaerkurse werden nie gemittelt oder durch einen synthetischen Konsens ersetzt.
+- Symbol, Assetklasse, Handelswaehrung, Marktphase und Zeitstand muessen vor einem Preisvergleich zusammenpassen.
+- Bestaetigung, Divergenz, Nichtvergleichbarkeit, Zeitversatz und Einzelquelle sind getrennte Qualitaetszustaende.
+- Materielle Divergenz setzt `DIVERGENT`, begrenzt den Score auf 25 und sperrt aktuelle Analysen.
+- Coinbase USD und Binance USDT bleiben auch bei gleichem App-Symbol getrennte Beobachtungen.
+- Betriebsvertrag: `docs/CROSS_PROVIDER_DATA_QUALITY.md`.
+
 ## Phase 11 - ECB SDMX (2026-08-17, abgeschlossen)
 
 - Offizielle Reihen für Bankkredite an nichtfinanzielle Unternehmen und tägliche Überschussliquidität ergänzt und direkt gegen das ECB Data Portal verifiziert.

@@ -47,6 +47,10 @@ import {
 } from "@/lib/providers/fundamentals-provider";
 import { logEvent } from "@/lib/observability";
 import { resolveQuoteChain } from "@/lib/providers/quote-chain";
+import {
+  getCrossProviderQuoteCount,
+  selectCrossProviderQuote,
+} from "@/lib/providers/cross-provider-quality";
 import { resolveProviderRoute } from "@/lib/providers/provider-registry";
 import {
   fetchBoundedProviderJson,
@@ -1933,7 +1937,9 @@ class BinanceQuoteProvider extends HttpQuoteProvider {
       providerId: this.providerId,
       providerSymbol,
       exchange: "BINANCE",
-      currency: "USD",
+      currency: providerSymbol.endsWith("USDT")
+        ? "USDT"
+        : providerSymbol.split("-").at(-1) ?? "XXX",
       change: parseNumber(data.priceChange),
       changePercent: parseNumber(data.priceChangePercent),
       bid: parseNumber(data.bidPrice),
@@ -2015,7 +2021,7 @@ class CoinbaseQuoteProvider extends HttpQuoteProvider {
       providerId: this.providerId,
       providerSymbol,
       exchange: "COINBASE",
-      currency: "USD",
+      currency: providerSymbol.split("-").at(-1) ?? "XXX",
       bid: parseNumber(data.bid),
       ask: parseNumber(data.ask),
       lastSize: parseNumber(data.size),
@@ -2056,34 +2062,31 @@ class CoinbaseQuoteProvider extends HttpQuoteProvider {
   }
 }
 
-function selectedCryptoProviderId(): MarketProviderId | null {
+function selectedCryptoProviderIds(): MarketProviderId[] {
   const provider = (
-    process.env.STOCKPILOT_CRYPTO_PROVIDER ?? "coinbase"
+    process.env.STOCKPILOT_CRYPTO_PROVIDER ?? "auto"
   ).toLowerCase();
 
-  if (provider === "none" || provider === "off") return null;
+  if (provider === "none" || provider === "off") return [];
   const route = resolveProviderRoute({
     capability: "quote",
     assetClass: "crypto",
-    preferredProvider: provider,
+    preferredProvider: provider === "auto" ? undefined : provider,
   });
-  const selected = route.providers[0];
-  return selected === "coinbase" || selected === "binance"
-    ? selected
-    : null;
+  return route.providers.flatMap((selected): MarketProviderId[] =>
+    selected === "coinbase" || selected === "binance" ? [selected] : [],
+  );
 }
 
 function getCryptoQuoteProvider(): QuoteProvider | null {
-  const provider = selectedCryptoProviderId();
-
-  switch (provider) {
-    case "binance":
-      return new BinanceQuoteProvider();
-    case "coinbase":
-      return new CoinbaseQuoteProvider();
-    default:
-      return null;
-  }
+  const providers = selectedCryptoProviderIds().flatMap((provider) => {
+    const adapter = createQuoteProvider(provider);
+    return adapter ? [adapter] : [];
+  });
+  if (providers.length === 0) return null;
+  return providers.length === 1
+    ? providers[0]
+    : new ChainedQuoteProvider(providers);
 }
 
 class ProviderBackedMarketDataProvider implements MarketDataProvider {
@@ -2440,10 +2443,13 @@ export class ChainedQuoteProvider implements QuoteProvider {
   }
 
   async getQuote(symbol: string): Promise<NormalizedQuote | null> {
+    const observations: NormalizedQuote[] = [];
+    const target = getCrossProviderQuoteCount();
     for (const provider of this.chain) {
       try {
         const quote = await getCachedProviderQuote(provider, symbol);
-        if (quote) return quote;
+        if (quote) observations.push(quote);
+        if (observations.length >= target) break;
       } catch (error) {
         if (!(error instanceof ProviderRateLimitBackoffError)) {
           logEvent("warn", "market.provider_failed_over", {
@@ -2454,32 +2460,44 @@ export class ChainedQuoteProvider implements QuoteProvider {
         }
       }
     }
-    // Keine Quelle konnte antworten. Null heisst hier ehrlich "nichts
-    // bekommen" -- der Aufrufer entscheidet ueber den Mock-Rueckfall.
-    return null;
+    return selectCrossProviderQuote(observations).quote;
   }
 
   async getQuotes(symbols: string[]) {
     const requested = uniqueSymbols(symbols);
-    const unresolved = new Set(requested);
-    const resolved = new Map<string, NormalizedQuote>();
+    const target = getCrossProviderQuoteCount();
+    const observations = new Map<string, NormalizedQuote[]>();
 
     for (const provider of this.chain) {
-      if (unresolved.size === 0) break;
+      const pending = requested.filter(
+        (symbol) => (observations.get(symbol)?.length ?? 0) < target,
+      );
+      if (pending.length === 0) break;
 
-      const quotes = provider.getQuotesBatch
-        ? await provider.getQuotes([...unresolved])
-        : await getCachedProviderQuotes(provider, [...unresolved]);
+      let quotes: NormalizedQuote[] = [];
+      try {
+        quotes = provider.getQuotesBatch
+          ? await provider.getQuotes(pending)
+          : await getCachedProviderQuotes(provider, pending);
+      } catch (error) {
+        logEvent("warn", "market.crosscheck_provider_failed", {
+          providerId: provider.providerId,
+          message: error instanceof Error ? error.message : "unknown",
+        });
+      }
       for (const quote of quotes) {
         const normalizedSymbol = uniqueSymbols([quote.symbol])[0];
-        if (!normalizedSymbol || !unresolved.has(normalizedSymbol)) continue;
-        resolved.set(normalizedSymbol, quote);
-        unresolved.delete(normalizedSymbol);
+        if (!normalizedSymbol || !requested.includes(normalizedSymbol)) continue;
+        const current = observations.get(normalizedSymbol) ?? [];
+        if (!current.some((item) => item.providerId === quote.providerId)) {
+          current.push(quote);
+          observations.set(normalizedSymbol, current);
+        }
       }
     }
 
     return requested.flatMap((symbol) => {
-      const quote = resolved.get(symbol);
+      const quote = selectCrossProviderQuote(observations.get(symbol) ?? []).quote;
       return quote ? [quote] : [];
     });
   }
@@ -2492,8 +2510,9 @@ export class ChainedQuoteProvider implements QuoteProvider {
   }
 
   streamTrades(symbols: string[], options?: MarketStreamOptions) {
-    return this.chain[0].streamTrades
-      ? this.chain[0].streamTrades(symbols, options)
+    const provider = this.chain.find((candidate) => candidate.streamTrades);
+    return provider?.streamTrades
+      ? provider.streamTrades(symbols, options)
       : (async function* emptyTradeStream() {
           yield* [] as NormalizedTrade[][];
         })();

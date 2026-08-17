@@ -128,8 +128,9 @@ describe("Ausfall der ersten Kursquelle", () => {
     );
   });
 
-  it("fragt die zweite gar nicht erst, wenn die erste antwortet", async () => {
-    // Sonst wuerde jede Anfrage doppelt Kosten verursachen.
+  it("validiert eine erfolgreiche Primärquelle mit der zweiten Quelle", async () => {
+    // Die zweite Quelle dient ausschließlich als Plausibilitätsprüfung. Der
+    // Primärkurs bleibt maßgeblich und wird nicht mit Vergleichskursen gemittelt.
     const primary = fake("FMP", "fmp", "delayed", "answers", 312.0);
     const secondary = fake(
       "Finnhub",
@@ -142,7 +143,8 @@ describe("Ausfall der ersten Kursquelle", () => {
     const quote = await chainOf(primary, secondary).getQuote("NVDA");
 
     expect(quote?.price).toBe(312.0);
-    expect(secondary.getQuote).not.toHaveBeenCalled();
+    expect(secondary.getQuote).toHaveBeenCalledTimes(1);
+    expect(secondary.getQuote).toHaveBeenCalledWith("NVDA");
   });
 
   it("gibt nichts zurück, wenn keine Quelle antwortet", async () => {

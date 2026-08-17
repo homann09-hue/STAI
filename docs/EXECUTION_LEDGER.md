@@ -125,6 +125,13 @@ deshalb fail-closed und erzeugt keine falsche Live-Anzeige.
 - **Resilienz:** Kombinierte Abos, 24-Stunden-Rotation, Watchdog, Reconnect, Sequenzpruefung, Kapazitaetsgrenze und isolierter Backpressure-Abbruch.
 - **Grenze:** Kein lokales Depth-Orderbuch, daher keine unbelegte Snapshot-Synchronitaet. Best Bid/Ask basiert auf dem offiziellen `bookTicker`.
 
+### 2026-08-17 - Phase 15 Cross-Provider Data Quality
+
+- **Auswahl:** Routingprioritaet bestimmt den Primaerkurs. Zweitquellen kontrollieren ihn, ersetzen oder mitteln ihn aber nicht.
+- **Identitaet:** Vergleich nur bei kompatiblem Symbol, Assettyp, Handelswaehrung, Marktphase und Zeitstand.
+- **Schutz:** Preisdivergenz setzt `DIVERGENT`, kappt den Qualitaetsscore und sperrt aktuelle Analysen; nicht vergleichbare oder alte Quellen bleiben eigene Zustaende.
+- **Kosten:** Standardmaessig zwei, hart maximal vier Provider; jeder Abruf bleibt hinter Cache, Rate Limit und Circuit Breaker.
+
 ### 2026-08-17 - Phase 11 ECB SDMX (abgeschlossen)
 
 - **Abdeckung:** Offiziell verifizierte Reihen für Unternehmenskredite und Überschussliquidität ergänzen Zinsen, Inflation, M3, FX, Wachstum, Konsum und Renditen auf 13 ECB-Reihen.
