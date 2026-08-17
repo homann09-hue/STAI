@@ -266,6 +266,11 @@ describe("provider registry", () => {
     ).not.toContain("binance");
   });
 
+  it("routes the keyless CoinGecko adapter only for crypto metadata", () => {
+    expect(resolveProviderRoute({ capability: "crypto_metadata", assetClass: "crypto", preferredProvider: "coingecko" }, base).providers).toEqual(["coingecko"]);
+    expect(resolveProviderRoute({ capability: "quote", assetClass: "crypto", preferredProvider: "coingecko" }, base).providers).toEqual([]);
+  });
+
   it("normalizes aliases without accepting arbitrary strings", () => {
     expect(normalizeProviderId("POLYGON")).toBe("massive");
     expect(normalizeProviderId("news-api")).toBe("newsapi");

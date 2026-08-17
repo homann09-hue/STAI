@@ -674,7 +674,7 @@ function ETFProfileGrid({ profile }: { profile: ETFProfessionalProfile }) {
 }
 
 function CryptoProfileGrid({ profile }: { profile: CryptoProfessionalProfile }) {
-  const points = [profile.price, profile.volume24h, profile.marketCap, profile.circulatingSupply, profile.maxSupply, profile.fullyDilutedValuation, profile.dominance, profile.fundingRates, profile.openInterest, profile.onChainData, profile.exchangeData, profile.volatility, profile.trend, profile.events];
+  const points = [profile.coinId, profile.mappingStatus, profile.marketCapRank, profile.categories, profile.blockchainAddresses, profile.price, profile.volume24h, profile.marketCap, profile.circulatingSupply, profile.totalSupply, profile.maxSupply, profile.fullyDilutedValuation, profile.dominance, profile.fundingRates, profile.openInterest, profile.onChainData, profile.exchangeData, profile.exchangeCount, profile.volatility, profile.trend, profile.events];
   return <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{points.map((item) => <DataPointCard key={item.label} point={item} />)}</div>;
 }
 

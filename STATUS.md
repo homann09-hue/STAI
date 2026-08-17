@@ -573,6 +573,15 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - API- und CSV-Abrufe laufen in begrenzten Batches durch zentrale SSRF-, Timeout-, Größen-, Cache- und Rate-Limit-Schutzschichten.
 - Syntaxcheck für 11 Dateien, direkter FRED-Modultest mit 19 Prüfungen und Diff-Hygiene sind grün. GitHub-CI ist vollständig grün: TypeScript, ESLint, Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates sowie Supabase-Migrationen, RLS und Integrität. Draft-PR: `#88`.
 
+## Phase 12 - CoinGecko-Referenzdaten (2026-08-17, Implementierung)
+
+- Serverseitiger Referenzadapter für Coin-ID, Handelspaare, Kategorien, Blockchain-Adressen, Market Cap, Volumen, Supply, Börsen und globale Kryptomarktbreite.
+- Mehrdeutige Symbole werden mit 409 abgewiesen statt nach Rang geraten; fehlende Providerfelder bleiben leer.
+- Binance und Coinbase bleiben schnelle Kursquellen. CoinGecko wird ausschließlich als `DELAYED` oder `CACHED`, nie als sekündlicher Live-Feed angezeigt.
+- Profi-Kryptoansicht um Identität, Rang, Kategorien, Adressen, Total Supply, Börsenabdeckung und deterministisch berechnete Dominanz erweitert.
+- Optionaler API-Key bleibt in allowgelisteten Server-Headern. Produktion bleibt bis zur Rechteprüfung fail-closed.
+- Betriebsvertrag: `docs/COINGECKO_ADAPTER.md`.
+
 ## Phase 11 - ECB SDMX (2026-08-17, abgeschlossen)
 
 - Offizielle Reihen für Bankkredite an nichtfinanzielle Unternehmen und tägliche Überschussliquidität ergänzt und direkt gegen das ECB Data Portal verifiziert.

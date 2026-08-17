@@ -339,10 +339,10 @@ export const PROVIDER_DEFINITIONS: readonly ProviderDefinition[] = [
   {
     id: "coingecko",
     name: "CoinGecko",
-    adapterStatus: "prepared",
+    adapterStatus: "implemented",
     capabilities: ["crypto_metadata"],
     assetClasses: ["crypto"],
-    configurationEnv: ["COINGECKO_API_KEY"],
+    configurationEnv: [],
     enableEnv: "MARKET_DATA_ENABLE_COINGECKO",
     feedType: "reference",
     maximumKnownDelay: null,
