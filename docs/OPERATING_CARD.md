@@ -28,9 +28,9 @@ live geprüftem Phase-0-Arbeitspunkt fortgesetzt.
 - Unit-Basis: 152 Dateien / 1.146 Tests erfolgreich
 - Browser-Basis: 35 erfolgreich / 1 übersprungen
 - Datenbank-CI auf `main`: erfolgreich
-- Red-Team: fehlgeschlagen durch künstlichen Client-Socket-Flaschenhals beim
-  lokalen 500er Release-Gate; 2.000 Nutzer bleiben verpflichtender,
-  nicht-gatender Kapazitäts-Probeumfang
+- Red-Team: Run 32040526871 erfolgreich; lokales 500er Release-Gate ohne
+  Fehler, 2.000 aktive Sessions ohne Fehler und verpflichtende 2.000er
+  Sofortspitze als nicht-gatende Kapazitätsprobe transparent ausgewiesen
 - GitHub-Branch-Protection: wegen wiederholtem GitHub-HTTP-503 noch nicht
   verifiziert
 

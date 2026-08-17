@@ -12,7 +12,6 @@ nicht durch Code allein abgeschlossen werden können.
 | P0 | Phase-0-Lieferweg | OPEN | Governance-PR vollständig prüfen, mergen, StockPilot deployen und live verifizieren |
 | P1 | Stripe-safe Kontolöschung | Noch nicht als v4-Arbeitspunkt begonnen | Billing-Lifecycle A–D nach Phase 0 implementieren und testen |
 | P1 | Eingefrorene PR-Kette #87–#97 | Als Entwurf eingefroren | Nach Stabilisierung einzeln bewerten und kontrolliert übernehmen |
-| P1 | Stress-Nachweis | 2.000er Probe vorhanden; 500er Gate durch 256 Client-Sockets verfälscht | Korrigiertes Gate in CI ausführen und Ergebnis dokumentieren |
 | P1 | Realtime-Hub, Alerts und Provider-Orchestrierung | Nicht als produktionsreif belegt | Erst nach Billing-Stabilisierung als einzelne Arbeitspunkte umsetzen |
 | P1 | Prognosen, Portfolio, Backtesting und Analyse | Teilfunktionen vorhanden, Gesamt-Reife nicht belegt | Deterministische Berechnung, Datenqualität und End-to-End-Evidenz je Punkt schließen |
 | P2 | Cache, Resilienz, PWA, Barrierefreiheit und DSGVO | Teilweise vorhanden | Nach P0/P1 jeweils mit messbarer Abnahme bearbeiten |

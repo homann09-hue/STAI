@@ -16,13 +16,19 @@ Freigabestatus: **OPEN**
 
 ## Letzte belastbare Basis
 
-- StockPilot CI: erfolgreich, Run 31969837599
-- Datenbank-CI: erfolgreich, Run 31969837593
 - Live-Monitoring: erfolgreich, Run 32039456654
+- Pull-Request-CI: Run 32040324387 erfolgreich
+- Datenbank-CI: 10 Dateien / 224 Assertions erfolgreich, Run 32040324335
+- Red-Team: Run 32040526871 erfolgreich
 - Unit-Tests: 152 Dateien / 1.146 Tests erfolgreich
+- Coverage: 47,61 % Statements / 45,29 % Branches / 47,20 % Functions /
+  49,41 % Lines
 - Browser-E2E: 35 erfolgreich / 1 übersprungen
-- Red-Team: Run 31993178130 fehlgeschlagen; Ursache war das lokale 500er
-  Release-Gate mit nur 256 Client-Sockets, nicht ein belegter Live-Ausfall
+- 500er Release-Gate: 500/500 HTTP 200, keine Timeouts, p95 6.101 ms
+- 2.000 aktive Sessions: 2.000/2.000 HTTP 200, keine Fehler
+- 2.000er Sofortspitze: 1.657 HTTP 200 und 343 Timeouts; bewusst nur
+  Kapazitätsprobe, kein Release-Gate
+- Dependency Audit: 0 bekannte Schwachstellen
 - Branch Protection: wegen GitHub-HTTP-503 aktuell nicht verifiziert
 
 ## Aktuelle Änderung
