@@ -9,7 +9,7 @@ nicht durch Code allein abgeschlossen werden können.
 
 | Priorität | Thema | Aktueller Stand | Nächster belegbarer Schritt |
 |---|---|---|---|
-| P1 | Stripe-safe Kontolöschung | Technisch lokal vollständig; 1.198 Tests, Build und 253 pgTAP-Assertions grün | PR, CI, Preview, Merge, Produktionsmigration und Deployment schließen |
+| P1 | Stripe-safe Kontolöschung | Technisch vollständig; PR #100 inklusive App-CI, pgTAP und Preview grün | Nach bewusst zurückgestelltem Produktionsfenster Merge, Produktionsmigration und Deployment schließen |
 | P1 | Eingefrorene PR-Kette #87–#97 | Als Entwurf eingefroren | Nach Stabilisierung einzeln bewerten und kontrolliert übernehmen |
 | P1 | Realtime-Hub, Alerts und Provider-Orchestrierung | Nicht als produktionsreif belegt | Erst nach Billing-Stabilisierung als einzelne Arbeitspunkte umsetzen |
 | P1 | Prognosen, Portfolio, Backtesting und Analyse | Teilfunktionen vorhanden, Gesamt-Reife nicht belegt | Deterministische Berechnung, Datenqualität und End-to-End-Evidenz je Punkt schließen |

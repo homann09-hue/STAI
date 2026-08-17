@@ -16,7 +16,8 @@ Gesamtstatus: **OPEN**
 | Implementierung | Re-Auth-Gate, Stripe-Customer-/Subscription-Discovery, idempotente Kündigung, DB-Saga, Recovery-Cron und Webhook-Tombstone |
 | Branch | `codex/phase-1-1-account-deletion` direkt von verifiziertem `main` |
 | Basis-Commit | `9d5f91776c4f197e961037a1dda093aa28f54321` |
-| Pull Request | noch nicht erstellt |
+| Pull Request | [#100](https://github.com/homann09-hue/STAI/pull/100) |
+| Aktueller Commit | `56bd302` |
 | Status | OPEN |
 
 ## Verifikationsstand
@@ -38,10 +39,14 @@ Gesamtstatus: **OPEN**
 | Lizenzprüfung | nur bekannte transitive Sharp/libvips-LGPL-Prüfliste | erfolgreich mit Review-Hinweis |
 | Browser-E2E | 37 erfolgreich / 1 Desktop-spezifisch übersprungen | erfolgreich |
 | Stripe-Testmode-E2E | Testkunde, aktive Subscription und signierter Webhook fehlen | BLOCKED – EXTERNAL |
-| Pull-Request-CI / Preview | PR noch nicht erstellt | OPEN |
+| Pull-Request-CI | Run 32081208342, 2m43s | erfolgreich |
+| Datenbank-CI | Run 32081208399, 253 Assertions | erfolgreich |
+| Vercel-Preview-Workflow | Run 32081208465, isolierter StockPilot-Schlüssel | erfolgreich |
+| Vercel-Integration | Deployment `4pShsHtC148643jX94DtViSFX8y2` | erfolgreich |
 
 ## Nächster zulässiger Schritt
 
-Änderungen committen, pushen und genau einen Phase-1.1-PR eröffnen. Danach CI,
-Preview, Produktionsmigration und StockPilot-Deployment verifizieren. Der echte
-Stripe-Testmode-Nachweis bleibt bis zur externen Testkonfiguration offen.
+Nach dem bewusst zurückgestellten Produktionsfenster PR #100 mergen, Migration
+im Supabase-Projekt `STAI` anwenden und ausschließlich `stockpilot-ai`
+deployen. Der echte Stripe-Testmode-Nachweis bleibt bis zur externen
+Testkonfiguration offen.

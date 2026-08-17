@@ -12,6 +12,7 @@ Freigabestatus: **OPEN**
 - Verifizierter `main`: `9d5f91776c4f197e961037a1dda093aa28f54321`
 - Produktion: `https://stockpilot-ai-beta.vercel.app`, Health HTTP 200
 - Phase 0: PR #99 gemergt und als StockPilot-Produktion deployt
+- Phase 1.1: PR #100 mit App-CI, pgTAP und beiden Vercel-Preview-Checks grün
 - Eingefrorene PR-Kette #87–#97: weiterhin vollständig als Entwurf eingefroren
 - BauPro und andere Projekte: nicht angefasst
 
@@ -38,8 +39,8 @@ Freigabestatus: **OPEN**
 Phase 1.1 implementiert frische Re-Authentifizierung, Stripe-Kündigung vor
 Identitätslöschung, serverseitige Lösch-Saga, Audit-Trail, Webhook-Race-Schutz,
 tägliche Wiederaufnahme und zeitlich begrenzte Tombstones. Lokale Voll-Gates,
-Build, Datenbanktest und Audits sind grün. PR, CI, Preview, Produktion und der
-echte Stripe-Testmode-Durchlauf stehen noch aus.
+Build, Datenbanktest, Audits, PR-CI und Preview sind grün. Merge, Produktions-
+migration, Produktion und der echte Stripe-Testmode-Durchlauf stehen noch aus.
 
 ## Danach
 
