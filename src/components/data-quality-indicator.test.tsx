@@ -34,7 +34,7 @@ describe("QuoteVerificationBadge", () => {
         quote={verification({
           qualityIssues: ["cross_provider_confirmed"],
           qualityScore: 92,
-          qualityStatus: "VALID",
+          qualityStatus: "OK",
         })}
       />,
     );
@@ -67,7 +67,7 @@ describe("QuoteVerificationBadge", () => {
   it("bleibt ohne expliziten Prüfstatus unsichtbar", () => {
     const { container } = render(
       <QuoteVerificationBadge
-        quote={verification({ qualityIssues: [], qualityStatus: "VALID" })}
+        quote={verification({ qualityIssues: [], qualityStatus: "OK" })}
       />,
     );
 
