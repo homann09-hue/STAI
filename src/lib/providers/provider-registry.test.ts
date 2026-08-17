@@ -116,7 +116,10 @@ describe("provider registry", () => {
       "market_status",
     ] as const) {
       expect(
-        resolveProviderRoute({ capability, preferredProvider: "alpaca" }, env).providers,
+        resolveProviderRoute(
+          { capability, assetClass: "equity", preferredProvider: "alpaca" },
+          env,
+        ).providers,
       ).toEqual(["alpaca"]);
     }
   });
