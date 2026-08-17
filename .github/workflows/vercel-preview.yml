@@ -1,0 +1,55 @@
+name: Vercel Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: stockpilot-vercel-preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    name: Vercel
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: team_Zuypi8VVpaaGdyIeAh8wpjSK
+      VERCEL_PROJECT_ID: prj_gikdOwKQqTQ0wtrljGljwGcFfwzc
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Checkout StockPilot AI only
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@59.1.3
+
+      - name: Pull StockPilot preview configuration
+        run: vercel pull --yes --environment=preview --scope bau-pro
+
+      - name: Build StockPilot preview
+        run: vercel build --scope bau-pro
+
+      - name: Deploy and verify StockPilot preview
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          preview_url="$(vercel deploy --prebuilt --scope bau-pro)"
+          health="$(vercel curl "$preview_url/api/health" --silent)"
+          node -e '
+            const payload = JSON.parse(process.argv[1]);
+            if (payload.status !== "ok") process.exit(1);
+          ' "$health"
+          printf 'preview_url=%s\n' "$preview_url" >> "$GITHUB_OUTPUT"
+          printf '### StockPilot Preview\n\n- %s\n- Healthcheck: ok\n' "$preview_url" >> "$GITHUB_STEP_SUMMARY"
