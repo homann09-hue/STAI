@@ -268,7 +268,9 @@ describe("provider registry", () => {
 
   it("routes the keyless CoinGecko adapter only for crypto metadata", () => {
     expect(resolveProviderRoute({ capability: "crypto_metadata", assetClass: "crypto", preferredProvider: "coingecko" }, base).providers).toEqual(["coingecko"]);
-    expect(resolveProviderRoute({ capability: "quote", assetClass: "crypto", preferredProvider: "coingecko" }, base).providers).toEqual([]);
+    const quoteRoute = resolveProviderRoute({ capability: "quote", assetClass: "crypto", preferredProvider: "coingecko" }, base);
+    expect(quoteRoute.providers).toEqual(["coinbase", "binance"]);
+    expect(quoteRoute.providers).not.toContain("coingecko");
   });
 
   it("normalizes aliases without accepting arbitrary strings", () => {
