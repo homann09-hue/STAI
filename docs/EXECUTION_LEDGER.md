@@ -159,3 +159,10 @@ deshalb fail-closed und erzeugt keine falsche Live-Anzeige.
 - Fuenf bestehende Transportgrenzen explizit dokumentiert; Provider-Module selbst erhalten keine Ausnahme.
 - Secret-Transport in NewsAPI-URLs als eigener Fehlerfall aufgenommen.
 - Gate in Standard-CI, manuelle Deployment-CI und Enterprise-Readiness eingebunden.
+
+## 2026-08-17 - Phase 19: API Perimeter Gate
+
+- P1-Fund in der Admin-Tarifaenderung behoben: CSRF- und Bodylimit-Schutz fehlten.
+- API-Routen werden jetzt pro exportiertem Handler per AST kontrolliert.
+- Rate-Limit, Same-Origin, Schemaparser und direkte request.json-Nutzung sind als CI-Vertrag kodiert.
+- Zwei Server-Ausnahmen besitzen explizite, maschinengepruefte Ersatzkontrollen.
