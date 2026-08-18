@@ -85,6 +85,21 @@ test("settings contains investor mode instead of dashboard", async ({ page }) =>
   await expect(page.getByRole("button", { name: "Anfänger Einfache Sprache, Ampel, Risiko zuerst." })).toBeVisible();
 });
 
+test("account deletion stays unavailable without a verified session", async ({ page, request }) => {
+  await page.goto("/settings");
+  await acceptRiskNotice(page);
+
+  await expect(page.getByText("Supabase Konto & Cloud-Sync")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Login-Link senden" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Konto endgültig löschen" })).toHaveCount(0);
+
+  const deletion = await request.delete("/api/account", {
+    data: { confirmation: "KONTO LÖSCHEN" },
+    headers: { Origin: "http://localhost:3011" }
+  });
+  expect(deletion.status()).toBe(401);
+});
+
 test("professional finance terminal pages enforce the account gate", async ({ page }) => {
   const protectedRoutes = ["/markets", "/stocks", "/etfs", "/crypto", "/news-terminal", "/risk", "/compare"];
 

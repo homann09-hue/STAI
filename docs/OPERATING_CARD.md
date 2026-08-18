@@ -1,10 +1,10 @@
 # StockPilot AI Operating Card
 
-Stand: 2026-08-17
+Stand: 2026-08-18
 Status: **OPEN**
 Autorität: `docs/ULTIMATE_MARKET_READINESS_GOAL.md` (Version 4.0)
 
-<!-- ACTIVE_WORKPOINT: PHASE-0-GOVERNANCE-V4 -->
+<!-- ACTIVE_WORKPOINT: PHASE-1-1-ACCOUNT-DELETION -->
 
 ## Produktauftrag
 
@@ -15,24 +15,19 @@ gibt keine garantierten Prognosen und keine Anlageberatung aus.
 
 ## Aktiver Arbeitspunkt
 
-**Phase 0 – Wahrheit, Governance und stabiler Lieferweg.** Es gibt genau einen
-aktiven Arbeitspunkt. Neue Provider, Produktfeatures und die eingefrorene
-PR-Kette #87–#97 werden erst nach vollständig grünem, gemergtem, deploytem und
-live geprüftem Phase-0-Arbeitspunkt fortgesetzt.
+**Phase 1.1 – Stripe-sichere Account-Löschung.** Vor der Identitätslöschung
+werden frische Re-Authentifizierung, alle zugeordneten Stripe-Subscriptions,
+Saga-/Lease-Status, Audit-Trail, Wiederaufnahme und Webhook-Rennen abgesichert.
+Billing bleibt bis zum vollständigen Abschluss von Phase 1 deaktiviert.
 
 ## Verifizierte Ausgangslage
 
-- `main`: `2189a9d2471eb95a40867592a37cd9345390839b`
-- Produktion: `https://stockpilot-ai-beta.vercel.app`
-- Healthcheck: HTTP 200, `status=ok`, Diagnose geschützt
-- Unit-Basis: 152 Dateien / 1.146 Tests erfolgreich
-- Browser-Basis: 35 erfolgreich / 1 übersprungen
-- Datenbank-CI auf `main`: erfolgreich
-- Red-Team: Run 32040526871 erfolgreich; lokales 500er Release-Gate ohne
-  Fehler, 2.000 aktive Sessions ohne Fehler und verpflichtende 2.000er
-  Sofortspitze als nicht-gatende Kapazitätsprobe transparent ausgewiesen
-- GitHub-Branch-Protection: wegen wiederholtem GitHub-HTTP-503 noch nicht
-  verifiziert
+- Phase 0: PR #99 gemergt, Main `9d5f91776c4f197e961037a1dda093aa28f54321`
+- Produktion: Deployment `dpl_2ZDn9sQbFaemkmdQmWDszXGMUpaQ`, READY
+- Live-Alias: `https://stockpilot-ai-beta.vercel.app`, Root und Health HTTP 200
+- Pflichtchecks von PR #99: StockPilot CI, pgTAP und Vercel erfolgreich
+- Branch Protection: strict; Pflichtkontexte StockPilot CI, pgTAP und Vercel
+- Phase 1.1: PR #100 technisch grün; Merge und Produktion bewusst ausstehend
 
 ## Lieferregel
 
