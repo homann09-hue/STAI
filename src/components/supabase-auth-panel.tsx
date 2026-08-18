@@ -133,7 +133,15 @@ export function SupabaseAuthPanel() {
         },
         body: JSON.stringify({ confirmation: deleteConfirmation })
       });
-      if (!response.ok) throw new Error("delete failed");
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (response.status === 428 || response.headers.get("X-StockPilot-Reauthentication") === "required") {
+          setMessage("Aus Sicherheitsgründen bitte zuerst abmelden, erneut per Magic Link anmelden und die Löschung innerhalb von zehn Minuten bestätigen.");
+          return;
+        }
+        setMessage(payload?.error ?? "Konto konnte nicht vollständig gelöscht werden. Es wurden keine lokalen Daten entfernt.");
+        return;
+      }
       await supabase.auth.signOut({ scope: "global" });
       for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
         const key = window.localStorage.key(index);
@@ -195,6 +203,9 @@ export function SupabaseAuthPanel() {
               <label className="text-xs text-muted" htmlFor="delete-account-confirmation">
                 Zum Löschen exakt „KONTO LÖSCHEN“ eingeben
               </label>
+              <p className="mt-1 text-xs leading-5 text-muted">
+                Eine höchstens zehn Minuten alte Anmeldung ist erforderlich. Aktive Abos werden vor der Löschung gekündigt; bei einem Providerfehler bleibt das Konto erhalten.
+              </p>
               <input
                 id="delete-account-confirmation"
                 value={deleteConfirmation}

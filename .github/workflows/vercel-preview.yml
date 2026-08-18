@@ -20,7 +20,7 @@ jobs:
     env:
       VERCEL_ORG_ID: team_Zuypi8VVpaaGdyIeAh8wpjSK
       VERCEL_PROJECT_ID: prj_gikdOwKQqTQ0wtrljGljwGcFfwzc
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_STOCKPILOT_TOKEN }}
     steps:
       - name: Checkout StockPilot AI only
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
