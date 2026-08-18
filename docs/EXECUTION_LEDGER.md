@@ -152,3 +152,17 @@ deshalb fail-closed und erzeugt keine falsche Live-Anzeige.
 - Pings an SSRF-Allowlist, Groessen-/Timeout-Limits, Circuit-Breaker und Request-Budgets gebunden.
 - NewsAPI-Secret aus Query-URL entfernt; Clientantworten bleiben frei von rohen Providerfehlern.
 - Vier gezielte Tests fuer fehlende Konfiguration, sicheren Transport, 429 und Fehler-Redaktion ergaenzt.
+
+## 2026-08-17 - Phase 18: Provider Network Boundary Gate
+
+- TypeScript-AST-Gate fuer rohe `fetch`-Aufrufe eingefuehrt.
+- Fuenf bestehende Transportgrenzen explizit dokumentiert; Provider-Module selbst erhalten keine Ausnahme.
+- Secret-Transport in NewsAPI-URLs als eigener Fehlerfall aufgenommen.
+- Gate in Standard-CI, manuelle Deployment-CI und Enterprise-Readiness eingebunden.
+
+## 2026-08-17 - Phase 19: API Perimeter Gate
+
+- P1-Fund in der Admin-Tarifaenderung behoben: CSRF- und Bodylimit-Schutz fehlten.
+- API-Routen werden jetzt pro exportiertem Handler per AST kontrolliert.
+- Rate-Limit, Same-Origin, Schemaparser und direkte request.json-Nutzung sind als CI-Vertrag kodiert.
+- Zwei Server-Ausnahmen besitzen explizite, maschinengepruefte Ersatzkontrollen.

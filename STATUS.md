@@ -635,3 +635,19 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - NewsAPI-Key aus der URL in einen explizit erlaubten serverseitigen Header verschoben.
 - Sichere Fehlerklassifizierung fuer Erfolg, 429 und ungueltige Antworten ergaenzt.
 - Details: `docs/PROVIDER_HEALTH_SECURITY.md`.
+
+## Phase 18 - Provider Network Boundary Gate (2026-08-17)
+
+- AST-basierter CI-Gatekeeper fuer direkte Netzwerkzugriffe in `src/lib` und API-Routen.
+- Provider-Egress auf gepruefte Transportgrenzen beschraenkt; neue Ausnahmen brauchen einen dokumentierten Zweck.
+- NewsAPI-Secrets in URLs werden explizit blockiert.
+- Normale CI, manueller Vercel-Workflow und Enterprise-Readiness verlangen den neuen Check.
+- Details: `docs/PROVIDER_NETWORK_BOUNDARY.md`.
+
+## Phase 19 - API Perimeter Gate (2026-08-17)
+
+- Admin-Tarifaenderung um Same-Origin-Schutz, begrenzten JSON-Parser und striktes Schema erweitert.
+- AST-basierter Gatekeeper fuer Rate-Limits, CSRF-Schutz, Bodylimits und Schemaparsing aller API-Handler.
+- Stripe-Webhook und privilegierter Intelligence-Job als zwei pruefbare Ausnahmen dokumentiert.
+- Normale CI, manueller Vercel-Workflow und Enterprise-Readiness verlangen den neuen Check.
+- Details: `docs/API_PERIMETER.md`.

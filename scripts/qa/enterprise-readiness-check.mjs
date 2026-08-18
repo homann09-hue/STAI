@@ -138,6 +138,8 @@ function checkPackage() {
     "qa:grammar",
     "audit:safe",
     "audit:moderate",
+    "security:provider-boundary",
+    "security:api-perimeter",
   ];
   const missingScripts = requiredScripts.filter((script) => !pkg.scripts?.[script]);
 
@@ -385,6 +387,8 @@ function checkAvailabilityAndOps() {
     ["docs/monitoring-alerting.md", "monitoring runbook"],
     ["docs/supabase-backup-pitr.md", "supabase backup runbook"],
     ["scripts/qa/disaster-recovery-check.mjs", "disaster recovery check"],
+    ["scripts/qa/provider-boundary-check.mjs", "provider network boundary check"],
+    ["scripts/qa/api-perimeter-check.mjs", "API perimeter boundary check"],
     [".github/workflows/disaster-recovery.yml", "disaster recovery workflow"],
     [".github/workflows/enterprise-readiness.yml", "enterprise readiness workflow"],
     [".github/workflows/live-monitoring.yml", "live monitoring workflow"],
@@ -420,6 +424,8 @@ function checkCiCd() {
     "npm run build",
     "npm run qa:grammar",
     "npm run audit:moderate",
+    "npm run security:provider-boundary",
+    "npm run security:api-perimeter",
     "npm run enterprise:check -- --local-only",
   ];
   const missingCiGates = ciGates.filter((gate) => !ci.includes(gate));

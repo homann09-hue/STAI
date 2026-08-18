@@ -80,6 +80,12 @@ jobs:
       - name: ESLint
         run: npm run lint
 
+      - name: Provider network boundary
+        run: npm run security:provider-boundary
+
+      - name: API perimeter boundary
+        run: npm run security:api-perimeter
+
       - name: Unit tests with coverage gate
         run: npm run test:coverage
 
