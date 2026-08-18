@@ -84,6 +84,6 @@ aber nie als erfolgreicher Live-Nachweis umgedeutet.
 
 ## Naechste Aktion
 
-Phase 13 in GitHub-CI pruefen und den Coinbase-WebSocket mit einem realen
-BTC-USD/ETH-USD-Smoke belegen. Vercel bleibt bis zum Reset des Build-Limits
+Phase 14 in GitHub-CI pruefen und den Binance-Market-Data-WebSocket mit einem
+realen BTCUSDT-Smoke belegen. Vercel bleibt bis zum Reset des Build-Limits
 unangetastet; danach ausschliesslich das StockPilot-Projekt deployen.

@@ -1,5 +1,12 @@
 import { getFinnhubClient, streamFinnhubTrades } from "@/lib/providers/finnhub-client";
 import {
+  getBinanceStreamSymbolLimit,
+  isBinanceStreamingEnabled,
+  streamBinanceQuotes,
+  streamBinanceTrades,
+} from "@/lib/providers/binance-client";
+import { isBinanceStreamSymbol } from "@/lib/providers/binance-normalization";
+import {
   getCoinbaseStreamSymbolLimit,
   isCoinbaseStreamingEnabled,
   streamCoinbaseQuotes,
@@ -1900,6 +1907,9 @@ class BinanceQuoteProvider extends HttpQuoteProvider {
   readonly providerName = "Binance Spot";
   readonly providerId = "binance" as const;
   readonly quality = envQuality("BINANCE_DATA_QUALITY", "near_realtime");
+  readonly streamMode: StreamMode = isBinanceStreamingEnabled()
+    ? "provider_websocket"
+    : "rest_polling";
 
   async getQuote(symbol: string) {
     if (!isCryptoSymbol(symbol)) return null;
@@ -1944,6 +1954,32 @@ class BinanceQuoteProvider extends HttpQuoteProvider {
       quality: this.quality,
       latencyMs,
       marketStatus: "open",
+    });
+  }
+
+  streamQuotes(symbols: string[], options?: MarketStreamOptions) {
+    const requested = uniqueSymbols(symbols);
+    const originalByProvider = new Map(requested.map((symbol) => [symbolForProvider(symbol, this.providerId), symbol]));
+    const providerSymbols = [...originalByProvider.keys()];
+    if (
+      this.streamMode !== "provider_websocket" ||
+      providerSymbols.length > getBinanceStreamSymbolLimit() ||
+      providerSymbols.some((symbol) => !isBinanceStreamSymbol(symbol))
+    ) return pollQuotes(this, symbols, options);
+    return streamBinanceQuotes(providerSymbols, {
+      signal: options?.signal,
+      quality: this.quality,
+      resolveSymbol: (providerSymbol) => originalByProvider.get(providerSymbol) ?? providerSymbol,
+    });
+  }
+
+  streamTrades(symbols: string[], options?: MarketStreamOptions) {
+    const requested = uniqueSymbols(symbols);
+    const originalByProvider = new Map(requested.map((symbol) => [symbolForProvider(symbol, this.providerId), symbol]));
+    return streamBinanceTrades([...originalByProvider.keys()], {
+      signal: options?.signal,
+      quality: this.quality,
+      resolveSymbol: (providerSymbol) => originalByProvider.get(providerSymbol) ?? providerSymbol,
     });
   }
 }
@@ -2328,6 +2364,14 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
   }
 
   streamTrades(symbols: string[], options?: MarketStreamOptions) {
+    const requested = uniqueSymbols(symbols);
+    if (
+      requested.length > 0 &&
+      requested.every((symbol) => isCryptoSymbol(symbol)) &&
+      this.cryptoProvider?.streamTrades
+    ) {
+      return this.cryptoProvider.streamTrades(requested, options);
+    }
     return this.quoteProvider.streamTrades
       ? this.quoteProvider.streamTrades(symbols, options)
       : (async function* emptyTradeStream() {
