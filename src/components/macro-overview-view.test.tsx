@@ -190,4 +190,26 @@ describe("Wirtschaftsräume", () => {
     await waitFor(() => expect(container.textContent).toMatch(/Einzelhandelsumsätze/));
     expect(container.textContent ?? "").toMatch(/768\.553,00 Mio\. \$/);
   });
+
+  it("zeigt Beobachtung, Erstveröffentlichung und Revision getrennt", async () => {
+    const value = {
+      ...usReading(),
+      dataLifecycle: {
+        observationDate: "2026-08-06",
+        firstPublishedAt: "2026-08-07",
+        vintageAsOf: "2026-08-17",
+        revisionStatus: "revised" as const,
+        initialValue: 4.68,
+        revisionDelta: 0.01
+      }
+    };
+    stubFetch(buildMacroOverview([value], []));
+
+    const { container } = render(<MacroOverviewView />);
+    await waitFor(() => expect(container.textContent).toMatch(/US-Rendite 10 Jahre/));
+    const visible = container.textContent ?? "";
+    expect(visible).toMatch(/Erstveröffentlichung 2026-08-07/);
+    expect(visible).toMatch(/Vintage geprüft bis 2026-08-17/);
+    expect(visible).toMatch(/Revidiert/);
+  });
 });

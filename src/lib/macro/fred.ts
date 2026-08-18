@@ -7,10 +7,10 @@
  * Dollar-Index und die 10-Jahres-Rendite antworteten beim Kursanbieter mit
  * HTTP 402.
  *
- * **Kein Schlüssel nötig.** Am 2026-08-08 gemessen: der CSV-Export unter
- * `fred.stlouisfed.org/graph/fredgraph.csv?id=…` antwortet ohne
- * Authentifizierung. Die JSON-API unter `api.stlouisfed.org` verlangt dagegen
- * einen Schlüssel (HTTP 400 ohne). Deshalb wird hier der CSV-Weg genutzt.
+ * **Für Werte kein Schlüssel nötig.** Am 2026-08-08 gemessen: der CSV-Export
+ * unter `fred.stlouisfed.org/graph/fredgraph.csv?id=…` antwortet ohne
+ * Authentifizierung. Mit `FRED_API_KEY` nutzt der serverseitige Client die
+ * offizielle JSON-API zusätzlich für Erstveröffentlichung und Revisionen.
  *
  * ## Lizenz — und warum sie hier im Code steht
  *
@@ -35,9 +35,8 @@
  * Die Quellenangabe ist deshalb Pflichtfeld an jeder Reihe und nicht optional.
  */
 
-import { fetchBoundedProviderText } from "@/lib/providers/http-json";
-
 export const FRED_HOST = "fred.stlouisfed.org";
+export const FRED_API_HOST = "api.stlouisfed.org";
 
 export type FredCopyright = "public_domain" | "citation_required";
 
@@ -48,10 +47,13 @@ export type FredCategory =
   | "growth"
   | "consumption"
   | "yield"
+  | "money"
+  | "production"
+  | "liquidity"
   | "exchange_rate"
   | "commodity";
 
-export type FredFrequency = "daily" | "monthly" | "quarterly";
+export type FredFrequency = "daily" | "weekly" | "monthly" | "quarterly";
 
 export type FredSeriesDefinition = {
   id: string;
@@ -148,6 +150,30 @@ export const fredSeriesCatalog: FredSeriesDefinition[] = [
     originalSource: "U.S. Bureau of Labor Statistics"
   },
   {
+    id: "us_pce_prices",
+    seriesId: "PCEPI",
+    label: "PCE-Preisindex USA",
+    explanation:
+      "Preisindex der privaten Konsumausgaben. Er ist die bevorzugte Inflationsgröße der US-Notenbank; angezeigt wird der Indexstand, nicht automatisch die Jahresrate.",
+    category: "inflation",
+    frequency: "monthly",
+    unit: "index",
+    copyright: "public_domain",
+    originalSource: "U.S. Bureau of Economic Analysis"
+  },
+  {
+    id: "us_core_pce_prices",
+    seriesId: "PCEPILFE",
+    label: "Kern-PCE-Preisindex USA",
+    explanation:
+      "PCE-Preisindex ohne Lebensmittel und Energie. Er zeigt den zugrunde liegenden Preisdruck, bleibt aber revisionsanfällig.",
+    category: "inflation",
+    frequency: "monthly",
+    unit: "index",
+    copyright: "public_domain",
+    originalSource: "U.S. Bureau of Economic Analysis"
+  },
+  {
     id: "us_ppi",
     seriesId: "PPIACO",
     label: "Erzeugerpreise USA (PPI)",
@@ -235,6 +261,98 @@ export const fredSeriesCatalog: FredSeriesDefinition[] = [
     originalSource: "Board of Governors of the Federal Reserve System"
   },
   {
+    id: "us_yield_2y",
+    seriesId: "DGS2",
+    label: "US-Rendite 2 Jahre",
+    explanation: "Verzinsung zweijähriger US-Staatsanleihen. Sie reagiert besonders auf erwartete Leitzinsänderungen.",
+    category: "yield",
+    frequency: "daily",
+    unit: "percent",
+    copyright: "public_domain",
+    originalSource: "Board of Governors of the Federal Reserve System"
+  },
+  {
+    id: "us_yield_5y",
+    seriesId: "DGS5",
+    label: "US-Rendite 5 Jahre",
+    explanation: "Verzinsung fünfjähriger US-Staatsanleihen als mittlerer Punkt der Zinsstruktur.",
+    category: "yield",
+    frequency: "daily",
+    unit: "percent",
+    copyright: "public_domain",
+    originalSource: "Board of Governors of the Federal Reserve System"
+  },
+  {
+    id: "us_yield_30y",
+    seriesId: "DGS30",
+    label: "US-Rendite 30 Jahre",
+    explanation: "Verzinsung dreißigjähriger US-Staatsanleihen und langes Ende der US-Zinsstruktur.",
+    category: "yield",
+    frequency: "daily",
+    unit: "percent",
+    copyright: "public_domain",
+    originalSource: "Board of Governors of the Federal Reserve System"
+  },
+  {
+    id: "us_money_supply_m2",
+    seriesId: "M2SL",
+    label: "US-Geldmenge M2",
+    explanation: "Breite US-Geldmenge aus Bargeld, Sichteinlagen und kurzfristig verfügbaren Spareinlagen.",
+    category: "money",
+    frequency: "monthly",
+    unit: "usd",
+    valueSuffix: "Mrd. $",
+    copyright: "public_domain",
+    originalSource: "Board of Governors of the Federal Reserve System"
+  },
+  {
+    id: "us_industrial_production",
+    seriesId: "INDPRO",
+    label: "Industrieproduktion USA",
+    explanation: "Index der realen Produktion von Industrie, Bergbau sowie Strom- und Gasversorgern.",
+    category: "production",
+    frequency: "monthly",
+    unit: "index",
+    copyright: "public_domain",
+    originalSource: "Board of Governors of the Federal Reserve System"
+  },
+  {
+    id: "fed_balance_sheet",
+    seriesId: "WALCL",
+    label: "Bilanzsumme der Federal Reserve",
+    explanation: "Gesamtvermögen der Federal Reserve. Veränderungen können den systemischen Liquiditätsrahmen beeinflussen.",
+    category: "liquidity",
+    frequency: "weekly",
+    unit: "usd",
+    valueSuffix: "Mio. $",
+    copyright: "public_domain",
+    originalSource: "Board of Governors of the Federal Reserve System"
+  },
+  {
+    id: "fed_reverse_repo",
+    seriesId: "RRPONTSYD",
+    label: "Fed Overnight Reverse Repo",
+    explanation: "Tägliche Nutzung der Overnight-Reverse-Repo-Fazilität. Ein Rückgang kann auf abfließende überschüssige Liquidität hindeuten.",
+    category: "liquidity",
+    frequency: "daily",
+    unit: "usd",
+    valueSuffix: "Mrd. $",
+    copyright: "public_domain",
+    originalSource: "Federal Reserve Bank of New York"
+  },
+  {
+    id: "us_treasury_general_account",
+    seriesId: "WTREGEN",
+    label: "US Treasury General Account",
+    explanation: "Kassenbestand des US-Finanzministeriums bei der Federal Reserve. Bewegungen verändern die Bankreserven im Finanzsystem.",
+    category: "liquidity",
+    frequency: "weekly",
+    unit: "usd",
+    valueSuffix: "Mio. $",
+    copyright: "public_domain",
+    originalSource: "Board of Governors of the Federal Reserve System"
+  },
+  {
     id: "us_dollar_index",
     seriesId: "DTWEXBGS",
     label: "Dollar-Index (breit)",
@@ -270,7 +388,66 @@ export function fredCitation(series: FredSeriesDefinition) {
   return `Quelle: ${series.originalSource} via FRED (Federal Reserve Bank of St. Louis)`;
 }
 
-export type FredObservation = { period: string; value: number };
+export type FredRevisionStatus = "not_available" | "unrevised" | "revised";
+
+export type FredObservation = {
+  period: string;
+  value: number;
+  realtimeStart?: string | null;
+  realtimeEnd?: string | null;
+  firstPublishedAt?: string | null;
+  initialValue?: number | null;
+  revisionStatus?: FredRevisionStatus;
+};
+
+function isoDate(value: unknown): string | null {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+/** Parst die offizielle JSON-Antwort, ohne unvollständige Zeilen zu erraten. */
+export function parseFredApiObservations(payload: unknown): FredObservation[] {
+  if (!payload || typeof payload !== "object") return [];
+  const observations = (payload as { observations?: unknown }).observations;
+  if (!Array.isArray(observations)) return [];
+
+  return observations.flatMap((entry): FredObservation[] => {
+    if (!entry || typeof entry !== "object") return [];
+    const row = entry as Record<string, unknown>;
+    const period = isoDate(row.date);
+    const rawValue = typeof row.value === "string" ? row.value.trim() : row.value;
+    if (!period || rawValue === "" || rawValue === ".") return [];
+    const value = Number(rawValue);
+    if (!Number.isFinite(value)) return [];
+    return [{
+      period,
+      value,
+      realtimeStart: isoDate(row.realtime_start),
+      realtimeEnd: isoDate(row.realtime_end)
+    }];
+  }).sort((left, right) => left.period.localeCompare(right.period));
+}
+
+/** Verknüpft den aktuellen Wert mit der offiziellen ersten Veröffentlichung. */
+export function mergeFredObservationVintages(
+  current: readonly FredObservation[],
+  initial: readonly FredObservation[]
+): FredObservation[] {
+  const initialByPeriod = new Map(initial.map((entry) => [entry.period, entry]));
+
+  return current.map((entry) => {
+    const first = initialByPeriod.get(entry.period);
+    if (!first) {
+      return { ...entry, firstPublishedAt: null, initialValue: null, revisionStatus: "not_available" };
+    }
+    const revised = Math.abs(entry.value - first.value) > 1e-9;
+    return {
+      ...entry,
+      firstPublishedAt: first.realtimeStart ?? null,
+      initialValue: first.value,
+      revisionStatus: revised ? "revised" : "unrevised"
+    };
+  });
+}
 
 /**
  * Liest den CSV-Export.
@@ -315,10 +492,26 @@ export function parseFredCsv(text: string): FredObservation[] {
  * keinen Vorgänger, und eine Veränderung gegenüber nichts gibt es nicht.
  */
 export function toMonthlyChange(observations: readonly FredObservation[]): FredObservation[] {
-  return observations.slice(1).map((entry, index) => ({
-    period: entry.period,
-    value: Number((entry.value - observations[index].value).toFixed(3))
-  }));
+  return observations.slice(1).map((entry, index) => {
+    const previous = observations[index];
+    const value = Number((entry.value - previous.value).toFixed(3));
+    const carriesVintageData = entry.revisionStatus !== undefined || entry.initialValue !== undefined;
+    if (!carriesVintageData) return { period: entry.period, value };
+
+    const initialValue = entry.initialValue !== null && entry.initialValue !== undefined
+      && previous.initialValue !== null && previous.initialValue !== undefined
+      ? Number((entry.initialValue - previous.initialValue).toFixed(3))
+      : null;
+
+    return {
+      ...entry,
+      value,
+      initialValue,
+      revisionStatus: initialValue === null
+        ? "not_available"
+        : Math.abs(value - initialValue) > 1e-9 ? "revised" : "unrevised"
+    };
+  });
 }
 
 export function fredSeriesUrl(series: FredSeriesDefinition) {
@@ -327,39 +520,18 @@ export function fredSeriesUrl(series: FredSeriesDefinition) {
   return url;
 }
 
-export type FredFetchResult = {
-  observations: FredObservation[];
-  /** Warum die Reihe so aussieht — inklusive Pflicht-Quellenangabe. */
-  note: string;
-};
-
-/**
- * Holt eine Reihe.
- *
- * Wirft nicht: eine nicht erreichbare Makroreihe darf keinen Analysepfad
- * abbrechen. Sie darf aber auch nicht durch einen Schätzwert ersetzt werden,
- * deshalb endet jeder Fehlerfall in einer leeren Reihe mit Begründung.
- */
-export async function fetchFredSeries(
+export function fredApiSeriesUrl(
   series: FredSeriesDefinition,
-  observations = 400
-): Promise<FredFetchResult> {
-  try {
-    const { text } = await fetchBoundedProviderText(fredSeriesUrl(series), "FRED", {
-      timeoutMs: 9000,
-      accept: "text/csv",
-      maxBytes: 1_500_000
-    });
-
-    const parsed = parseFredCsv(text);
-    const trimmed = parsed.slice(-Math.max(2, observations));
-    const values = series.reportAsChange ? toMonthlyChange(trimmed) : trimmed;
-
-    return values.length
-      ? { observations: values, note: fredCitation(series) }
-      : { observations: [], note: `Keine verwertbaren Beobachtungen. ${fredCitation(series)}` };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "unbekannter Fehler";
-    return { observations: [], note: `Reihe nicht abrufbar: ${message}.` };
-  }
+  apiKey: string,
+  outputType: 1 | 4,
+  observations: number
+) {
+  const url = new URL(`https://${FRED_API_HOST}/fred/series/observations`);
+  url.searchParams.set("series_id", series.seriesId);
+  url.searchParams.set("api_key", apiKey);
+  url.searchParams.set("file_type", "json");
+  url.searchParams.set("output_type", String(outputType));
+  url.searchParams.set("sort_order", "desc");
+  url.searchParams.set("limit", String(Math.max(2, Math.min(observations, 2_000))));
+  return url;
 }

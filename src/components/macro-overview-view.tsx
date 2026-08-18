@@ -107,6 +107,24 @@ function ReadingCard({ reading }: { reading: MacroReading }) {
         Stand {reading.period} · {reading.ageDays === 0 ? "heute" : `${reading.ageDays} Tage alt`}
       </p>
 
+      {reading.dataLifecycle ? (
+        <div className="mt-3 rounded-2xl border border-stroke bg-coal px-3 py-2 text-xs text-muted">
+          <p>
+            {reading.dataLifecycle.firstPublishedAt
+              ? `Erstveröffentlichung ${reading.dataLifecycle.firstPublishedAt}`
+              : "Erstveröffentlichung nicht verfügbar"}
+            {reading.dataLifecycle.vintageAsOf ? ` · Vintage geprüft bis ${reading.dataLifecycle.vintageAsOf}` : ""}
+          </p>
+          <p className="mt-1">
+            {reading.dataLifecycle.revisionStatus === "revised"
+              ? `Revidiert: ${reading.dataLifecycle.revisionDelta?.toLocaleString("de-DE", { maximumFractionDigits: 6 }) ?? "n/a"} gegenüber dem Erstwert`
+              : reading.dataLifecycle.revisionStatus === "unrevised"
+                ? "Seit der Erstveröffentlichung nicht revidiert"
+                : "Revisionsstand nicht verfügbar"}
+          </p>
+        </div>
+      ) : null}
+
       <p className="mt-3 text-xs leading-relaxed text-muted">{reading.explanation}</p>
 
       {reading.caveats.length > 0 ? (

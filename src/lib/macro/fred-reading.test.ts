@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildMacroReading, buildMacroOverview } from "@/lib/macro/analysis";
-import { derivationCaveat, licenceCaveat, toMacroReadingSource } from "@/lib/macro/fred-reading";
+import { derivationCaveat, licenceCaveat, toMacroDataLifecycle, toMacroReadingSource } from "@/lib/macro/fred-reading";
 import { fredSeriesCatalog, findFredSeries, type FredSeriesDefinition } from "@/lib/macro/fred";
 
 /**
@@ -42,11 +42,37 @@ describe("Übersetzung in die gemeinsame Auswertung", () => {
     expect(toMacroReadingSource(series("us_yield_10y")).frequency).toBe("business_daily");
     expect(toMacroReadingSource(series("us_cpi")).frequency).toBe("monthly");
     expect(toMacroReadingSource(series("us_gdp_growth")).frequency).toBe("quarterly");
+    expect(toMacroReadingSource(series("fed_balance_sheet")).frequency).toBe("weekly");
   });
 
   it("reicht die Einheit unverändert durch", () => {
     expect(toMacroReadingSource(series("us_retail_sales")).unit).toBe("usd");
     expect(toMacroReadingSource(series("us_nonfarm_payrolls")).unit).toBe("thousands");
+  });
+});
+
+describe("Beobachtung, Veröffentlichung und Revision", () => {
+  it("hält die drei Zeitdimensionen getrennt", () => {
+    expect(toMacroDataLifecycle([{
+      period: "2026-06-01",
+      value: 101.4,
+      realtimeEnd: "2026-08-17",
+      firstPublishedAt: "2026-07-15",
+      initialValue: 100.9,
+      revisionStatus: "revised"
+    }])).toEqual({
+      observationDate: "2026-06-01",
+      firstPublishedAt: "2026-07-15",
+      vintageAsOf: "2026-08-17",
+      revisionStatus: "revised",
+      initialValue: 100.9,
+      revisionDelta: 0.5
+    });
+  });
+
+  it("behauptet ohne Vintage-Daten keine Revision", () => {
+    expect(toMacroDataLifecycle([{ period: "2026-06-01", value: 101.4 }])?.revisionStatus)
+      .toBe("not_available");
   });
 });
 

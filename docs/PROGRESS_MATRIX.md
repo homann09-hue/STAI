@@ -148,7 +148,7 @@ weil ein Knopf ohne hinterlegten Preis eine Funktionsattrappe wäre.
 | §25 | Erklärbare Teilnoten | `DONE` | `analysis/quality-scores.ts`: 7 Dimensionen, 18 Einzelkennzahlen, **keine Gesamtnote**. Fehlende Werte werden benannt statt geschätzt. 15 Tests. Ohne Branchenkalibrierung |
 | §26 | Technische Analyse | `DONE` | **Vollständig.** 19 Indikatoren inklusive ADX, Trendkanal und Ausbruch, dazu Analyse über drei Zeitrahmen. Alle drei Erfindungsquellen ersetzt (siehe unten). 56 Tests, neun Regressionen gegengeprüft. Einschränkung: alles auf Tagesbasis — Intraday-Zeitrahmen gibt es nicht, weil der Anbietertarif keine Intraday-Historie enthält |
 | §27 | News und Events | `IN PROGRESS` | **Klassifikation und Entdopplung gebaut** (siehe unten): 18 Ereignisarten mit Beleg, Bezug nach Unternehmen/Branche/Land/Index/Rohstoff/Währung/Krypto, Duplikate zusammengeführt. 32 Tests, fünf Regressionen gegengeprüft. Offen: nur eine Quelle liefert Entitäten, NewsAPI keine |
-| §28 | Makro | `DONE` | **24 Reihen** live: 11 EZB (Euroraum), 13 FRED (USA, **ohne Schlüssel**), dazu 5 Marktindikatoren. Alles aus §28 außer **PMI**. Die US-Reihen hängen seit dem 2026-08-09 an Route und Ansicht — vorher war `fred.ts` gebaut, aber von keiner Zeile importiert. Offen ist keine Datenlücke, sondern eine Lizenzfrage |
+| §28 | Makro | `DONE` | **34 Reihen konfiguriert**: 11 EZB (Euroraum), 23 FRED (USA), dazu 5 Marktindikatoren. FRED liefert Werte ohne Schlüssel per offiziellem CSV; mit `FRED_API_KEY` zusätzlich Erstveröffentlichung und Revisionsvergleich. Alles aus §28 außer **PMI**. Offen bleibt die Lizenzfrage |
 | §28 | Economic Calendar | `BLOCKED` | Keine Quelle im Tarif. FMP `/stable/economic-calendar` antwortet mit **HTTP 402**. Eine freie Alternative bräuchte einen FRED-Schlüssel — Nutzerentscheidung nach §95 |
 | §29 | Zentralbanken: Zinsentscheidungen | `DONE` | **Beide Notenbanken.** EZB aus dem Leitzinspfad, Fed aus `DFEDTARU` (Obergrenze des Zielkorridors, **nicht** `DFF`: der effektive Satz hätte in 800 Beobachtungen 798 „Zinsschritte" erzeugt statt 6). Live: Fed zuletzt am 2025-12-11 um 0,25 Pp gesenkt, seither unverändert |
 | §29 | Zentralbanken: Sitzungstermine, Statements, Protokolle | `NOT STARTED` | Aus einem Zinspfad nicht ableitbar, braucht eine Terminquelle |
@@ -635,12 +635,15 @@ Als echte Kalendertagsreihe geführt wäre eine Rendite vom Freitag am Montag
 **Live am 2026-08-09:** 13 von 13 Reihen geladen, keine fehlend. Der CPI ist 69
 Tage alt und wird als „verzögert" ausgewiesen statt als aktuell.
 
-### §28: FRED schließt die US-Lücke — ohne Schlüssel
+### §28: FRED schließt die US-Lücke — Werte ohne Schlüssel, Vintages optional
 
 Die Annahme, FRED brauche einen Schlüssel, war falsch. Am 2026-08-08 gemessen:
 der CSV-Export unter `fred.stlouisfed.org/graph/fredgraph.csv` antwortet **ohne
-Authentifizierung**; nur die JSON-API unter `api.stlouisfed.org` verlangt einen
-(HTTP 400 ohne). Damit entfällt die Nutzeraufgabe komplett.
+Authentifizierung**; die JSON-API unter `api.stlouisfed.org` verlangt einen
+Schlüssel (HTTP 400 ohne). Werte bleiben deshalb ohne Schlüssel verfügbar. Für
+die getrennte Anzeige von Beobachtungsdatum, Erstveröffentlichung und Revision
+wird optional `FRED_API_KEY` genutzt; der CSV-Fallback behauptet diese Angaben
+nicht.
 
 Elf Reihen aufgenommen, jede einzeln geprüft — darunter genau die drei, die der
 Kursanbieter mit HTTP 402 gesperrt hatte:

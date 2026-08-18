@@ -16,9 +16,10 @@ const DEFAULT_ALLOWED_PROVIDER_HOSTS = [
   "databento.com",
   "eodhd.com",
   "eodhistoricaldata.com",
-  // Nur der Datenhost der St. Louis Fed. Bewusst nicht "stlouisfed.org":
-  // eine Domain-Freigabe wuerde jeden Subdomainserver zum erlaubten Ziel
-  // machen -- dieselbe Regel wie bei der EZB.
+  // Nur die beiden benoetigten Hosts der St. Louis Fed. Bewusst nicht
+  // "stlouisfed.org": eine Domain-Freigabe wuerde jeden Subdomainserver zum
+  // erlaubten Ziel machen -- dieselbe Regel wie bei der EZB.
+  "api.stlouisfed.org",
   "fred.stlouisfed.org",
   "financialmodelingprep.com",
   "finnhub.io",

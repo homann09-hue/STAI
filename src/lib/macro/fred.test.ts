@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   fredCitation,
+  fredApiSeriesUrl,
   fredSeriesCatalog,
   fredSeriesUrl,
+  mergeFredObservationVintages,
+  parseFredApiObservations,
   parseFredCsv,
   toMonthlyChange
 } from "@/lib/macro/fred";
@@ -76,6 +79,61 @@ describe("Bestand in Veränderung", () => {
     expect(toMonthlyChange([{ period: "2026-01-01", value: 100 }])).toEqual([]);
     expect(toMonthlyChange([])).toEqual([]);
   });
+
+  it("berechnet bei NFP auch den revidierten Erstwert als Monatsveränderung", () => {
+    const changes = toMonthlyChange([
+      { period: "2026-05-01", value: 158_600, initialValue: 158_590, revisionStatus: "revised" },
+      { period: "2026-06-01", value: 158_710, initialValue: 158_700, revisionStatus: "revised", firstPublishedAt: "2026-07-03" }
+    ]);
+
+    expect(changes[0]).toMatchObject({
+      value: 110,
+      initialValue: 110,
+      revisionStatus: "unrevised",
+      firstPublishedAt: "2026-07-03"
+    });
+  });
+});
+
+describe("FRED-API und Revisionsstand", () => {
+  const currentPayload = {
+    observations: [
+      { realtime_start: "2026-08-01", realtime_end: "2026-08-17", date: "2026-06-01", value: "101.4" },
+      { realtime_start: "2026-08-01", realtime_end: "2026-08-17", date: "2026-07-01", value: "." }
+    ]
+  };
+
+  it("verwirft fehlende API-Werte statt sie als null zu deuten", () => {
+    expect(parseFredApiObservations(currentPayload)).toEqual([
+      {
+        period: "2026-06-01",
+        value: 101.4,
+        realtimeStart: "2026-08-01",
+        realtimeEnd: "2026-08-17"
+      }
+    ]);
+  });
+
+  it("erkennt revidierte und unveränderte Beobachtungen", () => {
+    const current = parseFredApiObservations(currentPayload);
+    const revised = mergeFredObservationVintages(current, [
+      { period: "2026-06-01", value: 100.9, realtimeStart: "2026-07-15" }
+    ]);
+    const unchanged = mergeFredObservationVintages(current, [
+      { period: "2026-06-01", value: 101.4, realtimeStart: "2026-07-15" }
+    ]);
+
+    expect(revised[0]).toMatchObject({ initialValue: 100.9, firstPublishedAt: "2026-07-15", revisionStatus: "revised" });
+    expect(unchanged[0].revisionStatus).toBe("unrevised");
+  });
+
+  it("baut die offizielle API-URL mit begrenzter Ergebnismenge", () => {
+    const url = fredApiSeriesUrl(fredSeriesCatalog[0], "test-key", 4, 50_000);
+    expect(url.protocol).toBe("https:");
+    expect(url.hostname).toBe("api.stlouisfed.org");
+    expect(url.searchParams.get("output_type")).toBe("4");
+    expect(url.searchParams.get("limit")).toBe("2000");
+  });
 });
 
 describe("Katalog und Lizenz", () => {
@@ -125,6 +183,14 @@ describe("Katalog und Lizenz", () => {
     expect(ids).toContain("DGS10");
     expect(ids).toContain("CPIAUCSL");
     expect(ids).toContain("PAYEMS");
+    expect(ids).toContain("PCEPI");
+    expect(ids).toContain("PCEPILFE");
+    expect(ids).toContain("M2SL");
+    expect(ids).toContain("INDPRO");
+    expect(ids).toContain("WALCL");
+    expect(ids).toContain("RRPONTSYD");
+    expect(ids).toContain("WTREGEN");
+    expect(ids).toEqual(expect.arrayContaining(["DGS2", "DGS5", "DGS30"]));
   });
 
   it("baut eine HTTPS-URL auf dem freigegebenen Host", () => {

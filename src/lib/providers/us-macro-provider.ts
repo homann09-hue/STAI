@@ -6,8 +6,9 @@ import {
   type MacroOverviewShape,
   type MacroReading
 } from "@/lib/macro/analysis";
-import { fredSeriesCatalog, fetchFredSeries, type FredSeriesDefinition } from "@/lib/macro/fred";
-import { derivationCaveat, licenceCaveat, toMacroReadingSource } from "@/lib/macro/fred-reading";
+import { fetchFredSeries } from "@/lib/macro/fred-client";
+import { fredSeriesCatalog, type FredSeriesDefinition } from "@/lib/macro/fred";
+import { derivationCaveat, licenceCaveat, toMacroDataLifecycle, toMacroReadingSource } from "@/lib/macro/fred-reading";
 import { derivePolicyRatePath, type PolicyRatePath } from "@/lib/macro/policy-rate-history";
 import { logEvent } from "@/lib/observability";
 
@@ -44,7 +45,7 @@ const usShape: MacroOverviewShape = {
 type SeriesLoad = { reading: MacroReading; observations: { period: string; value: number }[] } | null;
 
 async function loadSeries(definition: FredSeriesDefinition, now: Date, observationCount: number): Promise<SeriesLoad> {
-  const { observations, note } = await fetchFredSeries(definition, observationCount);
+  const { observations, note, mode, revisionDataAvailable } = await fetchFredSeries(definition, observationCount);
 
   if (observations.length === 0) {
     logEvent("warn", "us_macro.series_empty", { seriesId: definition.id, note });
@@ -59,7 +60,15 @@ async function loadSeries(definition: FredSeriesDefinition, now: Date, observati
 
   // Ableitung und Lizenzstand gehoeren an die einzelne Reihe. Am Gesamtblock
   // stuenden sie entweder ueberall falsch oder nirgends.
-  const extra = [derivationCaveat(definition), licenceCaveat(definition)].filter(
+  const extra = [
+    derivationCaveat(definition),
+    licenceCaveat(definition),
+    mode === "csv_fallback"
+      ? "Veröffentlichungs- und Revisionsdaten sind im offiziellen FRED-CSV-Fallback nicht verfügbar."
+      : revisionDataAvailable
+        ? null
+        : "FRED lieferte für diese Reihe keine Erstveröffentlichung; ein Revisionsvergleich ist nicht möglich."
+  ].filter(
     (entry): entry is string => entry !== null
   );
 
@@ -70,7 +79,14 @@ async function loadSeries(definition: FredSeriesDefinition, now: Date, observati
     freshness: reading.freshness
   });
 
-  return { reading: { ...reading, caveats: [...reading.caveats, ...extra] }, observations };
+  return {
+    reading: {
+      ...reading,
+      dataLifecycle: toMacroDataLifecycle(observations),
+      caveats: [...reading.caveats, ...extra]
+    },
+    observations
+  };
 }
 
 /**
@@ -81,16 +97,22 @@ async function loadSeries(definition: FredSeriesDefinition, now: Date, observati
  * Inflationsrate fällt niemandem auf und ist deshalb besonders gefährlich.
  */
 export async function getUsMacroOverview(now: Date = new Date()): Promise<MacroOverview> {
-  const results = await Promise.all(
-    fredSeriesCatalog.map(async (definition) => ({
-      definition,
-      load: await loadSeries(
+  const results: Array<{ definition: FredSeriesDefinition; load: SeriesLoad }> = [];
+  // Pro Reihe sind mit API-Schlüssel zwei Abrufe nötig. Kleine Batches halten
+  // Lastspitzen und Provider-Rate-Limits auch bei kaltem Cache kontrollierbar.
+  for (let offset = 0; offset < fredSeriesCatalog.length; offset += 4) {
+    const batch = fredSeriesCatalog.slice(offset, offset + 4);
+    results.push(...await Promise.all(
+      batch.map(async (definition) => ({
         definition,
-        now,
-        definition.id === POLICY_RATE_SERIES_ID ? POLICY_RATE_OBSERVATIONS : OBSERVATIONS_PER_SERIES
-      )
-    }))
-  );
+        load: await loadSeries(
+          definition,
+          now,
+          definition.id === POLICY_RATE_SERIES_ID ? POLICY_RATE_OBSERVATIONS : OBSERVATIONS_PER_SERIES
+        )
+      }))
+    ));
+  }
 
   const readings = results
     .map((result) => result.load?.reading)
