@@ -84,8 +84,6 @@ aber nie als erfolgreicher Live-Nachweis umgedeutet.
 
 ## Naechste Aktion
 
-Nach Reset des Vercel-Limits den manuellen Production-Workflow fuer Commit
-`2189a9d` mit exakter StockPilot-Projektpruefung ausfuehren. Danach Live-Smoke,
-DR, Enterprise, 2.000 aktive Sitzungen und Error-/Warning-Logscan wiederholen.
-Erst dann Phase 7 abschliessen oder den verbleibenden Alpaca-Vertragsblocker
-erneut bewerten.
+Phase 13 in GitHub-CI pruefen und den Coinbase-WebSocket mit einem realen
+BTC-USD/ETH-USD-Smoke belegen. Vercel bleibt bis zum Reset des Build-Limits
+unangetastet; danach ausschliesslich das StockPilot-Projekt deployen.

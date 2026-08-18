@@ -116,7 +116,10 @@ describe("provider registry", () => {
       "market_status",
     ] as const) {
       expect(
-        resolveProviderRoute({ capability, preferredProvider: "alpaca" }, env).providers,
+        resolveProviderRoute(
+          { capability, assetClass: "equity", preferredProvider: "alpaca" },
+          env,
+        ).providers,
       ).toEqual(["alpaca"]);
     }
   });
@@ -264,6 +267,12 @@ describe("provider registry", () => {
         base,
       ).providers,
     ).not.toContain("binance");
+    expect(
+      resolveProviderRoute(
+        { capability: "stream_quotes", assetClass: "crypto" },
+        base,
+      ).providers,
+    ).toEqual(["coinbase"]);
   });
 
   it("routes the keyless CoinGecko adapter only for crypto metadata", () => {
