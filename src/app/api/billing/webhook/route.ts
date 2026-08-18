@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { getAccountDeletionDisposition } from "@/lib/account-deletion";
 import { jsonError, jsonOk } from "@/lib/api-guard";
 import { entitlementFromStripeSubscription, stripeSubscriptionIds } from "@/lib/billing/stripe-events";
 import {
@@ -58,9 +59,28 @@ async function syncSubscription(
   subscription: Stripe.Subscription,
   eventId: string
 ) {
+  const ids = stripeSubscriptionIds(subscription);
+  const metadataUserId = subscription.metadata.stockpilot_user_id || null;
+  const earlyDisposition = await getAccountDeletionDisposition(supabase, {
+    userId: metadataUserId,
+    customerId: ids.customerId
+  });
+  if (earlyDisposition) return { userId: metadataUserId, skippedReason: earlyDisposition };
+
   const fallbackUserId = await mappedUserId(supabase, subscription);
   const mutation = entitlementFromStripeSubscription(subscription, getPlanForStripePriceId, fallbackUserId);
   if (!mutation) throw new Error("subscription_mapping_missing");
+
+  const disposition = await getAccountDeletionDisposition(supabase, {
+    userId: mutation.userId,
+    customerId: mutation.providerCustomerId
+  });
+  if (disposition) return { userId: mutation.userId, skippedReason: disposition };
+
+  const userLookup = await supabase.auth.admin.getUserById(mutation.userId);
+  const lookupStatus = (userLookup.error as { status?: number } | null)?.status;
+  if (userLookup.error && lookupStatus !== 404) throw userLookup.error;
+  if (!userLookup.data.user) return { userId: mutation.userId, skippedReason: "account_missing" as const };
 
   const { error } = await supabase.from("entitlements").upsert(
     {
@@ -80,7 +100,7 @@ async function syncSubscription(
     { onConflict: "user_id,provider" }
   );
   if (error) throw error;
-  return mutation.userId;
+  return { userId: mutation.userId, skippedReason: null };
 }
 
 export async function POST(request: Request) {
@@ -114,6 +134,7 @@ export async function POST(request: Request) {
 
   let handled = false;
   let userId: string | null = null;
+  let skippedReason: string | null = null;
 
   try {
     if (event.type === "checkout.session.completed") {
@@ -123,8 +144,10 @@ export async function POST(request: Request) {
       const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
         expand: ["items.data.price"]
       });
-      userId = await syncSubscription(supabase, subscription, event.id);
-      handled = true;
+      const sync = await syncSubscription(supabase, subscription, event.id);
+      userId = sync.userId;
+      skippedReason = sync.skippedReason;
+      handled = !skippedReason;
     }
 
     if (
@@ -132,8 +155,10 @@ export async function POST(request: Request) {
       event.type === "customer.subscription.updated" ||
       event.type === "customer.subscription.deleted"
     ) {
-      userId = await syncSubscription(supabase, event.data.object as Stripe.Subscription, event.id);
-      handled = true;
+      const sync = await syncSubscription(supabase, event.data.object as Stripe.Subscription, event.id);
+      userId = sync.userId;
+      skippedReason = sync.skippedReason;
+      handled = !skippedReason;
     }
 
     const { error: insertError } = await supabase.from("billing_events").insert({
@@ -149,8 +174,8 @@ export async function POST(request: Request) {
     });
 
     if (insertError && insertError.code !== "23505") throw insertError;
-    logEvent("info", "billing.webhook_processed", { eventType: event.type, handled, userId });
-    return jsonOk({ received: true, handled });
+    logEvent("info", "billing.webhook_processed", { eventType: event.type, handled, userId, skippedReason });
+    return jsonOk({ received: true, handled, skippedReason });
   } catch (error) {
     logEvent("error", "billing.webhook_processing_failed", {
       eventType: event.type,

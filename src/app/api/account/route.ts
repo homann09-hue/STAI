@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { jsonError, jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
-import { deleteUserAccount, getSupabaseAuth } from "@/lib/supabase/user-data";
+import { isFreshAccountAuthentication } from "@/lib/account-deletion-policy";
+import { AccountDeletionError, runAccountDeletion } from "@/lib/account-deletion";
+import { getSupabaseAuth } from "@/lib/supabase/user-data";
 
 const deletionSchema = z.object({ confirmation: z.literal("KONTO LÖSCHEN") }).strict();
 
@@ -14,10 +16,26 @@ export async function DELETE(request: Request) {
   const auth = await getSupabaseAuth(request);
   if (!auth.ok) return jsonError("Anmeldung für die Kontolöschung erforderlich.", 401, { "X-StockPilot-Auth-Reason": auth.reason });
 
+  const currentUser = await auth.supabase.auth.getUser();
+  if (currentUser.error || !currentUser.data.user) {
+    return jsonError("Session konnte für die Kontolöschung nicht bestätigt werden.", 401);
+  }
+  if (!isFreshAccountAuthentication(currentUser.data.user.last_sign_in_at)) {
+    return jsonError(
+      "Bitte abmelden und erneut anmelden. Kontolöschung erfordert eine Anmeldung innerhalb der letzten zehn Minuten.",
+      428,
+      { "X-StockPilot-Reauthentication": "required" }
+    );
+  }
+
   try {
-    await deleteUserAccount(auth);
-    return jsonOk({ deleted: true, deletedAt: new Date().toISOString() }, { headers: { "Cache-Control": "private, no-store" } });
-  } catch {
+    const result = await runAccountDeletion(auth);
+    return jsonOk(
+      { ...result, deletedAt: new Date().toISOString() },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
+  } catch (error) {
+    if (error instanceof AccountDeletionError) return jsonError(error.message, error.status);
     return jsonError("Konto konnte nicht vollständig gelöscht werden.", 503);
   }
 }
