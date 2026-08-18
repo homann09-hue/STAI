@@ -145,3 +145,10 @@ deshalb fail-closed und erzeugt keine falsche Live-Anzeige.
 - Einheitliche Vertrauensanzeige fuer Dashboard, Watchlist und Asset-Detailseite eingebaut.
 - Preiswerte werden nie gemittelt; Abweichungen sperren weiterhin die Analyse.
 - Komponententests fuer bestaetigte, divergierende, Einzelquellen- und neutrale Zustaende ergaenzt.
+
+## 2026-08-17 - Phase 17: Provider-Health Security
+
+- Direkte Fetches aus allgemeinen Provider-Pings entfernt.
+- Pings an SSRF-Allowlist, Groessen-/Timeout-Limits, Circuit-Breaker und Request-Budgets gebunden.
+- NewsAPI-Secret aus Query-URL entfernt; Clientantworten bleiben frei von rohen Providerfehlern.
+- Vier gezielte Tests fuer fehlende Konfiguration, sicheren Transport, 429 und Fehler-Redaktion ergaenzt.

@@ -627,3 +627,11 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - Integration in Marktband, Dashboard-Listen, Watchlist und Asset-Detailseite.
 - Zugängliche Labels, Tooltips und Komponententests dokumentieren die erlaubten Aussagen.
 - Details: `docs/DATA_TRUST_UI.md`.
+
+## Phase 17 - Provider-Health Security (2026-08-17)
+
+- Allgemeine Provider-Pings auf den zentralen begrenzten HTTP-/Resilience-Layer umgestellt.
+- HTTPS-Allowlist, Antwortgroesse, Timeout, Circuit-Breaker und Rate-Limit-Cooldown gelten nun auch fuer Health-Checks.
+- NewsAPI-Key aus der URL in einen explizit erlaubten serverseitigen Header verschoben.
+- Sichere Fehlerklassifizierung fuer Erfolg, 429 und ungueltige Antworten ergaenzt.
+- Details: `docs/PROVIDER_HEALTH_SECURITY.md`.
