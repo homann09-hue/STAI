@@ -138,3 +138,17 @@ deshalb fail-closed und erzeugt keine falsche Live-Anzeige.
 - **Lebenszyklus:** SDMX `VALID_FROM`/`VALID_TO` werden zu Erstveröffentlichung, aktuellem Vintage, Erstwert und Revisionsstatus normalisiert; mehrere Vintages desselben Beobachtungszeitraums zählen nicht als zwei Perioden.
 - **Transparenz:** Jede Karte nennt Primärquelle und Serienkennung. Fehlende Historienfelder führen zu `not_available`, nie zu einer erfundenen Revision.
 - **Verification:** Syntaxcheck für 12 Dateien, direkter ECB-Modultest mit 9 Prüfungen und Diff-Hygiene grün. Nach Aktualisierung eines veralteten URL-Vertragstests ist GitHub-CI vollständig grün: TypeScript, ESLint, 1.177 Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates, Sprachprüfung, Dependency-/Lizenzprüfung und institutionelle Kontrollen. Supabase-RLS/Integrität war im ersten Lauf desselben PR grün. Draft-PR `#89`.
+
+## 2026-08-17 - Phase 16: Data Trust UI
+
+- Cross-Provider-Validierung aus dem Provider-Layer bis in die Nutzeroberflaeche gefuehrt.
+- Einheitliche Vertrauensanzeige fuer Dashboard, Watchlist und Asset-Detailseite eingebaut.
+- Preiswerte werden nie gemittelt; Abweichungen sperren weiterhin die Analyse.
+- Komponententests fuer bestaetigte, divergierende, Einzelquellen- und neutrale Zustaende ergaenzt.
+
+## 2026-08-17 - Phase 17: Provider-Health Security
+
+- Direkte Fetches aus allgemeinen Provider-Pings entfernt.
+- Pings an SSRF-Allowlist, Groessen-/Timeout-Limits, Circuit-Breaker und Request-Budgets gebunden.
+- NewsAPI-Secret aus Query-URL entfernt; Clientantworten bleiben frei von rohen Providerfehlern.
+- Vier gezielte Tests fuer fehlende Konfiguration, sicheren Transport, 429 und Fehler-Redaktion ergaenzt.

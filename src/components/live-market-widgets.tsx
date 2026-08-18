@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { memo, useMemo } from "react";
 import { Clock3, Database, Radio, RefreshCw, WifiOff, Zap } from "lucide-react";
-import { DataQualityBadge as CoreDataQualityBadge } from "@/components/data-quality-indicator";
+import { DataQualityBadge as CoreDataQualityBadge, QuoteVerificationBadge } from "@/components/data-quality-indicator";
 import { MarketDataStatus } from "@/components/market-data-status";
 import { formatCurrency, formatPercent } from "@/lib/scoring";
 import type { AssetSummary, Candle, MarketConnectionStatus, MarketDataQuality, MarketStatus, NormalizedQuote, Quote, RefreshInterval, RefreshMode } from "@/lib/types";
@@ -43,8 +43,21 @@ export function quoteFromSummary(item: AssetSummary, liveQuote?: NormalizedQuote
   };
 }
 
-export function DataQualityBadge({ quality, marketStatus }: { quality: MarketDataQuality; marketStatus: MarketStatus }) {
-  return <CoreDataQualityBadge quality={quality} marketStatus={marketStatus} compact />;
+export function DataQualityBadge({
+  quality,
+  marketStatus,
+  quote
+}: {
+  quality: MarketDataQuality;
+  marketStatus: MarketStatus;
+  quote?: NormalizedQuote;
+}) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <CoreDataQualityBadge quality={quality} marketStatus={marketStatus} compact />
+      <QuoteVerificationBadge quote={quote} />
+    </span>
+  );
 }
 
 export function MarketStatusBadge({ status }: { status: MarketStatus }) {
@@ -124,7 +137,7 @@ export const MarketIndexCard = memo(function MarketIndexCard({ item, liveQuote }
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-mono text-sm font-semibold text-mist">{item.asset.symbol}</p>
-            <DataQualityBadge quality={quote.quality} marketStatus={quote.marketStatus} />
+            <DataQualityBadge quality={quote.quality} marketStatus={quote.marketStatus} quote={liveQuote} />
           </div>
           <p className="mt-1 truncate text-xs text-muted">{item.asset.name}</p>
         </div>
