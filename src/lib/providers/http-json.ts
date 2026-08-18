@@ -13,6 +13,8 @@ const DEFAULT_ALLOWED_PROVIDER_HOSTS = [
   "api.alpaca.markets",
   "binance.com",
   "coinbase.com",
+  "api.coingecko.com",
+  "pro-api.coingecko.com",
   "databento.com",
   "eodhd.com",
   "eodhistoricaldata.com",
@@ -71,6 +73,8 @@ const ALLOWED_PROVIDER_REQUEST_HEADERS = new Set([
   "apca-api-key-id",
   "apca-api-secret-key",
   "x-finnhub-token",
+  "x-cg-demo-api-key",
+  "x-cg-pro-api-key",
 ]);
 
 function safeProviderRequestHeaders(

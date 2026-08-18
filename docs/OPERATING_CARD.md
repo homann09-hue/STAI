@@ -12,7 +12,7 @@ Gewinne.
 
 ## Aktuelle Phase
 
-- **Phase 11 abgeschlossen; als Naechstes Phase 12 CoinGecko.**
+- **Phase 12 CoinGecko ist abgeschlossen und vollständig durch GitHub-CI sowie pgTAP verifiziert.**
 - Phase 8 Finnhub ist als Commit `c743961` auf GitHub gepusht.
 - SEC-Formulare, historische Submission-Segmente, Metadaten, CIK-Auflösung,
   Deduplizierung, Neu-Erkennung und Fair-Access-Limit sind implementiert.
@@ -34,6 +34,13 @@ Gewinne.
   Performance-/Enterprise-Gates, Sprach-, Dependency-, Lizenz- und
   institutionelle Pruefungen. Supabase-RLS/Integritaet war im ersten Lauf
   desselben PR gruen.
+- Phase 12 ergänzt Coin-ID-/Paar-Mapping, Metadaten, Blockchain-Adressen,
+  Kategorien, Market Cap, Supply, Börsenabdeckung und globale Kryptomarktbreite
+  über CoinGecko. Coinbase/Binance bleiben schnelle Kursquellen; CoinGecko wird
+  nie als sekündlicher Live-Feed bezeichnet.
+- Phase 12 ist in Draft-PR `#90` grün: TypeScript, ESLint, 159 Testdateien /
+  1.195 Tests, Produktions-Build, Browser-Smoke, Performance-, Enterprise-,
+  Sprach-, Dependency-, Lizenz-, institutionelle und Supabase-RLS-Prüfungen.
 - Vercel bleibt auf Nutzerwunsch bis spaeter verschoben.
 
 ## Verbindliche Qualitaetsregeln
@@ -77,8 +84,6 @@ aber nie als erfolgreicher Live-Nachweis umgedeutet.
 
 ## Naechste Aktion
 
-Nach Reset des Vercel-Limits den manuellen Production-Workflow fuer Commit
-`2189a9d` mit exakter StockPilot-Projektpruefung ausfuehren. Danach Live-Smoke,
-DR, Enterprise, 2.000 aktive Sitzungen und Error-/Warning-Logscan wiederholen.
-Erst dann Phase 7 abschliessen oder den verbleibenden Alpaca-Vertragsblocker
-erneut bewerten.
+Phase 13 in GitHub-CI pruefen und den Coinbase-WebSocket mit einem realen
+BTC-USD/ETH-USD-Smoke belegen. Vercel bleibt bis zum Reset des Build-Limits
+unangetastet; danach ausschliesslich das StockPilot-Projekt deployen.

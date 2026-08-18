@@ -200,6 +200,12 @@ const requestDefaults: Partial<
     burstCapacity: 20,
     maxConcurrency: 8,
   },
+  coingecko: {
+    requestsPerMinute: 30,
+    burstCapacity: 4,
+    maxConcurrency: 2,
+    maxRetries: 1,
+  },
 };
 
 type ResilienceEnvironment = Readonly<Record<string, string | undefined>>;

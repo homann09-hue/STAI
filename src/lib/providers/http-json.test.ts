@@ -103,4 +103,14 @@ describe("bounded provider JSON", () => {
     });
     expect(init?.headers).not.toHaveProperty("Cookie");
   });
+
+  it("allows CoinGecko and keeps its optional key in a server header", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ gecko_says: "ok" }), { status: 200, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchImpl);
+    await fetchBoundedProviderJson(new URL("https://api.coingecko.com/api/v3/ping"), "CoinGecko", { requestHeaders: { "x-cg-demo-api-key": "server-secret", Cookie: "blocked" } });
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [URL, RequestInit];
+    expect(String(url)).not.toContain("server-secret");
+    expect(init.headers).toMatchObject({ "x-cg-demo-api-key": "server-secret" });
+    expect(init.headers).not.toHaveProperty("Cookie");
+  });
 });
