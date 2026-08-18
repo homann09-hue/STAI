@@ -1,5 +1,12 @@
 import { buildNormalizedQuote } from "@/lib/canonical-quote";
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
+import {
+  getCoinGeckoGlobalReference,
+  getCoinGeckoMetadata,
+  type CoinGeckoCachedResult,
+  type CoinGeckoMetadataLookup,
+} from "@/lib/providers/coingecko-client";
+import type { CryptoGlobalReference } from "@/lib/crypto/coingecko-normalization";
 import type {
   AssetDetail,
   DashboardData,
@@ -39,6 +46,10 @@ export interface ProfessionalDataProvider extends ETFProvider, CryptoProvider, P
 const preparedProvider = "StockPilot Provider Contract Prepared";
 const now = () => new Date().toISOString();
 const MAX_PROFESSIONAL_SYMBOLS = Math.max(12, Math.min(80, Number(process.env.STOCKPILOT_PROFESSIONAL_SYMBOL_LIMIT) || 36));
+
+function referenceMarketQuality(quality: "delayed" | "cached" | undefined): MarketDataQuality {
+  return quality ? "delayed" : "unavailable";
+}
 
 function point(input: {
   label: string;
@@ -354,12 +365,42 @@ function etfProfile(detail: AssetDetail): ETFProfessionalProfile {
   };
 }
 
-function cryptoProfile(detail: AssetDetail, quote: NormalizedQuote): CryptoProfessionalProfile {
+function cryptoProfile(
+  detail: AssetDetail,
+  quote: NormalizedQuote,
+  reference: CoinGeckoCachedResult<CoinGeckoMetadataLookup> | null = null,
+  globalReference: CoinGeckoCachedResult<CryptoGlobalReference> | null = null,
+): CryptoProfessionalProfile {
   const updatedAt = quote.timestamp;
   const cp = (label: string, value: string | number | null, quality: MarketDataQuality = quote.quality, provider = quote.provider, note = "Normalisierte Krypto-Providerangabe oder vorbereitete Datenstruktur.") =>
     point({ label, value, quality, provider, updatedAt, availability: value === null ? "provider_missing" : "available", note });
   const risk = detail.historicalRisk;
   const trendPoint = detail.scoreEvidence?.dimensions.trend;
+  const resolved = reference?.value.status === "resolved" ? reference.value.data : null;
+  const referenceQuality = referenceMarketQuality(reference?.quality);
+  const referenceUpdatedAt = resolved?.market.lastUpdated ?? resolved?.fetchedAt ?? updatedAt;
+  const rp = (label: string, value: string | number | null, note: string) => point({
+    label,
+    value,
+    provider: resolved ? "CoinGecko" : preparedProvider,
+    quality: resolved ? referenceQuality : "unavailable",
+    updatedAt: referenceUpdatedAt,
+    availability: value === null ? "provider_missing" : "available",
+    note,
+  });
+  const mappingNote = reference?.value.status === "ambiguous"
+    ? `Mehrdeutiges Symbol: ${reference.value.candidates.map((candidate) => `${candidate.name} (${candidate.id})`).join(", ")}. Keine automatische Auswahl.`
+    : reference?.value.status === "not_found"
+      ? "Keine eindeutige CoinGecko-ID gefunden."
+      : resolved
+        ? resolved.mappingMethod === "verified_mapping"
+          ? "Kanonische, geprüfte Coin-ID-Zuordnung."
+          : "Eindeutiger exakter Symboltreffer in der CoinGecko-Suche."
+        : "CoinGecko-Referenzquelle ist nicht verfügbar oder nicht freigeschaltet.";
+  const totalCryptoMarketCap = globalReference?.value.totalMarketCapUsd ?? null;
+  const dominance = resolved?.market.marketCap && totalCryptoMarketCap
+    ? Number(((resolved.market.marketCap / totalCryptoMarketCap) * 100).toFixed(4))
+    : null;
 
   return {
     symbol: detail.asset.symbol,
@@ -367,17 +408,24 @@ function cryptoProfile(detail: AssetDetail, quote: NormalizedQuote): CryptoProfe
     provider: quote.provider,
     quality: quote.quality,
     updatedAt,
-    price: cp("Preis live", quote.price),
-    volume24h: cp("24h Volumen", quote.volume ?? null),
-    marketCap: cp("Market Cap", quote.marketCap ?? null),
-    circulatingSupply: prepared("Circulating Supply"),
-    maxSupply: prepared("Max Supply"),
-    fullyDilutedValuation: prepared("Fully Diluted Valuation"),
-    dominance: prepared("Dominanz"),
+    coinId: rp("CoinGecko-ID", resolved?.coinId ?? null, mappingNote),
+    mappingStatus: rp("Identitäts-Zuordnung", resolved?.mappingMethod === "verified_mapping" ? "verifiziert" : resolved ? "eindeutiger Suchtreffer" : null, mappingNote),
+    marketCapRank: rp("Market-Cap-Rang", resolved?.marketCapRank ?? null, "CoinGecko-Referenzrang; kein Live-Kurssignal."),
+    categories: rp("Kategorien", resolved?.categories.length ? resolved.categories.slice(0, 5).join(", ") : null, "Provider-Kategorien, nicht von StockPilot erfunden."),
+    blockchainAddresses: rp("Blockchain-Adressen", resolved?.blockchainAddresses.length ? resolved.blockchainAddresses.slice(0, 4).map((item) => `${item.network}: ${item.address}`).join(" · ") : null, "Vertragsadressen aus CoinGecko; vor Transaktionen immer unabhängig prüfen."),
+    price: cp("Aktueller Kurs", quote.price, quote.quality, quote.provider, "Schneller Coinbase-/Binance-Quote mit explizitem Qualitätsstatus; keine Realtime-Garantie."),
+    volume24h: rp("24h Volumen", resolved?.market.volume24h ?? null, "CoinGecko-Referenz-Snapshot; nicht der schnelle Börsen-Quote-Feed."),
+    marketCap: rp("Market Cap", resolved?.market.marketCap ?? null, "CoinGecko-Referenz-Snapshot; nicht sekündlich realtime."),
+    circulatingSupply: rp("Circulating Supply", resolved?.market.circulatingSupply ?? null, "Von CoinGecko gemeldeter Umlaufbestand."),
+    totalSupply: rp("Total Supply", resolved?.market.totalSupply ?? null, "Von CoinGecko gemeldeter Gesamtbestand."),
+    maxSupply: rp("Max Supply", resolved?.market.maxSupply ?? null, "Fehlt, wenn kein Maximalbestand definiert oder geliefert ist."),
+    fullyDilutedValuation: rp("Fully Diluted Valuation", resolved?.market.fullyDilutedValuation ?? null, "CoinGecko-Referenzwert; keine StockPilot-Schätzung."),
+    dominance: point({ label: "Dominanz", value: dominance, unit: "%", provider: dominance === null ? preparedProvider : "CoinGecko / StockPilot deterministic", quality: dominance === null ? "unavailable" : referenceMarketQuality(globalReference?.quality), updatedAt: globalReference?.value.fetchedAt ?? updatedAt, availability: dominance === null ? "provider_missing" : "available", note: globalReference?.fromCache ? "Deterministisch aus gecachten CoinGecko-Referenzwerten berechnet." : "Deterministisch aus Coin-Marktkapitalisierung und CoinGecko-Gesamtmarkt berechnet." }),
     fundingRates: prepared("Funding Rates"),
     openInterest: prepared("Open Interest"),
-    onChainData: prepared("On-Chain-Daten"),
+    onChainData: rp("On-Chain-Daten", resolved?.blockchainAddresses.length ? `${resolved.blockchainAddresses.length} gemeldete Netzwerkadresse(n)` : null, "Nur Stammdaten; keine On-Chain-Aktivitätsanalyse."),
     exchangeData: cp("Exchange-Daten", quote.spread !== undefined ? `Bid/Ask Spread ${quote.spread}` : null),
+    exchangeCount: rp("Börsen-/Paar-Abdeckung", resolved?.exchanges.length ?? null, "Anzahl deduplizierter CoinGecko-Ticker im begrenzten Referenz-Snapshot."),
     volatility: point({
       label: "Volatilität",
       value: risk.metrics.annualizedVolatilityPercent,
@@ -407,7 +455,12 @@ function cryptoProfile(detail: AssetDetail, quote: NormalizedQuote): CryptoProfe
   };
 }
 
-function rowFromDetail(detail: AssetDetail, quote: NormalizedQuote): ProfessionalScreenerRow {
+function rowFromDetail(
+  detail: AssetDetail,
+  quote: NormalizedQuote,
+  cryptoReference: CoinGeckoCachedResult<CoinGeckoMetadataLookup> | null = null,
+  globalReference: CoinGeckoCachedResult<CryptoGlobalReference> | null = null,
+): ProfessionalScreenerRow {
   const row: ProfessionalScreenerRow = {
     asset: detail.asset,
     quote,
@@ -420,7 +473,7 @@ function rowFromDetail(detail: AssetDetail, quote: NormalizedQuote): Professiona
 
   if (detail.asset.type === "stock") row.equityFundamentals = equityFundamentals(detail);
   if (detail.asset.type === "etf") row.etfProfile = etfProfile(detail);
-  if (detail.asset.type === "crypto") row.cryptoProfile = cryptoProfile(detail, quote);
+  if (detail.asset.type === "crypto") row.cryptoProfile = cryptoProfile(detail, quote, cryptoReference, globalReference);
 
   return row;
 }
@@ -518,7 +571,21 @@ class StockPilotProfessionalDataProvider implements ProfessionalDataProvider {
     const provider = getMarketDataProvider();
     const dashboard = await provider.getDashboard();
     const details = await loadProfessionalDetails(provider, professionalUniverseSymbols(dashboard));
-    const rows = details.map((detail) => rowFromDetail(detail, normalizedFromDetail(detail)));
+    const cryptoDetails = details.filter((detail) => detail.asset.type === "crypto");
+    const [cryptoReferences, globalReference] = await Promise.all([
+      Promise.all(cryptoDetails.map(async (detail) => [
+        detail.asset.symbol,
+        await getCoinGeckoMetadata(detail.asset.symbol).catch(() => null),
+      ] as const)),
+      cryptoDetails.length ? getCoinGeckoGlobalReference().catch(() => null) : Promise.resolve(null),
+    ]);
+    const cryptoReferenceBySymbol = new Map(cryptoReferences);
+    const rows = details.map((detail) => rowFromDetail(
+      detail,
+      normalizedFromDetail(detail),
+      cryptoReferenceBySymbol.get(detail.asset.symbol) ?? null,
+      globalReference,
+    ));
     const bySymbol = new Map(rows.map((row) => [row.asset.symbol, row]));
     const selectRows = (items: typeof dashboard.watchlist) => items.map((item) => bySymbol.get(item.asset.symbol)).filter((row): row is ProfessionalScreenerRow => Boolean(row));
     const updatedAt = now();
@@ -544,7 +611,15 @@ class StockPilotProfessionalDataProvider implements ProfessionalDataProvider {
         prepared("S&P 500", "Kein lizenzierter Indexfeed im aktuellen Report."),
         prepared("Nasdaq 100", "Kein lizenzierter Indexfeed im aktuellen Report."),
         prepared("DAX", "Kein lizenzierter Indexfeed im aktuellen Report."),
-        prepared("Krypto-Marktbreite", "Einzelne Krypto-Quotes sind keine belastbare Gesamtmarktkennzahl.")
+        globalReference
+          ? point({ label: "Krypto-Gesamtmarkt", value: globalReference.value.totalMarketCapUsd, provider: "CoinGecko", quality: referenceMarketQuality(globalReference.quality), updatedAt: globalReference.value.providerUpdatedAt ?? globalReference.value.fetchedAt, availability: globalReference.value.totalMarketCapUsd === null ? "provider_missing" : "available", note: globalReference.fromCache ? "Gecachter CoinGecko-Referenz-Snapshot; kein sekündlicher Live-Kurs." : "CoinGecko-Referenz-Snapshot; kein sekündlicher Live-Kurs." })
+          : prepared("Krypto-Gesamtmarkt", "CoinGecko ist nicht verfügbar oder nicht freigeschaltet."),
+        globalReference
+          ? point({ label: "Aktive Kryptowährungen", value: globalReference.value.activeCryptocurrencies, provider: "CoinGecko", quality: referenceMarketQuality(globalReference.quality), updatedAt: globalReference.value.providerUpdatedAt ?? globalReference.value.fetchedAt, availability: globalReference.value.activeCryptocurrencies === null ? "provider_missing" : "available", note: globalReference.fromCache ? "Gecachte, vom Referenzprovider gemeldete Marktbreite." : "Vom Referenzprovider gemeldete Marktbreite." })
+          : prepared("Aktive Kryptowährungen"),
+        globalReference
+          ? point({ label: "Krypto-24h-Volumen", value: globalReference.value.totalVolumeUsd, provider: "CoinGecko", quality: referenceMarketQuality(globalReference.quality), updatedAt: globalReference.value.providerUpdatedAt ?? globalReference.value.fetchedAt, availability: globalReference.value.totalVolumeUsd === null ? "provider_missing" : "available", note: globalReference.fromCache ? "Aggregierter, gecachter CoinGecko-Referenzwert." : "Aggregierter CoinGecko-Referenzwert." })
+          : prepared("Krypto-24h-Volumen")
       ],
       equityScreener: rows.filter((row) => row.asset.type === "stock"),
       etfScreener: rows.filter((row) => row.asset.type === "etf"),

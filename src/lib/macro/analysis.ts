@@ -21,13 +21,18 @@ export type MacroTrend = "rising" | "falling" | "flat" | "unknown";
 export type MacroRevisionStatus = "not_available" | "unrevised" | "revised";
 
 export type MacroDataLifecycle = {
+  seriesKey: string;
+  frequency: MacroFrequency;
+  unit: MacroUnit;
+  region: "us" | "euro_area";
+  provider: string;
   /** Stichtag der wirtschaftlichen Beobachtung. */
-  observationDate: string;
-  /** Datum der ersten bei FRED verfügbaren Veröffentlichung. */
-  firstPublishedAt: string | null;
-  /** Bis zu welchem FRED-Vintage der Revisionsvergleich reicht. */
+  observationTime: string;
+  /** Erste in der Primärquelle verfügbare Veröffentlichung. */
+  releaseTime: string | null;
+  /** Bis zu welchem Provider-Vintage der Revisionsvergleich reicht. */
   vintageAsOf: string | null;
-  revisionStatus: MacroRevisionStatus;
+  revisionState: MacroRevisionStatus;
   initialValue: number | null;
   revisionDelta: number | null;
 };
@@ -39,7 +44,7 @@ export type MacroDataLifecycle = {
  * bequem gewesen und falsch: ein Ölpreis von 64 und ein Indexstand von 64 sind
  * verschiedene Aussagen, und die Anzeige formatiert nach dieser Angabe.
  */
-export type MacroUnit = "percent" | "ratio" | "index" | "usd" | "thousands";
+export type MacroUnit = "percent" | "ratio" | "index" | "usd" | "eur" | "thousands";
 
 export type MacroReading = {
   id: string;
@@ -132,7 +137,7 @@ function classifyTrend(change: number | null, unit: MacroUnit, reference: number
   if (change === null) return "unknown";
 
   const threshold =
-    unit === "usd" || unit === "thousands"
+    unit === "usd" || unit === "eur" || unit === "thousands"
       ? // Ohne brauchbaren Bezugswert bleibt nur der Rohbetrag. Das ist selten
         // -- und besser, als eine Schwelle zu erfinden.
         Math.abs(reference ?? 0) * RELATIVE_TREND_THRESHOLD

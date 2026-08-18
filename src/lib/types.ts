@@ -960,10 +960,16 @@ export interface CryptoProfessionalProfile {
   provider: string;
   quality: MarketDataQuality;
   updatedAt: string;
+  coinId: ProfessionalDataPoint;
+  mappingStatus: ProfessionalDataPoint;
+  marketCapRank: ProfessionalDataPoint;
+  categories: ProfessionalDataPoint;
+  blockchainAddresses: ProfessionalDataPoint;
   price: ProfessionalDataPoint;
   volume24h: ProfessionalDataPoint;
   marketCap: ProfessionalDataPoint;
   circulatingSupply: ProfessionalDataPoint;
+  totalSupply: ProfessionalDataPoint;
   maxSupply: ProfessionalDataPoint;
   fullyDilutedValuation: ProfessionalDataPoint;
   dominance: ProfessionalDataPoint;
@@ -971,6 +977,7 @@ export interface CryptoProfessionalProfile {
   openInterest: ProfessionalDataPoint;
   onChainData: ProfessionalDataPoint;
   exchangeData: ProfessionalDataPoint;
+  exchangeCount: ProfessionalDataPoint;
   volatility: ProfessionalDataPoint;
   trend: ProfessionalDataPoint;
   events: ProfessionalDataPoint;

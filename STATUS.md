@@ -572,3 +572,31 @@ Provider fail-closed. Nachweis: `docs/PHASE_7_ALPACA_EVIDENCE.md`.
 - Beobachtungsdatum, Erstveröffentlichung, Vintage-Stand und Revision werden getrennt modelliert und angezeigt.
 - API- und CSV-Abrufe laufen in begrenzten Batches durch zentrale SSRF-, Timeout-, Größen-, Cache- und Rate-Limit-Schutzschichten.
 - Syntaxcheck für 11 Dateien, direkter FRED-Modultest mit 19 Prüfungen und Diff-Hygiene sind grün. GitHub-CI ist vollständig grün: TypeScript, ESLint, Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates sowie Supabase-Migrationen, RLS und Integrität. Draft-PR: `#88`.
+
+## Phase 12 - CoinGecko-Referenzdaten (2026-08-17, abgeschlossen)
+
+- Serverseitiger Referenzadapter für Coin-ID, Handelspaare, Kategorien, Blockchain-Adressen, Market Cap, Volumen, Supply, Börsen und globale Kryptomarktbreite.
+- Mehrdeutige Symbole werden mit 409 abgewiesen statt nach Rang geraten; fehlende Providerfelder bleiben leer.
+- Binance und Coinbase bleiben schnelle Kursquellen. CoinGecko wird ausschließlich als `DELAYED` oder `CACHED`, nie als sekündlicher Live-Feed angezeigt.
+- Profi-Kryptoansicht um Identität, Rang, Kategorien, Adressen, Total Supply, Börsenabdeckung und deterministisch berechnete Dominanz erweitert.
+- Optionaler API-Key bleibt in allowgelisteten Server-Headern. Produktion bleibt bis zur Rechteprüfung fail-closed.
+- Betriebsvertrag: `docs/COINGECKO_ADAPTER.md`.
+- GitHub-CI `31981310385` vollständig grün: TypeScript, ESLint, 159 Testdateien / 1.195 Tests, Produktions-Build, Browser-Smoke, Performance, Enterprise-, Sprach-, Dependency-, Lizenz- und institutionelle Gates. pgTAP `31981310384` inklusive Migrationen, RLS und Integrität grün. Draft-PR: `#90`.
+- Vercel-Preview ausschließlich wegen `api-deployments-free-per-day` blockiert; weder StockPilot-Production noch BauPro wurden verändert.
+
+## Phase 13 - Coinbase Streaming (2026-08-17, implementiert)
+
+- Oeffentlicher Advanced-Trade-WebSocket fuer Kryptokurse serverseitig integriert.
+- Ein geteilter Hub verteilt eine Upstream-Verbindung an viele SSE-Nutzer und begrenzt die aktive Produktmenge.
+- Ticker, Bid/Ask, Mengen, 24h-Spanne, 52-Wochen-Spanne, Volumen, Providerzeit und gemessene Latenz werden ohne Ersatzwerte normalisiert.
+- Reconnect, Heartbeat-Watchdog, Sequenzluecken-Erkennung, Client-isolierter Rueckstau-Schutz und REST-Fallback sind eingebaut.
+- `*-USDC`-Identitaeten werden nicht still auf `*-USD` umgedeutet.
+- Betriebsvertrag und Aktivierung: `docs/COINBASE_STREAMING.md`.
+
+## Phase 11 - ECB SDMX (2026-08-17, abgeschlossen)
+
+- Offizielle Reihen für Bankkredite an nichtfinanzielle Unternehmen und tägliche Überschussliquidität ergänzt und direkt gegen das ECB Data Portal verifiziert.
+- SDMX-Abrufe nutzen `detail=full` und `includeHistory=true`; `VALID_FROM`/`VALID_TO` trennen Beobachtung, Erstveröffentlichung, aktuellen Vintage und Revision.
+- Das providerübergreifende Lebenszyklusmodell speichert Serienkennung, Frequenz, Einheit, Region, Provider, Beobachtungszeit, Veröffentlichungszeit und Revisionsstatus.
+- Jede Makrokarte zeigt ihre konkrete Primärquelle und Serienkennung; ECB-Zeitstempel werden lesbar formatiert.
+- Syntaxcheck für 12 Dateien, direkter ECB-Modultest mit 9 Prüfungen und Diff-Hygiene sind grün. Nach Korrektur eines veralteten URL-Vertragstests ist GitHub-CI vollständig grün: TypeScript, ESLint, 1.177 Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates, Sprachprüfung, Dependency-/Lizenzprüfung und institutionelle Kontrollen. Supabase-RLS/Integrität war im ersten Lauf desselben PR grün. Draft-PR: `#89`.

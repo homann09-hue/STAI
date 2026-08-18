@@ -1,5 +1,6 @@
 import "server-only";
 import { buildMacroOverview, buildMacroReading, type MacroOverview, type MacroReading } from "@/lib/macro/analysis";
+import { toEcbDataLifecycle } from "@/lib/macro/ecb-reading";
 import { derivePolicyRatePath, type PolicyRatePath } from "@/lib/macro/policy-rate-history";
 import { parseSdmxCsv, type MacroObservation } from "@/lib/macro/sdmx";
 import { macroSeriesCatalog, macroSeriesUrl, type MacroSeriesDefinition } from "@/lib/macro/series";
@@ -44,7 +45,7 @@ async function loadSeries(definition: MacroSeriesDefinition, now: Date, observat
     const { text, latencyMs } = await fetchBoundedProviderText(
       macroSeriesUrl(definition, observationCount),
       "ECB",
-      { timeoutMs: SERIES_TIMEOUT_MS, maxBytes: 512_000 }
+      { timeoutMs: SERIES_TIMEOUT_MS, maxBytes: 1_500_000 }
     );
 
     const parsed = parseSdmxCsv(text);
@@ -72,7 +73,10 @@ async function loadSeries(definition: MacroSeriesDefinition, now: Date, observat
       latencyMs
     });
 
-    return { reading, observations: parsed.observations };
+    return {
+      reading: { ...reading, dataLifecycle: toEcbDataLifecycle(parsed.observations, definition) },
+      observations: parsed.observations
+    };
   } catch (error) {
     logEvent("warn", "macro.series_failed", {
       seriesId: definition.id,

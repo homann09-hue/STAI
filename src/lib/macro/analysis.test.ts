@@ -248,7 +248,8 @@ describe("macroSeriesCatalog", () => {
       const url = macroSeriesUrl(definition, 12);
       expect(url.protocol).toBe("https:");
       expect(url.hostname).toBe("data-api.ecb.europa.eu");
-      expect(url.searchParams.get("detail")).toBe("dataonly");
+      expect(url.searchParams.get("detail")).toBe("full");
+      expect(url.searchParams.get("includeHistory")).toBe("true");
     }
   });
 

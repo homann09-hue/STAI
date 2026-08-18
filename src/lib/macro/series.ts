@@ -23,7 +23,9 @@ export type MacroCategory =
   | "labour"
   | "growth"
   | "consumption"
-  | "money";
+  | "money"
+  | "credit"
+  | "liquidity";
 
 /**
  * Erhebungsfrequenz. Sie bestimmt, ab wann ein Wert als veraltet gilt — eine
@@ -39,7 +41,8 @@ export type MacroSeriesDefinition = {
   category: MacroCategory;
   frequency: MacroFrequency;
   /** Einheit des Werts, wie er geliefert wird. */
-  unit: "percent" | "ratio" | "index";
+  unit: "percent" | "ratio" | "index" | "eur";
+  valueSuffix?: string;
   region: "euro_area";
   source: "ECB Data Portal";
   sourceUrl: string;
@@ -209,6 +212,35 @@ export const macroSeriesCatalog: MacroSeriesDefinition[] = [
     sourceUrl: "https://data.ecb.europa.eu/data/datasets/BSI",
     resource: "BSI",
     key: "M.U2.Y.V.M30.X.I.U2.2300.Z01.A"
+  },
+  {
+    id: "ea_bank_loans_nfc",
+    label: "Bankkredite an Unternehmen",
+    explanation:
+      "Jährliche Wachstumsrate der bereinigten Kredite von Banken im Euroraum an nichtfinanzielle Unternehmen.",
+    category: "credit",
+    frequency: "monthly",
+    unit: "percent",
+    region: "euro_area",
+    source: "ECB Data Portal",
+    sourceUrl: "https://data.ecb.europa.eu/data/datasets/BSI",
+    resource: "BSI",
+    key: "M.U2.Y.U.A20T.A.I.U2.2240.Z01.A"
+  },
+  {
+    id: "ea_excess_liquidity",
+    label: "Überschussliquidität Eurosystem",
+    explanation:
+      "Liquidität der Banken oberhalb der Mindestreserve. Der Wert beschreibt den Liquiditätspuffer des Bankensystems, nicht frei investierbares Kapital.",
+    category: "liquidity",
+    frequency: "daily",
+    unit: "eur",
+    valueSuffix: "Mio. €",
+    region: "euro_area",
+    source: "ECB Data Portal",
+    sourceUrl: "https://data.ecb.europa.eu/data/datasets/ILM",
+    resource: "ILM",
+    key: "D.U2.C.EXLIQ.U2.EUR"
   }
 ];
 
@@ -278,14 +310,14 @@ export function findMacroSeries(id: string) {
 }
 
 /**
- * Baut die Abfrage-URL. `detail=dataonly` reduziert die Antwort auf Zeitpunkt
- * und Wert — die Metadatenspalten der EZB machen sonst ein Vielfaches der
- * Nutzlast aus.
+ * Baut die Abfrage-URL. `includeHistory=true` liefert `VALID_FROM` und
+ * `VALID_TO`; nur damit bleiben Veröffentlichung und Revision unterscheidbar.
  */
 export function macroSeriesUrl(series: MacroSeriesDefinition, observations: number) {
   const url = new URL(`https://${ECB_DATA_HOST}/service/data/${series.resource}/${series.key}`);
   url.searchParams.set("format", "csvdata");
-  url.searchParams.set("detail", "dataonly");
+  url.searchParams.set("detail", "full");
+  url.searchParams.set("includeHistory", "true");
   // Obergrenze, damit eine Fehlkonfiguration nicht versehentlich die gesamte
   // Historie zieht. 1200 Tagesbeobachtungen decken gut drei Jahre ab und
   // bleiben in der Groessenbegrenzung des Providers.

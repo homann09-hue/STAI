@@ -6,7 +6,7 @@ Stand: 2026-08-17
 
 | Feld | Tatsaechlicher Stand |
 | --- | --- |
-| Phase | Phase 11: ECB, Analyse startet |
+| Phase | Phase 11 abgeschlossen; als Nächstes Phase 12 CoinGecko |
 | Repository | `homann09-hue/STAI` |
 | Main | `2189a9d2471eb95a40867592a37cd9345390839b` |
 | PR | `#85`, gemergt |
@@ -102,3 +102,25 @@ deshalb fail-closed und erzeugt keine falsche Live-Anzeige.
 - **Lebenszyklus:** Beobachtungsdatum, Erstveröffentlichung, Vintage-Stand, Erstwert und Revision sind getrennte Felder; NFP-Ableitungen rechnen auch den Erstwert als Monatsdifferenz.
 - **Betrieb:** `FRED_API_KEY` aktiviert die offizielle JSON-API. Der offizielle CSV-Fallback bleibt ohne Schlüssel verfügbar, behauptet aber keine Vintage-Daten. Abrufe laufen gebündelt und zentral begrenzt.
 - **Verification:** Syntaxcheck für 11 Dateien, direkter FRED-Modultest mit 19 Prüfungen und Diff-Hygiene grün. GitHub-CI vollständig grün: TypeScript, ESLint, Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates sowie Supabase-Migrationen, RLS und Integrität. Draft-PR `#88`.
+
+### 2026-08-17 - Phase 12 CoinGecko (abgeschlossen)
+
+- **Scope:** Krypto-Referenzdaten, Coin-ID-/Paar-Mapping, globale Marktbreite und Börsenabdeckung; keine Ablösung der schnellen Coinbase-/Binance-Kurse.
+- **Sicherheit:** Exakte Host-Allowlist, optionale Schlüssel nur in freigegebenen Server-Headern, begrenzte Antwortgröße, Timeout, Rate Limit, Resilience und Cache.
+- **Korrektheit:** Mehrdeutige Symbole bleiben explizit mehrdeutig. Fehlende Supply-/Marktfelder bleiben `null`; es entstehen keine Ersatzwerte.
+- **Produkt:** Profi-Kryptoansicht zeigt CoinGecko-Provenienz und kennzeichnet Referenz-Snapshots als `DELAYED` oder `CACHED`, nie als Realtime.
+- **Verification:** GitHub-CI `31981310385` vollständig grün: TypeScript, ESLint, 159 Testdateien / 1.195 Tests, Produktions-Build, Browser-Smoke, Performance sowie alle Enterprise-/Security-Gates. pgTAP `31981310384` grün. Vercel-Preview nur durch das externe Tageslimit blockiert. Draft-PR `#90`.
+
+### 2026-08-17 - Phase 13 Coinbase Streaming
+
+- **Scope:** Serverseitiger Coinbase-Advanced-Trade-Ticker mit gemeinsamem Prozess-Hub; keine direkte Providerverbindung aus dem Browser.
+- **Korrektheit:** Provider- und Empfangszeit, Sequenz, Bid/Ask, Mengen, Spanne, Volumen und Latenz bleiben erhalten. Mehrdeutige USDC-Abbildung wird abgewiesen.
+- **Resilienz:** Heartbeat-Watchdog, exponentieller Reconnect, Resubscribe, Kapazitaetsgrenze, isolierter Backpressure-Abbruch und bestehender REST-Fallback.
+- **Lizenz:** Technischer WebSocket ist oeffentlich; externe kommerzielle Anzeige bleibt bis zur dokumentierten Rechtepruefung `near_realtime` und fail-closed konfigurierbar.
+
+### 2026-08-17 - Phase 11 ECB SDMX (abgeschlossen)
+
+- **Abdeckung:** Offiziell verifizierte Reihen für Unternehmenskredite und Überschussliquidität ergänzen Zinsen, Inflation, M3, FX, Wachstum, Konsum und Renditen auf 13 ECB-Reihen.
+- **Lebenszyklus:** SDMX `VALID_FROM`/`VALID_TO` werden zu Erstveröffentlichung, aktuellem Vintage, Erstwert und Revisionsstatus normalisiert; mehrere Vintages desselben Beobachtungszeitraums zählen nicht als zwei Perioden.
+- **Transparenz:** Jede Karte nennt Primärquelle und Serienkennung. Fehlende Historienfelder führen zu `not_available`, nie zu einer erfundenen Revision.
+- **Verification:** Syntaxcheck für 12 Dateien, direkter ECB-Modultest mit 9 Prüfungen und Diff-Hygiene grün. Nach Aktualisierung eines veralteten URL-Vertragstests ist GitHub-CI vollständig grün: TypeScript, ESLint, 1.177 Unit-Tests mit Coverage, Produktions-Build, Browser-Smoke, Performance-/Enterprise-Gates, Sprachprüfung, Dependency-/Lizenzprüfung und institutionelle Kontrollen. Supabase-RLS/Integrität war im ersten Lauf desselben PR grün. Draft-PR `#89`.
