@@ -6,10 +6,10 @@ Stand: 2026-08-21
 
 ## Aktiver Arbeitspunkt
 
-**Phase 1.3 – Payment-Recovery und Doppelabo-Schutz**  
-Status: **OPEN**  
-Branch: `codex/phase-1-3-payment-recovery`  
-Commit: `9448bdb`  
+**Phase 1.3 – Payment-Recovery und Doppelabo-Schutz**
+Status: **OPEN**
+Branch: `codex/phase-1-3-payment-recovery`
+Commit: `9448bdb`
 PR: [#105](https://github.com/homann09-hue/STAI/pull/105)
 
 ## Reproduzierter Fehler
