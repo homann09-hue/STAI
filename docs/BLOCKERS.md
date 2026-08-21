@@ -9,7 +9,7 @@ nicht durch Code allein abgeschlossen werden können.
 
 | Priorität | Thema | Aktueller Stand | Nächster belegbarer Schritt |
 |---|---|---|---|
-| P1 | Stripe-safe Kontolöschung | PR #100 gemergt; Red-Team-Härtung lokal vollständig grün | Produktionsmigration und ausschließlich StockPilot deployen, dann Live-/Stripe-Testmode prüfen |
+| P1 | Stripe-safe Kontolöschung | PR #100 und PR #101 gemergt; alle Pflichtchecks grün | Produktionsmigration und ausschließlich StockPilot deployen, dann Live-/Stripe-Testmode prüfen |
 | P1 | Eingefrorene PR-Kette #87–#97 | Als Entwurf eingefroren | Nach Stabilisierung einzeln bewerten und kontrolliert übernehmen |
 | P1 | Realtime-Hub, Alerts und Provider-Orchestrierung | Nicht als produktionsreif belegt | Erst nach Billing-Stabilisierung als einzelne Arbeitspunkte umsetzen |
 | P1 | Prognosen, Portfolio, Backtesting und Analyse | Teilfunktionen vorhanden, Gesamt-Reife nicht belegt | Deterministische Berechnung, Datenqualität und End-to-End-Evidenz je Punkt schließen |

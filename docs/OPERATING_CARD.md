@@ -23,13 +23,14 @@ Billing bleibt bis zum vollständigen Abschluss von Phase 1 deaktiviert.
 ## Verifizierte Ausgangslage
 
 - Phase 0: PR #99 gemergt
-- Phase 1.1: PR #100 gemergt, Main `c1c114105b9e16ab29b620a8ac4b0faf3d4d1e0b`
+- Phase 1.1: PR #100 und PR #101 gemergt, Main
+  `ed2e29edb652e98b7a1a70479d4fbad947bf4da5`
 - Produktion: Deployment `dpl_2ZDn9sQbFaemkmdQmWDszXGMUpaQ`, READY
 - Live-Alias: `https://stockpilot-ai-beta.vercel.app`, Root und Health HTTP 200
 - Pflichtchecks von PR #99: StockPilot CI, pgTAP und Vercel erfolgreich
 - Branch Protection: strict; Pflichtkontexte StockPilot CI, pgTAP und Vercel
-- Phase 1.1-Red-Team: PR #101 auf Commit `75d1772` mit App-CI, pgTAP und
-  beiden Vercel-Checks grün; Produktionsmigration und Deployment ausstehend
+- Phase 1.1-Red-Team: PR #101 mit App-CI, pgTAP und beiden Vercel-Checks
+  gemergt; Produktionsmigration und Deployment ausstehend
 
 ## Lieferregel
 
