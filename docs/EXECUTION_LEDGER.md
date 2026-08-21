@@ -1,5 +1,7 @@
 # Execution Ledger
 
+<!-- ACTIVE_WORKPOINT: PHASE-1-3 -->
+
 Stand: 2026-08-21
 
 ## Aktiver Arbeitspunkt
