@@ -39,8 +39,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          preview_url="$(vercel deploy --yes --scope bau-pro)"
-          health="$(vercel curl "$preview_url/api/health" --silent)"
+          preview_url="$(vercel deploy --yes --token "$VERCEL_TOKEN")"
+          health="$(vercel curl "$preview_url/api/health" --silent --token "$VERCEL_TOKEN")"
           node -e '
             const payload = JSON.parse(process.argv[1]);
             if (payload.status !== "ok") process.exit(1);
