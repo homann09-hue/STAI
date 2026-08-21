@@ -90,6 +90,10 @@ Timeout; der Produktionsschema-Stand ist deshalb nicht belegt.
 **Auswirkung:** Phase 1.1 darf trotz grüner lokaler Gates nicht als live oder
 produktionsverifiziert bezeichnet werden.
 
+Das native PR-Preview wurde erfolgreich gebaut. Sein Runtime-Healthcheck ist
+jedoch durch Vercel Deployment Protection ohne gültige Preview-Autorisierung
+nicht öffentlich prüfbar; der Workflow weist diesen Zustand ausdrücklich aus.
+
 **Aktivierung:** Neue Migration kontrolliert auf das Supabase-Projekt `STAI`
 anwenden, nur das Vercel-Projekt `stockpilot-ai` deployen, Worker-Route,
 Cron-Autorisierung, Logs und Stripe-Testmode-Lebenszyklus prüfen. BauPro bleibt

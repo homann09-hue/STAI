@@ -28,8 +28,8 @@ Billing bleibt bis zum vollständigen Abschluss von Phase 1 deaktiviert.
 - Live-Alias: `https://stockpilot-ai-beta.vercel.app`, Root und Health HTTP 200
 - Pflichtchecks von PR #99: StockPilot CI, pgTAP und Vercel erfolgreich
 - Branch Protection: strict; Pflichtkontexte StockPilot CI, pgTAP und Vercel
-- Phase 1.1-Red-Team: lokaler Branch `codex/phase-1-1-redteam-hardening` grün;
-  Produktionsmigration und Deployment bewusst ausstehend
+- Phase 1.1-Red-Team: PR #101 auf Commit `75d1772` mit App-CI, pgTAP und
+  beiden Vercel-Checks grün; Produktionsmigration und Deployment ausstehend
 
 ## Lieferregel
 

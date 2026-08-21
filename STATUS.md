@@ -12,7 +12,7 @@ Freigabestatus: **OPEN**
 - Verifizierter `main`: `c1c114105b9e16ab29b620a8ac4b0faf3d4d1e0b`
 - Produktion: `https://stockpilot-ai-beta.vercel.app`, Health HTTP 200
 - Phase 0: PR #99 gemergt und als StockPilot-Produktion deployt
-- Phase 1.1: PR #100 am 2026-08-18 gemergt; Red-Team-Härtung läuft
+- Phase 1.1: PR #100 gemergt; Red-Team-Härtung PR #101 mit allen Pflichtchecks grün
 - Eingefrorene PR-Kette #87–#97: weiterhin vollständig als Entwurf eingefroren
 - BauPro und andere Projekte: nicht angefasst
 
@@ -44,7 +44,8 @@ Subscriptions aktiv gekündigt, gelöschte Nutzer pseudonym erkannt, ungültige
 Saga-Sprünge in PostgreSQL verhindert und die 180-Tage-Frist erst ab Abschluss
 gestartet. Typecheck, ESLint, 1.207 Tests, 260 pgTAP-Assertions und Build sind
 grün. Produktionsmigration, StockPilot-Deployment und echter Stripe-Testmode-
-Durchlauf stehen bewusst noch aus.
+Durchlauf stehen bewusst noch aus. Das native Preview-Deployment ist erfolgreich;
+der Runtime-Healthcheck bleibt durch Vercel Deployment Protection geschützt.
 
 ## Danach
 
