@@ -39,6 +39,8 @@ export type ResolvedEntitlements = {
   billingActive: boolean;
   billingConfigured: boolean;
   canManageBilling: boolean;
+  canStartCheckout: boolean;
+  paymentRecoveryRequired: boolean;
   degraded: boolean;
   reason: string | null;
   validUntil: string | null;
@@ -157,6 +159,15 @@ export function resolveEntitlements(
   ) as Record<FeatureId, boolean>;
 
   const providerCustomerId = normalizeProviderId(record?.provider_customer_id, "cus_");
+  const paymentRecoveryRequired =
+    provider === "stripe" &&
+    providerCustomerId !== null &&
+    (status === "past_due" || status === "unpaid" || status === "incomplete" || status === "paused");
+  const canManageBilling =
+    options.billingConfigured &&
+    provider === "stripe" &&
+    providerCustomerId !== null &&
+    (billingActive || paymentRecoveryRequired);
 
   return {
     plan,
@@ -164,7 +175,9 @@ export function resolveEntitlements(
     provider,
     billingActive,
     billingConfigured: options.billingConfigured,
-    canManageBilling: billingActive && provider === "stripe" && providerCustomerId !== null,
+    canManageBilling,
+    canStartCheckout: !options.degraded && !billingActive && !canManageBilling,
+    paymentRecoveryRequired,
     degraded: options.degraded === true,
     reason: options.reason ?? null,
     validUntil,
@@ -187,6 +200,8 @@ export function toPublicEntitlements(entitlements: ResolvedEntitlements): Public
     billingActive: entitlements.billingActive,
     billingConfigured: entitlements.billingConfigured,
     canManageBilling: entitlements.canManageBilling,
+    canStartCheckout: entitlements.canStartCheckout,
+    paymentRecoveryRequired: entitlements.paymentRecoveryRequired,
     degraded: entitlements.degraded,
     reason: entitlements.reason,
     validUntil: entitlements.validUntil,

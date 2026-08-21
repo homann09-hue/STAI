@@ -5,6 +5,7 @@ import {
   getStripeClient,
   getTrustedBillingOrigin
 } from "@/lib/billing/stripe";
+import { resolveStripePortalCustomer } from "@/lib/billing/stripe-subscription-recovery";
 import { logEvent } from "@/lib/observability";
 import { getSupabaseAuth } from "@/lib/supabase/user-data";
 import { z } from "zod";
@@ -33,13 +34,20 @@ export async function POST(request: Request) {
   const configuration = getStripeBillingConfiguration();
   const appOrigin = getTrustedBillingOrigin(request);
   const entitlement = await getUserEntitlements(auth);
-  if (!stripe || !appOrigin || !entitlement.providerCustomerId) {
+  if (!stripe || !appOrigin) {
     return jsonError("Für dieses Konto ist kein verwaltbares Stripe-Abo vorhanden.", 409);
   }
+  if (entitlement.degraded) return jsonError("Billingstatus ist derzeit nicht verifizierbar.", 503);
 
   try {
+    const customerId = await resolveStripePortalCustomer(stripe, {
+      userId: auth.userId,
+      email: auth.email,
+      knownCustomerId: entitlement.providerCustomerId
+    });
+    if (!customerId) return jsonError("Für dieses Konto ist kein verwaltbares Stripe-Abo vorhanden.", 409);
     const session = await stripe.billingPortal.sessions.create({
-      customer: entitlement.providerCustomerId,
+      customer: customerId,
       return_url: `${appOrigin}/pricing`,
       ...(configuration.portalConfigurationId ? { configuration: configuration.portalConfigurationId } : {})
     });

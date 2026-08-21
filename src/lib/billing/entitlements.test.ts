@@ -58,6 +58,57 @@ describe("billing entitlements", () => {
     expect(expired.plan).toBe("free");
   });
 
+  it("routes recoverable Stripe states to billing management instead of a second checkout", () => {
+    for (const status of ["past_due", "incomplete", "unpaid", "paused"] as const) {
+      const entitlement = resolveEntitlements(
+        {
+          plan: "pro",
+          status,
+          provider: "stripe",
+          provider_customer_id: "cus_verified123456",
+          provider_subscription_id: "sub_verified123456",
+          valid_until: future
+        },
+        { billingConfigured: true, now: 1_800_000_000_000 }
+      );
+      expect(entitlement.billingActive).toBe(false);
+      expect(entitlement.paymentRecoveryRequired).toBe(true);
+      expect(entitlement.canManageBilling).toBe(true);
+      expect(entitlement.canStartCheckout).toBe(false);
+    }
+  });
+
+  it("allows a new checkout after terminal history but not during active or manual access", () => {
+    const canceled = resolveEntitlements(
+      {
+        plan: "pro",
+        status: "canceled",
+        provider: "stripe",
+        provider_customer_id: "cus_verified123456",
+        valid_until: future
+      },
+      { billingConfigured: true, now: 1_800_000_000_000 }
+    );
+    const active = resolveEntitlements(
+      {
+        plan: "pro",
+        status: "active",
+        provider: "stripe",
+        provider_customer_id: "cus_verified123456",
+        valid_until: future
+      },
+      { billingConfigured: true, now: 1_800_000_000_000 }
+    );
+    const manual = resolveEntitlements(
+      { plan: "pro", status: "active", provider: "manual", valid_until: future },
+      { billingConfigured: true, now: 1_800_000_000_000 }
+    );
+
+    expect(canceled.canStartCheckout).toBe(true);
+    expect(active.canStartCheckout).toBe(false);
+    expect(manual.canStartCheckout).toBe(false);
+  });
+
   it("allows feature overrides to disable access but never elevate unfinished features", () => {
     const entitlement = resolveEntitlements(
       {
@@ -104,6 +155,8 @@ describe("billing entitlements", () => {
     expect(publicValue.providerCustomerId).toBeUndefined();
     expect(publicValue.providerSubscriptionId).toBeUndefined();
     expect(publicValue.providerPriceId).toBeUndefined();
+    expect(publicValue.canStartCheckout).toBe(false);
+    expect(publicValue.paymentRecoveryRequired).toBe(false);
   });
 });
 

@@ -66,7 +66,9 @@ function isBookable(plan: PlanId, billing: BillingApiResponse | null) {
 function actionLabel(tierId: PlanId, billing: BillingApiResponse | null, hasSession: boolean) {
   if (!billing) return "Status wird geprüft";
   if (tierId === "free") return billing.plan === "free" ? "Aktueller Tarif" : "Free verfügbar";
-  if (billing.billingActive) return "Abo sicher verwalten";
+  if (billing.paymentRecoveryRequired) return "Zahlung sicher im Portal klären";
+  if (billing.canManageBilling) return "Abo sicher verwalten";
+  if (!billing.canStartCheckout) return "Bereits freigeschaltet";
   if (!isBookable(tierId, billing)) return "Checkout nicht konfiguriert";
   if (!hasSession) return "Anmelden zum Upgrade";
   return `${getPricingTier(tierId).name} auswählen`;
@@ -122,11 +124,12 @@ export function PricingView() {
       window.location.assign("/settings?next=pricing");
       return;
     }
+    if (!billing.canManageBilling && !billing.canStartCheckout) return;
 
     setBusyPlan(plan);
     setMessage("");
     try {
-      const url = billing.billingActive
+      const url = billing.canManageBilling
         ? await createPortalSession(session.access_token)
         : await createCheckoutSession(session.access_token, plan);
       window.location.assign(url);
@@ -198,7 +201,7 @@ export function PricingView() {
             loading ||
             busyPlan !== null ||
             tier.id === "free" ||
-            (!billing?.billingActive && !configured);
+            (billing?.canManageBilling !== true && (billing?.canStartCheckout !== true || !configured));
 
           return (
             <article key={tier.name} className={`rounded-[1.3rem] border bg-panel p-5 shadow-panel ${billing?.plan === tier.id ? "border-cyan/55" : "border-stroke"}`}>
