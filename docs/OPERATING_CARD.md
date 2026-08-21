@@ -1,66 +1,39 @@
-# StockPilot AI Operating Card
+# StockPilot Operating Card
 
 Stand: 2026-08-21
-Status: **TECHNICALLY COMPLETE – BLOCKED EXTERNAL**
-Autorität: `docs/ULTIMATE_MARKET_READINESS_GOAL.md` (Version 4.0)
 
-<!-- ACTIVE_WORKPOINT: PHASE-1-1-ACCOUNT-DELETION -->
+## Arbeitsgrenzen
 
-## Produktauftrag
+- Ausschließlich `homann09-hue/STAI`; BauPro und andere Projekte niemals verändern oder deployen.
+- Immer nur ein Arbeitspunkt auf aktuellem, geprüftem `main`.
+- Keine Secrets committen, loggen oder an den Browser ausliefern.
+- Kein Paid-Feature, Mockwert oder Providerstatus als aktiv darstellen, wenn der reale Nachweis fehlt.
 
-StockPilot AI wird als ehrliche, sichere und skalierbare Multi-Asset-Research-
-Plattform aufgebaut. Datenqualität, Quelle, Zeitstempel, Lizenzstatus und
-Unsicherheit müssen bis zur Nutzeroberfläche nachvollziehbar bleiben. Die App
-gibt keine garantierten Prognosen und keine Anlageberatung aus.
+## Pflichtablauf
 
-## Aktiver Arbeitspunkt
+1. Main, Arbeitsbaum, offene PRs, CI und Production-Liveness prüfen.
+2. Fehler reproduzieren und Ursache, Verträge sowie Nebenwirkungen erfassen.
+3. Implementierung mit Unit-, Route-, Integration-, DB- und relevantem Browser-Test abschließen.
+4. Format, Typecheck, Lint, Vitest, Build, DB-Reset, pgTAP, Security- und License-Audit ausführen.
+5. Kritische geänderte Dateien auf mindestens 90 % Lines und 85 % Branches messen.
+6. Status, Ledger und Blocker mit echten Zahlen aktualisieren.
+7. Commit, Branch, PR, Pflicht-CI, Datenbank-CI und StockPilot-Preview prüfen.
+8. Erst nach grünem geschütztem Merge und realistischer Prüfung den nächsten Arbeitspunkt beginnen.
 
-**Phase 1.1 – Stripe-sichere Account-Löschung.** Vor der Identitätslöschung
-werden frische Re-Authentifizierung, alle zugeordneten Stripe-Subscriptions,
-Saga-/Lease-Status, Audit-Trail, Wiederaufnahme und Webhook-Rennen abgesichert.
-Billing bleibt bis zum vollständigen Abschluss von Phase 1 deaktiviert.
+## Billing-Invarianten
 
-## Verifizierte Ausgangslage
+- Vor jedem Subscription-Checkout Stripe selbst nach allen zugeordneten Customers und nichtterminalen Subscriptions fragen.
+- `active`, `trialing`, `past_due`, `unpaid`, `incomplete`, `paused` und unbekannte Zustände erzeugen keinen neuen Checkout.
+- Nur `canceled` und `incomplete_expired` sind terminal.
+- Mehrere betroffene Customer niemals erraten; fail-closed und Support eskalieren.
+- Aktive manuelle Freischaltungen nicht zusätzlich verkaufen.
+- Billing bleibt bis Phase 1.5 und echtem Stripe-Testmode-E2E deaktiviert.
 
-- Phase 0: PR #99 gemergt
-- Phase 1.1: PR #100 und PR #101 gemergt, Main
-  `ed2e29edb652e98b7a1a70479d4fbad947bf4da5`
-- Produktion: Deployment `dpl_2ZDn9sQbFaemkmdQmWDszXGMUpaQ`, READY
-- Live-Alias: `https://stockpilot-ai-beta.vercel.app`, Root und Health HTTP 200
-- Pflichtchecks von PR #99: StockPilot CI, pgTAP und Vercel erfolgreich
-- Branch Protection: strict; Pflichtkontexte StockPilot CI, pgTAP und Vercel
-- Phase 1.1-Red-Team: PR #101 mit App-CI, pgTAP und beiden Vercel-Checks
-  gemergt; Produktionsmigration und Deployment ausstehend
-- Supabase-Projekt `STAI`: `INACTIVE`; Reaktivierung am Free-Limit von zwei
-  anderen aktiven Projekten gescheitert, keines davon wurde verändert
+## Aktuelle externe Blocker
 
-## Lieferregel
+- Supabase `STAI` ist `INACTIVE`; keine Remote-Migration oder authentifizierte Production-Abnahme.
+- Stripe-Testmode-Lifecycle und rechtlich/kommerziell freigegebene Paid-Aktivierung fehlen.
 
-Jeder Arbeitspunkt startet vom verifizierten `main` und erhält genau einen
-Branch und einen PR. Der nächste Punkt beginnt erst nach grüner CI inklusive
-Datenbankprüfung, Merge, StockPilot-Deployment, Sandbox-/Live-Prüfung,
-Logprüfung und aktualisierter Evidenz. Gestapelte PRs sind verboten.
+## Incident-Regel
 
-## Definition of Done
-
-Code, Migrationen, Tests, exakte Testzahlen, Coverage des kritischen Bereichs,
-Build, Security-Prüfung, Commit, Branch, PR, CI-Links, Datenbank-CI, Preview,
-Deployment, Live-/Sandbox-Prüfung, Logs, Restpunkte, externe Blocker und
-Dokumentation sind belegt. Zulässige Stati sind ausschließlich `OPEN`,
-`FAILED`, `TECHNICALLY COMPLETE – BLOCKED EXTERNAL`,
-`DEPLOYED – LIVE VERIFICATION PENDING` und `COMPLETE – VERIFIED`.
-
-## Isolation
-
-Es wird ausschließlich das Repository `homann09-hue/STAI` und das Vercel-
-Projekt `stockpilot-ai` verändert. BauPro und alle anderen Projekte bleiben
-unangetastet.
-
-## Tarif- und Limitänderungen
-
-1. Werte ausschließlich in `planLimitContract` ändern und Pricing/API daraus ableiten.
-2. Eine neue Migration für `private.plan_limit_contract` erstellen; angewendete Migrationen nie nachträglich ändern.
-3. Free-, Pro- und Premium-Grenzen jeweils bei Limit minus eins, exakt am Limit und Limit plus eins prüfen.
-4. Upgrade und Downgrade prüfen; Downgrades dürfen Daten nicht löschen.
-5. `npm test`, `npm run test:db`, Typecheck, Lint und Build vor Freigabe vollständig ausführen.
-6. Produktionsstatus erst nach erfolgreicher Remote-Migration und authentifiziertem E2E-Nachweis als aktiv melden.
+Bei möglichem Doppelabo, falscher Freischaltung, Datenleck oder falschen Marktdaten: Paid-/Datenpfad fail-closed setzen, Ziel und Recovery prüfen, keine destruktive Aktion ohne explizite Freigabe.
