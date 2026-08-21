@@ -17,7 +17,7 @@ Gesamtstatus: **OPEN**
 | Branch | `codex/phase-1-1-redteam-hardening` direkt vom gemergten PR #100 |
 | Basis-Commit | `c1c114105b9e16ab29b620a8ac4b0faf3d4d1e0b` |
 | Pull Request | [#100](https://github.com/homann09-hue/STAI/pull/100) gemergt; Red-Team [#101](https://github.com/homann09-hue/STAI/pull/101) |
-| Aktueller Commit | `75d1772b9ca3978abbe09498ca80c6bc18e50db5` |
+| Kernimplementierung und grüne CI-Basis | `75d1772b9ca3978abbe09498ca80c6bc18e50db5` |
 | Status | OPEN |
 
 ## Verifikationsstand
