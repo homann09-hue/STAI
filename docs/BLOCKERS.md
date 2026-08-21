@@ -99,6 +99,23 @@ anwenden, nur das Vercel-Projekt `stockpilot-ai` deployen, Worker-Route,
 Cron-Autorisierung, Logs und Stripe-Testmode-Lebenszyklus prüfen. BauPro bleibt
 unangetastet.
 
+### Supabase-Projekt `STAI` ist inaktiv
+
+**Nachweis:** Der Supabase-Management-Connector meldete am 2026-08-21 für
+`ircuakhftjcwttwegyac` den Status `INACTIVE`. CLI und Migrationsliste scheitern
+mit Datenbank-Verbindungs-Timeout. Der Restore-Aufruf wurde abgewiesen, weil
+das Eigentümerkonto sein Free-Limit von zwei aktiven Projekten erreicht hat.
+Security- und Performance-Advisor lieferten jeweils null Findings.
+
+**Auswirkung:** Auth, Cloud-Nutzerdaten, Produktionsmigration und der echte
+Account-Deletion-/Stripe-Lebenszyklus sind nicht verifizierbar. Phase 1.1 ist
+intern abgeschlossen, aber nicht produktionsaktiv.
+
+**Aktivierung:** Supabase-Tarif erhöhen oder durch den Kontoinhaber einen Slot
+bei einem anderen Projekt freigeben. Anschließend ausschließlich `STAI`
+reaktivieren, Migrationen prüfen/anwenden und StockPilot live verifizieren.
+BauPro und alle anderen Projekte wurden nicht verändert.
+
 ## Aktuell kein belegter Lieferblocker
 
 GitHub ist wieder betriebsbereit; PR #99 wurde gemergt und Phase 0 ausschließlich

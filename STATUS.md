@@ -1,7 +1,7 @@
 # StockPilot AI – aktueller Status
 
 Stand: 2026-08-21
-Freigabestatus: **OPEN**
+Freigabestatus: **TECHNICALLY COMPLETE – BLOCKED EXTERNAL**
 
 ## Aktuell
 
@@ -11,6 +11,8 @@ Freigabestatus: **OPEN**
 - Aktiver Branch: `main`; Phase 1.1 wartet auf das Produktionsfenster
 - Verifizierter `main`: `ed2e29edb652e98b7a1a70479d4fbad947bf4da5`
 - Produktion: `https://stockpilot-ai-beta.vercel.app`, Health HTTP 200
+- Supabase-Produktion `STAI`: `INACTIVE`; Reaktivierung durch Free-Tariflimit
+  von zwei anderen aktiven Projekten blockiert
 - Phase 0: PR #99 gemergt und als StockPilot-Produktion deployt
 - Phase 1.1: PR #100 und Red-Team-Härtung PR #101 gemergt
 - Eingefrorene PR-Kette #87–#97: weiterhin vollständig als Entwurf eingefroren
@@ -46,6 +48,8 @@ gestartet. Typecheck, ESLint, 1.207 Tests, 260 pgTAP-Assertions und Build sind
 grün. Produktionsmigration, StockPilot-Deployment und echter Stripe-Testmode-
 Durchlauf stehen bewusst noch aus. Das native Preview-Deployment ist erfolgreich;
 der Runtime-Healthcheck bleibt durch Vercel Deployment Protection geschützt.
+Die Reaktivierung von `STAI` scheitert nachweislich am Supabase-Free-Limit;
+andere Projekte einschließlich BauPro wurden nicht verändert.
 
 ## Danach
 
