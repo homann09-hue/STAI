@@ -55,3 +55,12 @@ Dokumentation sind belegt. Zulässige Stati sind ausschließlich `OPEN`,
 Es wird ausschließlich das Repository `homann09-hue/STAI` und das Vercel-
 Projekt `stockpilot-ai` verändert. BauPro und alle anderen Projekte bleiben
 unangetastet.
+
+## Tarif- und Limitänderungen
+
+1. Werte ausschließlich in `planLimitContract` ändern und Pricing/API daraus ableiten.
+2. Eine neue Migration für `private.plan_limit_contract` erstellen; angewendete Migrationen nie nachträglich ändern.
+3. Free-, Pro- und Premium-Grenzen jeweils bei Limit minus eins, exakt am Limit und Limit plus eins prüfen.
+4. Upgrade und Downgrade prüfen; Downgrades dürfen Daten nicht löschen.
+5. `npm test`, `npm run test:db`, Typecheck, Lint und Build vor Freigabe vollständig ausführen.
+6. Produktionsstatus erst nach erfolgreicher Remote-Migration und authentifiziertem E2E-Nachweis als aktiv melden.

@@ -4,6 +4,7 @@ import {
   getFeatureGateStatus,
   getPlanLimits,
   isFeatureTechnicallyActive,
+  planLimitContract,
   pricingTiers
 } from "@/lib/feature-gates";
 
@@ -30,5 +31,35 @@ describe("pricing feature gates", () => {
     // §4 verlangt eine Grenze fuer die Historie. Sie muss mit dem Tarif wachsen.
     expect(getPlanLimits("premium").historicalDataYears).toBeGreaterThan(getPlanLimits("free").historicalDataYears);
     expect(Object.values(getPlanLimits("premium")).every((value) => Number.isSafeInteger(value) && value >= 0)).toBe(true);
+  });
+
+  it("defines the exact commercial limit contract once for all three plans", () => {
+    expect(planLimitContract).toEqual({
+      free: {
+        maxWatchlistItems: 15,
+        maxAlerts: 3,
+        historicalDataYears: 1,
+        portfolios: 1,
+        aiAnalysesPerDay: 3,
+        apiRequestsPerDay: 0
+      },
+      pro: {
+        maxWatchlistItems: 250,
+        maxAlerts: 100,
+        historicalDataYears: 10,
+        portfolios: 10,
+        aiAnalysesPerDay: 100,
+        apiRequestsPerDay: 1_000
+      },
+      premium: {
+        maxWatchlistItems: 1_000,
+        maxAlerts: 500,
+        historicalDataYears: 20,
+        portfolios: 25,
+        aiAnalysesPerDay: 500,
+        apiRequestsPerDay: 10_000
+      }
+    });
+    for (const tier of pricingTiers) expect(tier.limits).toBe(planLimitContract[tier.id]);
   });
 });
