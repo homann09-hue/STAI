@@ -11,12 +11,18 @@ const mocks = vi.hoisted(() => ({
   entitlementUpsert: vi.fn(),
   getUserById: vi.fn(),
   subscriptionsRetrieve: vi.fn(),
+  subscriptionsCancel: vi.fn(),
   stripeClient: vi.fn(),
   billingConfiguration: vi.fn()
 }));
 
 vi.mock("@/lib/account-deletion", () => ({
-  getAccountDeletionDisposition: (...args: unknown[]) => mocks.getAccountDeletionDisposition(...args)
+  getAccountDeletionDisposition: (...args: unknown[]) => mocks.getAccountDeletionDisposition(...args),
+  cancelStripeSubscriptionForDeletedAccount: async (_stripe: unknown, subscription: { id: string; status: string }) => {
+    if (subscription.status === "canceled" || subscription.status === "incomplete_expired") return false;
+    await mocks.subscriptionsCancel(subscription.id, { prorate: false });
+    return true;
+  }
 }));
 
 vi.mock("@/lib/billing/stripe", () => ({
@@ -90,7 +96,7 @@ beforeEach(() => {
   mocks.constructEvent.mockReturnValue(subscriptionEvent());
   mocks.stripeClient.mockReturnValue({
     webhooks: { constructEvent: mocks.constructEvent },
-    subscriptions: { retrieve: mocks.subscriptionsRetrieve }
+    subscriptions: { retrieve: mocks.subscriptionsRetrieve, cancel: mocks.subscriptionsCancel }
   });
   mocks.billingConfiguration.mockReturnValue({ webhookSecret: "whsec_test_1234567890123456" });
   mocks.getAccountDeletionDisposition.mockResolvedValue(null);
@@ -100,6 +106,7 @@ beforeEach(() => {
   mocks.entitlementUpsert.mockResolvedValue({ error: null });
   mocks.getUserById.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null });
   mocks.subscriptionsRetrieve.mockResolvedValue(subscriptionEvent().data.object);
+  mocks.subscriptionsCancel.mockResolvedValue({ id: "sub_active123", status: "canceled" });
 });
 
 describe("POST /api/billing/webhook account-deletion races", () => {
@@ -112,6 +119,7 @@ describe("POST /api/billing/webhook account-deletion races", () => {
     expect(body.handled).toBe(false);
     expect(body.skippedReason).toBe("account_deletion_in_progress");
     expect(mocks.entitlementUpsert).not.toHaveBeenCalled();
+    expect(mocks.subscriptionsCancel).toHaveBeenCalledWith("sub_active123", { prorate: false });
     expect(mocks.billingEventInsert).toHaveBeenCalledWith(expect.objectContaining({ status: "ignored" }));
   });
 
@@ -124,6 +132,7 @@ describe("POST /api/billing/webhook account-deletion races", () => {
     expect(body.handled).toBe(false);
     expect(body.skippedReason).toBe("account_missing");
     expect(mocks.entitlementUpsert).not.toHaveBeenCalled();
+    expect(mocks.subscriptionsCancel).toHaveBeenCalledWith("sub_active123", { prorate: false });
   });
 
   it("still applies a valid event for an existing account", async () => {
@@ -236,6 +245,17 @@ describe("POST /api/billing/webhook account-deletion races", () => {
     expect(response.status).toBe(200);
     expect(body.skippedReason).toBe("account_deletion_in_progress");
     expect(mocks.entitlementUpsert).not.toHaveBeenCalled();
+    expect(mocks.subscriptionsCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks Stripe to retry when a late subscription cannot be cancelled", async () => {
+    mocks.getAccountDeletionDisposition.mockResolvedValue("account_deleted");
+    mocks.subscriptionsCancel.mockRejectedValue(new Error("stripe timeout"));
+
+    const { response } = await callWebhook();
+
+    expect(response.status).toBe(503);
+    expect(mocks.billingEventInsert).not.toHaveBeenCalled();
   });
 
   it("uses the existing subscription mapping when Stripe metadata is missing", async () => {

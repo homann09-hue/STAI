@@ -1,6 +1,6 @@
 # Blocker und offene Risiken
 
-Stand: 2026-08-18
+Stand: 2026-08-21
 
 Dieses Dokument trennt intern lösbare Arbeit strikt von Abhängigkeiten, die
 nicht durch Code allein abgeschlossen werden können.
@@ -9,7 +9,7 @@ nicht durch Code allein abgeschlossen werden können.
 
 | Priorität | Thema | Aktueller Stand | Nächster belegbarer Schritt |
 |---|---|---|---|
-| P1 | Stripe-safe Kontolöschung | Technisch vollständig; PR #100 inklusive App-CI, pgTAP und Preview grün | Nach bewusst zurückgestelltem Produktionsfenster Merge, Produktionsmigration und Deployment schließen |
+| P1 | Stripe-safe Kontolöschung | PR #100 gemergt; Red-Team-Härtung lokal vollständig grün | Produktionsmigration und ausschließlich StockPilot deployen, dann Live-/Stripe-Testmode prüfen |
 | P1 | Eingefrorene PR-Kette #87–#97 | Als Entwurf eingefroren | Nach Stabilisierung einzeln bewerten und kontrolliert übernehmen |
 | P1 | Realtime-Hub, Alerts und Provider-Orchestrierung | Nicht als produktionsreif belegt | Erst nach Billing-Stabilisierung als einzelne Arbeitspunkte umsetzen |
 | P1 | Prognosen, Portfolio, Backtesting und Analyse | Teilfunktionen vorhanden, Gesamt-Reife nicht belegt | Deterministische Berechnung, Datenqualität und End-to-End-Evidenz je Punkt schließen |
@@ -77,6 +77,27 @@ bleibt deaktiviert.
 Subscription und Webhook-Secret im isolierten StockPilot-Testprojekt anlegen;
 danach Löschung, Kündigung, Webhook-Rennen und kontrollierten Stripe-Ausfall
 ausführen und protokollieren.
+
+### Phase-1.1-Produktion ist noch nicht aktualisiert
+
+**Nachweis:** Am 2026-08-21 antwortete
+`/api/account/deletion/reconcile` auf der Live-Domain mit HTTP 404. Das aktive
+Deployment `dpl_2ZDn9sQbFaemkmdQmWDszXGMUpaQ` stammt vor dem Merge von PR #100
+und enthält weder Worker-Route noch Account-Deletion-Cron. Die verknüpfte
+Supabase-Migrationsprüfung scheiterte zusätzlich an einem Control-Plane-
+Timeout; der Produktionsschema-Stand ist deshalb nicht belegt.
+
+**Auswirkung:** Phase 1.1 darf trotz grüner lokaler Gates nicht als live oder
+produktionsverifiziert bezeichnet werden.
+
+Das native PR-Preview wurde erfolgreich gebaut. Sein Runtime-Healthcheck ist
+jedoch durch Vercel Deployment Protection ohne gültige Preview-Autorisierung
+nicht öffentlich prüfbar; der Workflow weist diesen Zustand ausdrücklich aus.
+
+**Aktivierung:** Neue Migration kontrolliert auf das Supabase-Projekt `STAI`
+anwenden, nur das Vercel-Projekt `stockpilot-ai` deployen, Worker-Route,
+Cron-Autorisierung, Logs und Stripe-Testmode-Lebenszyklus prüfen. BauPro bleibt
+unangetastet.
 
 ## Aktuell kein belegter Lieferblocker
 

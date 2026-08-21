@@ -11,10 +11,10 @@ export async function DELETE(request: Request) {
   if (limited) return limited;
   const originBlocked = requireSameOrigin(request);
   if (originBlocked) return originBlocked;
-  const parsed = await parseJsonBody(request, deletionSchema);
-  if (!parsed.ok) return parsed.response;
   const auth = await getSupabaseAuth(request);
   if (!auth.ok) return jsonError("Anmeldung für die Kontolöschung erforderlich.", 401, { "X-StockPilot-Auth-Reason": auth.reason });
+  const parsed = await parseJsonBody(request, deletionSchema);
+  if (!parsed.ok) return parsed.response;
 
   const currentUser = await auth.supabase.auth.getUser();
   if (currentUser.error || !currentUser.data.user) {

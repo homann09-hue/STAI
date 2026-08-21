@@ -1,6 +1,6 @@
 # StockPilot AI Operating Card
 
-Stand: 2026-08-18
+Stand: 2026-08-21
 Status: **OPEN**
 Autorität: `docs/ULTIMATE_MARKET_READINESS_GOAL.md` (Version 4.0)
 
@@ -22,12 +22,14 @@ Billing bleibt bis zum vollständigen Abschluss von Phase 1 deaktiviert.
 
 ## Verifizierte Ausgangslage
 
-- Phase 0: PR #99 gemergt, Main `9d5f91776c4f197e961037a1dda093aa28f54321`
+- Phase 0: PR #99 gemergt
+- Phase 1.1: PR #100 gemergt, Main `c1c114105b9e16ab29b620a8ac4b0faf3d4d1e0b`
 - Produktion: Deployment `dpl_2ZDn9sQbFaemkmdQmWDszXGMUpaQ`, READY
 - Live-Alias: `https://stockpilot-ai-beta.vercel.app`, Root und Health HTTP 200
 - Pflichtchecks von PR #99: StockPilot CI, pgTAP und Vercel erfolgreich
 - Branch Protection: strict; Pflichtkontexte StockPilot CI, pgTAP und Vercel
-- Phase 1.1: PR #100 technisch grün; Merge und Produktion bewusst ausstehend
+- Phase 1.1-Red-Team: PR #101 auf Commit `75d1772` mit App-CI, pgTAP und
+  beiden Vercel-Checks grün; Produktionsmigration und Deployment ausstehend
 
 ## Lieferregel
 
