@@ -14,9 +14,9 @@ Gesamtstatus: **OPEN**
 | Ausgangsfehler | Supabase-User konnte gelöscht werden, während Stripe-Subscriptions weiterliefen |
 | Ursache | Ein synchroner Admin-Delete ohne Stripe-Discovery, Saga, Lease, Audit-Trail oder Recovery |
 | Implementierung | Re-Auth-Gate, Customer-/Checkout-/Subscription-Discovery, idempotente Kündigung, DB-Saga, Recovery-Cron, pseudonymer Tombstone und Webhook-Kompensation |
-| Branch | `codex/phase-1-1-redteam-hardening` direkt vom gemergten PR #100 |
+| Branch | `codex/phase-1-1-redteam-hardening`, in `main` gemergt |
 | Basis-Commit | `c1c114105b9e16ab29b620a8ac4b0faf3d4d1e0b` |
-| Pull Request | [#100](https://github.com/homann09-hue/STAI/pull/100) gemergt; Red-Team [#101](https://github.com/homann09-hue/STAI/pull/101) |
+| Pull Request | [#100](https://github.com/homann09-hue/STAI/pull/100) und Red-Team [#101](https://github.com/homann09-hue/STAI/pull/101) gemergt |
 | Kernimplementierung und grüne CI-Basis | `75d1772b9ca3978abbe09498ca80c6bc18e50db5` |
 | Status | OPEN |
 
@@ -52,6 +52,7 @@ Gesamtstatus: **OPEN**
 
 ## Nächster zulässiger Schritt
 
-Red-Team-Branch committen, als separaten PR prüfen und mergen. Danach Migration
-im Supabase-Projekt `STAI` anwenden und ausschließlich `stockpilot-ai`
-deployen. Live-Worker, Logs und Stripe-Testmode bleiben bis dahin offen.
+Im freigegebenen Produktionsfenster die Migration im Supabase-Projekt `STAI`
+anwenden und danach ausschließlich `stockpilot-ai` deployen. Live-Worker, Logs,
+Preview-Runtime und Stripe-Testmode bleiben bis dahin offen. Phase 1.2 beginnt
+erst nach diesem Nachweis.

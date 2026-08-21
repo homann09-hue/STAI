@@ -8,11 +8,11 @@ Freigabestatus: **OPEN**
 - Autoritative Projektverfassung: `docs/ULTIMATE_MARKET_READINESS_GOAL.md`,
   Version 4.0
 - Aktiver Arbeitspunkt: Phase 1.1 – Stripe-sichere Account-Löschung
-- Aktiver Branch: `codex/phase-1-1-redteam-hardening`
-- Verifizierter `main`: `c1c114105b9e16ab29b620a8ac4b0faf3d4d1e0b`
+- Aktiver Branch: `main`; Phase 1.1 wartet auf das Produktionsfenster
+- Verifizierter `main`: `ed2e29edb652e98b7a1a70479d4fbad947bf4da5`
 - Produktion: `https://stockpilot-ai-beta.vercel.app`, Health HTTP 200
 - Phase 0: PR #99 gemergt und als StockPilot-Produktion deployt
-- Phase 1.1: PR #100 gemergt; Red-Team-Härtung PR #101 mit allen Pflichtchecks grün
+- Phase 1.1: PR #100 und Red-Team-Härtung PR #101 gemergt
 - Eingefrorene PR-Kette #87–#97: weiterhin vollständig als Entwurf eingefroren
 - BauPro und andere Projekte: nicht angefasst
 
