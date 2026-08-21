@@ -6,9 +6,9 @@ import {
   getStripeBillingConfiguration,
   getStripeClient,
   getStripePriceId,
-  getTrustedBillingOrigin,
-  ensureStripeCustomer
+  getTrustedBillingOrigin
 } from "@/lib/billing/stripe";
+import { resolveStripeCheckoutDisposition } from "@/lib/billing/stripe-subscription-recovery";
 import { logEvent } from "@/lib/observability";
 import { getSupabaseAuth } from "@/lib/supabase/user-data";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
@@ -58,10 +58,12 @@ export async function POST(request: Request) {
 
   const entitlement = await getUserEntitlements(auth);
   if (entitlement.degraded) return jsonError("Billingstatus ist derzeit nicht verifizierbar.", 503);
-  if (entitlement.billingActive) {
-    return jsonError("Ein aktives Abo ist bereits vorhanden. Änderungen erfolgen sicher über das Kundenportal.", 409);
+  if (entitlement.billingActive && entitlement.provider !== "stripe") {
+    return jsonError(
+      "Für dieses Konto besteht bereits eine manuelle Freischaltung. Es wurde kein zusätzliches Abo gestartet.",
+      409
+    );
   }
-
   const metadata = {
     stockpilot_user_id: auth.userId,
     stockpilot_plan: parsed.data.plan,
@@ -69,9 +71,42 @@ export async function POST(request: Request) {
   };
 
   try {
-    const customer = entitlement.providerCustomerId
-      ? { id: entitlement.providerCustomerId }
-      : await ensureStripeCustomer(stripe, auth.userId, auth.email);
+    const disposition = await resolveStripeCheckoutDisposition(stripe, {
+      userId: auth.userId,
+      email: auth.email,
+      knownCustomerId: entitlement.providerCustomerId
+    });
+
+    if (disposition.action === "support") {
+      logEvent("error", "billing.multiple_subscription_customers", {
+        userId: auth.userId,
+        customerCount: disposition.customerCount,
+        statuses: disposition.statuses
+      });
+      return jsonError(
+        "Mehrere bestehende Abonnements wurden erkannt. Es wurde kein neuer Checkout gestartet. Bitte kontaktiere den Support.",
+        409
+      );
+    }
+
+    if (disposition.action === "portal") {
+      const portal = await stripe.billingPortal.sessions.create({
+        customer: disposition.customerId,
+        return_url: `${appOrigin}/account/billing`,
+        ...(configuration.portalConfigurationId ? { configuration: configuration.portalConfigurationId } : {})
+      });
+      logEvent("info", "billing.checkout_redirected_to_portal", {
+        userId: auth.userId,
+        statuses: disposition.statuses,
+        paymentRecoveryRequired: disposition.paymentRecoveryRequired
+      });
+      return jsonOk({
+        url: portal.url,
+        action: "portal" as const,
+        paymentRecoveryRequired: disposition.paymentRecoveryRequired
+      });
+    }
+
     const session = await stripe.checkout.sessions.create(
       {
         mode: "subscription",
@@ -81,7 +116,7 @@ export async function POST(request: Request) {
         client_reference_id: auth.userId,
         metadata,
         subscription_data: { metadata },
-        customer: customer.id
+        customer: disposition.customerId
       },
       {
         idempotencyKey: `stockpilot-checkout:${auth.userId}:${parsed.data.plan}:${parsed.data.interval}:${Math.floor(Date.now() / 60_000)}`
@@ -96,7 +131,7 @@ export async function POST(request: Request) {
 
     if (!session.url) return jsonError("Checkout konnte nicht sicher erstellt werden.", 502);
     logEvent("info", "billing.checkout_created", { userId: auth.userId, plan: parsed.data.plan, interval: parsed.data.interval });
-    return jsonOk({ url: session.url });
+    return jsonOk({ url: session.url, action: "checkout" as const, paymentRecoveryRequired: false });
   } catch (error) {
     logEvent("error", "billing.checkout_failed", {
       userId: auth.userId,

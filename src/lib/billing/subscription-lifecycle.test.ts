@@ -102,6 +102,9 @@ describe("Fluss: fehlgeschlagene Zahlung", () => {
     // einer Falle: er koennte die fehlgeschlagene Zahlung nicht reparieren.
     const pastDue = account({ status: "past_due" });
     expect(pastDue.providerCustomerId).toBe("cus_00000000000000");
+    expect(pastDue.canManageBilling).toBe(true);
+    expect(pastDue.canStartCheckout).toBe(false);
+    expect(pastDue.paymentRecoveryRequired).toBe(true);
   });
 });
 

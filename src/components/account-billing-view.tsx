@@ -179,7 +179,7 @@ export function AccountBillingView() {
 
   const { billing, invoices, invoiceError } = state;
   const tier = getPricingTier(billing.plan);
-  const paymentTrouble = billing.status === "past_due" || billing.status === "unpaid";
+  const paymentTrouble = billing.paymentRecoveryRequired;
 
   return (
     <div className="space-y-5">
@@ -193,10 +193,10 @@ export function AccountBillingView() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-loss" aria-hidden="true" />
             <div>
-              <h2 className="text-sm font-semibold text-mist">Eine Zahlung ist offen</h2>
+              <h2 className="text-sm font-semibold text-mist">Abonnement benötigt Aufmerksamkeit</h2>
               <p className="mt-1 text-sm text-loss">
-                Solange die Zahlung offen ist, bleiben kostenpflichtige Funktionen gesperrt. Im Kundenportal
-                lässt sich die Zahlungsmethode aktualisieren.
+                Der bestehende Stripe-Vertrag wird nicht durch ein zweites Abo ersetzt. Öffne das Kundenportal,
+                um Zahlung, Zahlungsmethode oder den pausierten Status sicher zu klären.
               </p>
             </div>
           </div>
@@ -254,7 +254,7 @@ export function AccountBillingView() {
               <CreditCard className="h-4 w-4" aria-hidden="true" />
               Tarif wechseln, Zahlungsmethode ändern oder kündigen
             </button>
-          ) : (
+          ) : billing.canStartCheckout ? (
             <>
               {paidPlanIds.flatMap((plan) =>
                 (["month", "year"] as const)
@@ -277,6 +277,10 @@ export function AccountBillingView() {
                 </p>
               ) : null}
             </>
+          ) : (
+            <p className="text-sm text-muted">
+              Für die bestehende Freischaltung wird kein zusätzliches Stripe-Abo angeboten.
+            </p>
           )}
           <Link
             href="/pricing"

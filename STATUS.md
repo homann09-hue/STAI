@@ -1,73 +1,48 @@
-# StockPilot AI – aktueller Status
+# StockPilot AI Status
 
 Stand: 2026-08-21
-Freigabestatus: **TECHNICALLY COMPLETE – BLOCKED EXTERNAL**
 
-## Aktuell
+## Verbindlicher Stand
 
-- Autoritative Projektverfassung: `docs/ULTIMATE_MARKET_READINESS_GOAL.md`,
-  Version 4.0
-- Aktiver Arbeitspunkt: Phase 1.1 – Stripe-sichere Account-Löschung
-- Aktiver Branch: `main`; Phase 1.1 wartet auf das Produktionsfenster
-- Verifizierter `main`: `ed2e29edb652e98b7a1a70479d4fbad947bf4da5`
-- Produktion: `https://stockpilot-ai-beta.vercel.app`, Health HTTP 200
-- Supabase-Produktion `STAI`: `INACTIVE`; Reaktivierung durch Free-Tariflimit
-  von zwei anderen aktiven Projekten blockiert
-- Phase 0: PR #99 gemergt und als StockPilot-Produktion deployt
-- Phase 1.1: PR #100 und Red-Team-Härtung PR #101 gemergt
-- Eingefrorene PR-Kette #87–#97: weiterhin vollständig als Entwurf eingefroren
-- BauPro und andere Projekte: nicht angefasst
+- Repository: `homann09-hue/STAI`
+- Geprüfte Branchbasis: `main` bei `35ea0e716bf27e6e767f02dcb171c5e5bfcf68c9`
+- Aktive Phase: **Phase 1.3 – Payment-Recovery und Doppelabo-Schutz**
+- Arbeitsbranch: `codex/phase-1-3-payment-recovery`
+- Code-Commit: `9448bdb`
+- Pull Request: [#105](https://github.com/homann09-hue/STAI/pull/105)
+- Freigabestatus: **OPEN**, Pflicht-CI und Merge stehen noch aus
 
-## Letzte belastbare Basis
+## Abgeschlossene Stabilisierung
 
-- Live-Monitoring: erfolgreich, Run 32039456654
-- Pull-Request-CI: Run 32040324387 erfolgreich
-- Datenbank-CI: 10 Dateien / 224 Assertions erfolgreich, Run 32040324335
-- Red-Team: Run 32040526871 erfolgreich
-- Phase-1.1 lokal: 157 Dateien / 1.198 Tests erfolgreich
-- Phase-1.1 Datenbank: 11 Dateien / 253 Assertions erfolgreich
-- Phase-1.1 Red-Team: 158 Dateien / 1.207 Tests und 11 pgTAP-Dateien /
-  260 Assertions erfolgreich
-- Coverage: 48,76 % Statements / 46,17 % Branches / 47,63 % Functions /
-  50,60 % Lines
-- Browser-E2E: 37 erfolgreich / 1 übersprungen
-- 500er Release-Gate: 500/500 HTTP 200, keine Timeouts, p95 6.101 ms
-- 2.000 aktive Sessions: 2.000/2.000 HTTP 200, keine Fehler
-- 2.000er Sofortspitze: 1.657 HTTP 200 und 343 Timeouts; bewusst nur
-  Kapazitätsprobe, kein Release-Gate
-- Dependency Audit: 0 bekannte Schwachstellen
-- Branch Protection: strict; StockPilot CI, pgTAP und Vercel sind verpflichtend
+- Phase 0: Governance und belegbarer Ist-Stand
+- Phase 1.1: Stripe-sichere Kontolöschung, intern abgeschlossen; Produktionsabnahme extern blockiert
+- Phase 1.2: Einheitlicher Free/Pro/Premium-Limitvertrag, auf `main` gemergt; Produktionsmigration extern blockiert
 
-## Aktuelle Änderung
+## Aktueller Arbeitspunkt
 
-PR #100 ist gemergt. Der anschließende Red-Team-Lauf schließt weitere Rennen:
-offene Checkout-Sitzungen werden vor der Identitätslöschung beendet, späte
-Subscriptions aktiv gekündigt, gelöschte Nutzer pseudonym erkannt, ungültige
-Saga-Sprünge in PostgreSQL verhindert und die 180-Tage-Frist erst ab Abschluss
-gestartet. Typecheck, ESLint, 1.207 Tests, 260 pgTAP-Assertions und Build sind
-grün. Produktionsmigration, StockPilot-Deployment und echter Stripe-Testmode-
-Durchlauf stehen bewusst noch aus. Das native Preview-Deployment ist erfolgreich;
-der Runtime-Healthcheck bleibt durch Vercel Deployment Protection geschützt.
-Die Reaktivierung von `STAI` scheitert nachweislich am Supabase-Free-Limit;
-andere Projekte einschließlich BauPro wurden nicht verändert.
+Phase 1.3 verhindert neue Stripe-Checkouts bei bestehenden nichtterminalen Subscriptions. `active`, `trialing`, `past_due`, `unpaid`, `incomplete`, `paused` und unbekannte Providerzustände führen ins Portal oder blockieren bei mehrdeutiger Customer-Lage. Nur `canceled` und `incomplete_expired` erlauben einen neuen Checkout. Aktive manuelle Freischaltungen werden ebenfalls nicht doppelt verkauft.
 
-## Danach
+## Aktuelle Evidenz
 
-Erst nach grünem PR, Datenbank-CI, Merge, StockPilot-Deployment, Live-/Sandbox-
-Prüfung und Logprüfung beginnt Phase 1.2: verbindliche Free-/Pro-/Premium-Limits.
+- Vitest: 163 Dateien, 1.257 Tests bestanden
+- pgTAP nach frischem DB-Reset: 12 Dateien, 300 Assertions bestanden
+- Billing-Playwright: Pixel 7 und Desktop Chrome, 2/2 bestanden
+- Kritische Phase-1.3-Coverage: 99,28 % Lines, 94,39 % Branches, 100 % Functions
+- Gesamtcoverage: 49,80 % Statements, 46,83 % Branches, 48,42 % Functions, 51,72 % Lines
+- Format, Typecheck, ESLint, Next-Produktionsbuild und Dependency-Audit bestanden
+- `npm audit`: 0 bekannte Schwachstellen
+- License-Audit: indirekte `sharp/libvips`-LGPL-Pakete bleiben prüfpflichtig
 
-Externe und interne Blocker stehen ausschließlich in `docs/BLOCKERS.md`;
-laufende Evidenz ausschließlich in `docs/EXECUTION_LEDGER.md`.
+## Production
 
-## 2026-08-21 — Phase 1.2 Tarif- und Limitvertrag
+`https://stockpilot-ai-beta.vercel.app/api/health` antwortete am 2026-08-21 mit HTTP 200. Das beweist nur Liveness, nicht die Aktivierung von Phase 1.2 oder 1.3. Es wurde in diesem Arbeitspunkt kein Production-Deployment ausgelöst.
 
-Status: **TECHNICALLY COMPLETE – BLOCKED EXTERNAL**
+## BLOCKED – EXTERNAL
 
-- P1 behoben: Free-Watchlist war in PostgreSQL auf 10 statt 15 begrenzt.
-- P1 behoben: Premium fiel in `private.current_plan_limit` auf Free-Limits zurück.
-- P1 behoben: Der gemeinsame Ressourcen-Trigger griff bei Portfolio-INSERTs auf das nicht vorhandene Feld `NEW.symbol` zu.
-- Free/Pro/Premium sind nun in TypeScript, Admin-API, Pricing-UI und PostgreSQL exakt vereinheitlicht.
-- Alte aktive Produkttexte `Starter` und `Elite/Business` wurden entfernt; Legacy-Aliase bleiben nur zur Datenkompatibilität.
-- Lokal verifiziert: 1.212 Vitest-Tests, 300 pgTAP-Assertions, Typecheck, Lint, Build und `npm audit` grün.
-- Coverage-Basis: 49,28 % Statements, 46,41 % Branches, 48,12 % Funktionen, 51,21 % Zeilen.
-- Produktion unverändert: Die neue Migration ist wegen des inaktiven Supabase-Projekts noch nicht angewendet; Vercel-Deployment bleibt bewusst zurückgestellt.
+- Supabase-Projekt `STAI` ist `INACTIVE`; Remote-Migration und authentifizierte Produktionsprüfung sind nicht möglich.
+- Vollständiger Stripe-Testmode-Lifecycle mit echten Test-Customer, Test-Subscription, Portal und Webhooks bleibt bis zur verfügbaren externen Billing-/Supabase-Infrastruktur offen.
+- Billing bleibt deaktiviert. Keine Paid-Aktivierung vor Abschluss von Phase 1.5.
+
+## Nächster zulässiger Schritt
+
+PR #105 vollständig durch CI, Datenbank-CI und StockPilot-Preview führen, Fehler beheben und geschützt mergen. Phase 1.4 beginnt erst danach. BauPro und andere Projekte bleiben unberührt.
