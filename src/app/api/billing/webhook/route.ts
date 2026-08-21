@@ -1,5 +1,8 @@
 import type Stripe from "stripe";
-import { getAccountDeletionDisposition } from "@/lib/account-deletion";
+import {
+  cancelStripeSubscriptionForDeletedAccount,
+  getAccountDeletionDisposition
+} from "@/lib/account-deletion";
 import { jsonError, jsonOk } from "@/lib/api-guard";
 import { entitlementFromStripeSubscription, stripeSubscriptionIds } from "@/lib/billing/stripe-events";
 import {
@@ -65,7 +68,10 @@ async function syncSubscription(
     userId: metadataUserId,
     customerId: ids.customerId
   });
-  if (earlyDisposition) return { userId: metadataUserId, skippedReason: earlyDisposition };
+  if (earlyDisposition) {
+    await cancelStripeSubscriptionForDeletedAccount(getStripeClientOrThrow(), subscription);
+    return { userId: metadataUserId, skippedReason: earlyDisposition };
+  }
 
   const fallbackUserId = await mappedUserId(supabase, subscription);
   const mutation = entitlementFromStripeSubscription(subscription, getPlanForStripePriceId, fallbackUserId);
@@ -75,12 +81,18 @@ async function syncSubscription(
     userId: mutation.userId,
     customerId: mutation.providerCustomerId
   });
-  if (disposition) return { userId: mutation.userId, skippedReason: disposition };
+  if (disposition) {
+    await cancelStripeSubscriptionForDeletedAccount(getStripeClientOrThrow(), subscription);
+    return { userId: mutation.userId, skippedReason: disposition };
+  }
 
   const userLookup = await supabase.auth.admin.getUserById(mutation.userId);
   const lookupStatus = (userLookup.error as { status?: number } | null)?.status;
   if (userLookup.error && lookupStatus !== 404) throw userLookup.error;
-  if (!userLookup.data.user) return { userId: mutation.userId, skippedReason: "account_missing" as const };
+  if (!userLookup.data.user) {
+    await cancelStripeSubscriptionForDeletedAccount(getStripeClientOrThrow(), subscription);
+    return { userId: mutation.userId, skippedReason: "account_missing" as const };
+  }
 
   const { error } = await supabase.from("entitlements").upsert(
     {
@@ -101,6 +113,12 @@ async function syncSubscription(
   );
   if (error) throw error;
   return { userId: mutation.userId, skippedReason: null };
+}
+
+function getStripeClientOrThrow() {
+  const stripe = getStripeClient();
+  if (!stripe) throw new Error("stripe_unavailable");
+  return stripe;
 }
 
 export async function POST(request: Request) {

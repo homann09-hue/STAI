@@ -6,6 +6,9 @@ const mocks = vi.hoisted(() => ({
   getStripeClient: vi.fn(),
   deleteUserAccount: vi.fn(),
   customersList: vi.fn(),
+  customersSearch: vi.fn(),
+  checkoutSessionsList: vi.fn(),
+  checkoutSessionsExpire: vi.fn(),
   subscriptionsList: vi.fn(),
   subscriptionsCancel: vi.fn(),
   entitlementMaybeSingle: vi.fn(),
@@ -50,7 +53,8 @@ function entitlementQuery() {
 
 function stripeClient() {
   return {
-    customers: { list: mocks.customersList },
+    customers: { list: mocks.customersList, search: mocks.customersSearch },
+    checkout: { sessions: { list: mocks.checkoutSessionsList, expire: mocks.checkoutSessionsExpire } },
     subscriptions: { list: mocks.subscriptionsList, cancel: mocks.subscriptionsCancel }
   };
 }
@@ -83,6 +87,9 @@ beforeEach(() => {
     data: [{ id: "cus_existing123", metadata: { stockpilot_user_id: auth.userId } }],
     has_more: false
   });
+  mocks.customersSearch.mockResolvedValue({ data: [], next_page: null });
+  mocks.checkoutSessionsList.mockResolvedValue({ data: [], has_more: false });
+  mocks.checkoutSessionsExpire.mockResolvedValue({ id: "cs_expired123", status: "expired" });
   mocks.subscriptionsList.mockResolvedValue({
     data: [
       { id: "sub_active123", status: "active" },
@@ -114,6 +121,35 @@ describe("runAccountDeletion", () => {
       .filter(([name]) => name === "record_account_deletion_step")
       .map(([, payload]) => payload.p_status);
     expect(recordedStatuses).toEqual(["cancelling_subscriptions", "deleting_identity", "completed"]);
+  });
+
+  it("expires every open checkout session before cancelling subscriptions", async () => {
+    mocks.checkoutSessionsList.mockResolvedValue({
+      data: [{ id: "cs_open123", status: "open" }],
+      has_more: false
+    });
+    const { runAccountDeletion } = await import("@/lib/account-deletion");
+
+    await runAccountDeletion(auth as never);
+
+    expect(mocks.checkoutSessionsExpire).toHaveBeenCalledWith("cs_open123");
+    expect(mocks.checkoutSessionsExpire.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.subscriptionsCancel.mock.invocationCallOrder[0]
+    );
+  });
+
+  it("finds a Stripe customer by immutable user metadata after an email change", async () => {
+    mocks.entitlementMaybeSingle.mockResolvedValue({ data: null, error: null });
+    mocks.customersList.mockResolvedValue({ data: [], has_more: false });
+    mocks.customersSearch.mockResolvedValue({
+      data: [{ id: "cus_oldemail123", metadata: { stockpilot_user_id: auth.userId } }],
+      next_page: null
+    });
+    const { runAccountDeletion } = await import("@/lib/account-deletion");
+
+    await runAccountDeletion(auth as never);
+
+    expect(mocks.subscriptionsList).toHaveBeenCalledWith(expect.objectContaining({ customer: "cus_oldemail123" }));
   });
 
   it("keeps the identity when Stripe times out and records a retryable failure", async () => {
@@ -302,6 +338,28 @@ describe("account deletion webhook disposition", () => {
     await expect(
       getAccountDeletionDisposition(service, { customerId: "cus_existing123" })
     ).resolves.toBe("account_deleted");
+  });
+
+  it("recognizes a completed tombstone by the pseudonymous user fingerprint", async () => {
+    let query = 0;
+    const service = {
+      from: () => ({
+        select: () => ({
+          eq: () => {
+            query += 1;
+            if (query === 1) return { maybeSingle: async () => ({ data: null, error: null }) };
+            return {
+              order: () => ({
+                limit: () => ({ maybeSingle: async () => ({ data: { status: "completed" }, error: null }) })
+              })
+            };
+          }
+        })
+      })
+    } as never;
+    const { getAccountDeletionDisposition } = await import("@/lib/account-deletion");
+
+    await expect(getAccountDeletionDisposition(service, { userId: auth.userId })).resolves.toBe("account_deleted");
   });
 
   it("does not suppress webhooks for a failed deletion", async () => {

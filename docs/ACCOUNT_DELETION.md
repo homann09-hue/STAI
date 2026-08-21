@@ -1,6 +1,6 @@
 # Sichere Kontolöschung
 
-Stand: 2026-08-18
+Stand: 2026-08-21
 Status: **TECHNICALLY COMPLETE – BLOCKED EXTERNAL**
 
 ## Sicherheitsvertrag
@@ -14,8 +14,9 @@ Vor der Supabase-Identitätslöschung werden alle Stripe-Kunden ermittelt, die
 entweder über das serverseitige Entitlement oder über die unveränderliche
 `stockpilot_user_id`-Metadatenzuordnung belegt sind. Kunden- und
 Subscriptionlisten werden vollständig paginiert. Alle nichtterminalen
-Subscriptions werden idempotent gekündigt. Bei Stripe-, Timeout-, Mapping- oder
-Persistenzfehlern bleibt die Identität erhalten.
+Vorhandene offene Checkout-Sitzungen werden vollständig paginiert und beendet,
+danach werden alle nichtterminalen Subscriptions idempotent gekündigt. Bei
+Stripe-, Timeout-, Mapping- oder Persistenzfehlern bleibt die Identität erhalten.
 
 ## Saga-Zustände
 
@@ -38,10 +39,12 @@ Request Body und Stripe-Payload werden nicht gespeichert.
 ## Webhook-Rennen und Aufbewahrung
 
 Während der Löschung und nach Abschluss verhindert der Stripe-Webhook anhand
-von User- oder Customer-Tombstones, dass Entitlements neu angelegt werden.
-Nach Abschluss wird `user_id` aus dem Job entfernt. Stripe-Customer-IDs bleiben
-höchstens 180 Tage als minimale Race-/Audit-Evidenz bestehen; der Recovery-
-Worker löscht abgelaufene Jobs einschließlich ihrer Audit-Ereignisse.
+von User-, pseudonymem SHA-256- oder Customer-Tombstone, dass Entitlements neu
+angelegt werden. Eine verspätete nichtterminale Subscription wird zusätzlich
+aktiv gekündigt; bei Stripe-Fehlern antwortet der Webhook retrybar. Nach
+Abschluss wird `user_id` aus dem Job entfernt. Fingerprint und Stripe-Customer-
+IDs bleiben ab dem Abschluss höchstens 180 Tage als minimale Race-/Audit-
+Evidenz bestehen; der Recovery-Worker löscht danach Job und Audit-Ereignisse.
 
 ## Verifikation
 
@@ -51,9 +54,9 @@ Worker löscht abgelaufene Jobs einschließlich ihrer Audit-Ereignisse.
   Entfernung der User-ID nach Abschluss.
 - Browser-E2E: Löschoberfläche und API bleiben ohne verifizierte Sitzung auf
   Mobile und Desktop geschlossen.
-- Voll-Gates: 157 Testdateien / 1.198 Tests, Typecheck, ESLint und Production-
+- Voll-Gates: 158 Testdateien / 1.207 Tests, Typecheck, ESLint und Production-
   Build erfolgreich.
-- Datenbank: sauberer Reset mit allen Migrationen und 253 erfolgreichen pgTAP-
+- Datenbank: sauberer Reset mit allen Migrationen und 260 erfolgreichen pgTAP-
   Assertions in 11 Dateien.
 - Security: npm-Audit auf `moderate` und `high` ohne bekannte Schwachstellen.
 - Noch erforderlich: vollständiger Stripe-Testmode-Durchlauf mit realem

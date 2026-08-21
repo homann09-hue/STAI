@@ -1,6 +1,6 @@
 # StockPilot AI – aktueller Status
 
-Stand: 2026-08-18
+Stand: 2026-08-21
 Freigabestatus: **OPEN**
 
 ## Aktuell
@@ -8,11 +8,11 @@ Freigabestatus: **OPEN**
 - Autoritative Projektverfassung: `docs/ULTIMATE_MARKET_READINESS_GOAL.md`,
   Version 4.0
 - Aktiver Arbeitspunkt: Phase 1.1 – Stripe-sichere Account-Löschung
-- Aktiver Branch: `codex/phase-1-1-account-deletion`
-- Verifizierter `main`: `9d5f91776c4f197e961037a1dda093aa28f54321`
+- Aktiver Branch: `codex/phase-1-1-redteam-hardening`
+- Verifizierter `main`: `c1c114105b9e16ab29b620a8ac4b0faf3d4d1e0b`
 - Produktion: `https://stockpilot-ai-beta.vercel.app`, Health HTTP 200
 - Phase 0: PR #99 gemergt und als StockPilot-Produktion deployt
-- Phase 1.1: PR #100 mit App-CI, pgTAP und beiden Vercel-Preview-Checks grün
+- Phase 1.1: PR #100 am 2026-08-18 gemergt; Red-Team-Härtung läuft
 - Eingefrorene PR-Kette #87–#97: weiterhin vollständig als Entwurf eingefroren
 - BauPro und andere Projekte: nicht angefasst
 
@@ -24,6 +24,8 @@ Freigabestatus: **OPEN**
 - Red-Team: Run 32040526871 erfolgreich
 - Phase-1.1 lokal: 157 Dateien / 1.198 Tests erfolgreich
 - Phase-1.1 Datenbank: 11 Dateien / 253 Assertions erfolgreich
+- Phase-1.1 Red-Team: 158 Dateien / 1.207 Tests und 11 pgTAP-Dateien /
+  260 Assertions erfolgreich
 - Coverage: 48,76 % Statements / 46,17 % Branches / 47,63 % Functions /
   50,60 % Lines
 - Browser-E2E: 37 erfolgreich / 1 übersprungen
@@ -36,11 +38,13 @@ Freigabestatus: **OPEN**
 
 ## Aktuelle Änderung
 
-Phase 1.1 implementiert frische Re-Authentifizierung, Stripe-Kündigung vor
-Identitätslöschung, serverseitige Lösch-Saga, Audit-Trail, Webhook-Race-Schutz,
-tägliche Wiederaufnahme und zeitlich begrenzte Tombstones. Lokale Voll-Gates,
-Build, Datenbanktest, Audits, PR-CI und Preview sind grün. Merge, Produktions-
-migration, Produktion und der echte Stripe-Testmode-Durchlauf stehen noch aus.
+PR #100 ist gemergt. Der anschließende Red-Team-Lauf schließt weitere Rennen:
+offene Checkout-Sitzungen werden vor der Identitätslöschung beendet, späte
+Subscriptions aktiv gekündigt, gelöschte Nutzer pseudonym erkannt, ungültige
+Saga-Sprünge in PostgreSQL verhindert und die 180-Tage-Frist erst ab Abschluss
+gestartet. Typecheck, ESLint, 1.207 Tests, 260 pgTAP-Assertions und Build sind
+grün. Produktionsmigration, StockPilot-Deployment und echter Stripe-Testmode-
+Durchlauf stehen bewusst noch aus.
 
 ## Danach
 

@@ -1,14 +1,17 @@
 import { z } from "zod";
+import { getAccountDeletionDisposition } from "@/lib/account-deletion";
 import { jsonError, jsonOk, parseJsonBody, rateLimit, requireSameOrigin } from "@/lib/api-guard";
 import { getUserEntitlements } from "@/lib/billing/server";
 import {
   getStripeBillingConfiguration,
   getStripeClient,
   getStripePriceId,
-  getTrustedBillingOrigin
+  getTrustedBillingOrigin,
+  ensureStripeCustomer
 } from "@/lib/billing/stripe";
 import { logEvent } from "@/lib/observability";
 import { getSupabaseAuth } from "@/lib/supabase/user-data";
+import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,8 +42,18 @@ export async function POST(request: Request) {
   const configuration = getStripeBillingConfiguration();
   const priceId = getStripePriceId(parsed.data.plan, parsed.data.interval);
   const appOrigin = getTrustedBillingOrigin(request);
-  if (!stripe || !configuration.webhookSecret || !priceId || !appOrigin) {
+  const service = createSupabaseServiceClient();
+  if (!stripe || !configuration.webhookSecret || !priceId || !appOrigin || !service) {
     return jsonError("Billing ist noch nicht vollständig konfiguriert. Es wurde keine Zahlung gestartet.", 503);
+  }
+
+  try {
+    const deletion = await getAccountDeletionDisposition(service, { userId: auth.userId });
+    if (deletion) {
+      return jsonError("Für ein Konto in Löschung kann kein Abo gestartet werden.", 409);
+    }
+  } catch {
+    return jsonError("Kontostatus ist derzeit nicht sicher prüfbar. Es wurde keine Zahlung gestartet.", 503);
   }
 
   const entitlement = await getUserEntitlements(auth);
@@ -56,6 +69,9 @@ export async function POST(request: Request) {
   };
 
   try {
+    const customer = entitlement.providerCustomerId
+      ? { id: entitlement.providerCustomerId }
+      : await ensureStripeCustomer(stripe, auth.userId, auth.email);
     const session = await stripe.checkout.sessions.create(
       {
         mode: "subscription",
@@ -65,16 +81,18 @@ export async function POST(request: Request) {
         client_reference_id: auth.userId,
         metadata,
         subscription_data: { metadata },
-        ...(entitlement.providerCustomerId
-          ? { customer: entitlement.providerCustomerId }
-          : auth.email
-            ? { customer_email: auth.email }
-            : {})
+        customer: customer.id
       },
       {
         idempotencyKey: `stockpilot-checkout:${auth.userId}:${parsed.data.plan}:${parsed.data.interval}:${Math.floor(Date.now() / 60_000)}`
       }
     );
+
+    const postCreateDeletion = await getAccountDeletionDisposition(service, { userId: auth.userId });
+    if (postCreateDeletion) {
+      await stripe.checkout.sessions.expire(session.id);
+      return jsonError("Die Kontolöschung hat bereits begonnen. Der Checkout wurde beendet.", 409);
+    }
 
     if (!session.url) return jsonError("Checkout konnte nicht sicher erstellt werden.", 502);
     logEvent("info", "billing.checkout_created", { userId: auth.userId, plan: parsed.data.plan, interval: parsed.data.interval });

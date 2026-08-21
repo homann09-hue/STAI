@@ -197,7 +197,9 @@ export async function ensureStripeCustomer(stripe: Stripe, userId: string, email
   // Gleiche Adresse, aber noch ohne Zuordnung: nachtragen statt einen zweiten
   // Kunden anlegen -- doppelte Kunden zu derselben Adresse machen jede spaetere
   // Rechnungszuordnung mehrdeutig.
-  const byEmail = customers.data.find((customer) => customer.email === email);
+  const byEmail = customers.data.find(
+    (customer) => customer.email === email && !customer.metadata?.stockpilot_user_id
+  );
   if (byEmail) {
     return stripe.customers.update(byEmail.id, {
       metadata: { ...byEmail.metadata, stockpilot_user_id: userId }

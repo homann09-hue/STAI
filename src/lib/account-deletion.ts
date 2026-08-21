@@ -32,6 +32,11 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const STRIPE_CUSTOMER_PATTERN = /^cus_[A-Za-z0-9_:-]{6,120}$/;
 const STRIPE_RESOURCE_MISSING = "resource_missing";
 
+async function sha256(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export class AccountDeletionError extends Error {
   constructor(
     readonly code: "configuration_missing" | "already_running" | "billing_mapping_incomplete" | "provider_failed" | "persistence_failed",
@@ -118,6 +123,21 @@ async function loadStripeCustomerIds(service: ServiceClient, stripe: Stripe | nu
     return [];
   }
 
+  let searchPage: string | undefined;
+  do {
+    const customers = await stripe.customers.search({
+      query: `metadata['stockpilot_user_id']:'${auth.userId}'`,
+      limit: 100,
+      ...(searchPage ? { page: searchPage } : {})
+    });
+    for (const customer of customers.data) {
+      if (customer.metadata?.stockpilot_user_id === auth.userId && STRIPE_CUSTOMER_PATTERN.test(customer.id)) {
+        ids.add(customer.id);
+      }
+    }
+    searchPage = customers.next_page ?? undefined;
+  } while (searchPage);
+
   if (isValidEmail(auth.email)) {
     let startingAfter: string | undefined;
     do {
@@ -139,6 +159,41 @@ async function loadStripeCustomerIds(service: ServiceClient, stripe: Stripe | nu
   }
 
   return [...ids].sort();
+}
+
+async function expireOpenCheckoutSessions(stripe: Stripe, customerIds: string[]) {
+  const sessionIds: string[] = [];
+
+  for (const customer of customerIds) {
+    let startingAfter: string | undefined;
+    do {
+      const page = await stripe.checkout.sessions.list({
+        customer,
+        status: "open",
+        limit: 100,
+        ...(startingAfter ? { starting_after: startingAfter } : {})
+      });
+      sessionIds.push(...page.data.map((session) => session.id));
+      if (sessionIds.length > 1_000) {
+        throw new AccountDeletionError(
+          "provider_failed",
+          503,
+          "Zu viele offene Checkout-Sitzungen. Die Kontolöschung wurde sicher angehalten."
+        );
+      }
+      startingAfter = page.has_more ? page.data.at(-1)?.id : undefined;
+    } while (startingAfter);
+  }
+
+  for (const sessionId of [...new Set(sessionIds)]) {
+    try {
+      await stripe.checkout.sessions.expire(sessionId);
+    } catch (error) {
+      if ((error as { code?: string } | null)?.code !== STRIPE_RESOURCE_MISSING) throw error;
+    }
+  }
+
+  return [...new Set(sessionIds)].sort();
 }
 
 async function cancelCustomerSubscriptions(stripe: Stripe, customerIds: string[]) {
@@ -185,6 +240,19 @@ export async function getAccountDeletionDisposition(
       .maybeSingle();
     if (result.error) throw result.error;
     job = result.data;
+
+    if (!job) {
+      const fingerprint = await sha256(identifiers.userId.toLowerCase());
+      const fingerprintResult = await service
+        .from("account_deletion_jobs")
+        .select("status")
+        .eq("user_fingerprint", fingerprint)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (fingerprintResult.error) throw fingerprintResult.error;
+      job = fingerprintResult.data;
+    }
   }
 
   if (!job && identifiers.customerId && STRIPE_CUSTOMER_PATTERN.test(identifiers.customerId)) {
@@ -201,6 +269,17 @@ export async function getAccountDeletionDisposition(
 
   if (!job || job.status === "failed") return null;
   return job.status === "completed" ? "account_deleted" as const : "account_deletion_in_progress" as const;
+}
+
+export async function cancelStripeSubscriptionForDeletedAccount(stripe: Stripe, subscription: Stripe.Subscription) {
+  if (isTerminalStripeSubscription(subscription.status)) return false;
+  try {
+    await stripe.subscriptions.cancel(subscription.id, { prorate: false });
+    return true;
+  } catch (error) {
+    if ((error as { code?: string } | null)?.code === STRIPE_RESOURCE_MISSING) return false;
+    throw error;
+  }
 }
 
 export async function runAccountDeletion(auth: DeletionAuth) {
@@ -225,9 +304,10 @@ export async function runAccountDeletion(auth: DeletionAuth) {
       details: { customerCount: customerIds.length }
     });
 
-    const cancelledSubscriptionIds = stripe
-      ? await cancelCustomerSubscriptions(stripe, customerIds)
+    const expiredCheckoutSessionIds = stripe
+      ? await expireOpenCheckoutSessions(stripe, customerIds)
       : [];
+    const cancelledSubscriptionIds = stripe ? await cancelCustomerSubscriptions(stripe, customerIds) : [];
 
     if (customerIds.length > 0) {
       const { error } = await service
@@ -245,7 +325,10 @@ export async function runAccountDeletion(auth: DeletionAuth) {
       eventType: "subscriptions_cancelled",
       customerIds,
       cancelledSubscriptionIds,
-      details: { cancelledSubscriptionCount: cancelledSubscriptionIds.length }
+      details: {
+        expiredCheckoutSessionCount: expiredCheckoutSessionIds.length,
+        cancelledSubscriptionCount: cancelledSubscriptionIds.length
+      }
     });
 
     identityDeletionStarted = true;
@@ -263,6 +346,7 @@ export async function runAccountDeletion(auth: DeletionAuth) {
     logEvent("info", "account_deletion.completed", {
       deletionJobId: claim.job_id,
       customerCount: customerIds.length,
+      expiredCheckoutSessionCount: expiredCheckoutSessionIds.length,
       cancelledSubscriptionCount: cancelledSubscriptionIds.length
     });
     return { deleted: true as const, deletionId: claim.job_id };

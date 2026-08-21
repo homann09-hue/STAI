@@ -131,6 +131,14 @@ describe("DELETE /api/account", () => {
     const { response } = await callRoute(deletionRequest({ body: { confirmation: "JA" } }));
 
     expect(response.status).toBe(400);
-    expect(mocks.getSupabaseAuth).not.toHaveBeenCalled();
+    expect(mocks.getSupabaseAuth).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reveal the confirmation contract to anonymous callers", async () => {
+    mocks.getSupabaseAuth.mockResolvedValue({ ok: false, reason: "anonymous" });
+
+    const { response } = await callRoute(deletionRequest({ body: { confirmation: "JA" } }));
+
+    expect(response.status).toBe(401);
   });
 });
