@@ -80,6 +80,41 @@ export type PlanLimits = {
   apiRequestsPerDay: number;
 };
 
+/**
+ * Verbindlicher Mengenvertrag für FREE, PRO und PREMIUM.
+ *
+ * Alle TypeScript-Pfade, Admin-Antworten und UI-Texte leiten ihre Werte aus
+ * diesem Objekt ab. PostgreSQL erhält denselben versionierten Vertrag über
+ * eine Migration; Contract- und pgTAP-Tests verhindern Drift zwischen beiden
+ * Laufzeiten.
+ */
+export const planLimitContract = {
+  free: {
+    maxWatchlistItems: 15,
+    maxAlerts: 3,
+    historicalDataYears: 1,
+    portfolios: 1,
+    aiAnalysesPerDay: 3,
+    apiRequestsPerDay: 0
+  },
+  pro: {
+    maxWatchlistItems: 250,
+    maxAlerts: 100,
+    historicalDataYears: 10,
+    portfolios: 10,
+    aiAnalysesPerDay: 100,
+    apiRequestsPerDay: 1_000
+  },
+  premium: {
+    maxWatchlistItems: 1_000,
+    maxAlerts: 500,
+    historicalDataYears: 20,
+    portfolios: 25,
+    aiAnalysesPerDay: 500,
+    apiRequestsPerDay: 10_000
+  }
+} as const satisfies Readonly<Record<PlanId, PlanLimits>>;
+
 export type PlanPricing = {
   /** Anzeigepreis pro Monat. */
   monthly: string;
@@ -326,14 +361,7 @@ export const pricingTiers: PricingTier[] = [
     technicalStatus: "Ohne Zahlung aktiv, mit serverseitigen Free-Grenzen",
     billingRequired: false,
     featureStatus: statusMap(freeFeatures, plannedFeatures),
-    limits: {
-      maxWatchlistItems: 15,
-      maxAlerts: 3,
-      historicalDataYears: 1,
-      portfolios: 1,
-      aiAnalysesPerDay: 3,
-      apiRequestsPerDay: 0
-    }
+    limits: planLimitContract.free
   },
   {
     id: "pro",
@@ -361,14 +389,7 @@ export const pricingTiers: PricingTier[] = [
       "exports",
       "paper_trading"
     ]),
-    limits: {
-      maxWatchlistItems: 250,
-      maxAlerts: 100,
-      historicalDataYears: 10,
-      portfolios: 10,
-      aiAnalysesPerDay: 100,
-      apiRequestsPerDay: 1_000
-    }
+    limits: planLimitContract.pro
   },
   {
     id: "premium",
@@ -385,14 +406,7 @@ export const pricingTiers: PricingTier[] = [
     technicalStatus: "Freigabe ausschließlich über Checkout und signierten Webhook",
     billingRequired: true,
     featureStatus: statusMap(premiumFeatures, []),
-    limits: {
-      maxWatchlistItems: 1_000,
-      maxAlerts: 500,
-      historicalDataYears: 20,
-      portfolios: 25,
-      aiAnalysesPerDay: 500,
-      apiRequestsPerDay: 10_000
-    }
+    limits: planLimitContract.premium
   }
 ];
 

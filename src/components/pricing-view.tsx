@@ -35,9 +35,8 @@ const statusCopy: Record<FeatureGateStatus, { label: string; tone: string; icon:
 
 const planRecommendations = [
   ["Free", "Für Beobachten, Lernen und erste Analysen mit bewusst kleinen Limits."],
-  ["Starter", "Für kleine Anleger mit größerer Watchlist, mehr Alerts und zwei Portfolios."],
   ["Pro", "Für aktive Nutzer mit Profi-Terminal, mehr Portfolios und höheren Quoten."],
-  ["Elite/Business", "Für vertraglich geprüfte Teams mit individuellen Rollen und Limits."]
+  ["Premium", "Für Intensivnutzer mit großen Watchlists, mehreren Portfolios und den höchsten Nutzungslimits."]
 ];
 
 function tierStats(tier: (typeof pricingTiers)[number]) {
@@ -180,7 +179,7 @@ export function PricingView() {
       <section className="rounded-[1.5rem] border border-stroke bg-panel/72 p-5">
         <h2 className="text-xl font-semibold text-mist">Welche Stufe passt zu welchem Nutzer?</h2>
         <p className="mt-2 text-sm leading-6 text-muted">Die Einordnung beschreibt Funktionsumfang und Limits, niemals eine Renditeerwartung.</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
           {planRecommendations.map(([title, text]) => (
             <article key={title} className="rounded-2xl border border-stroke bg-coal/70 p-4">
               <p className="font-semibold text-cyan">{title}</p>
@@ -258,7 +257,7 @@ export function PricingView() {
 
       <section className="rounded-[1.5rem] border border-amber/25 bg-amber/10 p-5">
         <h2 className="text-xl font-semibold text-mist">Vor Aktivierung erforderlich</h2>
-        <p className="mt-2 text-sm leading-6 text-muted">Stripe-Testmodus, Price-IDs, Webhook-Secret und Produktions-URL müssen gemeinsam konfiguriert sein. Elite bleibt unabhängig davon eine manuelle Vertragsfreigabe.</p>
+        <p className="mt-2 text-sm leading-6 text-muted">Stripe-Testmodus, Price-IDs, Webhook-Secret und Produktions-URL müssen gemeinsam konfiguriert sein. Pro und Premium bleiben bis zur vollständigen Billing-Abnahme technisch gesperrt.</p>
       </section>
     </div>
   );

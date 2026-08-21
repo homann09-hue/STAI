@@ -28,7 +28,7 @@ const commandItems: CommandItem[] = [
   { href: "/track-record", label: "Trefferbilanz", group: "Research", hint: "Wie gut waren unsere Prognosen wirklich", keywords: "trefferbilanz track record prognose treffer kalibrierung baseline modellgüte historie" },
   { href: "/compare", label: "Vergleich", group: "Research", hint: "Asset vs Benchmark", keywords: "vergleich compare benchmark asset etf" },
   { href: "/learn", label: "Investieren lernen", group: "Lernen", hint: "Glossar und Beispiel-Portfolios", keywords: "lernen anfänger glossar aktie etf risiko" },
-  { href: "/pricing", label: "Pläne", group: "Business", hint: "Free, Starter, Pro, Elite", keywords: "pricing preis pläne pro elite billing" },
+  { href: "/pricing", label: "Pläne", group: "Tarife", hint: "Free, Pro, Premium", keywords: "pricing preis pläne free pro premium billing" },
   { href: "/settings", label: "Einstellungen", group: "Kontrolle", hint: "Provider Health, Supabase, Modus", keywords: "settings einstellungen provider health supabase api keys" },
   { href: "/assets/NVDA", label: "NVDA", group: "Asset", hint: "Nvidia Detailanalyse", keywords: "nvidia nvda aktie ai chip" },
   { href: "/assets/AAPL", label: "AAPL", group: "Asset", hint: "Apple Detailanalyse", keywords: "apple aapl aktie iphone" },

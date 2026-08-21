@@ -57,3 +57,13 @@ Kontoinhaber muss einen zusätzlichen Supabase-Aktiv-Slot freigeben oder den
 Tarif anheben. Danach `STAI` reaktivieren, Migration anwenden und ausschließlich
 `stockpilot-ai` deployen. Live-Worker, Logs, Preview-Runtime und Stripe-Testmode
 bleiben bis dahin offen. Andere Projekte werden nicht verändert.
+
+## 2026-08-21 — Phase 1.2: Free/Pro/Premium-Limits
+
+**Befunde:** PostgreSQL enthielt noch die Legacy-Stufen Starter/Elite, Free hatte ein abweichendes Watchlist-Limit und Premium fiel auf Free zurück. Ein zusätzlicher Red-Team-Grenztest deckte einen Laufzeitfehler im Portfolio-Limit-Trigger auf.
+
+**Änderung:** Ein privater, normalisierter DB-Limitvertrag mit exakten Free/Pro/Premium-Werten ersetzt die Legacy-Verzweigung. UI, Admin-API und Tests beziehen sich auf denselben Anwendungsvertrag. Der Trigger verwendet tabellenspezifischen Record-Zugriff und bewahrt vorhandene Daten bei Downgrades.
+
+**Evidenz:** 13 gezielte Vertragstests, 40 neue pgTAP-Assertions, gesamte Vitest-Suite 1.212/1.212, gesamte DB-Suite 300/300, Typecheck, Lint, Build und Dependency-Audit bestanden. Coverage wurde mit `all: true` gemessen und beträgt 49,28 % Statements.
+
+**Offen:** Produktionsmigration und produktiver E2E-Nachweis bleiben blockiert, bis das Supabase-Projekt `STAI` wieder aktiv ist. Es wurde keine andere Supabase- oder Vercel-Anwendung verändert.

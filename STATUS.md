@@ -58,3 +58,16 @@ Prüfung und Logprüfung beginnt Phase 1.2: verbindliche Free-/Pro-/Premium-Limi
 
 Externe und interne Blocker stehen ausschließlich in `docs/BLOCKERS.md`;
 laufende Evidenz ausschließlich in `docs/EXECUTION_LEDGER.md`.
+
+## 2026-08-21 — Phase 1.2 Tarif- und Limitvertrag
+
+Status: **TECHNICALLY COMPLETE – BLOCKED EXTERNAL**
+
+- P1 behoben: Free-Watchlist war in PostgreSQL auf 10 statt 15 begrenzt.
+- P1 behoben: Premium fiel in `private.current_plan_limit` auf Free-Limits zurück.
+- P1 behoben: Der gemeinsame Ressourcen-Trigger griff bei Portfolio-INSERTs auf das nicht vorhandene Feld `NEW.symbol` zu.
+- Free/Pro/Premium sind nun in TypeScript, Admin-API, Pricing-UI und PostgreSQL exakt vereinheitlicht.
+- Alte aktive Produkttexte `Starter` und `Elite/Business` wurden entfernt; Legacy-Aliase bleiben nur zur Datenkompatibilität.
+- Lokal verifiziert: 1.212 Vitest-Tests, 300 pgTAP-Assertions, Typecheck, Lint, Build und `npm audit` grün.
+- Coverage-Basis: 49,28 % Statements, 46,41 % Branches, 48,12 % Funktionen, 51,21 % Zeilen.
+- Produktion unverändert: Die neue Migration ist wegen des inaktiven Supabase-Projekts noch nicht angewendet; Vercel-Deployment bleibt bewusst zurückgestellt.

@@ -33,8 +33,8 @@ type CapitalProfile = {
 
 const capitalProfiles: CapitalProfile[] = [
   {
-    id: "starter",
-    label: "1 € Starter",
+    id: "micro",
+    label: "1 € Einstieg",
     audience: "Einsteiger",
     capital: 1,
     deployRate: 0.45,

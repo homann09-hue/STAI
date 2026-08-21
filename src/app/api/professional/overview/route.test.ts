@@ -32,7 +32,7 @@ vi.mock("@/lib/providers/professional-data-provider", () => ({
 
 vi.mock("@/lib/billing/stripe", () => ({
   getStripeBillingConfiguration: () => ({
-    plans: { starter: true, pro: true, elite: false }
+    plans: { pro: true, premium: false }
   })
 }));
 
