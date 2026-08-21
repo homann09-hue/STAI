@@ -1,7 +1,7 @@
 # StockPilot AI Operating Card
 
 Stand: 2026-08-21
-Status: **OPEN**
+Status: **TECHNICALLY COMPLETE – BLOCKED EXTERNAL**
 Autorität: `docs/ULTIMATE_MARKET_READINESS_GOAL.md` (Version 4.0)
 
 <!-- ACTIVE_WORKPOINT: PHASE-1-1-ACCOUNT-DELETION -->
@@ -31,6 +31,8 @@ Billing bleibt bis zum vollständigen Abschluss von Phase 1 deaktiviert.
 - Branch Protection: strict; Pflichtkontexte StockPilot CI, pgTAP und Vercel
 - Phase 1.1-Red-Team: PR #101 mit App-CI, pgTAP und beiden Vercel-Checks
   gemergt; Produktionsmigration und Deployment ausstehend
+- Supabase-Projekt `STAI`: `INACTIVE`; Reaktivierung am Free-Limit von zwei
+  anderen aktiven Projekten gescheitert, keines davon wurde verändert
 
 ## Lieferregel
 

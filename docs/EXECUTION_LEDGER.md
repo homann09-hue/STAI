@@ -1,7 +1,7 @@
 # Execution Ledger
 
 Stand: 2026-08-21
-Gesamtstatus: **OPEN**
+Gesamtstatus: **TECHNICALLY COMPLETE – BLOCKED EXTERNAL**
 
 <!-- ACTIVE_WORKPOINT: PHASE-1-1-ACCOUNT-DELETION -->
 
@@ -18,7 +18,7 @@ Gesamtstatus: **OPEN**
 | Basis-Commit | `c1c114105b9e16ab29b620a8ac4b0faf3d4d1e0b` |
 | Pull Request | [#100](https://github.com/homann09-hue/STAI/pull/100) und Red-Team [#101](https://github.com/homann09-hue/STAI/pull/101) gemergt |
 | Kernimplementierung und grüne CI-Basis | `75d1772b9ca3978abbe09498ca80c6bc18e50db5` |
-| Status | OPEN |
+| Status | TECHNICALLY COMPLETE – BLOCKED EXTERNAL |
 
 ## Verifikationsstand
 
@@ -49,10 +49,11 @@ Gesamtstatus: **OPEN**
 | Red-Team Pull-Request-CI | Run 32505081098 | erfolgreich |
 | Red-Team Datenbank-CI | Run 32505081095, 260 Assertions | erfolgreich |
 | Red-Team Vercel-Preview | Run 32505081080; natives Deployment erfolgreich, Runtime durch Deployment Protection geschützt | technisch erfolgreich, Runtimeprüfung offen |
+| Supabase-Produktionspreflight | Projekt `STAI` ist `INACTIVE`; Restore wegen Free-Limit von zwei aktiven Projekten abgewiesen | BLOCKED – EXTERNAL |
 
 ## Nächster zulässiger Schritt
 
-Im freigegebenen Produktionsfenster die Migration im Supabase-Projekt `STAI`
-anwenden und danach ausschließlich `stockpilot-ai` deployen. Live-Worker, Logs,
-Preview-Runtime und Stripe-Testmode bleiben bis dahin offen. Phase 1.2 beginnt
-erst nach diesem Nachweis.
+Kontoinhaber muss einen zusätzlichen Supabase-Aktiv-Slot freigeben oder den
+Tarif anheben. Danach `STAI` reaktivieren, Migration anwenden und ausschließlich
+`stockpilot-ai` deployen. Live-Worker, Logs, Preview-Runtime und Stripe-Testmode
+bleiben bis dahin offen. Andere Projekte werden nicht verändert.
