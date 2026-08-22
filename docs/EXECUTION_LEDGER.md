@@ -1,6 +1,6 @@
 # Execution Ledger
 
-<!-- ACTIVE_WORKPOINT: PHASE-2-2-CANONICAL-QUOTES -->
+<!-- ACTIVE_WORKPOINT: PHASE-2-2-COMPLETE -->
 
 Stand: 2026-08-22
 
@@ -8,7 +8,7 @@ Stand: 2026-08-22
 
 **Phase 2.2 - kanonische Identität für Quote-Batches**
 
-Status: **IMPLEMENTED LOCALLY - PR/CI PENDING**
+Status: **COMPLETE - MERGED, CI AND PRODUCTION VERIFIED**
 
 Geprüfter Main: `9d536243c8a930fb82e25922d4af3be2c8d9d741`
 
@@ -40,6 +40,20 @@ Kurse nur anhand des Symbols ab.
 - Format- und Governance-Prüfung bestanden
 - Next.js-Produktionsbuild mit 35 statischen Seiten bestanden
 
+## Release-Evidenz
+
+- PR #121 geschützt als `d2e06f14b40e0793dc1d4e963b4aee003e73da60` gemergt
+- PR-Code-CI, pgTAP und isolierte Vercel-Preview bestanden
+- Main-Code-CI `32567795719` einschließlich Browser-E2E, Performance,
+  Dependency-/Lizenz-Audit und SBOM bestanden
+- Main-Datenbank-CI `32567795677` bestanden
+- Production `dpl_9JfMaasLC5mDUbRBNMewGCduX2J8` ist `Ready`
+- Alias `https://stockpilot-ai-beta.vercel.app` zeigt auf dieses Deployment
+- Kernseiten, Manifest, Service Worker und Health liefern HTTP 200
+- kanonischer Quote-Vertrag liefert HTTP 200 und `identityMode=canonical`
+- Provider-Symbol-Kollisionen liefern kontrolliert HTTP 409
+- keine Production-Error- oder Warning-Logs im Prüfzeitraum
+
 ## Abgeschlossene Release-Automation
 
 PR #120 wurde grün gemergt. Main-Commit
@@ -54,9 +68,8 @@ FMP, Finnhub und Alpha Vantage antworten technisch, bleiben in Production aber
 bewusst gesperrt. Öffentliche Anzeige- und Weitergaberechte sind nicht belegt;
 die Lizenzschranke wird nicht durch Konfigurationstricks umgangen.
 
-## Noch erforderlich
+## Nächster zulässiger Arbeitspunkt
 
-- PR, Pflicht-CI, Datenbank-CI und isolierte Vercel-Preview für Phase 2.2
-- geschützter Merge und automatisches StockPilot-Production-Deployment
-- Live-Abnahme des kanonischen Quote-Vertrags
-- danach verbleibende Legacy-Symbol-Aufrufer einzeln migrieren
+Die verbleibenden `legacy_symbol`-Aufrufer einzeln auf kanonische Listing-IDs
+migrieren. Stream, Watchlist und weitere Datenpfade bleiben getrennte,
+getestete Arbeitspunkte; externe Marktdatenrechte werden nicht vorgetäuscht.

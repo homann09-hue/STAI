@@ -1,6 +1,6 @@
 # StockPilot Operating Card
 
-<!-- ACTIVE_WORKPOINT: PHASE-2-2-CANONICAL-QUOTES -->
+<!-- ACTIVE_WORKPOINT: PHASE-2-2-COMPLETE -->
 
 Stand: 2026-08-22
 
