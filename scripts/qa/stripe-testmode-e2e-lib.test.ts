@@ -3,7 +3,8 @@ import {
   assertSafeStripeTestmodeEnvironment,
   assertStripePortalUrl,
   buildSignedWebhookPayload,
-  extractTestCheckoutSessionId
+  extractTestCheckoutSessionId,
+  isRestrictedTestClockPermissionError
 } from "./stripe-testmode-e2e-lib.mjs";
 
 const safeEnvironment = {
@@ -74,5 +75,18 @@ describe("Stripe testmode E2E safety contract", () => {
       type: "customer.subscription.updated"
     });
     expect(JSON.parse(payload)).toMatchObject({ id: "evt_test_2", livemode: false });
+  });
+
+  it("recognizes only Stripe permission failures that can block test clocks", () => {
+    expect(
+      isRestrictedTestClockPermissionError({ type: "StripePermissionError", statusCode: 403 })
+    ).toBe(true);
+    expect(
+      isRestrictedTestClockPermissionError({ type: "StripeInvalidRequestError", statusCode: 403 })
+    ).toBe(false);
+    expect(
+      isRestrictedTestClockPermissionError({ type: "StripePermissionError", statusCode: 400 })
+    ).toBe(false);
+    expect(isRestrictedTestClockPermissionError(null)).toBe(false);
   });
 });

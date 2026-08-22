@@ -5,10 +5,10 @@ Stand: 2026-08-22
 ## Verbindlicher Stand
 
 - Repository: `homann09-hue/STAI`
-- Geprüfte Branchbasis: `main` bei `2ff1ef09edb8b1f8f960c846483203586e170bdd`
+- Geprüfter Code-Stand: `main` bei `04f8ab162c2c1719a6241a60a5642a5a20e464bb`
 - Aktive Phase: **Phase 1.5 – vollständige Stripe-Testmode-E2E-Kette**
-- Arbeitsbranch: `codex/phase-1-5-stripe-testmode`
-- Freigabestatus: **IN ARBEIT – TESTMODE-SECRET EXTERN AUSSTEHEND**
+- Aktiver Arbeitsstatus: isolierte Stripe-Sandboxfreigabe ausstehend
+- Freigabestatus: **TECHNICALLY COMPLETE – BLOCKED EXTERNAL**
 
 ## Abgeschlossene Stabilisierung
 
@@ -27,14 +27,15 @@ Payment-Recovery verwendet im ausführbaren Sandboxvertrag eine echte Stripe Tes
 
 ## Phase-1.5-Evidenz
 
-- Sicherheitsvertrag des Harness: 6/6 Tests bestanden
-- Vollständige Vitest-Suite: 164 Dateien, 1.271/1.271 Tests bestanden
+- Sicherheitsvertrag des Harness einschließlich Key-, Ziel- und Permission-Grenzen bestanden
+- Vollständige Vitest-Suite: 165 Dateien, 1.298/1.298 Tests bestanden
 - Gesamtcoverage: 49,84 % Statements, 47,02 % Branches, 48,50 % Functions, 51,75 % Lines
 - Format, Governance, Typecheck, ESLint und Next-Production-Build mit 35 Seiten bestanden
 - Fail-closed-Probe: fehlender Testmode-Key wurde vor jedem Provideraufruf abgewiesen
 - `npm audit`: 0 bekannte Schwachstellen; Lizenzprüfung bestanden mit der bekannten indirekten `sharp/libvips`-Prüfliste
-- Echter Stripe-Testmode-Lifecycle: **NICHT GELAUFEN**, weil kein StockPilot-Testmode-Key verfügbar ist
-- Stripe CLI 1.50.4 installiert; automatische isolierte Sandbox vom Provider nicht provisioniert, Browser-/Kontofreigabe erforderlich
+- Echter Stripe-Testmode-Lifecycle lief auf `main` bis zum Test-Clock-Endpunkt: Checkout, Portal, Entitlements, Recovery-Gate, Kündigung, Duplicate-Webhook, Kontolöschung, Checkout-Expiry und Late-Webhook-Isolation wurden gegen echte Stripe-Testobjekte und lokale Supabase-Daten geprüft
+- GitHub-Lauf `32554651375` belegt den verbleibenden Providerblocker: der isolierte `rkcs_test_`-Schlüssel verweigert ausschließlich Test Clocks mit HTTP 403
+- Die zuvor sichtbare Profilbereitstellungswarnung ist nach PR #117 im Wiederholungslauf verschwunden
 
 ## Aktuelle Evidenz
 
@@ -58,9 +59,9 @@ Payment-Recovery verwendet im ausführbaren Sandboxvertrag eine echte Stripe Tes
 ## BLOCKED – EXTERNAL
 
 - Supabase-Projekt `STAI` ist `INACTIVE`; Remote-Migration und authentifizierte Produktionsprüfung sind nicht möglich. Der Phase-1.5-Harness verwendet deshalb ausschließlich lokale Supabase-Infrastruktur.
-- Der einzige verbundene Stripe-Zugang ist `Ovora` im Live-Modus und wurde nicht verwendet. Ein isolierter StockPilot-Testmode-Key fehlt noch.
+- Der Live-Zugang `Ovora` wurde nicht verwendet. Die isolierte StockPilot-Sandbox besitzt nur einen eingeschränkten Claimable-Key; Test Clocks benötigen nach der Kontozuordnung einen vollständigen Testmode-Key.
 - Billing bleibt deaktiviert. Keine Paid-Aktivierung vor Abschluss von Phase 1.5.
 
 ## Nächster zulässiger Schritt
 
-Einen StockPilot-Testmode-Key ausschließlich in der geschützten GitHub-Environment hinterlegen und den manuellen Lifecycle belegen. Keine Live-Aktivierung; BauPro und andere Projekte bleiben unberührt.
+Die isolierte Sandbox nach ausdrücklicher Kontoinhaberbestätigung beanspruchen, den vollständigen Testmode-Key ausschließlich in der geschützten GitHub-Environment ersetzen und Lauf `Stripe Testmode E2E` vollständig grün belegen. Keine Live-Aktivierung; BauPro und andere Projekte bleiben unberührt.

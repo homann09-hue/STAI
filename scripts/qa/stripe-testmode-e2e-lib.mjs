@@ -72,6 +72,15 @@ export function assertStripePortalUrl(portalUrl) {
   return url.toString();
 }
 
+export function isRestrictedTestClockPermissionError(error) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    error.type === "StripePermissionError" &&
+    error.statusCode === 403
+  );
+}
+
 export function buildSignedWebhookPayload({ eventId, created, object, type }) {
   assert.match(eventId, /^evt_[A-Za-z0-9_]+$/, "Event ID is invalid");
   assert.equal(Number.isInteger(created), true, "Event timestamp must be an integer");
