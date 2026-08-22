@@ -1,6 +1,6 @@
 # StockPilot Operating Card
 
-<!-- ACTIVE_WORKPOINT: PHASE-2-2-COMPLETE -->
+<!-- ACTIVE_WORKPOINT: PHASE-2-3-CANONICAL-STREAM -->
 
 Stand: 2026-08-22
 
@@ -28,6 +28,8 @@ Stand: 2026-08-22
 - Provider-Symbol-Kollisionen schlagen kontrolliert fehl, bis ein belegtes Mapping existiert.
 - Jede Quote trägt Provider, Zeitpunkt, Qualität und nach kanonischer Auflösung die Listing-ID.
 - Der Legacy-Symbolpfad bleibt nur für noch nicht migrierte interne Aufrufer und wird als solcher ausgewiesen.
+- SSE und REST-Fallback müssen denselben Identitätsmodus und dieselben Listing-Keys verwenden.
+- Kanonische Stream-Quotes werden ausschließlich unter `canonicalId`, nie zusätzlich unter Symbol gespeichert.
 - Externe Kurse bleiben gesperrt, bis öffentliche Anzeigerechte schriftlich belegt sind.
 
 ## Billing-Invarianten

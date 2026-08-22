@@ -5,50 +5,51 @@ Stand: 2026-08-22
 ## Verbindlicher Stand
 
 - Repository: `homann09-hue/STAI`
-- Geprüfter Ausgangsstand: `main` bei `9d536243c8a930fb82e25922d4af3be2c8d9d741`
-- Aktive Phase: **Phase 2.2 - kanonische Identität für Quote-Batches abgeschlossen**
-- Arbeitsstatus: geschützt gemergt, Main-CI und Production verifiziert
+- Geprüfter Ausgangsstand: `main` bei `255867e783c276335955a2b8925b5132dae006b5`
+- Aktive Phase: **Phase 2.3 - kanonische Identität im Market-Stream**
+- Arbeitsstatus: lokal implementiert und vollständig geprüft; PR/CI/Preview stehen aus
 - Billing: deaktiviert; Stripe auf Nutzerwunsch vorerst übersprungen
 
 ## Aktuelle Verbesserung
 
-Die Quote-Batchroute und das globale Asset-Autocomplete arbeiten nun mit
-kanonischen Listing-IDs. Cache und Response sind listing-spezifisch. Wenn zwei
-Listings beim aktiven Provider auf dasselbe Provider-Symbol fallen, wird der
-Abruf mit einem erklärten Konflikt abgebrochen statt Kurse zu vermischen.
+Asset-Detailseiten abonnieren Kurse jetzt mit ihrer serverseitig aufgelösten
+kanonischen Listing-ID. Stream-Route, SSE-Nachrichten, Client-State und
+REST-Fallback erhalten denselben Identitätsmodus. Symbolgleiche Listings werden
+nicht vermischt; fehlende Provider-Mappings liefern einen kontrollierten
+Konflikt.
 
-Der bestehende Symbolpfad bleibt als `legacy_symbol` verfügbar, damit noch
-nicht migrierte Watchlist- und Stream-Aufrufer stabil bleiben. Seine Ablösung
-ist der nächste getrennte Arbeitspunkt.
+Ein echter bestehender Client-Race wurde ebenfalls behoben: Der gedrosselte
+Quote-Puffer wird vor Reacts asynchronem State-Update gesichert und nicht mehr
+vorzeitig geleert.
+
+Dashboard und Watchlist sind bewusst noch als `legacy_symbol` ausgewiesen.
+Ihre kanonische Migration benötigt belastbare Listing-IDs im jeweiligen
+Datenmodell und bleibt ein getrennter Arbeitspunkt.
 
 ## Verifikation
 
 - Format und Governance: bestanden
-- TypeScript: bestanden
-- ESLint ohne Warnungen: bestanden
-- fokussierte Regressionstests: 21/21 bestanden
-- kritische Route/Identitätslogik: 99,07 % Lines und 95,69 % Branches
-- gesamte Testsuite: 169 Dateien, 1.321/1.321 Tests bestanden
+- TypeScript und ESLint: bestanden
+- fokussierte Stream-/Identitätstests: 14/14 bestanden
+- kritische Stream-Route: 99,02 % Lines / 95,08 % Branches
+- gesamte Testsuite: 172 Dateien, 1.335/1.335 Tests bestanden
 - Next.js-Produktionsbuild: bestanden, 35 statische Seiten
 
-## Production
+## Aktuelle Production
 
-Die Release-Automation ist abgeschlossen. Geschützte Main-Merges deployen
-wieder ausschließlich das Vercel-Projekt `stockpilot-ai`. Der aktuelle
-Production-Stand `d2e06f14b40e0793dc1d4e963b4aee003e73da60` läuft als
-`dpl_9JfMaasLC5mDUbRBNMewGCduX2J8` unter
-`https://stockpilot-ai-beta.vercel.app`. Kernrouten, PWA-Dateien, Health und
-der neue kanonische Quote-Vertrag sind live verifiziert. BauPro und andere
-Projekte bleiben unberührt.
+Der vor diesem Arbeitspunkt geprüfte Main-Stand `255867e` läuft im
+StockPilot-Projekt unter `https://stockpilot-ai-beta.vercel.app`. Phase 2.3 ist
+noch nicht gemergt oder live und wird bis zur vollständigen Release-Abnahme
+nicht als Production-Funktion bezeichnet. BauPro bleibt unberührt.
 
 ## Externe Blocker
 
-- Keine belegten öffentlichen Anzeigerechte für die vorhandenen kommerziellen Marktdatenzugänge
+- Keine belegten öffentlichen Anzeigerechte für die vorhandenen Marktdatenzugänge
 - Supabase-Projekt `STAI` zuletzt `INACTIVE`; Remote-Abnahme nicht möglich
 - Stripe-Test-Clock-Dunning mit vorhandenem eingeschränkten Zugang nicht abschließbar
 
 ## Nächster zulässiger Schritt
 
-Die verbleibenden Legacy-Symbol-Aufrufer jeweils in einem eigenen, getesteten
-Arbeitspunkt migrieren. Als Nächstes dürfen Stream und Watchlist kanonisiert
-werden; Lizenz- und Supabase-Blocker bleiben fail-closed.
+Phase 2.3 über PR, CI, pgTAP und Preview absichern, geschützt mergen und den
+kanonischen SSE-Vertrag in Production prüfen. Erst danach folgt der nächste
+einzelne Phase-2-Identitätspfad.

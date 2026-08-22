@@ -129,7 +129,7 @@ export function DashboardView({ data, heroAsset }: { data: DashboardData; heroAs
     },
     [data.gainers, data.losers, data.mostActive, data.trendingAssets, data.watchlist, tickerItems]
   );
-  const stream = useMarketStream(visibleSymbols);
+  const stream = useMarketStream({ symbols: visibleSymbols });
   const fallbackHero = data.watchlist[0] ?? data.gainers[0] ?? data.mostActive[0];
   const hero = heroAsset ?? fallbackHero;
 
