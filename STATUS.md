@@ -8,7 +8,8 @@ Stand: 2026-08-22
 - Geprüfte Branchbasis: `main` bei `f44364678b6386bb3014fe16e6d4f06b361ceb33`
 - Aktive Phase: **Phase 1.4 – atomare und reihenfolgeunabhängige Stripe-Webhooks**
 - Arbeitsbranch: `codex/phase-1-4-webhook-ordering`
-- Pull Request: noch nicht erstellt
+- Code-Commit: `2fd58bf`
+- Pull Request: [#107](https://github.com/homann09-hue/STAI/pull/107)
 - Freigabestatus: **OPEN**
 
 ## Abgeschlossene Stabilisierung
@@ -48,4 +49,4 @@ Phase 1.4 ersetzt getrennte Webhook-Schreibvorgänge durch eine einzige service-
 
 ## Nächster zulässiger Schritt
 
-Dokumentierten Commit und isolierten PR für Phase 1.4 erstellen sowie sämtliche CI-, Datenbank- und StockPilot-Preview-Checks abwarten. Phase 1.5 beginnt erst nach geschütztem Merge. BauPro und andere Projekte bleiben unberührt.
+Sämtliche Pflicht-CI-, Datenbank- und StockPilot-Preview-Checks von PR #107 abwarten, Befunde beheben und geschützt mergen. Phase 1.5 beginnt erst danach. BauPro und andere Projekte bleiben unberührt.

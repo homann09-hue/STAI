@@ -10,7 +10,8 @@ Stand: 2026-08-22
 Status: **OPEN**
 Branch: `codex/phase-1-4-webhook-ordering`
 Basis: `main` bei `f44364678b6386bb3014fe16e6d4f06b361ceb33`
-PR: noch nicht erstellt
+Commit: `2fd58bf`
+PR: [#107](https://github.com/homann09-hue/STAI/pull/107)
 
 ## Reproduzierter Fehler
 
@@ -38,7 +39,7 @@ Die Webhook-Route prüfte Duplikate, mutierte `entitlements` und schrieb danach 
 
 ## Noch erforderlich
 
-- Commit, PR, Pflicht-CI, Datenbank-CI und StockPilot-Preview
+- Pflicht-CI, Datenbank-CI und StockPilot-Preview von PR #107
 - echte Stripe-Testmode-E2E-Kette in Phase 1.5
 - Remote-Migration und Production-Prüfung erst nach Reaktivierung des Supabase-Projekts
 
