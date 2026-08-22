@@ -7,7 +7,7 @@ Stand: 2026-08-22
 - Repository: `homann09-hue/STAI`
 - Gepruefter Ausgangsstand: `main` bei `48315206db9c24bd864ff9346ea4ab9e142cd684`
 - Aktive Phase: **Phase 2.1 - kanonische Instrument- und Listing-Aufloesung**
-- Aktiver Arbeitsstatus: Implementierung und lokale Qualitaetsgates abgeschlossen; PR-/CI-Evidenz ausstehend
+- Aktiver Arbeitsstatus: Implementierung sowie lokale und externe Qualitaetsgates abgeschlossen
 - Billing: deaktiviert; Phase 1.5 bleibt **TECHNICALLY COMPLETE - BLOCKED EXTERNAL**
 
 ## Aktueller Arbeitspunkt
@@ -29,6 +29,8 @@ explizite Auswahl statt einer geratenen Zuordnung.
 - vollstaendige Vitest-Suite: 167 Dateien, 1.308/1.308 Tests bestanden
 - Format, Governance, Typecheck und ESLint bestanden
 - Next.js-Produktionsbuild mit 35 statischen Seiten bestanden
+- PR #119: Code-CI, Browser-E2E, Enterprise-Gates, pgTAP und isolierte
+  StockPilot-Vercel-Preview bestanden
 - keine Datenbankmigration und keine Produktionsaenderung
 
 ## Externe Blocker
@@ -41,7 +43,6 @@ explizite Auswahl statt einer geratenen Zuordnung.
 
 ## Naechster zulaessiger Schritt
 
-Phase-2.1-Branch pushen, PR-Checks und StockPilot-Preview pruefen und nur bei
-vollstaendig gruenen Gates nach `main` mergen. Danach als naechsten isolierten
+PR #119 geschuetzt nach `main` mergen. Danach als naechsten isolierten
 Arbeitspunkt die symbolbasierte Quotes-Batchroute auf kanonische Instrument-IDs
 umstellen. Keine Produktionsaktivierung und keine Aenderung an BauPro.

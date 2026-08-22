@@ -8,7 +8,7 @@ Stand: 2026-08-22
 
 **Phase 2.1 - kanonische Instrument- und Listing-Aufloesung**
 
-Status: **IMPLEMENTED LOCALLY - PR/CI PENDING**
+Status: **COMPLETE - VERIFIED**
 
 Gepruefter Ausgangsstand: `48315206db9c24bd864ff9346ea4ab9e142cd684`
 
@@ -38,6 +38,8 @@ und Instrumentidentitaet konnten dadurch falsch zugeordnet werden.
 - vollstaendige Suite: 167 Dateien, 1.308/1.308 Tests
 - Formatcheck, Governance, Typecheck und ESLint bestanden
 - Next.js-Produktionsbuild mit 35 statischen Seiten bestanden
+- PR #119: Code-CI einschliesslich Browser-E2E und Enterprise-Gates gruen
+- PR #119: isolierte Datenbank-CI/pgTAP und StockPilot-Vercel-Preview gruen
 - keine Migration, kein Deployment und keine Aenderung ausserhalb StockPilot
 
 ## Konservierter externer Blocker
@@ -48,8 +50,7 @@ Nutzerwunsch wird Stripe vorerst uebersprungen; Billing bleibt deaktiviert.
 
 ## Noch erforderlich
 
-- Branch pushen und PR-, Code-CI-, Datenbank-CI- und Preview-Evidenz pruefen
-- nach gruenem Merge den Source-Workspace konfliktfrei synchronisieren
+- PR #119 geschuetzt mergen und den Source-Workspace konfliktfrei synchronisieren
 - in einem separaten Phase-2-Arbeitspunkt die Quotes-Batchroute und danach die
   Provider-Symbolabbildung vollstaendig kanonisieren
 
