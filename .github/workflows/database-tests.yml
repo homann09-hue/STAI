@@ -37,6 +37,12 @@ jobs:
         run: supabase db reset --local --no-seed
       - name: Run RLS and integrity tests
         run: supabase test db
+      - name: Run atomic billing concurrency test
+        run: |
+          eval "$(supabase status -o env)"
+          SUPABASE_URL="$API_URL" \
+          SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+          npm run test:billing:concurrency
       - name: Stop isolated Supabase stack
         if: always()
         run: supabase stop --no-backup || true

@@ -3,17 +3,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 
 const mocks = vi.hoisted(() => ({
-  constructEvent: vi.fn(),
-  getAccountDeletionDisposition: vi.fn(),
+  billingConfiguration: vi.fn(),
   billingEventMaybeSingle: vi.fn(),
-  billingEventInsert: vi.fn(),
+  constructEvent: vi.fn(),
   entitlementMaybeSingle: vi.fn(),
-  entitlementUpsert: vi.fn(),
+  getAccountDeletionDisposition: vi.fn(),
   getUserById: vi.fn(),
-  subscriptionsRetrieve: vi.fn(),
-  subscriptionsCancel: vi.fn(),
+  resolvePricePlan: vi.fn(),
+  rpc: vi.fn(),
   stripeClient: vi.fn(),
-  billingConfiguration: vi.fn()
+  subscriptionsCancel: vi.fn(),
+  subscriptionsRetrieve: vi.fn()
 }));
 
 vi.mock("@/lib/account-deletion", () => ({
@@ -28,20 +28,18 @@ vi.mock("@/lib/account-deletion", () => ({
 vi.mock("@/lib/billing/stripe", () => ({
   getStripeClient: () => mocks.stripeClient(),
   getStripeBillingConfiguration: () => mocks.billingConfiguration(),
-  getPlanForStripePriceId: () => "pro"
+  getPlanForStripePriceId: (priceId: string) => mocks.resolvePricePlan(priceId)
 }));
 
 function serviceFrom(table: string) {
   if (table === "billing_events") {
     return {
-      select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: mocks.billingEventMaybeSingle }) }) }),
-      insert: mocks.billingEventInsert
+      select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: mocks.billingEventMaybeSingle }) }) })
     };
   }
   if (table === "entitlements") {
     return {
-      select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: mocks.entitlementMaybeSingle }) }) }),
-      upsert: mocks.entitlementUpsert
+      select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: mocks.entitlementMaybeSingle }) }) })
     };
   }
   throw new Error(`unexpected_table:${table}`);
@@ -50,6 +48,7 @@ function serviceFrom(table: string) {
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceClient: () => ({
     from: serviceFrom,
+    rpc: mocks.rpc,
     auth: { admin: { getUserById: mocks.getUserById } }
   })
 }));
@@ -101,15 +100,43 @@ beforeEach(() => {
   mocks.billingConfiguration.mockReturnValue({ webhookSecret: "whsec_test_1234567890123456" });
   mocks.getAccountDeletionDisposition.mockResolvedValue(null);
   mocks.billingEventMaybeSingle.mockResolvedValue({ data: null, error: null });
-  mocks.billingEventInsert.mockResolvedValue({ error: null });
   mocks.entitlementMaybeSingle.mockResolvedValue({ data: null, error: null });
-  mocks.entitlementUpsert.mockResolvedValue({ error: null });
   mocks.getUserById.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null });
+  mocks.resolvePricePlan.mockImplementation((priceId: string) => priceId === "price_pro123" ? "pro" : null);
   mocks.subscriptionsRetrieve.mockResolvedValue(subscriptionEvent().data.object);
   mocks.subscriptionsCancel.mockResolvedValue({ id: "sub_active123", status: "canceled" });
+  mocks.rpc.mockImplementation((_name: string, args: Record<string, unknown>) => Promise.resolve({
+    data: args.p_apply_entitlement
+      ? { applied: true, duplicate: false, reason: null, stale: false }
+      : {
+          applied: false,
+          duplicate: false,
+          reason: args.p_ignore_reason ?? "event_not_applied",
+          stale: false
+        },
+    error: null
+  }));
 });
 
-describe("POST /api/billing/webhook account-deletion races", () => {
+describe("POST /api/billing/webhook atomic ordering", () => {
+  it("persists a valid event and entitlement through one atomic RPC", async () => {
+    const { response, body } = await callWebhook();
+
+    expect(response.status).toBe(200);
+    expect(body.handled).toBe(true);
+    expect(body.stale).toBe(false);
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc).toHaveBeenCalledWith("apply_stripe_billing_event", expect.objectContaining({
+      p_apply_entitlement: true,
+      p_event_id: "evt_account_deletion_race",
+      p_plan: "pro",
+      p_provider_created_at: "2026-08-17T21:20:00.000Z",
+      p_provider_subscription_id: "sub_active123",
+      p_status: "active",
+      p_user_id: USER_ID
+    }));
+  });
+
   it("does not recreate entitlements while account deletion is in progress", async () => {
     mocks.getAccountDeletionDisposition.mockResolvedValue("account_deletion_in_progress");
 
@@ -118,44 +145,76 @@ describe("POST /api/billing/webhook account-deletion races", () => {
     expect(response.status).toBe(200);
     expect(body.handled).toBe(false);
     expect(body.skippedReason).toBe("account_deletion_in_progress");
-    expect(mocks.entitlementUpsert).not.toHaveBeenCalled();
     expect(mocks.subscriptionsCancel).toHaveBeenCalledWith("sub_active123", { prorate: false });
-    expect(mocks.billingEventInsert).toHaveBeenCalledWith(expect.objectContaining({ status: "ignored" }));
+    expect(mocks.rpc).toHaveBeenCalledWith("apply_stripe_billing_event", expect.objectContaining({
+      p_apply_entitlement: false,
+      p_ignore_reason: "account_deletion_in_progress",
+      p_user_id: USER_ID
+    }));
   });
 
-  it("does not recreate entitlements for an already deleted user", async () => {
+  it("pseudonymizes ledger ownership for an already deleted account", async () => {
+    mocks.getAccountDeletionDisposition.mockResolvedValue("account_deleted");
+
+    const { response } = await callWebhook();
+
+    expect(response.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith("apply_stripe_billing_event", expect.objectContaining({
+      p_apply_entitlement: false,
+      p_ignore_reason: "account_deleted",
+      p_user_id: null
+    }));
+  });
+
+  it("does not reference a missing auth user from immutable billing evidence", async () => {
     mocks.getUserById.mockResolvedValue({ data: { user: null }, error: { status: 404 } });
 
     const { response, body } = await callWebhook();
 
     expect(response.status).toBe(200);
-    expect(body.handled).toBe(false);
     expect(body.skippedReason).toBe("account_missing");
-    expect(mocks.entitlementUpsert).not.toHaveBeenCalled();
     expect(mocks.subscriptionsCancel).toHaveBeenCalledWith("sub_active123", { prorate: false });
+    expect(mocks.rpc).toHaveBeenCalledWith("apply_stripe_billing_event", expect.objectContaining({
+      p_apply_entitlement: false,
+      p_user_id: null
+    }));
   });
 
-  it("still applies a valid event for an existing account", async () => {
-    const { response, body } = await callWebhook();
-
-    expect(response.status).toBe(200);
-    expect(body.handled).toBe(true);
-    expect(body.skippedReason).toBeNull();
-    expect(mocks.entitlementUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: USER_ID, provider_subscription_id: "sub_active123" }),
-      { onConflict: "user_id,provider" }
-    );
-    expect(mocks.billingEventInsert).toHaveBeenCalledWith(expect.objectContaining({ status: "processed" }));
-  });
-
-  it("returns an idempotent response for a duplicate event", async () => {
+  it("returns an idempotent response for an existing ledger event", async () => {
     mocks.billingEventMaybeSingle.mockResolvedValue({ data: { id: "existing-ledger-row" }, error: null });
 
     const { response, body } = await callWebhook();
 
     expect(response.status).toBe(200);
     expect(body.duplicate).toBe(true);
-    expect(mocks.billingEventInsert).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("treats a duplicate detected atomically by the RPC as idempotent", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: { applied: false, duplicate: true, reason: "duplicate_event", stale: false },
+      error: null
+    });
+
+    const { response, body } = await callWebhook();
+
+    expect(response.status).toBe(200);
+    expect(body.duplicate).toBe(true);
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not apply a stale provider event", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: { applied: false, duplicate: false, reason: "stale_event", stale: true },
+      error: null
+    });
+
+    const { response, body } = await callWebhook();
+
+    expect(response.status).toBe(200);
+    expect(body.handled).toBe(false);
+    expect(body.skippedReason).toBe("stale_event");
+    expect(body.stale).toBe(true);
   });
 
   it("rejects an invalid Stripe signature", async () => {
@@ -164,11 +223,11 @@ describe("POST /api/billing/webhook account-deletion races", () => {
     const { response } = await callWebhook();
 
     expect(response.status).toBe(400);
-    expect(mocks.billingEventInsert).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
-  it("returns a safe retry response when entitlement persistence fails", async () => {
-    mocks.entitlementUpsert.mockResolvedValue({ error: { code: "database_unavailable" } });
+  it("returns a safe retry response when the atomic RPC fails", async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: "database_unavailable" } });
 
     const { response, body } = await callWebhook();
 
@@ -176,7 +235,15 @@ describe("POST /api/billing/webhook account-deletion races", () => {
     expect(String(body.error)).not.toContain("database_unavailable");
   });
 
-  it("records unrelated Stripe events as ignored", async () => {
+  it("returns a safe retry response for a malformed RPC result", async () => {
+    mocks.rpc.mockResolvedValue({ data: { applied: "yes" }, error: null });
+
+    const { response } = await callWebhook();
+
+    expect(response.status).toBe(503);
+  });
+
+  it("records unrelated verified Stripe events as ignored", async () => {
     mocks.constructEvent.mockReturnValue({
       id: "evt_unrelated",
       type: "customer.created",
@@ -189,7 +256,11 @@ describe("POST /api/billing/webhook account-deletion races", () => {
 
     expect(response.status).toBe(200);
     expect(body.handled).toBe(false);
-    expect(mocks.billingEventInsert).toHaveBeenCalledWith(expect.objectContaining({ status: "ignored" }));
+    expect(body.skippedReason).toBe("event_type_not_actionable");
+    expect(mocks.rpc).toHaveBeenCalledWith("apply_stripe_billing_event", expect.objectContaining({
+      p_apply_entitlement: false,
+      p_ignore_reason: "event_type_not_actionable"
+    }));
   });
 
   it("processes checkout completion through the retrieved subscription", async () => {
@@ -206,6 +277,15 @@ describe("POST /api/billing/webhook account-deletion races", () => {
     expect(response.status).toBe(200);
     expect(body.handled).toBe(true);
     expect(mocks.subscriptionsRetrieve).toHaveBeenCalledWith("sub_active123", { expand: ["items.data.price"] });
+  });
+
+  it("fails closed when a present Stripe price is unknown", async () => {
+    mocks.resolvePricePlan.mockReturnValue(null);
+
+    const { response } = await callWebhook();
+
+    expect(response.status).toBe(503);
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("fails closed when the webhook is not configured", async () => {
@@ -232,7 +312,7 @@ describe("POST /api/billing/webhook account-deletion races", () => {
     const { response } = await callWebhook();
 
     expect(response.status).toBe(503);
-    expect(mocks.entitlementUpsert).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("suppresses an event when deletion begins after the first lookup", async () => {
@@ -244,8 +324,10 @@ describe("POST /api/billing/webhook account-deletion races", () => {
 
     expect(response.status).toBe(200);
     expect(body.skippedReason).toBe("account_deletion_in_progress");
-    expect(mocks.entitlementUpsert).not.toHaveBeenCalled();
     expect(mocks.subscriptionsCancel).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc).toHaveBeenCalledWith("apply_stripe_billing_event", expect.objectContaining({
+      p_apply_entitlement: false
+    }));
   });
 
   it("asks Stripe to retry when a late subscription cannot be cancelled", async () => {
@@ -255,7 +337,7 @@ describe("POST /api/billing/webhook account-deletion races", () => {
     const { response } = await callWebhook();
 
     expect(response.status).toBe(503);
-    expect(mocks.billingEventInsert).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("uses the existing subscription mapping when Stripe metadata is missing", async () => {
@@ -268,7 +350,19 @@ describe("POST /api/billing/webhook account-deletion races", () => {
 
     expect(response.status).toBe(200);
     expect(body.handled).toBe(true);
-    expect(mocks.entitlementUpsert).toHaveBeenCalled();
+    expect(mocks.rpc).toHaveBeenCalled();
+  });
+
+  it("retries when an existing subscription mapping cannot be read", async () => {
+    const event = subscriptionEvent();
+    event.data.object.metadata = { stockpilot_user_id: "", stockpilot_plan: "pro" };
+    mocks.constructEvent.mockReturnValue(event);
+    mocks.entitlementMaybeSingle.mockResolvedValueOnce({ data: null, error: { code: "database_unavailable" } });
+
+    const { response } = await callWebhook();
+
+    expect(response.status).toBe(503);
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("fails safely when Supabase user lookup is unavailable", async () => {
@@ -277,16 +371,7 @@ describe("POST /api/billing/webhook account-deletion races", () => {
     const { response } = await callWebhook();
 
     expect(response.status).toBe(503);
-    expect(mocks.entitlementUpsert).not.toHaveBeenCalled();
-  });
-
-  it("treats a concurrent duplicate ledger insert as idempotent", async () => {
-    mocks.billingEventInsert.mockResolvedValue({ error: { code: "23505" } });
-
-    const { response, body } = await callWebhook();
-
-    expect(response.status).toBe(200);
-    expect(body.handled).toBe(true);
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("rejects checkout completion without a subscription", async () => {
@@ -302,5 +387,16 @@ describe("POST /api/billing/webhook account-deletion races", () => {
 
     expect(response.status).toBe(503);
     expect(mocks.subscriptionsRetrieve).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid provider timestamp before persistence", async () => {
+    const event = subscriptionEvent();
+    event.created = 0;
+    mocks.constructEvent.mockReturnValue(event);
+
+    const { response } = await callWebhook();
+
+    expect(response.status).toBe(503);
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 });

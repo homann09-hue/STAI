@@ -5,12 +5,12 @@ Stand: 2026-08-22
 ## Verbindlicher Stand
 
 - Repository: `homann09-hue/STAI`
-- Geprüfte Branchbasis: `main` bei `db5ef697a10f27d1c8b022c9ce123cccdab2d24e`
-- Aktive Phase: **Phase 1.3 – Payment-Recovery und Doppelabo-Schutz**
-- Arbeitsbranch: `codex/phase-1-3-evidence`
-- Merge-Commit: `db5ef697a10f27d1c8b022c9ce123cccdab2d24e`
-- Pull Request: [#105](https://github.com/homann09-hue/STAI/pull/105)
-- Freigabestatus: **TECHNISCH ABGESCHLOSSEN – EXTERN BLOCKIERT**
+- Geprüfte Branchbasis: `main` bei `f44364678b6386bb3014fe16e6d4f06b361ceb33`
+- Aktive Phase: **Phase 1.4 – atomare und reihenfolgeunabhängige Stripe-Webhooks**
+- Arbeitsbranch: `codex/phase-1-4-webhook-ordering`
+- Code-Commit: `2fd58bf`
+- Pull Request: [#107](https://github.com/homann09-hue/STAI/pull/107)
+- Freigabestatus: **OPEN**
 
 ## Abgeschlossene Stabilisierung
 
@@ -21,24 +21,25 @@ Stand: 2026-08-22
 
 ## Aktueller Arbeitspunkt
 
-Phase 1.3 verhindert neue Stripe-Checkouts bei bestehenden nichtterminalen Subscriptions. `active`, `trialing`, `past_due`, `unpaid`, `incomplete`, `paused` und unbekannte Providerzustände führen ins Portal oder blockieren bei mehrdeutiger Customer-Lage. Nur `canceled` und `incomplete_expired` erlauben einen neuen Checkout. Aktive manuelle Freischaltungen werden ebenfalls nicht doppelt verkauft.
+Phase 1.4 ersetzt getrennte Webhook-Schreibvorgänge durch eine einzige service-role-gebundene PostgreSQL-RPC. Event-Ledger und Entitlement-Mutation committen oder rollen gemeinsam zurück. Ein kurzer Transaktions-Lock serialisiert Events je Nutzer. Neuere Providerzeit gewinnt; bei identischer Zeit entscheidet die Event-ID deterministisch. Duplikate und veraltete Events bleiben nachvollziehbar, wirken aber nicht erneut. Unbekannte Stripe-Price-IDs fallen nicht mehr auf änderbare Metadaten zurück.
 
 ## Aktuelle Evidenz
 
-- Vitest: 163 Dateien, 1.257 Tests bestanden
-- pgTAP nach frischem DB-Reset: 12 Dateien, 300 Assertions bestanden
-- Billing-Playwright: Pixel 7 und Desktop Chrome, 2/2 bestanden
-- Kritische Phase-1.3-Coverage: 99,28 % Lines, 94,39 % Branches, 100 % Functions
-- Gesamtcoverage: 49,80 % Statements, 46,83 % Branches, 48,42 % Functions, 51,72 % Lines
-- Format, Typecheck, ESLint, Next-Produktionsbuild und Dependency-Audit bestanden
-- `npm audit`: 0 bekannte Schwachstellen
-- License-Audit: indirekte `sharp/libvips`-LGPL-Pakete bleiben prüfpflichtig
-- PR #105: Code-CI, pgTAP und Vercel-Preview grün; Supabase-Preview wegen inaktivem Produktionsprojekt erwartungsgemäß übersprungen
-- Datenbankschema: unverändert, keine Migration für Phase 1.3 erforderlich
+- Geprüfter Ausgangsstand: Main-Code-CI und Main-Datenbank-CI grün
+- Vollständige Vitest-Coverage-Suite: 163 Dateien, 1.265/1.265 Tests bestanden
+- Fokussierte Webhook-/Normalisierungs-Suite: 2 Dateien, 29/29 Tests bestanden
+- Frischer lokaler Supabase-Reset: erfolgreich
+- pgTAP: 13 Dateien, 327/327 Assertions bestanden
+- Reale lokale PostgREST-Concurrency: 64 absichtlich ungeordnete Events und 100 parallele Duplikate bestanden
+- Kritische Coverage: 100 % Lines, 91,97 % Branches, 100 % Functions
+- Gesamtcoverage: 49,84 % Statements, 47,02 % Branches, 48,50 % Functions, 51,75 % Lines
+- Format, Typecheck, ESLint, lokaler Supabase-Schemalint und Next-Production-Build mit 35 Seiten bestanden
+- Billing-Playwright: Mobile Chrome und Desktop Chrome, 2/2 bestanden
+- `npm audit`: 0 bekannte Schwachstellen; License-Audit bestanden, indirekte `sharp/libvips`-LGPL-Pakete bleiben prüfpflichtig
 
 ## Production
 
-`https://stockpilot-ai-beta.vercel.app/api/health` antwortete am 2026-08-21 mit HTTP 200. Das beweist nur Liveness, nicht die Aktivierung von Phase 1.2 oder 1.3. Es wurde in diesem Arbeitspunkt kein Production-Deployment ausgelöst.
+`https://stockpilot-ai-beta.vercel.app/api/health` antwortete am 2026-08-22 mit HTTP 200. Das beweist nur Liveness. Phase 1.4 ist weder in Production migriert noch deployt oder live geprüft.
 
 ## BLOCKED – EXTERNAL
 
@@ -48,4 +49,4 @@ Phase 1.3 verhindert neue Stripe-Checkouts bei bestehenden nichtterminalen Subsc
 
 ## Nächster zulässiger Schritt
 
-Den dokumentarischen Abschluss von Phase 1.3 geschützt mergen. Danach darf Phase 1.4 zur atomaren und reihenfolgeunabhängigen Webhook-Verarbeitung beginnen. BauPro und andere Projekte bleiben unberührt.
+Sämtliche Pflicht-CI-, Datenbank- und StockPilot-Preview-Checks von PR #107 abwarten, Befunde beheben und geschützt mergen. Phase 1.5 beginnt erst danach. BauPro und andere Projekte bleiben unberührt.

@@ -4,7 +4,11 @@ import {
   getAccountDeletionDisposition
 } from "@/lib/account-deletion";
 import { jsonError, jsonOk } from "@/lib/api-guard";
-import { entitlementFromStripeSubscription, stripeSubscriptionIds } from "@/lib/billing/stripe-events";
+import {
+  entitlementFromStripeSubscription,
+  stripeSubscriptionIds,
+  type StripeEntitlementMutation
+} from "@/lib/billing/stripe-events";
 import {
   getPlanForStripePriceId,
   getStripeBillingConfiguration,
@@ -17,6 +21,23 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_WEBHOOK_BYTES = 262_144;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type ServiceClient = NonNullable<ReturnType<typeof createSupabaseServiceClient>>;
+
+type SubscriptionAction = {
+  mutation: StripeEntitlementMutation | null;
+  objectId: string | null;
+  skippedReason: string | null;
+  userId: string | null;
+};
+
+type AtomicApplyResult = {
+  applied: boolean;
+  duplicate: boolean;
+  reason: string | null;
+  stale: boolean;
+};
 
 async function rawWebhookBody(request: Request) {
   const contentLength = Number(request.headers.get("content-length") ?? 0);
@@ -31,46 +52,60 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function mappedUserId(
-  supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>,
-  subscription: Stripe.Subscription
-) {
+function trustedUserId(value: unknown) {
+  return typeof value === "string" && uuidPattern.test(value) ? value : null;
+}
+
+function providerCreatedAt(event: Stripe.Event) {
+  if (!Number.isSafeInteger(event.created) || event.created <= 0) {
+    throw new Error("stripe_event_created_invalid");
+  }
+  return new Date(event.created * 1_000).toISOString();
+}
+
+async function mappedUserId(supabase: ServiceClient, subscription: Stripe.Subscription) {
   const { customerId, subscriptionId } = stripeSubscriptionIds(subscription);
   if (subscriptionId) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("entitlements")
       .select("user_id")
       .eq("provider", "stripe")
       .eq("provider_subscription_id", subscriptionId)
       .maybeSingle();
+    if (error) throw error;
     if (typeof data?.user_id === "string") return data.user_id;
   }
   if (customerId) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("entitlements")
       .select("user_id")
       .eq("provider", "stripe")
       .eq("provider_customer_id", customerId)
       .maybeSingle();
+    if (error) throw error;
     if (typeof data?.user_id === "string") return data.user_id;
   }
   return null;
 }
 
-async function syncSubscription(
-  supabase: NonNullable<ReturnType<typeof createSupabaseServiceClient>>,
-  subscription: Stripe.Subscription,
-  eventId: string
-) {
+async function subscriptionAction(
+  supabase: ServiceClient,
+  subscription: Stripe.Subscription
+): Promise<SubscriptionAction> {
   const ids = stripeSubscriptionIds(subscription);
-  const metadataUserId = subscription.metadata.stockpilot_user_id || null;
+  const metadataUserId = trustedUserId(subscription.metadata.stockpilot_user_id);
   const earlyDisposition = await getAccountDeletionDisposition(supabase, {
     userId: metadataUserId,
     customerId: ids.customerId
   });
   if (earlyDisposition) {
     await cancelStripeSubscriptionForDeletedAccount(getStripeClientOrThrow(), subscription);
-    return { userId: metadataUserId, skippedReason: earlyDisposition };
+    return {
+      mutation: null,
+      objectId: ids.subscriptionId,
+      skippedReason: earlyDisposition,
+      userId: earlyDisposition === "account_deleted" ? null : metadataUserId
+    };
   }
 
   const fallbackUserId = await mappedUserId(supabase, subscription);
@@ -83,7 +118,12 @@ async function syncSubscription(
   });
   if (disposition) {
     await cancelStripeSubscriptionForDeletedAccount(getStripeClientOrThrow(), subscription);
-    return { userId: mutation.userId, skippedReason: disposition };
+    return {
+      mutation: null,
+      objectId: mutation.providerSubscriptionId,
+      skippedReason: disposition,
+      userId: disposition === "account_deleted" ? null : mutation.userId
+    };
   }
 
   const userLookup = await supabase.auth.admin.getUserById(mutation.userId);
@@ -91,34 +131,83 @@ async function syncSubscription(
   if (userLookup.error && lookupStatus !== 404) throw userLookup.error;
   if (!userLookup.data.user) {
     await cancelStripeSubscriptionForDeletedAccount(getStripeClientOrThrow(), subscription);
-    return { userId: mutation.userId, skippedReason: "account_missing" as const };
+    return {
+      mutation: null,
+      objectId: mutation.providerSubscriptionId,
+      skippedReason: "account_missing",
+      userId: null
+    };
   }
 
-  const { error } = await supabase.from("entitlements").upsert(
-    {
-      user_id: mutation.userId,
-      plan: mutation.plan,
-      status: mutation.status,
-      provider: "stripe",
-      provider_customer_id: mutation.providerCustomerId,
-      provider_subscription_id: mutation.providerSubscriptionId,
-      provider_price_id: mutation.providerPriceId,
-      valid_until: mutation.validUntil,
-      trial_ends_at: mutation.trialEndsAt,
-      cancel_at_period_end: mutation.cancelAtPeriodEnd,
-      last_provider_event_id: eventId,
-      last_synced_at: mutation.lastSyncedAt
-    },
-    { onConflict: "user_id,provider" }
-  );
-  if (error) throw error;
-  return { userId: mutation.userId, skippedReason: null };
+  return {
+    mutation,
+    objectId: mutation.providerSubscriptionId,
+    skippedReason: null,
+    userId: mutation.userId
+  };
 }
 
 function getStripeClientOrThrow() {
   const stripe = getStripeClient();
   if (!stripe) throw new Error("stripe_unavailable");
   return stripe;
+}
+
+function parseAtomicApplyResult(data: unknown): AtomicApplyResult {
+  const value = Array.isArray(data) ? data[0] : data;
+  if (!value || typeof value !== "object") throw new Error("billing_event_result_invalid");
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.applied !== "boolean" ||
+    typeof candidate.duplicate !== "boolean" ||
+    typeof candidate.stale !== "boolean" ||
+    (candidate.reason !== null && typeof candidate.reason !== "string")
+  ) {
+    throw new Error("billing_event_result_invalid");
+  }
+  return candidate as AtomicApplyResult;
+}
+
+async function applyEventAtomically(
+  supabase: ServiceClient,
+  event: Stripe.Event,
+  body: string,
+  action: SubscriptionAction
+) {
+  const mutation = action.mutation;
+  const { data, error } = await supabase.rpc("apply_stripe_billing_event", {
+    p_event_id: event.id,
+    p_event_type: event.type,
+    p_user_id: action.userId,
+    p_payload_hash: await sha256(body),
+    p_livemode: event.livemode,
+    p_provider_created_at: providerCreatedAt(event),
+    p_provider_object_id: action.objectId,
+    p_apply_entitlement: Boolean(mutation),
+    p_ignore_reason: action.skippedReason,
+    p_plan: mutation?.plan ?? null,
+    p_status: mutation?.status ?? null,
+    p_provider_customer_id: mutation?.providerCustomerId ?? null,
+    p_provider_subscription_id: mutation?.providerSubscriptionId ?? null,
+    p_provider_price_id: mutation?.providerPriceId ?? null,
+    p_valid_until: mutation?.validUntil ?? null,
+    p_trial_ends_at: mutation?.trialEndsAt ?? null,
+    p_cancel_at_period_end: mutation?.cancelAtPeriodEnd ?? false,
+    p_last_synced_at: mutation?.lastSyncedAt ?? new Date().toISOString()
+  });
+  if (error) throw error;
+  return parseAtomicApplyResult(data);
+}
+
+async function duplicateEventExists(supabase: ServiceClient, eventId: string) {
+  const { data, error } = await supabase
+    .from("billing_events")
+    .select("id")
+    .eq("provider", "stripe")
+    .eq("event_id", eventId)
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
 }
 
 export async function POST(request: Request) {
@@ -141,20 +230,18 @@ export async function POST(request: Request) {
     return jsonError("Ungültige Webhook-Signatur.", 400);
   }
 
-  const { data: existing, error: existingError } = await supabase
-    .from("billing_events")
-    .select("id")
-    .eq("provider", "stripe")
-    .eq("event_id", event.id)
-    .maybeSingle();
-  if (existingError) return jsonError("Billing-Ereignis konnte nicht geprüft werden.", 503);
-  if (existing) return jsonOk({ received: true, duplicate: true });
-
-  let handled = false;
-  let userId: string | null = null;
-  let skippedReason: string | null = null;
-
   try {
+    if (await duplicateEventExists(supabase, event.id)) {
+      return jsonOk({ received: true, duplicate: true });
+    }
+
+    let action: SubscriptionAction = {
+      mutation: null,
+      objectId: null,
+      skippedReason: "event_type_not_actionable",
+      userId: null
+    };
+
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
@@ -162,10 +249,7 @@ export async function POST(request: Request) {
       const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
         expand: ["items.data.price"]
       });
-      const sync = await syncSubscription(supabase, subscription, event.id);
-      userId = sync.userId;
-      skippedReason = sync.skippedReason;
-      handled = !skippedReason;
+      action = await subscriptionAction(supabase, subscription);
     }
 
     if (
@@ -173,27 +257,25 @@ export async function POST(request: Request) {
       event.type === "customer.subscription.updated" ||
       event.type === "customer.subscription.deleted"
     ) {
-      const sync = await syncSubscription(supabase, event.data.object as Stripe.Subscription, event.id);
-      userId = sync.userId;
-      skippedReason = sync.skippedReason;
-      handled = !skippedReason;
+      action = await subscriptionAction(supabase, event.data.object as Stripe.Subscription);
     }
 
-    const { error: insertError } = await supabase.from("billing_events").insert({
-      provider: "stripe",
-      event_id: event.id,
-      event_type: event.type,
-      status: handled ? "processed" : "ignored",
-      user_id: userId,
-      payload_hash: await sha256(body),
-      livemode: event.livemode,
-      provider_created_at: new Date(event.created * 1_000).toISOString(),
-      processed_at: new Date().toISOString()
-    });
+    const result = await applyEventAtomically(supabase, event, body, action);
+    if (result.duplicate) return jsonOk({ received: true, duplicate: true });
 
-    if (insertError && insertError.code !== "23505") throw insertError;
-    logEvent("info", "billing.webhook_processed", { eventType: event.type, handled, userId, skippedReason });
-    return jsonOk({ received: true, handled, skippedReason });
+    logEvent("info", "billing.webhook_processed", {
+      eventType: event.type,
+      handled: result.applied,
+      stale: result.stale,
+      userId: action.userId,
+      skippedReason: result.reason
+    });
+    return jsonOk({
+      received: true,
+      handled: result.applied,
+      skippedReason: result.reason,
+      stale: result.stale
+    });
   } catch (error) {
     logEvent("error", "billing.webhook_processing_failed", {
       eventType: event.type,

@@ -1,49 +1,46 @@
 # Execution Ledger
 
-<!-- ACTIVE_WORKPOINT: PHASE-1-3 -->
+<!-- ACTIVE_WORKPOINT: PHASE-1-4 -->
 
 Stand: 2026-08-22
 
 ## Aktiver Arbeitspunkt
 
-**Phase 1.3 – Payment-Recovery und Doppelabo-Schutz**
-Status: **TECHNISCH ABGESCHLOSSEN – EXTERN BLOCKIERT**
-Branch: `codex/phase-1-3-evidence`
-Merge-Commit: `db5ef697a10f27d1c8b022c9ce123cccdab2d24e`
-PR: [#105](https://github.com/homann09-hue/STAI/pull/105)
+**Phase 1.4 – atomare und reihenfolgeunabhängige Stripe-Webhooks**
+Status: **OPEN**
+Branch: `codex/phase-1-4-webhook-ordering`
+Basis: `main` bei `f44364678b6386bb3014fe16e6d4f06b361ceb33`
+Commit: `2fd58bf`
+PR: [#107](https://github.com/homann09-hue/STAI/pull/107)
 
 ## Reproduzierter Fehler
 
-Checkout blockierte nur bei `billingActive`. Zahlfehler und pausierte beziehungsweise unvollständige Stripe-Subscriptions sind nicht aktiv, bestehen bei Stripe aber weiter. Die UI setzte zugleich `canManageBilling` auf false. Dadurch konnte ein zweiter Subscription-Checkout angeboten und gestartet werden.
+Die Webhook-Route prüfte Duplikate, mutierte `entitlements` und schrieb danach `billing_events` in getrennten PostgREST-Aufrufen. Ein Fehler zwischen den Aufrufen hinterließ Teilzustände. Parallele oder verspätete Stripe-Events konnten neuere Entitlements überschreiben. Eine unbekannte Price-ID konnte außerdem auf änderbare Stripe-Metadaten zurückfallen.
 
 ## Implementierte Lösung
 
-- Customer-Auflösung über bekannte Zuordnung, paginierte Stripe Metadata Search und paginierte E-Mail-Suche
-- paginierte Prüfung aller Subscriptions jedes zugeordneten Customers
-- nur `canceled` und `incomplete_expired` als terminal
-- Portal-Recovery für bestehende nichtterminale Zustände
-- fail-closed bei Providerfehler, unbekanntem Status, Mengenüberschreitung oder mehreren betroffenen Customers
-- Checkout-Sperre für aktive manuelle Freischaltungen
-- verständlicher Recovery-Zustand in Pricing und Account-Billing
-- Entfernung unbenutzter Legacy-Stripe-ENV-Namen
+- eine PostgreSQL-RPC für Ledger und Entitlement in derselben Transaktion
+- Unique-Constraint plus Transaktions-Lock je Stripe-Nutzer
+- Ordnungsvertrag aus `event.created` und deterministischer Event-ID-Kollisionauflösung
+- alte Events als unveränderbare, nicht angewendete Evidenz
+- DB-seitige Eingabevalidierung und ausschließlich `service_role`-gebundenes Ausführungsrecht
+- keine Metadata-Autorisierung bei unbekannter oder fehlender Price-ID
+- echte PostgREST-Concurrency-Prüfung im Datenbank-CI
 
 ## Evidenz
 
-- 1.257/1.257 Vitest
-- 300/300 pgTAP nach DB-Reset
-- 2/2 Billing-E2E auf Mobile/Desktop
-- kritische Coverage 99,28 % Lines / 94,39 % Branches / 100 % Functions
-- vollständiger Build, Typecheck, Lint, Security- und License-Audit bestanden
-- Code-CI, pgTAP und Vercel-Preview von PR #105 grün
-- keine Datenbankmigration erforderlich; das Schema blieb unverändert
+- 1.265/1.265 vollständige Vitest-Tests; 29/29 fokussierte Billing-Tests
+- 327/327 pgTAP-Assertions nach frischem DB-Reset
+- 64 ungeordnete Events und 100 parallele Duplikate gegen lokale PostgREST-RPC
+- kritische Coverage 100 % Lines / 91,97 % Branches / 100 % Functions
+- Gesamtcoverage 49,84 % Statements / 47,02 % Branches / 48,50 % Functions / 51,75 % Lines
+- Format, Typecheck, ESLint, Supabase-Schemalint und Production-Build grün
+- Billing-E2E 2/2 auf Mobile und Desktop; Security- und License-Audit grün
 
 ## Noch erforderlich
 
+- Pflicht-CI, Datenbank-CI und StockPilot-Preview von PR #107
 - echte Stripe-Testmode-E2E-Kette in Phase 1.5
-- Remote-/Produktionsprüfung erst nach Reaktivierung des Supabase-Projekts
-
-## Nächster zulässiger Arbeitspunkt
-
-Nach Merge dieses Evidenzstands: **Phase 1.4 – atomare und reihenfolgeunabhängige Webhook-Verarbeitung**.
+- Remote-Migration und Production-Prüfung erst nach Reaktivierung des Supabase-Projekts
 
 Keine Providerphase und kein weiterer Arbeitspunkt ist parallel aktiv.
