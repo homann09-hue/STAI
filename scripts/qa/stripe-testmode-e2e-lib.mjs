@@ -21,7 +21,11 @@ function requireLocalHttpUrl(environment, name) {
 
 export function assertSafeStripeTestmodeEnvironment(environment = process.env) {
   const secretKey = requireValue(environment, "STRIPE_TESTMODE_E2E_SECRET_KEY");
-  assert.match(secretKey, /^(?:sk|rk)_test_[A-Za-z0-9_]+$/, "Stripe key must be a testmode key");
+  assert.match(
+    secretKey,
+    /^(?:sk|rk|rkcs)_test_[A-Za-z0-9_]+$/,
+    "Stripe key must be a testmode secret key"
+  );
   assert.ok(!secretKey.includes("_live_"), "Live Stripe keys are forbidden");
 
   const appUrl = requireLocalHttpUrl(environment, "STRIPE_TESTMODE_E2E_APP_URL");

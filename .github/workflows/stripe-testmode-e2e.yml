@@ -38,7 +38,7 @@ jobs:
       - name: Require isolated Stripe testmode secret
         shell: bash
         run: |
-          if [[ ! "$STRIPE_TESTMODE_E2E_SECRET_KEY" =~ ^(sk|rk)_test_ ]]; then
+          if [[ ! "$STRIPE_TESTMODE_E2E_SECRET_KEY" =~ ^(sk|rk|rkcs)_test_ ]]; then
             echo "STOCKPILOT_STRIPE_TEST_SECRET_KEY is missing or not a testmode key." >&2
             exit 1
           fi

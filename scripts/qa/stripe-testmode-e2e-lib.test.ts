@@ -22,8 +22,24 @@ describe("Stripe testmode E2E safety contract", () => {
     expect(result.webhookSecret).toMatch(/^whsec_/);
   });
 
+  it.each(["sk_test_example", "rk_test_example", "rkcs_test_example"])(
+    "accepts supported Stripe testmode secret key %s",
+    (secretKey) => {
+      expect(
+        assertSafeStripeTestmodeEnvironment({
+          ...safeEnvironment,
+          STRIPE_TESTMODE_E2E_SECRET_KEY: secretKey
+        }).secretKey
+      ).toBe(secretKey);
+    }
+  );
+
   it.each([
     { ...safeEnvironment, STRIPE_TESTMODE_E2E_SECRET_KEY: "sk_live_forbidden" },
+    { ...safeEnvironment, STRIPE_TESTMODE_E2E_SECRET_KEY: "rk_live_forbidden" },
+    { ...safeEnvironment, STRIPE_TESTMODE_E2E_SECRET_KEY: "rkcs_live_forbidden" },
+    { ...safeEnvironment, STRIPE_TESTMODE_E2E_SECRET_KEY: "pk_test_not_a_secret" },
+    { ...safeEnvironment, STRIPE_TESTMODE_E2E_SECRET_KEY: "rkcs_other_forbidden" },
     { ...safeEnvironment, STRIPE_TESTMODE_E2E_APP_URL: "https://stockpilot.example" },
     { ...safeEnvironment, SUPABASE_URL: "https://production.supabase.co" }
   ])("rejects live or remote targets", (environment) => {
