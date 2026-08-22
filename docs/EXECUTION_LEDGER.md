@@ -7,9 +7,9 @@ Stand: 2026-08-22
 ## Aktiver Arbeitspunkt
 
 **Phase 1.4 – atomare und reihenfolgeunabhängige Stripe-Webhooks**
-Status: **OPEN**
-Branch: `codex/phase-1-4-webhook-ordering`
-Basis: `main` bei `f44364678b6386bb3014fe16e6d4f06b361ceb33`
+Status: **TECHNISCH ABGESCHLOSSEN – EXTERN BLOCKIERT**
+Branch: `codex/phase-1-4-evidence`
+Merge-Commit: `ec3a9af74e3f0740a06a28308f4b4a975a7276c4`
 Commit: `2fd58bf`
 PR: [#107](https://github.com/homann09-hue/STAI/pull/107)
 
@@ -36,11 +36,15 @@ Die Webhook-Route prüfte Duplikate, mutierte `entitlements` und schrieb danach 
 - Gesamtcoverage 49,84 % Statements / 47,02 % Branches / 48,50 % Functions / 51,75 % Lines
 - Format, Typecheck, ESLint, Supabase-Schemalint und Production-Build grün
 - Billing-E2E 2/2 auf Mobile und Desktop; Security- und License-Audit grün
+- Code-CI, Datenbank-CI mit echter PostgREST-Concurrency und StockPilot-Preview von PR #107 grün
 
 ## Noch erforderlich
 
-- Pflicht-CI, Datenbank-CI und StockPilot-Preview von PR #107
 - echte Stripe-Testmode-E2E-Kette in Phase 1.5
 - Remote-Migration und Production-Prüfung erst nach Reaktivierung des Supabase-Projekts
+
+## Nächster zulässiger Arbeitspunkt
+
+Nach Merge dieses Evidenzstands: **Phase 1.5 – vollständige Stripe-Testmode-E2E-Kette**.
 
 Keine Providerphase und kein weiterer Arbeitspunkt ist parallel aktiv.
