@@ -54,7 +54,7 @@ npm run test:billing:testmode
 supabase stop --no-backup
 ```
 
-Den Schlüssel niemals in Shell-History, Quellcode, `.env.example`, Logs oder Tickets eintragen. Für CI ist ein auf den Testmodus begrenzter Restricted Key mit den minimal nötigen Rechten vorzuziehen.
+Den Schlüssel niemals in Shell-History, Quellcode, `.env.example`, Logs oder Tickets eintragen. Für CI ist ein auf den Testmodus begrenzter Restricted Key mit den minimal nötigen Rechten vorzuziehen. Ein `rkcs_test_`-Claimable-Key reicht für Checkout, Billing und Cleanup, besitzt aber keine Test-Clock-Berechtigung; für den vollständigen Lauf ist nach Beanspruchung der isolierten Sandbox ein `sk_test_`- oder passend berechtigter `rk_test_`-Schlüssel erforderlich.
 
 ## GitHub Actions
 
@@ -62,9 +62,13 @@ Der manuelle Workflow `Stripe Testmode E2E` nutzt die geschützte GitHub-Environ
 
 | Secret | Inhalt |
 |---|---|
-| `STOCKPILOT_STRIPE_TEST_SECRET_KEY` | `rk_test_...` oder `sk_test_...`, niemals Live |
+| `STOCKPILOT_STRIPE_TEST_SECRET_KEY` | vollständiger `rk_test_...`- oder `sk_test_...`-Testmode-Key, niemals Live |
 
 Der Workflow startet eine isolierte lokale Supabase-Instanz, erzeugt kurzlebige Stripe-Testressourcen und fährt die Infrastruktur auch nach einem Fehler herunter. Er läuft absichtlich nicht auf jedem Pull Request, damit fremde Branches keinen Zugriff auf Billing-Secrets erhalten und keine unnötigen Stripe-Ressourcen erzeugen.
+
+## Aktuell belegter Stand
+
+GitHub-Lauf `32554651375` auf Main-Commit `04f8ab162c2c1719a6241a60a5642a5a20e464bb` hat alle Schritte bis einschließlich Account-Löschung und Late-Webhook-Isolation gegen echte Stripe-Testmode-Ressourcen bestanden. Der anschließende Test-Clock-Aufruf wurde vom isolierten Claimable-Key erwartungsgemäß mit HTTP 403 abgewiesen. Der Harness übersetzt diesen Providerfehler in einen redigierten, handlungsorientierten Blocker und gibt weder Schlüssel noch Stripe-Rohfehler aus.
 
 ## Noch vor Live-Billing erforderlich
 

@@ -34,8 +34,8 @@ Stand: 2026-08-22
 ## Aktuelle externe Blocker
 
 - Supabase `STAI` ist `INACTIVE`; keine Remote-Migration oder authentifizierte Production-Abnahme.
-- Der verbundene Stripe-Zugang `Ovora` ist ausschließlich Live und nicht eindeutig StockPilot; er wird nicht verwendet.
-- Ein isolierter StockPilot-Testmode-Key sowie die rechtlich/kommerziell freigegebene Paid-Aktivierung fehlen.
+- Der Live-Zugang `Ovora` wird nicht verwendet; die isolierte StockPilot-Sandbox ist noch nicht beansprucht.
+- Ihr eingeschränkter Claimable-Key belegt den Lifecycle bis zur Test Clock. Für Test-Clock-Dunning fehlt der vollständige Testmode-Key; Paid-Aktivierung bleibt gesperrt.
 
 ## Incident-Regel
 

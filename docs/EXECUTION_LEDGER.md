@@ -7,9 +7,8 @@ Stand: 2026-08-22
 ## Aktiver Arbeitspunkt
 
 **Phase 1.5 – vollständige Stripe-Testmode-E2E-Kette**
-Status: **IN ARBEIT**
-Branch: `codex/phase-1-5-stripe-testmode`
-Basis: `2ff1ef09edb8b1f8f960c846483203586e170bdd`
+Status: **TECHNICALLY COMPLETE – BLOCKED EXTERNAL**
+Geprüfter Main: `04f8ab162c2c1719a6241a60a5642a5a20e464bb`
 
 ## Reproduzierter Fehler
 
@@ -27,12 +26,13 @@ Die Billing-Implementierung war durch Unit-, Browser-, PostgreSQL- und Concurren
 
 ## Gemessene interne Evidenz
 
-- 6/6 Harness-Sicherheitsverträge bestanden
-- vollständige Suite: 164 Testdateien, 1.271 Tests bestanden
+- Harness-Sicherheitsverträge einschließlich lokaler Zielbindung, Live-Key-Sperre und Test-Clock-Permission-Grenze bestanden
+- vollständige Suite: 165 Testdateien, 1.298 Tests bestanden
 - Format, Governance, Typecheck, ESLint, Coverage-Gate und Build mit 35 Seiten bestanden
 - fehlender Testmode-Key stoppt vor jedem Stripe- oder Supabase-Aufruf
-- echter Provider-Lifecycle nicht ausgeführt; ein StockPilot-Testmode-Key fehlt
-- Stripe CLI 1.50.4 ist installiert; die automatische claimable Sandbox wurde vom Provider abgewiesen und verlangt eine Browser-/Kontofreigabe
+- echter Provider-Lifecycle `32554651375`: Checkout, Portal, signierte Webhooks, Entitlements, Kündigung, Duplicate-Handling, Account-Deletion-Saga, Checkout-Expiry und Late-Webhook-Isolation bestanden
+- Profilbereitstellung läuft seit PR #117 ohne `42501`-Warnung; pgTAP-RLS-Verhaltenstest und Datenbank-CI sind grün
+- ausschließlich der echte Test-Clock-Dunning-/Recovery-Teil ist mit HTTP 403 blockiert, weil der Claimable-Key keine Test-Clock-Berechtigung besitzt
 - echte PostgREST-Concurrency-Prüfung im Datenbank-CI
 
 ## Evidenz
@@ -48,12 +48,12 @@ Die Billing-Implementierung war durch Unit-, Browser-, PostgreSQL- und Concurren
 
 ## Noch erforderlich
 
-- Testmode-Key für StockPilot sicher hinterlegen und den neuen Gate-Lauf belegen
-- gehostetes Checkout-UI, Dashboard-Webhook-Delivery/Retry, 3-D-Secure und Test-Clock-Dunning belegen
+- isolierte Sandbox nach Kontoinhaberfreigabe beanspruchen, vollständigen Testmode-Key sicher hinterlegen und Test-Clock-Dunning/Recovery grün belegen
+- gehostetes Checkout-UI, Dashboard-Webhook-Delivery/Retry und 3-D-Secure belegen
 - Remote-Migration und Production-Prüfung erst nach Reaktivierung des Supabase-Projekts
 
 ## Nächster zulässiger Arbeitspunkt
 
-Erst nach grünem Testmode-Gate: Phase 1.5 dokumentarisch abschließen. Keine Live-Aktivierung ohne separate Freigabe.
+Erst nach grünem Test-Clock-Gate: Phase 1.5 als `COMPLETE – VERIFIED` freigeben. Keine Live-Aktivierung ohne separate Freigabe.
 
 Keine Providerphase und kein weiterer Arbeitspunkt ist parallel aktiv.

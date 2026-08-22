@@ -8,7 +8,8 @@ import {
   assertSafeStripeTestmodeEnvironment,
   assertStripePortalUrl,
   buildSignedWebhookPayload,
-  extractTestCheckoutSessionId
+  extractTestCheckoutSessionId,
+  isRestrictedTestClockPermissionError
 } from "./stripe-testmode-e2e-lib.mjs";
 
 const config = assertSafeStripeTestmodeEnvironment();
@@ -442,10 +443,20 @@ try {
   assert.ok(recoveryAccessToken, "Supabase recovery test session was not created");
 
   const recoveryFrozenTime = Math.floor(Date.now() / 1000);
-  const recoveryClock = await stripe.testHelpers.testClocks.create({
-    frozen_time: recoveryFrozenTime,
-    name: `StockPilot dunning ${runId.slice(0, 8)}`
-  });
+  let recoveryClock;
+  try {
+    recoveryClock = await stripe.testHelpers.testClocks.create({
+      frozen_time: recoveryFrozenTime,
+      name: `StockPilot dunning ${runId.slice(0, 8)}`
+    });
+  } catch (error) {
+    if (isRestrictedTestClockPermissionError(error)) {
+      throw new Error(
+        "Stripe Test Clock is unavailable for this restricted sandbox key. Claim the isolated sandbox and configure its full sk_test_ or rk_test_ key in the protected GitHub environment."
+      );
+    }
+    throw error;
+  }
   resources.recoveryTestClockId = recoveryClock.id;
   assert.equal(recoveryClock.livemode, false);
 

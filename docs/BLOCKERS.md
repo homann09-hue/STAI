@@ -78,21 +78,21 @@ Subscription und Webhook-Secret im isolierten StockPilot-Testprojekt anlegen;
 danach Löschung, Kündigung, Webhook-Rennen und kontrollierten Stripe-Ausfall
 ausführen und protokollieren.
 
-**Aktualisierung 2026-08-22:** Der verfügbare Stripe-Connector enthält nur das
-Konto `Ovora` im Live-Modus. Es ist weder ein StockPilot-Testkonto noch eine
-sichere Testmode-Umgebung und wurde nicht verändert. Das Repository enthält nun
-einen lokal und manuell in CI ausführbaren Testmode-Harness. Zum Ausführen fehlt
-nur ein ausschließlich für StockPilot bestimmter `rk_test_...`- oder
-`sk_test_...`-Schlüssel in der geschützten GitHub-Environment
-`stripe-testmode`; Live-Schlüssel und Remote-Ziele werden technisch abgewiesen.
+**Aktualisierung 2026-08-22:** Der Live-Zugang `Ovora` wurde nicht verwendet.
+Eine vollständig isolierte Claimable-Sandbox wurde erzeugt und ihr
+eingeschränkter `rkcs_test_`-Schlüssel ausschließlich in der geschützten
+GitHub-Environment `stripe-testmode` hinterlegt. Checkout, Portal, signierte
+Webhooks, Kündigung, Account-Löschung und Late-Webhook-Isolation liefen damit
+gegen echte Testmode-Ressourcen. Live-Schlüssel und Remote-Ziele werden
+technisch abgewiesen.
 
-**Sandbox-Probe 2026-08-22:** Stripe CLI 1.50.4 wurde mit einem vollständig
-separaten Konfigurationsprofil ausgeführt. Die automatische claimable Sandbox
-wurde providerseitig nicht provisioniert und fiel auf eine Browserbestätigung
-zurück. Es wurden keine Testschlüssel gespeichert und das vorhandene
-Stripe-Profil blieb unverändert. Die verbleibende Freigabe ist damit konkret:
-ein StockPilot-Sandboxkonto im Browser bestätigen oder einen ausschließlich
-dafür bestimmten Testmode-Key in `stripe-testmode` hinterlegen.
+**Sandbox-Probe 2026-08-22:** Lauf `32554651375` erreichte ausschließlich beim
+Erzeugen einer Stripe Test Clock einen HTTP-403-Permissionfehler. Claimable-
+Schlüssel dürfen diesen Endpunkt nicht aufrufen. Die verbleibende externe
+Freigabe ist damit eng begrenzt: die bereits isolierte StockPilot-Sandbox über
+ihren geheimen Claim-Link dem Eigentümerkonto zuordnen und anschließend einen
+vollständigen Testmode-Key ausschließlich in `stripe-testmode` hinterlegen.
+Das vorhandene Livekonto und BauPro bleiben unberührt.
 
 ### Phase-1.1-Produktion ist noch nicht aktualisiert
 
