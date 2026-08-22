@@ -24,6 +24,12 @@ import { calculateHistoricalRiskMetrics } from "@/lib/analysis/historical-risk";
 
 import { buildRiskReport } from "@/lib/risk-engine";
 import { buildNormalizedQuote } from "@/lib/canonical-quote";
+import {
+  bindQuotesToCanonicalIdentities,
+  canonicalQuoteCacheKey,
+  providerSymbolForIdentity,
+  type CanonicalQuoteIdentity,
+} from "@/lib/quote-request-identity";
 
 import { getMockAsset, getMockDashboard } from "@/lib/mock/market";
 import { getNewsWithMetadata } from "@/lib/providers/news-provider";
@@ -98,6 +104,7 @@ export interface MarketStreamOptions {
 export interface RealtimeProvider {
   readonly providerName: string;
   readonly providerId: MarketProviderId;
+  readonly providerIds: readonly MarketProviderId[];
   readonly quality: MarketDataQuality;
   readonly streamMode: StreamMode;
   streamQuotes(
@@ -130,6 +137,13 @@ export interface MarketDataProvider
     HistoricalProvider {
   getDashboard(): Promise<DashboardData>;
   getAsset(symbol: string): Promise<AssetDetail | null>;
+  getCanonicalQuotes(
+    instruments: readonly CanonicalQuoteIdentity[],
+  ): Promise<NormalizedQuote[]>;
+  streamCanonicalQuotes(
+    instruments: readonly CanonicalQuoteIdentity[],
+    options?: MarketStreamOptions,
+  ): AsyncIterable<NormalizedQuote[]>;
   streamTrades?(
     symbols: string[],
     options?: MarketStreamOptions,
@@ -141,12 +155,16 @@ type QuoteProvider = NearRealtimeProvider & {
   readonly providerId: MarketProviderId;
   readonly quality: MarketDataQuality;
   readonly streamMode: StreamMode;
+  readonly providerIds?: readonly MarketProviderId[];
   streamQuotes?: (
     symbols: string[],
     options?: MarketStreamOptions,
   ) => AsyncIterable<NormalizedQuote[]>;
   /** Echte Provider-Batchroute; Cache/Backoff bleiben zentral. */
   getQuotesBatch?: (symbols: string[]) => Promise<NormalizedQuote[]>;
+  getCanonicalQuotes?: (
+    instruments: readonly CanonicalQuoteIdentity[],
+  ) => Promise<NormalizedQuote[]>;
   streamTrades?: (
     symbols: string[],
     options?: MarketStreamOptions,
@@ -1413,9 +1431,71 @@ async function* pollQuotes(
   }
 }
 
+async function getMappedProviderQuotes(
+  provider: QuoteProvider,
+  instruments: readonly CanonicalQuoteIdentity[],
+) {
+  const eligible = instruments.flatMap((instrument) => {
+    const providerSymbol = providerSymbolForIdentity(
+      instrument,
+      provider.providerId,
+    );
+    return providerSymbol ? [{ instrument, providerSymbol }] : [];
+  });
+  const providerSymbols = uniqueSymbols(
+    eligible.map((entry) => entry.providerSymbol),
+  );
+  if (!providerSymbols.length || providerSymbols.length !== eligible.length)
+    return [];
+
+  const rawQuotes = provider.getQuotesBatch
+    ? await provider.getQuotes(providerSymbols)
+    : await getCachedProviderQuotes(provider, providerSymbols);
+  return bindQuotesToCanonicalIdentities(
+    rawQuotes,
+    eligible.map((entry) => entry.instrument),
+  );
+}
+
+const inFlightCanonicalPollingBatches = new Map<
+  string,
+  Promise<NormalizedQuote[]>
+>();
+
+async function getSharedCanonicalPollingQuotes(
+  provider: MarketDataProvider,
+  instruments: readonly CanonicalQuoteIdentity[],
+) {
+  const key = canonicalQuoteCacheKey(provider.providerIds, instruments);
+  const existing = inFlightCanonicalPollingBatches.get(key);
+  if (existing) return existing;
+  const request = provider.getCanonicalQuotes(instruments).finally(() => {
+    inFlightCanonicalPollingBatches.delete(key);
+  });
+  inFlightCanonicalPollingBatches.set(key, request);
+  return request;
+}
+
+async function* pollCanonicalQuotes(
+  provider: MarketDataProvider,
+  instruments: readonly CanonicalQuoteIdentity[],
+  options?: MarketStreamOptions,
+) {
+  const intervalMs = Math.max(
+    1500,
+    options?.intervalMs ?? DEFAULT_STREAM_INTERVAL_MS,
+  );
+  while (!options?.signal?.aborted) {
+    const quotes = await getSharedCanonicalPollingQuotes(provider, instruments);
+    if (quotes.length) yield quotes;
+    await sleep(intervalMs, options?.signal);
+  }
+}
+
 class MockMarketDataProvider implements MarketDataProvider {
   readonly providerName = "StockPilot Mock Market Feed";
   readonly providerId = "mock" as const;
+  readonly providerIds = ["mock"] as const;
   readonly quality = "mock" as const;
   readonly streamMode = "mock_stream" as const;
 
@@ -1437,6 +1517,10 @@ class MockMarketDataProvider implements MarketDataProvider {
       .map((symbol) => getMockAsset(symbol))
       .filter((detail): detail is AssetDetail => Boolean(detail))
       .map((detail) => normalizedFromDetail(detail));
+  }
+
+  async getCanonicalQuotes() {
+    return [];
   }
 
   async getDelayedQuote(symbol: string) {
@@ -1487,11 +1571,16 @@ class MockMarketDataProvider implements MarketDataProvider {
   streamQuotes(symbols: string[], options?: MarketStreamOptions) {
     return pollQuotes(this, symbols, options);
   }
+
+  async *streamCanonicalQuotes() {
+    yield* [] as NormalizedQuote[][];
+  }
 }
 
 class UnavailableMarketDataProvider implements MarketDataProvider {
   readonly providerName = "Kein verifizierter Marktdatenanbieter";
   readonly providerId = "unavailable" as const;
+  readonly providerIds = ["unavailable"] as const;
   readonly quality = "unavailable" as const;
   readonly streamMode = "rest_polling" as const;
 
@@ -1511,6 +1600,10 @@ class UnavailableMarketDataProvider implements MarketDataProvider {
     return [];
   }
 
+  async getCanonicalQuotes() {
+    return [];
+  }
+
   async getDelayedQuote() {
     return null;
   }
@@ -1520,6 +1613,10 @@ class UnavailableMarketDataProvider implements MarketDataProvider {
   }
 
   async *streamQuotes() {
+    yield* [] as NormalizedQuote[][];
+  }
+
+  async *streamCanonicalQuotes() {
     yield* [] as NormalizedQuote[][];
   }
 }
@@ -2133,6 +2230,7 @@ function getCryptoQuoteProvider(): QuoteProvider | null {
 class ProviderBackedMarketDataProvider implements MarketDataProvider {
   readonly providerName: string;
   readonly providerId: MarketProviderId;
+  readonly providerIds: readonly MarketProviderId[];
   readonly quality: MarketDataQuality;
   readonly streamMode: StreamMode;
   private readonly cryptoProvider = getCryptoQuoteProvider();
@@ -2140,6 +2238,12 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
   constructor(private readonly quoteProvider: QuoteProvider) {
     this.providerName = quoteProvider.providerName;
     this.providerId = quoteProvider.providerId;
+    this.providerIds = [
+      ...new Set([
+        ...(quoteProvider.providerIds ?? [quoteProvider.providerId]),
+        ...(this.cryptoProvider ? [this.cryptoProvider.providerId] : []),
+      ]),
+    ];
     this.quality = quoteProvider.quality;
     this.streamMode = quoteProvider.streamMode;
   }
@@ -2326,6 +2430,55 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
     );
   }
 
+  async getCanonicalQuotes(
+    instruments: readonly CanonicalQuoteIdentity[],
+  ): Promise<NormalizedQuote[]> {
+    const resolved = new Map<string, NormalizedQuote>();
+    if (
+      this.cryptoProvider &&
+      this.cryptoProvider.providerId !== this.quoteProvider.providerId
+    ) {
+      try {
+        const cryptoQuotes = await getMappedProviderQuotes(
+          this.cryptoProvider,
+          instruments.filter((instrument) => instrument.assetType === "crypto"),
+        );
+        cryptoQuotes.forEach((quote) => {
+          if (quote.canonicalId) resolved.set(quote.canonicalId, quote);
+        });
+      } catch (error) {
+        logEvent("error", "crypto_provider.canonical_batch_failed", {
+          provider: this.cryptoProvider.providerName,
+          error,
+        });
+      }
+    }
+
+    const unresolved = instruments.filter(
+      (instrument) => !resolved.has(instrument.canonicalId),
+    );
+    try {
+      const quotes = this.quoteProvider.getCanonicalQuotes
+        ? await this.quoteProvider.getCanonicalQuotes(unresolved)
+        : await getMappedProviderQuotes(this.quoteProvider, unresolved);
+      quotes.forEach((quote) => {
+        if (quote.canonicalId) resolved.set(quote.canonicalId, quote);
+      });
+    } catch (error) {
+      if (!(error instanceof ProviderConfigurationError)) {
+        logEvent("error", "market_provider.canonical_batch_failed", {
+          provider: this.providerName,
+          error,
+        });
+      }
+    }
+
+    return instruments.flatMap((instrument) => {
+      const quote = resolved.get(instrument.canonicalId);
+      return quote ? [quote] : [];
+    });
+  }
+
   async getDelayedQuote(symbol: string) {
     return this.getQuote(symbol);
   }
@@ -2398,6 +2551,23 @@ class ProviderBackedMarketDataProvider implements MarketDataProvider {
     return pollQuotes(this, symbols, options);
   }
 
+  streamCanonicalQuotes(
+    instruments: readonly CanonicalQuoteIdentity[],
+    options?: MarketStreamOptions,
+  ) {
+    const primarySymbols = instruments.map((instrument) =>
+      providerSymbolForIdentity(instrument, this.quoteProvider.providerId),
+    );
+    if (
+      primarySymbols.every((symbol): symbol is string => Boolean(symbol)) &&
+      this.quoteProvider.streamMode === "provider_websocket" &&
+      this.quoteProvider.streamQuotes
+    ) {
+      return this.quoteProvider.streamQuotes(primarySymbols, options);
+    }
+    return pollCanonicalQuotes(this, instruments, options);
+  }
+
   streamTrades(symbols: string[], options?: MarketStreamOptions) {
     return this.quoteProvider.streamTrades
       ? this.quoteProvider.streamTrades(symbols, options)
@@ -2455,6 +2625,7 @@ function createQuoteProvider(id: MarketProviderId): QuoteProvider | null {
 export class ChainedQuoteProvider implements QuoteProvider {
   readonly providerName: string;
   readonly providerId: MarketProviderId;
+  readonly providerIds: readonly MarketProviderId[];
   readonly quality: MarketDataQuality;
   readonly streamMode: StreamMode;
 
@@ -2462,6 +2633,7 @@ export class ChainedQuoteProvider implements QuoteProvider {
     const head = chain[0];
     this.providerName = head.providerName;
     this.providerId = head.providerId;
+    this.providerIds = chain.map((provider) => provider.providerId);
     this.quality = head.quality;
     this.streamMode = head.streamMode;
   }
@@ -2494,9 +2666,19 @@ export class ChainedQuoteProvider implements QuoteProvider {
     for (const provider of this.chain) {
       if (unresolved.size === 0) break;
 
-      const quotes = provider.getQuotesBatch
-        ? await provider.getQuotes([...unresolved])
-        : await getCachedProviderQuotes(provider, [...unresolved]);
+      let quotes: NormalizedQuote[] = [];
+      try {
+        quotes = provider.getQuotesBatch
+          ? await provider.getQuotes([...unresolved])
+          : await getCachedProviderQuotes(provider, [...unresolved]);
+      } catch (error) {
+        logEvent("warn", "market.provider_batch_failed_over", {
+          providerId: provider.providerId,
+          requested: unresolved.size,
+          message: error instanceof Error ? error.message : "unknown",
+        });
+        continue;
+      }
       for (const quote of quotes) {
         const normalizedSymbol = uniqueSymbols([quote.symbol])[0];
         if (!normalizedSymbol || !unresolved.has(normalizedSymbol)) continue;
@@ -2507,6 +2689,42 @@ export class ChainedQuoteProvider implements QuoteProvider {
 
     return requested.flatMap((symbol) => {
       const quote = resolved.get(symbol);
+      return quote ? [quote] : [];
+    });
+  }
+
+  async getCanonicalQuotes(
+    instruments: readonly CanonicalQuoteIdentity[],
+  ): Promise<NormalizedQuote[]> {
+    const unresolved = new Map(
+      instruments.map((instrument) => [instrument.canonicalId, instrument]),
+    );
+    const resolved = new Map<string, NormalizedQuote>();
+
+    for (const provider of this.chain) {
+      if (!unresolved.size) break;
+      const eligible = [...unresolved.values()].filter((instrument) =>
+        Boolean(providerSymbolForIdentity(instrument, provider.providerId)),
+      );
+      if (!eligible.length) continue;
+      try {
+        const quotes = await getMappedProviderQuotes(provider, eligible);
+        for (const quote of quotes) {
+          if (!quote.canonicalId || !unresolved.has(quote.canonicalId)) continue;
+          resolved.set(quote.canonicalId, quote);
+          unresolved.delete(quote.canonicalId);
+        }
+      } catch (error) {
+        logEvent("warn", "market.provider_canonical_batch_failed_over", {
+          providerId: provider.providerId,
+          requested: eligible.length,
+          message: error instanceof Error ? error.message : "unknown",
+        });
+      }
+    }
+
+    return instruments.flatMap((instrument) => {
+      const quote = resolved.get(instrument.canonicalId);
       return quote ? [quote] : [];
     });
   }

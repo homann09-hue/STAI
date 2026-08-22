@@ -13,6 +13,13 @@ import {
 } from "@/lib/instrument-resolution";
 import type { QuoteStatus } from "@/lib/quote-entitlement";
 import type { ProviderInstrumentHit } from "@/lib/providers/instrument-directory-provider";
+import {
+  resolveStoredCanonicalQuoteMappings,
+  type CanonicalQuoteMappingResolution,
+  type CanonicalQuoteRequestIdentity,
+  type StoredCanonicalInstrumentRow,
+  type StoredProviderIdentifierRow,
+} from "@/lib/quote-request-identity";
 import type {
   InstrumentResolutionStatus,
   MarketUniverseAssetClass,
@@ -322,6 +329,72 @@ export async function resolveInstrumentIdentityBySymbol(
     requestedCanonicalId,
     truncated: (data?.length ?? 0) > 20,
   });
+}
+
+/**
+ * Resolves listing-specific provider symbols from the Instrument Master.
+ * Canonical market routes must never derive this value from the public ticker.
+ */
+export async function resolveCanonicalQuoteIdentities(
+  identities: readonly CanonicalQuoteRequestIdentity[],
+  providerIds: readonly string[],
+): Promise<CanonicalQuoteMappingResolution> {
+  const supabase = createSupabaseServiceClient();
+  if (!supabase) return { status: "store_unavailable" };
+
+  const canonicalIds = identities.map((identity) => identity.canonicalId);
+  const { data: instruments, error: instrumentError } = await supabase
+    .from("instruments")
+    .select("id,canonical_id,symbol,asset_class,currency")
+    .in("canonical_id", canonicalIds)
+    .limit(Math.min(41, canonicalIds.length + 1));
+
+  if (instrumentError) {
+    logEvent("warn", "instrument_master.canonical_mapping_lookup_failed", {
+      code: instrumentError.code,
+      message: instrumentError.message,
+      requested: canonicalIds.length,
+    });
+    return { status: "store_unavailable" };
+  }
+
+  const instrumentRows = (instruments ?? []) as StoredCanonicalInstrumentRow[];
+  const instrumentIds = instrumentRows.flatMap((row) =>
+    typeof row.id === "string" && row.id.trim() ? [row.id.trim()] : [],
+  );
+  let identifierRows: StoredProviderIdentifierRow[] = [];
+
+  if (instrumentIds.length) {
+    const { data: identifiers, error: identifierError } = await supabase
+      .from("instrument_identifiers")
+      .select("instrument_id,identifier_type,value,provider")
+      .in("instrument_id", instrumentIds)
+      .eq("identifier_type", "provider_symbol")
+      .limit(1_000);
+
+    if (identifierError) {
+      logEvent("warn", "instrument_master.provider_mapping_lookup_failed", {
+        code: identifierError.code,
+        message: identifierError.message,
+        requested: canonicalIds.length,
+      });
+      return { status: "store_unavailable" };
+    }
+    if ((identifiers?.length ?? 0) >= 1_000) {
+      logEvent("warn", "instrument_master.provider_mapping_truncated", {
+        requested: canonicalIds.length,
+      });
+      return { status: "store_unavailable" };
+    }
+    identifierRows = (identifiers ?? []) as StoredProviderIdentifierRow[];
+  }
+
+  return resolveStoredCanonicalQuoteMappings(
+    identities,
+    instrumentRows,
+    identifierRows,
+    providerIds,
+  );
 }
 
 /**
