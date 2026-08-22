@@ -11,7 +11,9 @@ import { normalizeCanonicalQuoteRecord } from "@/lib/canonical-quote";
 import {
   bindQuotesToCanonicalIdentities,
   prepareCanonicalQuoteRequest,
+  type CanonicalQuoteMappingResolution,
 } from "@/lib/quote-request-identity";
+import { resolveCanonicalQuoteIdentities } from "@/lib/instrument-master-store";
 import type { NormalizedQuote } from "@/lib/types";
 import { validateSymbol } from "@/lib/validation";
 
@@ -79,20 +81,36 @@ export async function GET(request: Request) {
   const parsed = parseRequest(request);
   if (!parsed.ok) return jsonError(parsed.message, 400);
 
+  const provider = getMarketDataProvider();
   let canonicalPreparation: ReturnType<typeof prepareCanonicalQuoteRequest> | null = null;
+  let canonicalResolution: CanonicalQuoteMappingResolution | null = null;
   let requestSymbols: string[];
+  let instrumentCount: number;
   if (parsed.mode === "canonical") {
     canonicalPreparation = prepareCanonicalQuoteRequest(parsed.values);
     if (canonicalPreparation.status === "invalid") {
       return jsonError("Ungültige kanonische Instrument-ID.", 400);
     }
-    if (canonicalPreparation.status === "provider_symbol_collision") {
-      return jsonError(
-        `Mehrere Listings würden beim Provider auf ${canonicalPreparation.providerSymbol} kollidieren. Provider-Mapping erforderlich.`,
-        409,
-      );
+    canonicalResolution = await resolveCanonicalQuoteIdentities(
+      canonicalPreparation.identities,
+      provider.providerIds,
+    );
+    if (canonicalResolution.status === "provider_unavailable") {
+      return jsonError("Kein verifizierter Kursanbieter ist verfügbar.", 503);
     }
-    requestSymbols = canonicalPreparation.providerSymbols;
+    if (canonicalResolution.status === "store_unavailable") {
+      return jsonError("Instrument-Master ist vorübergehend nicht verfügbar.", 503);
+    }
+    if (canonicalResolution.status === "instrument_not_found") {
+      return jsonError("Mindestens ein kanonisches Instrument wurde nicht gefunden.", 404);
+    }
+    if (canonicalResolution.status !== "ready") {
+      return jsonError("Provider-Mapping für mindestens ein Listing ist nicht eindeutig verfügbar.", 409);
+    }
+    requestSymbols = [...new Set(canonicalResolution.identities.flatMap(
+      (identity) => identity.providerMappings.map((mapping) => mapping.providerSymbol),
+    ))];
+    instrumentCount = canonicalResolution.identities.length;
   } else {
     const seen = new Set<string>();
     requestSymbols = [];
@@ -104,10 +122,10 @@ export async function GET(request: Request) {
         requestSymbols.push(validated.data);
       }
     }
+    instrumentCount = requestSymbols.length;
   }
 
   const encoder = new TextEncoder();
-  const provider = getMarketDataProvider();
   const requestId = crypto.randomUUID();
   const streamIntervalMs = getStreamIntervalMs(request);
   const allowedSymbols = new Set(requestSymbols.map((symbol) => symbol.toUpperCase()));
@@ -168,10 +186,10 @@ export async function GET(request: Request) {
         streamMode: provider.streamMode,
         identityMode: parsed.mode,
         symbols: requestSymbols,
-        canonicalIds: canonicalPreparation?.status === "ready"
-          ? canonicalPreparation.identities.map((identity) => identity.canonicalId)
+        canonicalIds: canonicalResolution?.status === "ready"
+          ? canonicalResolution.identities.map((identity) => identity.canonicalId)
           : [],
-        instruments: canonicalPreparation?.status === "ready" ? canonicalPreparation.identities : [],
+        instruments: canonicalResolution?.status === "ready" ? canonicalResolution.identities : [],
         pollIntervalMs: streamIntervalMs,
         heartbeatMs: STREAM_HEARTBEAT_MS,
         maxConnectionMs: MAX_STREAM_CONNECTION_MS,
@@ -190,12 +208,18 @@ export async function GET(request: Request) {
       }, STREAM_HEARTBEAT_MS);
 
       try {
-        for await (const quotes of provider.streamQuotes(requestSymbols, {
-          signal: streamAbortController.signal,
-          intervalMs: streamIntervalMs,
-        })) {
-          const safeQuotes = canonicalPreparation?.status === "ready"
-            ? bindQuotesToCanonicalIdentities(quotes, canonicalPreparation.identities)
+        const providerStream = canonicalResolution?.status === "ready"
+          ? provider.streamCanonicalQuotes(canonicalResolution.identities, {
+              signal: streamAbortController.signal,
+              intervalMs: streamIntervalMs,
+            })
+          : provider.streamQuotes(requestSymbols, {
+              signal: streamAbortController.signal,
+              intervalMs: streamIntervalMs,
+            });
+        for await (const quotes of providerStream) {
+          const safeQuotes = canonicalResolution?.status === "ready"
+            ? bindQuotesToCanonicalIdentities(quotes, canonicalResolution.identities)
             : filterLegacyQuotes(quotes, allowedSymbols);
 
           send("quotes", {
@@ -250,7 +274,7 @@ export async function GET(request: Request) {
       "X-StockPilot-Identity-Mode": parsed.mode,
       "X-StockPilot-Stream-Interval-Ms": `${streamIntervalMs}`,
       "X-StockPilot-Stream-Max-Connection-Ms": `${MAX_STREAM_CONNECTION_MS}`,
-      "X-StockPilot-Instrument-Count": `${requestSymbols.length}`,
+      "X-StockPilot-Instrument-Count": `${instrumentCount}`,
     },
   });
 }

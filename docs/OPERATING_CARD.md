@@ -1,6 +1,6 @@
 # StockPilot Operating Card
 
-<!-- ACTIVE_WORKPOINT: PHASE-2-3-COMPLETE -->
+<!-- ACTIVE_WORKPOINT: PHASE-2-4-IN-REVIEW -->
 
 Stand: 2026-08-22
 
@@ -25,7 +25,10 @@ Stand: 2026-08-22
 
 - Das öffentliche Instrument ist die kanonische Listing-ID, nicht ein nacktes Symbol.
 - Symbolgleiche Listings werden nie geraten oder vermischt.
-- Provider-Symbol-Kollisionen schlagen kontrolliert fehl, bis ein belegtes Mapping existiert.
+- Provider-Symbole kommen ausschließlich aus dem serverseitigen Instrument Master.
+- Failover verwendet für jeden Provider dessen eigenes belegtes Symbol.
+- Fehlende oder kollidierende Mappings schlagen vor dem Provider-Aufruf kontrolliert fehl.
+- Cache-Keys enthalten Listing, interne Instrument-ID, Provider und Provider-Symbol.
 - Jede Quote trägt Provider, Zeitpunkt, Qualität und nach kanonischer Auflösung die Listing-ID.
 - Der Legacy-Symbolpfad bleibt nur für noch nicht migrierte interne Aufrufer und wird als solcher ausgewiesen.
 - SSE und REST-Fallback müssen denselben Identitätsmodus und dieselben Listing-Keys verwenden.

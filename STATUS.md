@@ -5,52 +5,59 @@ Stand: 2026-08-22
 ## Verbindlicher Stand
 
 - Repository: `homann09-hue/STAI`
-- Geprüfter Ausgangsstand: `main` bei `255867e783c276335955a2b8925b5132dae006b5`
-- Aktive Phase: **Phase 2.3 - kanonische Identität im Market-Stream abgeschlossen**
-- Arbeitsstatus: geschützt gemergt, Main-CI, Production und Logs verifiziert
+- Geprüfter Ausgangsstand: `main` bei `f353c09505bfb70ba32cb69247c26224deb59953`
+- Aktive Phase: **Phase 2.4 - listinggenaue Provider-Symbolauflösung**
+- Arbeitsstatus: Implementierung und lokale Pflichtgates bestanden; PR-/CI-/Live-Abnahme ausstehend
 - Billing: deaktiviert; Stripe auf Nutzerwunsch vorerst übersprungen
 
 ## Aktuelle Verbesserung
 
-Asset-Detailseiten abonnieren Kurse jetzt mit ihrer serverseitig aufgelösten
-kanonischen Listing-ID. Stream-Route, SSE-Nachrichten, Client-State und
-REST-Fallback erhalten denselben Identitätsmodus. Symbolgleiche Listings werden
-nicht vermischt; fehlende Provider-Mappings liefern einen kontrollierten
-Konflikt.
+Kanonische Quote- und Stream-Anfragen leiten das Provider-Symbol nicht mehr
+aus dem nackten Ticker ab. Der serverseitige Instrument Master löst
+`canonicalId`, interne Instrument-ID und die Zuordnung für jeden aktiven
+Provider auf. Provider-Failover verwendet je Anbieter dessen eigenes
+verifiziertes Symbol.
 
-Ein echter bestehender Client-Race wurde ebenfalls behoben: Der gedrosselte
-Quote-Puffer wird vor Reacts asynchronem State-Update gesichert und nicht mehr
-vorzeitig geleert.
+Fehlende Referenzdaten, unbekannte Instrumente, fehlende oder widersprüchliche
+Mappings sowie Provider-Symbol-Kollisionen werden getrennt und fail-closed
+behandelt. Zwei Listings mit demselben öffentlichen Symbol bleiben durch
+Provider, Provider-Symbol, Venue, Währung, Instrument-ID und Cache-Key getrennt.
+Providerantworten mit falscher Währung oder abweichender Identität werden
+verworfen.
 
-Dashboard und Watchlist sind bewusst noch als `legacy_symbol` ausgewiesen.
+Dashboard und Watchlist bleiben bewusst als `legacy_symbol` ausgewiesen.
 Ihre kanonische Migration benötigt belastbare Listing-IDs im jeweiligen
 Datenmodell und bleibt ein getrennter Arbeitspunkt.
 
-## Verifikation
+## Lokale Verifikation
 
-- Format und Governance: bestanden
-- TypeScript und ESLint: bestanden
-- fokussierte Stream-/Identitätstests: 14/14 bestanden
-- kritische Stream-Route: 99,02 % Lines / 95,08 % Branches
-- gesamte Testsuite: 172 Dateien, 1.335/1.335 Tests bestanden
+- Formatcheck, TypeScript und ESLint ohne Warnungen: bestanden
+- fokussierte Mapping-/Store-/Failover-/Route-Tests: 5 Dateien, 33/33 bestanden
+- vollständige Vitest-Suite: 174 Dateien, 1.347/1.347 Tests bestanden
 - Next.js-Produktionsbuild: bestanden, 35 statische Seiten
+- Mapping-Domäne: 100 % Lines / 89,69 % Branches
+- Quote-Route: 97,46 % Lines / 92,95 % Branches
+- Stream-Route: 97,39 % Lines / 92,75 % Branches
 
-## Aktuelle Production
+## Production
 
-Main `86c35e33b7b49d3845a01f57846b8a4f5a633724` läuft als
-`dpl_7R2xFtQnhHceMeEhUrPCdG4FFaH3` im StockPilot-Projekt unter
-`https://stockpilot-ai-beta.vercel.app`. Kanonischer SSE-Status und
-Listing-Kollision wurden in Preview und Production geprüft; die Logs enthielten
-keine Fehler oder Warnungen. BauPro bleibt unberührt.
+Der vor diesem Arbeitspunkt geprüfte Main-Stand
+`f353c09505bfb70ba32cb69247c26224deb59953` läuft unter
+`https://stockpilot-ai-beta.vercel.app`. Alle geprüften Kernseiten und
+`/api/health` liefern HTTP 200; im Prüfzeitraum bestanden keine
+Vercel-Error-Logs.
+
+Phase 2.4 ist noch nicht gemergt oder deployt und wird deshalb nicht als live
+bezeichnet.
 
 ## Externe Blocker
 
 - Keine belegten öffentlichen Anzeigerechte für die vorhandenen Marktdatenzugänge
-- Supabase-Projekt `STAI` zuletzt `INACTIVE`; Remote-Abnahme nicht möglich
+- Supabase-Projekt `STAI` zuletzt `INACTIVE`; echte Instrument-Master-Auflösung in Production nicht prüfbar
 - Stripe-Test-Clock-Dunning mit vorhandenem eingeschränkten Zugang nicht abschließbar
 
 ## Nächster zulässiger Schritt
 
-Den nächsten einzelnen Phase-2-Identitätspfad auditieren. Dashboard und
-Watchlist bleiben bis zu belegten Listing-IDs transparent im Legacy-Modus;
-danach werden sie jeweils getrennt migriert.
+Phase 2.4 committen, als einzelnen PR prüfen, Pflicht-CI und Datenbank-CI
+abwarten, StockPilot-Preview abnehmen und erst danach geschützt mergen und
+Production prüfen.

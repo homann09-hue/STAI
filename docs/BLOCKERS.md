@@ -99,25 +99,23 @@ Nutzerwunsch vorerst uebersprungen. Der Blocker bleibt unveraendert offen,
 Billing bleibt deaktiviert und keine Paid-Funktion wird als freigeschaltet
 dargestellt. Die Produktarbeit wird mit Phase 2 fortgesetzt.
 
-### Phase-1.1-Produktion ist noch nicht aktualisiert
+### Phase-1.1-Remote-Lifecycle bleibt blockiert
 
-**Nachweis:** Am 2026-08-21 antwortete
-`/api/account/deletion/reconcile` auf der Live-Domain mit HTTP 404. Das aktive
-Deployment `dpl_2ZDn9sQbFaemkmdQmWDszXGMUpaQ` stammt vor dem Merge von PR #100
-und enthält weder Worker-Route noch Account-Deletion-Cron. Die verknüpfte
-Supabase-Migrationsprüfung scheiterte zusätzlich an einem Control-Plane-
-Timeout; der Produktionsschema-Stand ist deshalb nicht belegt.
+**Nachweis:** Am 2026-08-22 antwortete
+`/api/account/deletion/reconcile` auf der Live-Domain kontrolliert mit HTTP
+401 statt des früheren HTTP 404. Route und Autorisierung sind damit deployt.
+Das verknüpfte Supabase-Projekt ist jedoch weiterhin inaktiv; Migration,
+Saga-Persistenz und echter Stripe-/Account-Lebenszyklus sind remote nicht
+belegt.
 
-**Auswirkung:** Phase 1.1 darf trotz grüner lokaler Gates nicht als live oder
-produktionsverifiziert bezeichnet werden.
+**Auswirkung:** Die alte Aussage, Phase 1.1 sei noch nicht deployt, ist
+aufgehoben. Eine vollständige Produktionsverifikation bleibt trotzdem
+unzulässig, solange Datenbank und Stripe-Testmode-Lifecycle nicht real geprüft
+werden können.
 
-Das native PR-Preview wurde erfolgreich gebaut. Sein Runtime-Healthcheck ist
-jedoch durch Vercel Deployment Protection ohne gültige Preview-Autorisierung
-nicht öffentlich prüfbar; der Workflow weist diesen Zustand ausdrücklich aus.
-
-**Aktivierung:** Neue Migration kontrolliert auf das Supabase-Projekt `STAI`
-anwenden, nur das Vercel-Projekt `stockpilot-ai` deployen, Worker-Route,
-Cron-Autorisierung, Logs und Stripe-Testmode-Lebenszyklus prüfen. BauPro bleibt
+**Aktivierung:** Supabase `STAI` reaktivieren, Migrationen kontrolliert
+prüfen/anwenden und ausschließlich im Vercel-Projekt `stockpilot-ai` den
+Account-Deletion-/Stripe-Testmode-Lebenszyklus prüfen. BauPro bleibt
 unangetastet.
 
 ### Supabase-Projekt `STAI` ist inaktiv
@@ -128,8 +126,10 @@ mit Datenbank-Verbindungs-Timeout. Der Restore-Aufruf wurde abgewiesen, weil
 das Eigentümerkonto sein Free-Limit von zwei aktiven Projekten erreicht hat.
 Security- und Performance-Advisor lieferten jeweils null Findings.
 
-**Auswirkung:** Auth, Cloud-Nutzerdaten, Produktionsmigration und der echte
-Account-Deletion-/Stripe-Lebenszyklus sind nicht verifizierbar. Phase 1.1 ist
+**Auswirkung:** Auth, Cloud-Nutzerdaten, Produktionsmigration, kanonische
+Instrument-Master-Auflösung und der echte Account-Deletion-/Stripe-
+Lebenszyklus sind nicht verifizierbar. Kanonische Quote- und Stream-Routen
+bleiben bei fehlendem Instrument Master bewusst fail-closed. Phase 1.1 ist
 intern abgeschlossen, aber nicht produktionsaktiv.
 
 **Aktivierung:** Supabase-Tarif erhöhen oder durch den Kontoinhaber einen Slot

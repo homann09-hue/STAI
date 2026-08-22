@@ -8,7 +8,9 @@ import {
   bindQuotesToCanonicalIdentities,
   canonicalQuoteCacheKey,
   prepareCanonicalQuoteRequest,
+  type CanonicalQuoteMappingResolution,
 } from "@/lib/quote-request-identity";
+import { resolveCanonicalQuoteIdentities } from "@/lib/instrument-master-store";
 import type { NormalizedQuote } from "@/lib/types";
 import { validateSymbol } from "@/lib/validation";
 
@@ -59,22 +61,40 @@ export async function GET(request: Request) {
 
   const provider = getMarketDataProvider();
   let requestSymbols: string[];
+  let instrumentCount: number;
   let cacheKey: string;
   let canonicalPreparation: ReturnType<typeof prepareCanonicalQuoteRequest> | null = null;
+  let canonicalResolution: CanonicalQuoteMappingResolution | null = null;
 
   if (parsed.mode === "canonical") {
     canonicalPreparation = prepareCanonicalQuoteRequest(parsed.values);
     if (canonicalPreparation.status === "invalid") {
       return jsonError("Ungültige kanonische Instrument-ID.", 400);
     }
-    if (canonicalPreparation.status === "provider_symbol_collision") {
-      return jsonError(
-        `Mehrere Listings würden beim Provider auf ${canonicalPreparation.providerSymbol} kollidieren. Provider-Mapping erforderlich.`,
-        409,
-      );
+    canonicalResolution = await resolveCanonicalQuoteIdentities(
+      canonicalPreparation.identities,
+      provider.providerIds,
+    );
+    if (canonicalResolution.status === "provider_unavailable") {
+      return jsonError("Kein verifizierter Kursanbieter ist verfügbar.", 503);
     }
-    requestSymbols = canonicalPreparation.providerSymbols;
-    cacheKey = canonicalQuoteCacheKey(provider.providerId, canonicalPreparation.identities);
+    if (canonicalResolution.status === "store_unavailable") {
+      return jsonError("Instrument-Master ist vorübergehend nicht verfügbar.", 503);
+    }
+    if (canonicalResolution.status === "instrument_not_found") {
+      return jsonError("Mindestens ein kanonisches Instrument wurde nicht gefunden.", 404);
+    }
+    if (canonicalResolution.status !== "ready") {
+      return jsonError("Provider-Mapping für mindestens ein Listing ist nicht eindeutig verfügbar.", 409);
+    }
+    requestSymbols = [...new Set(canonicalResolution.identities.flatMap(
+      (identity) => identity.providerMappings.map((mapping) => mapping.providerSymbol),
+    ))];
+    instrumentCount = canonicalResolution.identities.length;
+    cacheKey = canonicalQuoteCacheKey(
+      canonicalResolution.providerIds,
+      canonicalResolution.identities,
+    );
   } else {
     const symbols: string[] = [];
     const seen = new Set<string>();
@@ -87,6 +107,7 @@ export async function GET(request: Request) {
       }
     }
     requestSymbols = symbols;
+    instrumentCount = symbols.length;
     cacheKey = `quotes:legacy:${provider.providerId}:${[...symbols].sort().join(",")}`;
   }
 
@@ -100,7 +121,9 @@ export async function GET(request: Request) {
     () => {
       const existing = inFlightQuoteBatches.get(cacheKey);
       if (existing) return existing;
-      const providerRequest = provider.getQuotes(requestSymbols).finally(() => {
+      const providerRequest = (canonicalResolution?.status === "ready"
+        ? provider.getCanonicalQuotes(canonicalResolution.identities)
+        : provider.getQuotes(requestSymbols)).finally(() => {
         inFlightQuoteBatches.delete(cacheKey);
       });
       inFlightQuoteBatches.set(cacheKey, providerRequest);
@@ -110,13 +133,13 @@ export async function GET(request: Request) {
   );
 
   const rawQuotes = Array.isArray(result.value) ? result.value : [];
-  const quotes = canonicalPreparation?.status === "ready"
-    ? bindQuotesToCanonicalIdentities(rawQuotes, canonicalPreparation.identities)
+  const quotes = canonicalResolution?.status === "ready"
+    ? bindQuotesToCanonicalIdentities(rawQuotes, canonicalResolution.identities)
     : normalizeLegacyQuotes(rawQuotes, requestSymbols);
   const mockFallbackSymbols = quotes.filter((quote) => quote.quality === "mock").map((quote) => quote.symbol);
   const returnedKeys = new Set(quotes.map((quote) => quote.canonicalId ?? quote.symbol));
-  const requestedKeys = canonicalPreparation?.status === "ready"
-    ? canonicalPreparation.identities.map((identity) => identity.canonicalId)
+  const requestedKeys = canonicalResolution?.status === "ready"
+    ? canonicalResolution.identities.map((identity) => identity.canonicalId)
     : requestSymbols;
   const unavailable = requestedKeys.filter((key) => !returnedKeys.has(key));
   const fallbackWarning = mockFallbackSymbols.length
@@ -132,7 +155,7 @@ export async function GET(request: Request) {
     streamMode: provider.streamMode,
     identityMode: parsed.mode,
     quotes,
-    instruments: canonicalPreparation?.status === "ready" ? canonicalPreparation.identities : [],
+    instruments: canonicalResolution?.status === "ready" ? canonicalResolution.identities : [],
     fallback: {
       degraded: Boolean(fallbackWarning),
       mockSymbols: mockFallbackSymbols,
@@ -147,7 +170,7 @@ export async function GET(request: Request) {
       "X-StockPilot-Provider": quoteProvenance.provider,
       "X-StockPilot-Cache": result.fromCache ? "fallback" : "fresh",
       "X-StockPilot-Cost-Ttl-Ms": `${costControls.quoteTtlMs}`,
-      "X-StockPilot-Instrument-Count": `${requestSymbols.length}`,
+      "X-StockPilot-Instrument-Count": `${instrumentCount}`,
       "X-StockPilot-Identity-Mode": parsed.mode,
     },
   });
