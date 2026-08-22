@@ -35,6 +35,10 @@ const resources = {
   portalConfigurationId: null,
   priceId: null,
   productId: null,
+  recoveryCustomerId: null,
+  recoverySubscriptionId: null,
+  recoveryTestClockId: null,
+  recoveryUserId: null,
   server: null,
   subscriptionId: null,
   userId: null
@@ -94,6 +98,27 @@ async function waitForEntitlement(token, plan, billingActive) {
   throw new Error(`Entitlement did not converge to ${plan}/${billingActive}`);
 }
 
+async function waitForTestClockReady(testClockId, timeoutMs = 90_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const clock = await stripe.testHelpers.testClocks.retrieve(testClockId);
+    if (clock.status === "ready") return clock;
+    if (clock.status === "internal_failure") throw new Error("Stripe test clock entered internal_failure");
+    await new Promise((resolve) => setTimeout(resolve, 750));
+  }
+  throw new Error("Stripe test clock did not become ready");
+}
+
+async function waitForSubscriptionStatus(subscriptionId, expectedStatus, timeoutMs = 90_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["latest_invoice"] });
+    if (subscription.status === expectedStatus) return subscription;
+    await new Promise((resolve) => setTimeout(resolve, 750));
+  }
+  throw new Error(`Stripe subscription did not converge to ${expectedStatus}`);
+}
+
 async function sendWebhook(object, type, ordinal, eventId = `evt_stai_${runId}_${ordinal}`) {
   const timestamp = createdAt + ordinal;
   const payload = buildSignedWebhookPayload({ eventId, created: timestamp, object, type });
@@ -127,7 +152,8 @@ async function cleanup() {
   const attempt = async (label, operation) => {
     try {
       await operation();
-    } catch {
+    } catch (error) {
+      if (error?.code === "resource_missing") return;
       failures.push(label);
     }
   };
@@ -144,6 +170,18 @@ async function cleanup() {
       const subscription = await stripe.subscriptions.retrieve(resources.subscriptionId);
       if (subscription.status !== "canceled") await stripe.subscriptions.cancel(subscription.id);
     });
+  }
+  if (resources.recoverySubscriptionId) {
+    await attempt("recovery subscription", async () => {
+      const subscription = await stripe.subscriptions.retrieve(resources.recoverySubscriptionId);
+      if (subscription.status !== "canceled") await stripe.subscriptions.cancel(subscription.id);
+    });
+  }
+  if (resources.recoveryCustomerId) {
+    await attempt("recovery customer", () => stripe.customers.del(resources.recoveryCustomerId));
+  }
+  if (resources.recoveryTestClockId) {
+    await attempt("recovery test clock", () => stripe.testHelpers.testClocks.del(resources.recoveryTestClockId));
   }
   if (resources.customerId) {
     await attempt("customer", () => stripe.customers.del(resources.customerId));
@@ -162,6 +200,12 @@ async function cleanup() {
   if (resources.userId) {
     await attempt("Supabase test user", async () => {
       const { error } = await admin.auth.admin.deleteUser(resources.userId);
+      if (error) throw error;
+    });
+  }
+  if (resources.recoveryUserId) {
+    await attempt("Supabase recovery test user", async () => {
+      const { error } = await admin.auth.admin.deleteUser(resources.recoveryUserId);
       if (error) throw error;
     });
   }
@@ -374,6 +418,81 @@ try {
   assert.equal(lateEvent.processing_reason, "account_deleted");
   assert.equal(lateEvent.user_id, null);
   resources.userId = null;
+
+  const recoveryEmail = `stripe-recovery-${runId}@example.invalid`;
+  const { data: recoveryUser, error: recoveryUserError } = await admin.auth.admin.createUser({
+    email: recoveryEmail,
+    password,
+    email_confirm: true,
+    user_metadata: { stockpilot_test_run: runId, purpose: "stripe_dunning" }
+  });
+  if (recoveryUserError) throw recoveryUserError;
+  assert.ok(recoveryUser.user?.id);
+  resources.recoveryUserId = recoveryUser.user.id;
+
+  const { data: recoverySession, error: recoverySignInError } = await publicClient.auth.signInWithPassword({
+    email: recoveryEmail,
+    password
+  });
+  if (recoverySignInError) throw recoverySignInError;
+  const recoveryAccessToken = recoverySession.session?.access_token;
+  assert.ok(recoveryAccessToken, "Supabase recovery test session was not created");
+
+  const recoveryFrozenTime = Math.floor(Date.now() / 1000);
+  const recoveryClock = await stripe.testHelpers.testClocks.create({
+    frozen_time: recoveryFrozenTime,
+    name: `StockPilot dunning ${runId.slice(0, 8)}`
+  });
+  resources.recoveryTestClockId = recoveryClock.id;
+  assert.equal(recoveryClock.livemode, false);
+
+  const recoveryCustomer = await stripe.customers.create({
+    email: recoveryEmail,
+    metadata: { stockpilot_test_run: runId, stockpilot_user_id: resources.recoveryUserId },
+    test_clock: recoveryClock.id
+  });
+  resources.recoveryCustomerId = recoveryCustomer.id;
+  assert.equal(recoveryCustomer.livemode, false);
+  await stripe.paymentMethods.attach("pm_card_chargeCustomerFail", { customer: recoveryCustomer.id });
+  await stripe.customers.update(recoveryCustomer.id, {
+    invoice_settings: { default_payment_method: "pm_card_chargeCustomerFail" }
+  });
+
+  const recoveryTrialEnd = recoveryFrozenTime + 3_600;
+  const recoverySubscription = await stripe.subscriptions.create({
+    customer: recoveryCustomer.id,
+    items: [{ price: price.id }],
+    metadata: { stockpilot_plan: "pro", stockpilot_user_id: resources.recoveryUserId },
+    trial_end: recoveryTrialEnd
+  });
+  resources.recoverySubscriptionId = recoverySubscription.id;
+  assert.equal(recoverySubscription.status, "trialing");
+  await sendWebhook(recoverySubscription, "customer.subscription.created", 8);
+  await waitForEntitlement(recoveryAccessToken, "pro", true);
+
+  await stripe.testHelpers.testClocks.advance(recoveryClock.id, { frozen_time: recoveryTrialEnd + 60 });
+  await waitForTestClockReady(recoveryClock.id);
+  await stripe.testHelpers.testClocks.advance(recoveryClock.id, { frozen_time: recoveryTrialEnd + 3_700 });
+  await waitForTestClockReady(recoveryClock.id);
+  const pastDueFromStripe = await waitForSubscriptionStatus(recoverySubscription.id, "past_due");
+  await sendWebhook(pastDueFromStripe, "customer.subscription.updated", 9);
+  await waitForEntitlement(recoveryAccessToken, "free", false);
+
+  await stripe.paymentMethods.attach("pm_card_visa", { customer: recoveryCustomer.id });
+  await stripe.customers.update(recoveryCustomer.id, {
+    invoice_settings: { default_payment_method: "pm_card_visa" }
+  });
+  const latestInvoice = pastDueFromStripe.latest_invoice;
+  const latestInvoiceId = typeof latestInvoice === "string" ? latestInvoice : latestInvoice?.id;
+  assert.ok(latestInvoiceId, "Past-due subscription did not expose its latest invoice");
+  await stripe.invoices.pay(latestInvoiceId, { payment_method: "pm_card_visa" });
+  const recoveredFromStripe = await waitForSubscriptionStatus(recoverySubscription.id, "active");
+  await sendWebhook(recoveredFromStripe, "customer.subscription.updated", 10);
+  await waitForEntitlement(recoveryAccessToken, "pro", true);
+
+  const canceledRecoverySubscription = await stripe.subscriptions.cancel(recoverySubscription.id);
+  await sendWebhook(canceledRecoverySubscription, "customer.subscription.deleted", 11);
+  await waitForEntitlement(recoveryAccessToken, "free", false);
 } catch (error) {
   testFailure = error;
 }
@@ -391,5 +510,5 @@ if (testFailure) {
 }
 if (cleanupFailure) throw cleanupFailure;
 process.stdout.write(
-  "Stripe testmode E2E passed: checkout, entitlement, portal, payment recovery, cancellation, duplicate webhook, account deletion and late-webhook isolation.\n"
+  "Stripe testmode E2E passed: checkout, entitlement, real test-clock dunning and recovery, cancellation, account deletion and late-webhook isolation.\n"
 );
