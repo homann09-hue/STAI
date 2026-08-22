@@ -70,7 +70,8 @@ async function appRequest(path, { body, method = "GET", token, accepted = [200] 
       payload = { nonJsonResponse: true };
     }
   }
-  assert.ok(accepted.includes(response.status), `Unexpected ${response.status} response from ${path}`);
+  const safeReason = typeof payload?.error === "string" ? `: ${payload.error}` : "";
+  assert.ok(accepted.includes(response.status), `Unexpected ${response.status} response from ${path}${safeReason}`);
   return { payload, status: response.status };
 }
 
