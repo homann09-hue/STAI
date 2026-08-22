@@ -206,13 +206,40 @@ export async function getSupabaseAuth(request: Request): Promise<AuthResult> {
     return { ok: false, reason: "invalid_token" };
   }
 
-  const { error: profileError } = await supabase.from("profiles").upsert({
-    id: data.user.id,
+  const profileValues = {
     email: safeProfileText(data.user.email, 254),
     display_name:
       safeProfileText(data.user.user_metadata?.name, 80) ??
       safeProfileText(data.user.email?.split("@")[0], 80)
-  });
+  };
+
+  // `profiles.id` is intentionally not updateable by authenticated users so
+  // nobody can move a profile row or write the protected `is_admin` column.
+  // A PostgREST upsert includes the primary key in its conflict update and is
+  // therefore rejected by that least-privilege column grant. Update the two
+  // user-owned fields first and insert only when the row does not exist.
+  const profileUpdate = await supabase
+    .from("profiles")
+    .update(profileValues)
+    .eq("id", data.user.id)
+    .select("id")
+    .maybeSingle();
+
+  let profileError = profileUpdate.error;
+  if (!profileError && !profileUpdate.data) {
+    const profileInsert = await supabase.from("profiles").insert({
+      id: data.user.id,
+      ...profileValues
+    });
+    profileError = profileInsert.error;
+
+    // Two first requests can race between UPDATE and INSERT. The winner has
+    // already created the row; the loser safely repeats the permitted UPDATE.
+    if (profileError?.code === "23505") {
+      const retry = await supabase.from("profiles").update(profileValues).eq("id", data.user.id);
+      profileError = retry.error;
+    }
+  }
 
   if (profileError) {
     logEvent("warn", "supabase.profile_upsert_failed", {

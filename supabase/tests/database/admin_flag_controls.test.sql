@@ -1,5 +1,5 @@
 begin;
-select plan(13);
+select plan(16);
 
 -- Die Adminrolle lebt an `profiles`, und der Schutz liegt auf der Spalte, nicht
 -- in einer Policy. Diese Tests prüfen genau die Verwechslung, die hier nahelag:
@@ -115,6 +115,34 @@ select ok(
 select ok(
   not has_column_privilege('anon', 'public.profiles', 'is_admin', 'UPDATE'),
   'anonymous visitors cannot grant themselves admin rights'
+);
+
+-- Der Anwendungsweg muss mit den eingeschraenkten Spaltenrechten wirklich
+-- funktionieren: erst anlegen, spaeter nur die erlaubten Felder aktualisieren.
+insert into auth.users (id, email) values
+  ('77777777-7777-4777-8777-777777777777', 'profile-grants@example.invalid');
+
+set local role authenticated;
+set local request.jwt.claim.sub = '77777777-7777-4777-8777-777777777777';
+
+select lives_ok(
+  $$insert into public.profiles (id, email, display_name)
+    values ('77777777-7777-4777-8777-777777777777', 'profile-grants@example.invalid', 'Initial')$$,
+  'authenticated user can create the own profile through RLS'
+);
+
+select lives_ok(
+  $$update public.profiles
+    set email = 'profile-updated@example.invalid', display_name = 'Updated'
+    where id = '77777777-7777-4777-8777-777777777777'$$,
+  'authenticated user can update permitted profile fields through RLS'
+);
+
+select is(
+  (select display_name from public.profiles
+   where id = '77777777-7777-4777-8777-777777777777'),
+  'Updated',
+  'profile update persists without granting primary-key or admin writes'
 );
 
 select * from finish();
