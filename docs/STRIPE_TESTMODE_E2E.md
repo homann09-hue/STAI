@@ -27,9 +27,12 @@ Damit kann der Lauf weder das Vercel-Produktionsprojekt noch die Produktionsdate
 10. Erneut ein aktives Testabo erzeugen und die produktive Account-Deletion-API mit frischer Sitzung ausführen.
 11. Belegen, dass offene Checkout-Sessions ablaufen, das Abo gekündigt, die Supabase-Identität gelöscht und die Saga abgeschlossen wird.
 12. Einen verspäteten aktiven Webhook zustellen und belegen, dass weder Nutzer noch Entitlement wiederbelebt werden.
-13. Sessions, Subscription, Customer, Price, Produkt und Portal-Konfiguration aufräumen beziehungsweise deaktivieren.
+13. Für einen getrennten Nutzer eine echte Stripe Test Clock mit angehängtem `pm_card_chargeCustomerFail` starten.
+14. Trial und Rechnungsfinalisierung simuliert vorziehen, den realen Providerstatus `past_due` abwarten und Paid-Zugriff entziehen.
+15. Mit `pm_card_visa` die offene Rechnung bezahlen, den realen Providerstatus `active` abwarten und Zugriff wiederherstellen.
+16. Test-Clock-Abo kündigen und alle Sessions, Subscriptions, Customers, Clock, Price, Produkt und Portal-Konfiguration aufräumen beziehungsweise deaktivieren.
 
-Die Statusübergänge werden mit realen Testmode-Objekten und einer echten Stripe-Signatur durch die produktive Webhook-Route geprüft. Die Übermittlung wird lokal erzeugt; ein separater Stripe-Dashboard-Webhook-Endpunkt ist dafür nicht erforderlich.
+Die Statusübergänge werden mit realen Testmode-Objekten und einer echten Stripe-Signatur durch die produktive Webhook-Route geprüft. `past_due` und die anschließende Rückkehr zu `active` werden nicht mehr nur im Payload gesetzt, sondern aus einer echten Stripe-Test-Clock-Rechnung übernommen. Die Übermittlung wird lokal erzeugt; ein separater Stripe-Dashboard-Webhook-Endpunkt ist dafür nicht erforderlich.
 
 ## Lokal ausführen
 
@@ -67,7 +70,7 @@ Der Workflow startet eine isolierte lokale Supabase-Instanz, erzeugt kurzlebige 
 
 - echten Stripe-Dashboard-Webhook im StockPilot-Testprojekt zustellen und Delivery-/Retry-Logs archivieren,
 - Checkout mit Stripe-Testkarte im gehosteten UI durchführen,
-- 3-D-Secure, fehlgeschlagene Verlängerung und Dunning mit Stripe Test Clocks prüfen,
+- 3-D-Secure im gehosteten Checkout und die echte Dashboard-Webhook-Zustellung prüfen,
 - Steuer-, Rechnungs-, Widerrufs- und Verbraucherrechtskonzept freigeben,
 - Stripe Tax nur nach korrekten Registrierungen konfigurieren,
 - getrennten minimal berechtigten Live-Key erst nach erfolgreicher Testmode-Abnahme erzeugen.

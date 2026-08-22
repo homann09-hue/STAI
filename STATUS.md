@@ -23,6 +23,8 @@ Phase 1.5 ergänzt einen strikt lokalen Stripe-Testmode-Harness. Er erzeugt temp
 
 Der Harness umfasst außerdem die Kontolöschung mit aktivem Testabo: offene Checkout-Sessions und das Abo müssen beendet, die Supabase-Identität gelöscht, die Saga abgeschlossen und ein verspäteter aktiver Webhook ohne Entitlement-Wiederbelebung protokolliert werden.
 
+Payment-Recovery verwendet im ausführbaren Sandboxvertrag eine echte Stripe Test Clock: `pm_card_chargeCustomerFail` erzeugt den Providerstatus `past_due`; nach Zahlung der offenen Rechnung mit `pm_card_visa` muss Stripe wieder `active` liefern. Erst diese realen Providerobjekte werden signiert an die lokale Webhook-Route übergeben.
+
 ## Phase-1.5-Evidenz
 
 - Sicherheitsvertrag des Harness: 6/6 Tests bestanden

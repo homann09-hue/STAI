@@ -21,6 +21,7 @@ Die Billing-Implementierung war durch Unit-, Browser-, PostgreSQL- und Concurren
 - temporäre Stripe-Testprodukte, Preise, Customers, Subscription und Portal-Konfiguration
 - echter Checkout-Routenaufruf, signierte Webhooks, Entitlement-, Portal-, Recovery-, Kündigungs- und Duplikatprüfung
 - Account-Löschung mit aktivem Testabo, Checkout-Expiry, Saga-Nachweis und verspätetem Webhook ohne Entitlement-Wiederbelebung
+- echte Stripe-Test-Clock-Simulation für fehlgeschlagene Rechnung, `past_due`, Zahlungserholung und Rückkehr zu `active`
 - bestmögliches Cleanup auch bei Fehlschlägen
 - manueller GitHub-Workflow mit geschütztem Testmode-Secret und isolierter lokaler Supabase-Instanz
 
