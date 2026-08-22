@@ -10,7 +10,7 @@ Stand: 2026-08-22
 
 Status: **OPEN**
 
-Geprüfter Ausgangs-Main: `f353c09505bfb70ba32cb69247c26224deb59953`
+Geprüfter Ausgangs-Main: `e03c2a633551624474cb57dda0cf7cadf0818f5e`
 
 ## Reproduzierter Fehler
 
@@ -24,6 +24,10 @@ Listings erkannte die Symbolkollision. Die bestehende
 Bei einer Provider-Failover-Kette wurde außerdem dasselbe Eingabesymbol an
 jeden Anbieter weitergegeben, obwohl Provider unterschiedliche Symbolformate
 verwenden können.
+
+Die Production-Abnahme von Main `e03c2a6` reproduzierte einen zweiten Fehler:
+Bei inaktivem Supabase lieferten REST und SSE zwar korrekt HTTP 503, benötigten
+dafür aber jeweils rund 7,3 Sekunden.
 
 ## Implementierte Lösung
 
@@ -39,6 +43,10 @@ verwenden können.
   kontrolliert fehl
 - Providerantworten werden nur bei passendem Provider, Provider-Symbol,
   Canonical ID und Währung gebunden
+- jede Instrument-Master-Abfrage wird mit `AbortSignal.timeout()` auf maximal
+  2.000 Millisekunden begrenzt
+- zurückgegebene und geworfene Fetch-Abbrüche werden identisch fail-closed
+  normalisiert
 - Legacy-Symbolpfad bleibt explizit und unverändert
 
 ## Migration
@@ -51,7 +59,7 @@ Arbeitspunkt ergänzt den fehlenden Lese- und Routingvertrag.
 
 - Formatcheck, TypeScript und ESLint: bestanden
 - fokussierte Tests: 5 Dateien, 33/33 bestanden
-- vollständige Vitest-Suite: 174 Dateien, 1.347/1.347 Tests bestanden
+- vollständige Vitest-Suite: 174 Dateien, 1.349/1.349 Tests bestanden
 - Produktionsbuild: bestanden, 35 statische Seiten
 - Mapping-Domäne: 100 % Lines / 89,69 % Branches
 - Quote-Route: 97,46 % Lines / 92,95 % Branches
@@ -74,6 +82,7 @@ belegt.
 
 ## Nächster Schritt
 
-Commit, PR, Pflicht-CI, Datenbank-CI und Preview-Abnahme. Keine weitere
-Phase beginnen, bevor dieser Arbeitspunkt geschützt gemergt, deployt und soweit
-ohne externe Blocker real geprüft ist.
+Timeout-Remediation committen, als Folge-PR prüfen, Pflicht-CI,
+Datenbank-CI und Preview abwarten und anschließend die Production-Latenz erneut
+messen. Keine weitere Phase beginnen, bevor dieser Arbeitspunkt geschützt
+gemergt, deployt und soweit ohne externe Blocker real geprüft ist.

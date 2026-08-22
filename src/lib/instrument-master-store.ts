@@ -39,6 +39,7 @@ export {
  */
 
 export type PersistStatus = "stored" | "skipped" | "failed";
+const CANONICAL_MAPPING_QUERY_TIMEOUT_MS = 2_000;
 
 export interface InstrumentRecord {
   canonicalId: string;
@@ -338,16 +339,35 @@ export async function resolveInstrumentIdentityBySymbol(
 export async function resolveCanonicalQuoteIdentities(
   identities: readonly CanonicalQuoteRequestIdentity[],
   providerIds: readonly string[],
+  timeoutMs = CANONICAL_MAPPING_QUERY_TIMEOUT_MS,
 ): Promise<CanonicalQuoteMappingResolution> {
   const supabase = createSupabaseServiceClient();
   if (!supabase) return { status: "store_unavailable" };
 
   const canonicalIds = identities.map((identity) => identity.canonicalId);
-  const { data: instruments, error: instrumentError } = await supabase
-    .from("instruments")
-    .select("id,canonical_id,symbol,asset_class,currency")
-    .in("canonical_id", canonicalIds)
-    .limit(Math.min(41, canonicalIds.length + 1));
+  const queryTimeoutMs = Math.min(
+    CANONICAL_MAPPING_QUERY_TIMEOUT_MS,
+    Math.max(10, Math.trunc(timeoutMs)),
+  );
+  const instrumentSignal = AbortSignal.timeout(
+    queryTimeoutMs,
+  );
+  let instrumentResult;
+  try {
+    instrumentResult = await supabase
+      .from("instruments")
+      .select("id,canonical_id,symbol,asset_class,currency")
+      .in("canonical_id", canonicalIds)
+      .limit(Math.min(41, canonicalIds.length + 1))
+      .abortSignal(instrumentSignal);
+  } catch (error) {
+    logEvent("warn", "instrument_master.canonical_mapping_lookup_failed", {
+      message: error instanceof Error ? error.message : "request failed",
+      requested: canonicalIds.length,
+    });
+    return { status: "store_unavailable" };
+  }
+  const { data: instruments, error: instrumentError } = instrumentResult;
 
   if (instrumentError) {
     logEvent("warn", "instrument_master.canonical_mapping_lookup_failed", {
@@ -365,12 +385,26 @@ export async function resolveCanonicalQuoteIdentities(
   let identifierRows: StoredProviderIdentifierRow[] = [];
 
   if (instrumentIds.length) {
-    const { data: identifiers, error: identifierError } = await supabase
-      .from("instrument_identifiers")
-      .select("instrument_id,identifier_type,value,provider")
-      .in("instrument_id", instrumentIds)
-      .eq("identifier_type", "provider_symbol")
-      .limit(1_000);
+    const identifierSignal = AbortSignal.timeout(
+      queryTimeoutMs,
+    );
+    let identifierResult;
+    try {
+      identifierResult = await supabase
+        .from("instrument_identifiers")
+        .select("instrument_id,identifier_type,value,provider")
+        .in("instrument_id", instrumentIds)
+        .eq("identifier_type", "provider_symbol")
+        .limit(1_000)
+        .abortSignal(identifierSignal);
+    } catch (error) {
+      logEvent("warn", "instrument_master.provider_mapping_lookup_failed", {
+        message: error instanceof Error ? error.message : "request failed",
+        requested: canonicalIds.length,
+      });
+      return { status: "store_unavailable" };
+    }
+    const { data: identifiers, error: identifierError } = identifierResult;
 
     if (identifierError) {
       logEvent("warn", "instrument_master.provider_mapping_lookup_failed", {
