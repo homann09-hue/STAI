@@ -1,6 +1,6 @@
 # StockPilot Operating Card
 
-<!-- ACTIVE_WORKPOINT: PHASE-1-4 -->
+<!-- ACTIVE_WORKPOINT: PHASE-1-5 -->
 
 Stand: 2026-08-22
 
@@ -29,12 +29,13 @@ Stand: 2026-08-22
 - Unbekannte Price-IDs und unvollständige Zuordnungen sind fail-closed; Stripe-Metadaten autorisieren keinen Plan.
 - Vor Subscription-Checkout Stripe selbst nach allen Customers und nichtterminalen Subscriptions fragen.
 - Nur `canceled` und `incomplete_expired` sind terminal; Recovery-Zustände erzeugen keinen neuen Checkout.
-- Billing bleibt bis Phase 1.5 und echtem Stripe-Testmode-E2E deaktiviert.
+- Billing bleibt bis zum grünen Phase-1.5-Testmode-Gate und den externen Live-Freigaben deaktiviert.
 
 ## Aktuelle externe Blocker
 
 - Supabase `STAI` ist `INACTIVE`; keine Remote-Migration oder authentifizierte Production-Abnahme.
-- Stripe-Testmode-Lifecycle und rechtlich/kommerziell freigegebene Paid-Aktivierung fehlen.
+- Der verbundene Stripe-Zugang `Ovora` ist ausschließlich Live und nicht eindeutig StockPilot; er wird nicht verwendet.
+- Ein isolierter StockPilot-Testmode-Key sowie die rechtlich/kommerziell freigegebene Paid-Aktivierung fehlen.
 
 ## Incident-Regel
 

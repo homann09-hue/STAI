@@ -1,6 +1,6 @@
 # SaaS Billing und Entitlements
 
-Stand: 11.07.2026
+Stand: 22.08.2026
 
 ## Sicherheitsmodell
 
@@ -14,8 +14,10 @@ Stripe verlangt für die Signaturprüfung den unveränderten Raw Body. Die Route
 STOCKPILOT_APP_URL=https://stockpilot-ai-beta.vercel.app
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_STARTER_PRICE_ID=price_...
 STRIPE_PRO_PRICE_ID=price_...
+STRIPE_PRO_YEARLY_PRICE_ID=price_...
+STRIPE_PREMIUM_PRICE_ID=price_...
+STRIPE_PREMIUM_YEARLY_PRICE_ID=price_...
 STRIPE_PORTAL_CONFIGURATION_ID=bpc_... # optional
 ```
 
@@ -23,12 +25,14 @@ Alle Werte sind server-only. Ohne vollständige Secret-/Webhook-Konfiguration er
 
 ## Stripe-Einrichtung
 
-1. Produkte und wiederkehrende Preise für Starter und Pro im Stripe-Testmodus anlegen.
+1. Getrennte Produkte und wiederkehrende Monats-/Jahrespreise für Pro und Premium im Stripe-Testmodus anlegen.
 2. Price-IDs in die serverseitigen ENV-Variablen eintragen.
 3. Webhook auf `/api/billing/webhook` konfigurieren.
 4. Ereignisse `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated` und `customer.subscription.deleted` abonnieren.
 5. Webhook-Secret setzen und Testereignisse senden.
 6. Erst nach erfolgreichem Test von Checkout, Portal, Verlängerung, Zahlfehler und Kündigung Live-Keys verwenden.
+
+Der reproduzierbare lokale und manuelle CI-Ablauf steht in `docs/STRIPE_TESTMODE_E2E.md`. Er verweigert Live-Schlüssel und Remote-Ziele technisch.
 
 ## Datenmodell
 
@@ -51,5 +55,6 @@ Alle Werte sind server-only. Ohne vollständige Secret-/Webhook-Konfiguration er
 - Stripe- und Supabase-Secrets regelmäßig rotieren.
 - Preisänderungen nicht durch freie Clientwerte, sondern durch neue Stripe Price-IDs ausrollen.
 - Refunds, Steuern, Rechnungsanforderungen und Verbraucherrecht vor Live-Betrieb juristisch prüfen.
+- Für EU- oder US-Kunden Stripe Tax und die notwendigen Steuerregistrierungen vor Aktivierung bewerten; `automatic_tax` allein erhebt ohne Registrierung keine Steuer.
 
 Billing-Status ist keine Aussage über Datenlizenzen, Finanzaufsicht oder Anlageberatung.
