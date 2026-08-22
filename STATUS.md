@@ -5,12 +5,13 @@ Stand: 2026-08-22
 ## Verbindlicher Stand
 
 - Repository: `homann09-hue/STAI`
-- Geprüfte Branchbasis: `main` bei `f44364678b6386bb3014fe16e6d4f06b361ceb33`
+- Geprüfte Branchbasis: `main` bei `ec3a9af74e3f0740a06a28308f4b4a975a7276c4`
 - Aktive Phase: **Phase 1.4 – atomare und reihenfolgeunabhängige Stripe-Webhooks**
-- Arbeitsbranch: `codex/phase-1-4-webhook-ordering`
+- Arbeitsbranch: `codex/phase-1-4-evidence`
 - Code-Commit: `2fd58bf`
+- Merge-Commit: `ec3a9af74e3f0740a06a28308f4b4a975a7276c4`
 - Pull Request: [#107](https://github.com/homann09-hue/STAI/pull/107)
-- Freigabestatus: **OPEN**
+- Freigabestatus: **TECHNISCH ABGESCHLOSSEN – EXTERN BLOCKIERT**
 
 ## Abgeschlossene Stabilisierung
 
@@ -36,6 +37,7 @@ Phase 1.4 ersetzt getrennte Webhook-Schreibvorgänge durch eine einzige service-
 - Format, Typecheck, ESLint, lokaler Supabase-Schemalint und Next-Production-Build mit 35 Seiten bestanden
 - Billing-Playwright: Mobile Chrome und Desktop Chrome, 2/2 bestanden
 - `npm audit`: 0 bekannte Schwachstellen; License-Audit bestanden, indirekte `sharp/libvips`-LGPL-Pakete bleiben prüfpflichtig
+- PR #107: Code-CI, Datenbank-CI mit Concurrency-Gate und StockPilot-Vercel-Preview grün
 
 ## Production
 
@@ -49,4 +51,4 @@ Phase 1.4 ersetzt getrennte Webhook-Schreibvorgänge durch eine einzige service-
 
 ## Nächster zulässiger Schritt
 
-Sämtliche Pflicht-CI-, Datenbank- und StockPilot-Preview-Checks von PR #107 abwarten, Befunde beheben und geschützt mergen. Phase 1.5 beginnt erst danach. BauPro und andere Projekte bleiben unberührt.
+Den dokumentarischen Abschluss von Phase 1.4 geschützt mergen. Danach ist Phase 1.5 – die vollständige Stripe-Testmode-E2E-Kette – der einzige zulässige Arbeitspunkt. BauPro und andere Projekte bleiben unberührt.
