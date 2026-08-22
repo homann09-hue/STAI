@@ -300,9 +300,11 @@ try {
   assert.equal(typeof checkoutSession.customer, "string");
   resources.customerId = checkoutSession.customer;
 
-  await stripe.paymentMethods.attach("pm_card_visa", { customer: resources.customerId });
+  const primaryPaymentMethod = await stripe.paymentMethods.attach("pm_card_visa", {
+    customer: resources.customerId
+  });
   await stripe.customers.update(resources.customerId, {
-    invoice_settings: { default_payment_method: "pm_card_visa" }
+    invoice_settings: { default_payment_method: primaryPaymentMethod.id }
   });
   const subscription = await stripe.subscriptions.create({
     customer: resources.customerId,
@@ -454,9 +456,11 @@ try {
   });
   resources.recoveryCustomerId = recoveryCustomer.id;
   assert.equal(recoveryCustomer.livemode, false);
-  await stripe.paymentMethods.attach("pm_card_chargeCustomerFail", { customer: recoveryCustomer.id });
+  const failingPaymentMethod = await stripe.paymentMethods.attach("pm_card_chargeCustomerFail", {
+    customer: recoveryCustomer.id
+  });
   await stripe.customers.update(recoveryCustomer.id, {
-    invoice_settings: { default_payment_method: "pm_card_chargeCustomerFail" }
+    invoice_settings: { default_payment_method: failingPaymentMethod.id }
   });
 
   const recoveryTrialEnd = recoveryFrozenTime + 3_600;
@@ -479,14 +483,16 @@ try {
   await sendWebhook(pastDueFromStripe, "customer.subscription.updated", 9);
   await waitForEntitlement(recoveryAccessToken, "free", false);
 
-  await stripe.paymentMethods.attach("pm_card_visa", { customer: recoveryCustomer.id });
+  const recoveryPaymentMethod = await stripe.paymentMethods.attach("pm_card_visa", {
+    customer: recoveryCustomer.id
+  });
   await stripe.customers.update(recoveryCustomer.id, {
-    invoice_settings: { default_payment_method: "pm_card_visa" }
+    invoice_settings: { default_payment_method: recoveryPaymentMethod.id }
   });
   const latestInvoice = pastDueFromStripe.latest_invoice;
   const latestInvoiceId = typeof latestInvoice === "string" ? latestInvoice : latestInvoice?.id;
   assert.ok(latestInvoiceId, "Past-due subscription did not expose its latest invoice");
-  await stripe.invoices.pay(latestInvoiceId, { payment_method: "pm_card_visa" });
+  await stripe.invoices.pay(latestInvoiceId, { payment_method: recoveryPaymentMethod.id });
   const recoveredFromStripe = await waitForSubscriptionStatus(recoverySubscription.id, "active");
   await sendWebhook(recoveredFromStripe, "customer.subscription.updated", 10);
   await waitForEntitlement(recoveryAccessToken, "pro", true);
