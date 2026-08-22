@@ -1,6 +1,6 @@
 # StockPilot Operating Card
 
-<!-- ACTIVE_WORKPOINT: PHASE-2-3-CANONICAL-STREAM -->
+<!-- ACTIVE_WORKPOINT: PHASE-2-3-COMPLETE -->
 
 Stand: 2026-08-22
 

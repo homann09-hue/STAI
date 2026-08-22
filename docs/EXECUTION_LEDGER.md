@@ -1,6 +1,6 @@
 # Execution Ledger
 
-<!-- ACTIVE_WORKPOINT: PHASE-2-3-CANONICAL-STREAM -->
+<!-- ACTIVE_WORKPOINT: PHASE-2-3-COMPLETE -->
 
 Stand: 2026-08-22
 
@@ -8,7 +8,7 @@ Stand: 2026-08-22
 
 **Phase 2.3 - kanonische Identität im Market-Stream**
 
-Status: **IMPLEMENTED LOCALLY - PR/CI PENDING**
+Status: **COMPLETE - VERIFIED**
 
 Geprüfter Main: `255867e783c276335955a2b8925b5132dae006b5`
 
@@ -42,6 +42,21 @@ Stream-Quotes konnten dadurch vollständig verloren gehen.
 - Format, Governance, TypeScript und ESLint bestanden
 - Next.js-Produktionsbuild mit 35 statischen Seiten bestanden
 
+## Release-Evidenz
+
+- PR #123 geschützt als `86c35e33b7b49d3845a01f57846b8a4f5a633724` gemergt
+- PR-Code-CI `32568788077`, pgTAP `32568788076` und Vercel-Preview bestanden
+- Preview-SSE lieferte `identityMode=canonical`, Listing-ID, Venue und Währung
+- Preview-Kollision zweier Listings lieferte kontrolliert HTTP 409
+- Main-Code-CI `32568950762` einschließlich Browser-E2E, Performance,
+  Dependency-/Lizenz-Audit und SBOM bestanden
+- Main-Datenbank-CI `32568950795` bestanden
+- Production `dpl_7R2xFtQnhHceMeEhUrPCdG4FFaH3` ist `Ready`
+- Alias `https://stockpilot-ai-beta.vercel.app` zeigt auf dieses Deployment
+- Startseite, kanonische Asset-Seite und Health liefern HTTP 200
+- Production-SSE bewahrt `canonicalId`; Listing-Kollision liefert HTTP 409
+- keine Production-Error- oder Warning-Logs im Prüfzeitraum
+
 ## Abgrenzung
 
 Dieser Arbeitspunkt baut noch keinen zentralen Multi-Client-Realtime-Hub. Das
@@ -54,8 +69,8 @@ aus dem Datenmodell statt aus Symbolannahmen bezogen.
 Der Datenpfad bleibt in Production fail-closed; Tests verwenden klar isolierte
 Provider-Harnesses und sind kein Live-Marktdatennachweis.
 
-## Noch erforderlich
+## Nächster zulässiger Arbeitspunkt
 
-- PR, Pflicht-CI, pgTAP und isolierte Vercel-Preview
-- geschützter Merge und automatisches StockPilot-Production-Deployment
-- Live-Abnahme des kanonischen SSE-Vertrags und Logprüfung
+Den nächsten einzelnen Phase-2-Datenpfad vom Symbol auf die kanonische
+Listing-Identität umstellen. Dashboard und Watchlist dürfen erst kanonisch
+streamen, wenn ihre Datensätze belastbare Listing-IDs tragen.

@@ -6,8 +6,8 @@ Stand: 2026-08-22
 
 - Repository: `homann09-hue/STAI`
 - Geprüfter Ausgangsstand: `main` bei `255867e783c276335955a2b8925b5132dae006b5`
-- Aktive Phase: **Phase 2.3 - kanonische Identität im Market-Stream**
-- Arbeitsstatus: lokal implementiert und vollständig geprüft; PR/CI/Preview stehen aus
+- Aktive Phase: **Phase 2.3 - kanonische Identität im Market-Stream abgeschlossen**
+- Arbeitsstatus: geschützt gemergt, Main-CI, Production und Logs verifiziert
 - Billing: deaktiviert; Stripe auf Nutzerwunsch vorerst übersprungen
 
 ## Aktuelle Verbesserung
@@ -37,10 +37,11 @@ Datenmodell und bleibt ein getrennter Arbeitspunkt.
 
 ## Aktuelle Production
 
-Der vor diesem Arbeitspunkt geprüfte Main-Stand `255867e` läuft im
-StockPilot-Projekt unter `https://stockpilot-ai-beta.vercel.app`. Phase 2.3 ist
-noch nicht gemergt oder live und wird bis zur vollständigen Release-Abnahme
-nicht als Production-Funktion bezeichnet. BauPro bleibt unberührt.
+Main `86c35e33b7b49d3845a01f57846b8a4f5a633724` läuft als
+`dpl_7R2xFtQnhHceMeEhUrPCdG4FFaH3` im StockPilot-Projekt unter
+`https://stockpilot-ai-beta.vercel.app`. Kanonischer SSE-Status und
+Listing-Kollision wurden in Preview und Production geprüft; die Logs enthielten
+keine Fehler oder Warnungen. BauPro bleibt unberührt.
 
 ## Externe Blocker
 
@@ -50,6 +51,6 @@ nicht als Production-Funktion bezeichnet. BauPro bleibt unberührt.
 
 ## Nächster zulässiger Schritt
 
-Phase 2.3 über PR, CI, pgTAP und Preview absichern, geschützt mergen und den
-kanonischen SSE-Vertrag in Production prüfen. Erst danach folgt der nächste
-einzelne Phase-2-Identitätspfad.
+Den nächsten einzelnen Phase-2-Identitätspfad auditieren. Dashboard und
+Watchlist bleiben bis zu belegten Listing-IDs transparent im Legacy-Modus;
+danach werden sie jeweils getrennt migriert.
