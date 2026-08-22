@@ -21,8 +21,15 @@ export const priceEnvNames: Record<PaidPlanId, Record<BillingInterval, string>> 
   premium: { month: "STRIPE_PREMIUM_PRICE_ID", year: "STRIPE_PREMIUM_YEARLY_PRICE_ID" }
 };
 
+const LOCAL_BILLING_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+
 function validSecretKey(value: string | undefined): value is string {
-  return Boolean(value && /^sk_(test|live)_[A-Za-z0-9_]{16,}$/.test(value));
+  if (!value) return false;
+  if (/^(?:sk|rk)_(?:test|live)_[A-Za-z0-9_]{16,}$/.test(value)) return true;
+  return (
+    process.env.STOCKPILOT_ALLOW_TEST_FIXTURES === "true" &&
+    /^rkcs_test_[A-Za-z0-9_]{16,}$/.test(value)
+  );
 }
 
 function validWebhookSecret(value: string | undefined): value is string {
@@ -144,11 +151,11 @@ function safeOrigin(candidate: string | undefined) {
 
   try {
     const url = new URL(candidate.includes("://") ? candidate : `https://${candidate}`);
-    const localDevelopment =
-      process.env.NODE_ENV !== "production" &&
+    const localFixture =
+      (process.env.NODE_ENV !== "production" || process.env.STOCKPILOT_ALLOW_TEST_FIXTURES === "true") &&
       url.protocol === "http:" &&
-      (url.hostname === "localhost" || url.hostname === "127.0.0.1");
-    if (url.username || url.password || (url.protocol !== "https:" && !localDevelopment)) return null;
+      LOCAL_BILLING_HOSTS.has(url.hostname);
+    if (url.username || url.password || (url.protocol !== "https:" && !localFixture)) return null;
     return url.origin;
   } catch {
     return null;
