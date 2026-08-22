@@ -5,53 +5,47 @@ Stand: 2026-08-22
 ## Verbindlicher Stand
 
 - Repository: `homann09-hue/STAI`
-- Gepruefter Ausgangsstand: `main` bei `48315206db9c24bd864ff9346ea4ab9e142cd684`
-- Aktive Phase: **Release-Automation - geschuetzte Main-Merges automatisch live**
-- Aktiver Arbeitsstatus: Production ist aktuell; automatische Main-Deployments werden aktiviert
-- Billing: deaktiviert; Phase 1.5 bleibt **TECHNICALLY COMPLETE - BLOCKED EXTERNAL**
+- Geprüfter Ausgangsstand: `main` bei `9d536243c8a930fb82e25922d4af3be2c8d9d741`
+- Aktive Phase: **Phase 2.2 - kanonische Identität für Quote-Batches**
+- Arbeitsstatus: lokal implementiert und vollständig geprüft; PR/CI/Preview stehen aus
+- Billing: deaktiviert; Stripe auf Nutzerwunsch vorerst übersprungen
 
-## Aktueller Arbeitspunkt
+## Aktuelle Verbesserung
 
-Der verifizierte Main-Commit `01740e6ab4fca6830aaaa2b67aa7e9564a1f5af0`
-ist als Vercel-Production-Deployment `dpl_2bRw6Xg78Fzx8F6QdnLG9XRMXbF6`
-unter `https://stockpilot-ai-beta.vercel.app` aktiv. Die bisherige
-`deploymentEnabled.main=false`-Sperre wird entfernt, damit geschuetzte
-Main-Merges kuenftig automatisch nur das Projekt `stockpilot-ai` aktualisieren.
+Die Quote-Batchroute und das globale Asset-Autocomplete arbeiten nun mit
+kanonischen Listing-IDs. Cache und Response sind listing-spezifisch. Wenn zwei
+Listings beim aktiven Provider auf dasselbe Provider-Symbol fallen, wird der
+Abruf mit einem erklärten Konflikt abgebrochen statt Kurse zu vermischen.
 
-## Abgeschlossener Phase-2.1-Arbeitspunkt
+Der bestehende Symbolpfad bleibt als `legacy_symbol` verfügbar, damit noch
+nicht migrierte Watchlist- und Stream-Aufrufer stabil bleiben. Seine Ablösung
+ist der nächste getrennte Arbeitspunkt.
 
-Symbolgleiche Listings duerfen nicht mehr stillschweigend anhand ihrer
-Bestaetigungszahl ausgewaehlt werden. Asset- und Corporate-Action-Routen loesen
-ein Instrument deshalb ueber die kanonische ID auf. Ist ein Symbol mehrdeutig,
-antworten sie mit HTTP 409 und liefern die belegten Handelsplaetze zur Auswahl.
-Ohne eindeutige Identitaet werden weder Provider aufgerufen noch Quote-Status
-ueber mehrere Listings hinweg geschrieben.
+## Verifikation
 
-Detail- und Kataloglinks transportieren die kanonische Instrument-ID. Die UI
-zeigt bei Mehrfachlistings Handelsplatz, Waehrung und MIC und verlangt eine
-explizite Auswahl statt einer geratenen Zuordnung.
+- Format und Governance: bestanden
+- TypeScript: bestanden
+- ESLint ohne Warnungen: bestanden
+- fokussierte Regressionstests: 21/21 bestanden
+- kritische Route/Identitätslogik: 99,07 % Lines und 95,69 % Branches
+- gesamte Testsuite: 169 Dateien, 1.321/1.321 Tests bestanden
+- Next.js-Produktionsbuild: bestanden, 35 statische Seiten
 
-## Evidenz dieses Arbeitspunkts
+## Production
 
-- 6 fokussierte Testdateien mit 34/34 Tests bestanden
-- vollstaendige Vitest-Suite: 167 Dateien, 1.308/1.308 Tests bestanden
-- Format, Governance, Typecheck und ESLint bestanden
-- Next.js-Produktionsbuild mit 35 statischen Seiten bestanden
-- PR #119: Code-CI, Browser-E2E, Enterprise-Gates, pgTAP und isolierte
-  StockPilot-Vercel-Preview bestanden
-- keine Datenbankmigration und keine Produktionsaenderung
+Die Release-Automation ist abgeschlossen. Geschützte Main-Merges deployen
+wieder ausschließlich das Vercel-Projekt `stockpilot-ai`. Der aktuelle
+Production-Stand `9d53624` ist unter `https://stockpilot-ai-beta.vercel.app`
+verifiziert. BauPro und andere Projekte bleiben unberührt.
 
 ## Externe Blocker
 
-- Stripe Test Clocks sind mit dem isolierten Claimable-Key nicht erlaubt. Stripe
-  wurde auf ausdruecklichen Nutzerwunsch vorerst uebersprungen; Billing bleibt
-  fail-closed und deaktiviert.
-- Supabase-Projekt `STAI` ist `INACTIVE`; Remote-Migration und authentifizierte
-  Produktionspruefung bleiben blockiert.
+- Keine belegten öffentlichen Anzeigerechte für die vorhandenen kommerziellen Marktdatenzugänge
+- Supabase-Projekt `STAI` zuletzt `INACTIVE`; Remote-Abnahme nicht möglich
+- Stripe-Test-Clock-Dunning mit vorhandenem eingeschränkten Zugang nicht abschließbar
 
-## Naechster zulaessiger Schritt
+## Nächster zulässiger Schritt
 
-Release-Automation durch PR-/CI-/Preview-Gates pruefen, geschuetzt mergen und
-belegen, dass Vercel den Main-Merge automatisch als StockPilot-Production
-ausliefert. Danach die symbolbasierte Quotes-Batchroute auf kanonische
-Instrument-IDs umstellen. Keine Aenderung an BauPro.
+Phase 2.2 über PR, CI und Preview absichern, geschützt mergen und Production
+prüfen. Danach die verbleibenden Legacy-Symbol-Aufrufer jeweils in einem
+eigenen, getesteten Arbeitspunkt migrieren.

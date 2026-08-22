@@ -11,6 +11,7 @@ function completeQuote(
 ) {
   return buildNormalizedQuote(
     {
+      canonicalId: "stock:nasdaq:aapl:usd",
       instrumentId: "stock:nasdaq:aapl:usd",
       symbol: "AAPL",
       assetType: "stock",
@@ -48,6 +49,7 @@ describe("kanonisches Quote-Modell", () => {
     const quote = completeQuote();
 
     expect(quote).toMatchObject({
+      canonicalId: "stock:nasdaq:aapl:usd",
       instrumentId: "stock:nasdaq:aapl:usd",
       providerId: "test_provider",
       providerSymbol: "AAPL",
