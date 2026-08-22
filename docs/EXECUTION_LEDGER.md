@@ -10,7 +10,7 @@ Stand: 2026-08-22
 
 Status: **OPEN**
 
-Geprüfter Ausgangs-Main: `f353c09505bfb70ba32cb69247c26224deb59953`
+Geprüfter Ausgangs-Main: `e03c2a633551624474cb57dda0cf7cadf0818f5e`
 
 ## Reproduzierter Fehler
 
@@ -24,6 +24,10 @@ Listings erkannte die Symbolkollision. Die bestehende
 Bei einer Provider-Failover-Kette wurde außerdem dasselbe Eingabesymbol an
 jeden Anbieter weitergegeben, obwohl Provider unterschiedliche Symbolformate
 verwenden können.
+
+Die Production-Abnahme von Main `e03c2a6` reproduzierte einen zweiten Fehler:
+Bei inaktivem Supabase lieferten REST und SSE zwar korrekt HTTP 503, benötigten
+dafür aber jeweils rund 7,3 Sekunden.
 
 ## Implementierte Lösung
 
@@ -39,6 +43,10 @@ verwenden können.
   kontrolliert fehl
 - Providerantworten werden nur bei passendem Provider, Provider-Symbol,
   Canonical ID und Währung gebunden
+- jede Instrument-Master-Abfrage wird mit `AbortSignal.timeout()` auf maximal
+  2.000 Millisekunden begrenzt
+- zurückgegebene und geworfene Fetch-Abbrüche werden identisch fail-closed
+  normalisiert
 - Legacy-Symbolpfad bleibt explizit und unverändert
 
 ## Migration
@@ -51,11 +59,13 @@ Arbeitspunkt ergänzt den fehlenden Lese- und Routingvertrag.
 
 - Formatcheck, TypeScript und ESLint: bestanden
 - fokussierte Tests: 5 Dateien, 33/33 bestanden
-- vollständige Vitest-Suite: 174 Dateien, 1.347/1.347 Tests bestanden
+- vollständige Vitest-Suite: 174 Dateien, 1.351/1.351 Tests bestanden
 - Produktionsbuild: bestanden, 35 statische Seiten
 - Mapping-Domäne: 100 % Lines / 89,69 % Branches
 - Quote-Route: 97,46 % Lines / 92,95 % Branches
 - Stream-Route: 97,39 % Lines / 92,75 % Branches
+- realistische lokale Production-Sandbox mit StockPilot-Preview-Umgebung:
+  REST 0,138 s und SSE 0,116 s bis zum kontrollierten HTTP 503
 
 ## Security- und Datenqualitätswirkung
 
@@ -70,10 +80,15 @@ umzudeuten.
 Das Supabase-Projekt `STAI` war zuletzt `INACTIVE`. Der echte
 Instrument-Master-Lookup kann deshalb erst nach Reaktivierung remote geprüft
 werden. Öffentliche Anzeigerechte für externe Marktdaten sind weiterhin nicht
-belegt.
+belegt. Native Preview und echter Prebuilt-Upload für PR #126 wurden am
+2026-08-22 mit `api-deployments-free-per-day` wegen mehr als 100 Deployments
+für 24 Stunden abgewiesen; dieser Pflichtcheck wird nicht umgangen. Der eigene
+Preview-Workflow erkennt einen bereits roten nativen Vercel-Commitstatus nun
+sofort, statt bis zu zehn Minuten auf eine nicht erzeugte Deployment-Resource
+zu warten.
 
 ## Nächster Schritt
 
-Commit, PR, Pflicht-CI, Datenbank-CI und Preview-Abnahme. Keine weitere
-Phase beginnen, bevor dieser Arbeitspunkt geschützt gemergt, deployt und soweit
-ohne externe Blocker real geprüft ist.
+Den Vercel-Preview-Check nach Ablauf oder Aufhebung des Buildlimits erneut
+ausführen. Erst bei grünem Preview geschützt mergen und anschließend die
+Production-Latenz erneut messen. Keine weitere Phase beginnen.

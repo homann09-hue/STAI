@@ -20,11 +20,13 @@ function query(result: {
     select: vi.fn(),
     in: vi.fn(),
     eq: vi.fn(),
-    limit: vi.fn().mockResolvedValue(result),
+    limit: vi.fn(),
+    abortSignal: vi.fn().mockResolvedValue(result),
   };
   chain.select.mockReturnValue(chain);
   chain.in.mockReturnValue(chain);
   chain.eq.mockReturnValue(chain);
+  chain.limit.mockReturnValue(chain);
   return chain;
 }
 
@@ -126,6 +128,129 @@ describe("Instrument Master canonical quote mapping store", () => {
       "warn",
       "instrument_master.canonical_mapping_lookup_failed",
       expect.objectContaining({ code: "08006", requested: 2 }),
+    );
+  });
+
+  it("aborts a stalled Instrument-Master request after the bounded timeout", async () => {
+    const instrumentQuery = query({ data: null, error: null });
+    instrumentQuery.abortSignal.mockImplementation(
+      (signal: AbortSignal) =>
+        new Promise((resolve) => {
+          signal.addEventListener(
+            "abort",
+            () =>
+              resolve({
+                data: null,
+                error: { code: "20", message: "request aborted" },
+              }),
+            { once: true },
+          );
+        }),
+    );
+    createSupabaseServiceClient.mockReturnValue({
+      from: vi.fn(() => instrumentQuery),
+    });
+
+    const resolution = resolveCanonicalQuoteIdentities(
+      requestIdentities(),
+      ["fmp"],
+      10,
+    );
+    await expect(resolution).resolves.toEqual({ status: "store_unavailable" });
+    expect(instrumentQuery.abortSignal).toHaveBeenCalledWith(
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("normalizes a thrown fetch abort without leaking an exception", async () => {
+    const instrumentQuery = query({ data: null, error: null });
+    instrumentQuery.abortSignal.mockRejectedValue(
+      new DOMException("request aborted", "AbortError"),
+    );
+    createSupabaseServiceClient.mockReturnValue({
+      from: vi.fn(() => instrumentQuery),
+    });
+
+    await expect(
+      resolveCanonicalQuoteIdentities(requestIdentities(), ["fmp"], 10),
+    ).resolves.toEqual({ status: "store_unavailable" });
+    expect(logEvent).toHaveBeenCalledWith(
+      "warn",
+      "instrument_master.canonical_mapping_lookup_failed",
+      { message: "request aborted", requested: 2 },
+    );
+  });
+
+  it("fails closed when the provider-identifier query reports an error", async () => {
+    const instrumentQuery = query({
+      data: [
+        {
+          id: "instrument-us",
+          canonical_id: "stock:xnas:aapl:usd",
+          symbol: "AAPL",
+          asset_class: "stock",
+          currency: "USD",
+        },
+      ],
+      error: null,
+    });
+    const identifierQuery = query({
+      data: null,
+      error: { code: "08006", message: "identifier lookup failed" },
+    });
+    createSupabaseServiceClient.mockReturnValue({
+      from: vi.fn((table: string) =>
+        table === "instruments" ? instrumentQuery : identifierQuery,
+      ),
+    });
+
+    await expect(
+      resolveCanonicalQuoteIdentities(
+        requestIdentities().slice(0, 1),
+        ["fmp"],
+      ),
+    ).resolves.toEqual({ status: "store_unavailable" });
+    expect(logEvent).toHaveBeenCalledWith(
+      "warn",
+      "instrument_master.provider_mapping_lookup_failed",
+      expect.objectContaining({ code: "08006", requested: 1 }),
+    );
+  });
+
+  it("normalizes a thrown identifier-query abort", async () => {
+    const instrumentQuery = query({
+      data: [
+        {
+          id: "instrument-us",
+          canonical_id: "stock:xnas:aapl:usd",
+          symbol: "AAPL",
+          asset_class: "stock",
+          currency: "USD",
+        },
+      ],
+      error: null,
+    });
+    const identifierQuery = query({ data: null, error: null });
+    identifierQuery.abortSignal.mockRejectedValue(
+      new DOMException("identifier request aborted", "AbortError"),
+    );
+    createSupabaseServiceClient.mockReturnValue({
+      from: vi.fn((table: string) =>
+        table === "instruments" ? instrumentQuery : identifierQuery,
+      ),
+    });
+
+    await expect(
+      resolveCanonicalQuoteIdentities(
+        requestIdentities().slice(0, 1),
+        ["fmp"],
+        10,
+      ),
+    ).resolves.toEqual({ status: "store_unavailable" });
+    expect(logEvent).toHaveBeenCalledWith(
+      "warn",
+      "instrument_master.provider_mapping_lookup_failed",
+      { message: "identifier request aborted", requested: 1 },
     );
   });
 });
