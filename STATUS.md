@@ -40,7 +40,8 @@ Datenmodell und bleibt ein getrennter Arbeitspunkt.
 
 - Formatcheck, TypeScript und ESLint ohne Warnungen: bestanden
 - fokussierte Mapping-/Store-/Failover-/Route-Tests: 5 Dateien, 33/33 bestanden
-- vollständige Vitest-Suite: 174 Dateien, 1.349/1.349 Tests bestanden
+- vollständige Vitest-Suite: 174 Dateien, 1.351/1.351 Tests bestanden
+- realistische lokale Production-Sandbox: REST 0,138 s / SSE 0,116 s bis zum kontrollierten HTTP 503
 - Next.js-Produktionsbuild: bestanden, 35 statische Seiten
 - Mapping-Domäne: 100 % Lines / 89,69 % Branches
 - Quote-Route: 97,46 % Lines / 92,95 % Branches
@@ -64,9 +65,10 @@ noch nicht als live behoben bezeichnet.
 - Keine belegten öffentlichen Anzeigerechte für die vorhandenen Marktdatenzugänge
 - Supabase-Projekt `STAI` zuletzt `INACTIVE`; echte Instrument-Master-Auflösung in Production nicht prüfbar
 - Stripe-Test-Clock-Dunning mit vorhandenem eingeschränkten Zugang nicht abschließbar
+- Vercel-Preview für PR #126 wegen Buildlimit für 24 Stunden abgewiesen; Pflichtcheck bleibt rot
 
 ## Nächster zulässiger Schritt
 
 Timeout-Remediation committen, als Folge-PR desselben Arbeitspunkts prüfen,
-Pflicht-CI und Datenbank-CI abwarten und danach den Production-503 erneut
-messen. Keine Folgephase vorher beginnen.
+den Vercel-Preview-Check nach Freigabe des Buildlimits neu ausführen und danach
+den Production-503 erneut messen. Keine Folgephase vorher beginnen.

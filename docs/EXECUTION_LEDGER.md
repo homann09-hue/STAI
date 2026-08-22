@@ -59,11 +59,13 @@ Arbeitspunkt ergänzt den fehlenden Lese- und Routingvertrag.
 
 - Formatcheck, TypeScript und ESLint: bestanden
 - fokussierte Tests: 5 Dateien, 33/33 bestanden
-- vollständige Vitest-Suite: 174 Dateien, 1.349/1.349 Tests bestanden
+- vollständige Vitest-Suite: 174 Dateien, 1.351/1.351 Tests bestanden
 - Produktionsbuild: bestanden, 35 statische Seiten
 - Mapping-Domäne: 100 % Lines / 89,69 % Branches
 - Quote-Route: 97,46 % Lines / 92,95 % Branches
 - Stream-Route: 97,39 % Lines / 92,75 % Branches
+- realistische lokale Production-Sandbox mit StockPilot-Preview-Umgebung:
+  REST 0,138 s und SSE 0,116 s bis zum kontrollierten HTTP 503
 
 ## Security- und Datenqualitätswirkung
 
@@ -78,11 +80,12 @@ umzudeuten.
 Das Supabase-Projekt `STAI` war zuletzt `INACTIVE`. Der echte
 Instrument-Master-Lookup kann deshalb erst nach Reaktivierung remote geprüft
 werden. Öffentliche Anzeigerechte für externe Marktdaten sind weiterhin nicht
-belegt.
+belegt. Der native Vercel-Preview-Build für PR #126 wurde am 2026-08-22 wegen
+des Konto-Buildlimits für 24 Stunden abgewiesen; dieser Pflichtcheck wird nicht
+umgangen.
 
 ## Nächster Schritt
 
-Timeout-Remediation committen, als Folge-PR prüfen, Pflicht-CI,
-Datenbank-CI und Preview abwarten und anschließend die Production-Latenz erneut
-messen. Keine weitere Phase beginnen, bevor dieser Arbeitspunkt geschützt
-gemergt, deployt und soweit ohne externe Blocker real geprüft ist.
+Den Vercel-Preview-Check nach Ablauf oder Aufhebung des Buildlimits erneut
+ausführen. Erst bei grünem Preview geschützt mergen und anschließend die
+Production-Latenz erneut messen. Keine weitere Phase beginnen.

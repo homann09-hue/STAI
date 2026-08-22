@@ -137,7 +137,24 @@ bei einem anderen Projekt freigeben. Anschließend ausschließlich `STAI`
 reaktivieren, Migrationen prüfen/anwenden und StockPilot live verifizieren.
 BauPro und alle anderen Projekte wurden nicht verändert.
 
-## Aktuell kein belegter Lieferblocker
+## Aktuelle Lieferblocker
+
+### Vercel-Preview-Buildlimit für PR #126
+
+**Nachweis:** Der native Vercel-Status für PR #126 wurde am 2026-08-22 mit
+`Deployment rate limited - retry in 24 hours` und dem Verweis
+`upgradeToPro=build-rate-limit` abgewiesen. App-CI und pgTAP sind grün; ein
+neues Preview-Deployment wurde nicht erzeugt.
+
+**Auswirkung:** Die technisch lokal und in einer realistischen
+Production-Sandbox geprüfte Timeout-Remediation bleibt offen. Der rote
+Vercel-Pflichtcheck wird nicht umgangen; PR #126 wird nicht gemergt und der
+aktuelle Production-Stand bleibt unverändert erreichbar.
+
+**Aktivierung:** Nach Ablauf des Limits oder einer Vercel-Tariferhöhung den
+nativen Preview-Check für PR #126 neu ausführen, Preview-Latenz messen, erst bei
+grünen Pflichtchecks geschützt mergen und anschließend ausschließlich
+`stockpilot-ai` in Production prüfen. BauPro bleibt unberührt.
 
 GitHub ist wieder betriebsbereit; PR #99 wurde gemergt und Phase 0 ausschließlich
 im StockPilot-Projekt deployt. BauPro ist kein Bestandteil dieses Repositories
