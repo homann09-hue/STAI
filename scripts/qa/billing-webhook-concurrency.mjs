@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
 
 const url = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -8,13 +7,28 @@ if (!url || !serviceRoleKey) {
   throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
 }
 
-const supabase = createClient(url, serviceRoleKey, {
-  auth: { autoRefreshToken: false, persistSession: false }
-});
+const serviceHeaders = {
+  apikey: serviceRoleKey,
+  authorization: `Bearer ${serviceRoleKey}`,
+  "content-type": "application/json"
+};
 const suffix = randomUUID().replaceAll("-", "");
 const customerId = `cus_concurrency_${suffix}`;
 const subscriptionId = `sub_concurrency_${suffix}`;
 const priceId = `price_concurrency_${suffix}`;
+let userId;
+
+async function request(path, options = {}) {
+  const response = await fetch(`${url}${path}`, {
+    ...options,
+    headers: { ...serviceHeaders, ...options.headers }
+  });
+  if (!response.ok) {
+    throw new Error(`supabase_request_failed:${response.status}:${path.split("?")[0]}`);
+  }
+  if (response.status === 204) return null;
+  return response.json();
+}
 
 function eventArguments({ eventId, createdAt, status }) {
   return {
@@ -39,20 +53,25 @@ function eventArguments({ eventId, createdAt, status }) {
   };
 }
 
-async function apply(args) {
-  const { data, error } = await supabase.rpc("apply_stripe_billing_event", args);
-  if (error) throw new Error(`${error.code ?? "rpc_error"}:${error.message}`);
-  return data;
+function apply(args) {
+  return request("/rest/v1/rpc/apply_stripe_billing_event", {
+    method: "POST",
+    body: JSON.stringify(args)
+  });
 }
 
-const { data: createdUser, error: createError } = await supabase.auth.admin.createUser({
-  email: `webhook-concurrency-${suffix}@example.invalid`,
-  email_confirm: true
+const createdUserResponse = await request("/auth/v1/admin/users", {
+  method: "POST",
+  body: JSON.stringify({
+    email: `webhook-concurrency-${suffix}@example.invalid`,
+    email_confirm: true
+  })
 });
-if (createError || !createdUser.user) {
-  throw new Error(`test_user_create_failed:${createError?.message ?? "missing_user"}`);
+const createdUser = createdUserResponse?.user ?? createdUserResponse;
+if (!createdUser || typeof createdUser.id !== "string") {
+  throw new Error("test_user_create_failed");
 }
-const userId = createdUser.user.id;
+userId = createdUser.id;
 
 let testError = null;
 try {
@@ -73,13 +92,10 @@ try {
   assert.ok(orderedResults.some((result) => result.applied === true));
   assert.ok(orderedResults.some((result) => result.stale === true));
 
-  const { data: entitlement, error: entitlementError } = await supabase
-    .from("entitlements")
-    .select("status,last_provider_event_id,last_provider_event_created_at")
-    .eq("user_id", userId)
-    .eq("provider", "stripe")
-    .single();
-  if (entitlementError) throw entitlementError;
+  const entitlement = await request(
+    `/rest/v1/entitlements?select=status,last_provider_event_id,last_provider_event_created_at&user_id=eq.${encodeURIComponent(userId)}&provider=eq.stripe`,
+    { headers: { accept: "application/vnd.pgrst.object+json" } }
+  );
   assert.equal(entitlement.status, "past_due");
   assert.equal(entitlement.last_provider_event_id, events.at(-1).p_event_id);
   assert.equal(
@@ -96,19 +112,20 @@ try {
   assert.equal(duplicateResults.filter((result) => result.duplicate === false).length, 1);
   assert.equal(duplicateResults.filter((result) => result.duplicate === true).length, 99);
 
-  const { count, error: countError } = await supabase
-    .from("billing_events")
-    .select("id", { count: "exact", head: true })
-    .eq("provider", "stripe")
-    .eq("event_id", duplicateArgs.p_event_id);
-  if (countError) throw countError;
-  assert.equal(count, 1);
-
+  const duplicateRows = await request(
+    `/rest/v1/billing_events?select=id&provider=eq.stripe&event_id=eq.${encodeURIComponent(duplicateArgs.p_event_id)}`
+  );
+  assert.equal(duplicateRows.length, 1);
 } catch (error) {
   testError = error;
 }
 
-const { error: cleanupError } = await supabase.auth.admin.deleteUser(userId);
+let cleanupError = null;
+try {
+  await request(`/auth/v1/admin/users/${encodeURIComponent(userId)}`, { method: "DELETE" });
+} catch (error) {
+  cleanupError = error;
+}
 if (testError) throw testError;
-if (cleanupError) throw new Error(`test_user_cleanup_failed:${cleanupError.message}`);
+if (cleanupError) throw cleanupError;
 process.stdout.write("Atomic Stripe webhook concurrency test passed: 64 out-of-order events, 100 parallel duplicates.\n");
