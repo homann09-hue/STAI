@@ -103,6 +103,7 @@ export interface Quote {
 }
 
 export interface NormalizedQuote {
+  canonicalId: string | null;
   instrumentId: string | null;
   symbol: string;
   name?: string;

@@ -1,61 +1,62 @@
 # Execution Ledger
 
-<!-- ACTIVE_WORKPOINT: RELEASE-AUTO-DEPLOY -->
+<!-- ACTIVE_WORKPOINT: PHASE-2-2-CANONICAL-QUOTES -->
 
 Stand: 2026-08-22
 
 ## Aktiver Arbeitspunkt
 
-**Release-Automation - geschuetzte Main-Merges automatisch live**
+**Phase 2.2 - kanonische Identität für Quote-Batches**
 
 Status: **IMPLEMENTED LOCALLY - PR/CI PENDING**
 
-Gepruefter Main: `01740e6ab4fca6830aaaa2b67aa7e9564a1f5af0`
+Geprüfter Main: `9d536243c8a930fb82e25922d4af3be2c8d9d741`
 
 ## Reproduzierter Fehler
 
-Das Vercel-Projekt `stockpilot-ai` ist korrekt mit GitHub `homann09-hue/STAI`
-und dem Production-Branch `main` verbunden. Das Repository setzte jedoch in
-`vercel.json` ausdruecklich `git.deploymentEnabled.main=false`. Dadurch blieben
-erfolgreich gemergte und vollstaendig gepruefte Main-Commits aus Production
-ausgeschlossen; die Live-Seite war vier Tage hinter GitHub.
+`/api/market/quotes` deduplizierte, cachte und ordnete ausschließlich nach
+Ticker. Zwei Listings mit gleichem Symbol konnten deshalb im Request, Cache
+und Response nicht sicher unterschieden werden. Auch das Autocomplete fragte
+Kurse nur anhand des Symbols ab.
 
-## Implementierte Loesung
+## Implementierte Lösung
 
-- automatische Vercel-Deployments fuer den geschuetzten Branch `main` aktiviert
-- Projektbindung auf `stockpilot-ai` und Production-Branch `main` verifiziert
-- keine Aenderung an Projekt-ID, Team, Domain, Umgebungsvariablen oder BauPro
-- Stripe bleibt uebersprungen und Billing deaktiviert
+- `NormalizedQuote` um `canonicalId` erweitert und zentral normalisiert
+- neuer reiner Vertrag für `assetClass:exchange:symbol:currency`
+- kanonische Batch-Anfrage über `canonicalIds`
+- Listing-spezifischer Cache-Key statt reinem Symbol-Key
+- kontrollierter HTTP-409-Fehler bei Provider-Symbol-Kollisionen
+- Providerantwort wird exakt an eine kanonische Listing-ID gebunden
+- Response weist `canonical` oder `legacy_symbol` transparent als Identitätsmodus aus
+- Autocomplete nutzt kanonische IDs und Detail-Links transportieren die Listing-ID
+- Legacy-Symbolpfad bleibt vorübergehend kompatibel für Stream/Watchlist
 
-## Live-Evidenz vor der Automatisierung
+## Lokale Evidenz
 
-- Main-Code-CI und Main-Datenbank-CI fuer `01740e6` bestanden
-- Production `dpl_2bRw6Xg78Fzx8F6QdnLG9XRMXbF6` ist `READY`
-- Alias `https://stockpilot-ai-beta.vercel.app` zeigt auf dieses Deployment
-- Dashboard, Maerkte, Aktien, ETFs, Krypto, Watchlist, AAPL-Seite, Manifest,
-  Service Worker und Health antworten mit HTTP 200
-- Browserkonsole sowie Vercel-Error- und Warning-Logs ohne Findings
+- TypeScript und ESLint bestanden
+- 3 fokussierte Testdateien mit 21/21 Tests bestanden
+- kritische Route/Identitätslogik: 99,07 % Lines und 95,69 % Branches
+- vollständige Vitest-Suite: 169 Dateien, 1.321/1.321 Tests bestanden
+- Format- und Governance-Prüfung bestanden
+- Next.js-Produktionsbuild mit 35 statischen Seiten bestanden
 
-## Datenprovider-Blocker
+## Abgeschlossene Release-Automation
 
-FMP, Finnhub und Alpha Vantage antworten mit den vorhandenen Schluesseln
-technisch erfolgreich. Production zeigt dennoch bewusst keine Kurse, weil
-keine externen Anzeigerechte in
-`MARKET_DATA_LICENSE_VERIFIED_PROVIDERS` und
-`MARKET_DATA_EXTERNAL_DISPLAY_PROVIDERS` belegt sind. Diese Sperre wird nicht
-umgangen; insbesondere erlaubt Finnhub persoenliche Tarife nicht fuer die
-oeffentliche Weitergabe ohne schriftliche Freigabe.
+PR #120 wurde grün gemergt. Main-Commit
+`9d536243c8a930fb82e25922d4af3be2c8d9d741` löste automatisch das StockPilot-
+Production-Deployment `dpl_7qdUzszCbZqGsHmYrje7tQ1Ciwp6` aus. Alias,
+Kernrouten, Manifest, Service Worker und Health antworteten mit HTTP 200;
+Production-Logs enthielten keine Fehler. BauPro wurde nicht verändert.
+
+## Externe Datenblocker
+
+FMP, Finnhub und Alpha Vantage antworten technisch, bleiben in Production aber
+bewusst gesperrt. Öffentliche Anzeige- und Weitergaberechte sind nicht belegt;
+die Lizenzschranke wird nicht durch Konfigurationstricks umgangen.
 
 ## Noch erforderlich
 
-- PR-/CI-/Preview-Gates fuer die Release-Konfiguration abschliessen
-- nach geschuetztem Merge das automatisch erzeugte Production-Deployment und
-  den Alias pruefen
-- kommerzielle/externe Marktdatenrechte schriftlich belegen und erst dann die
-  jeweiligen Provider serverseitig freischalten
-
-## Naechster zulaessiger Arbeitspunkt
-
-Zuerst den automatischen StockPilot-Production-Deploy belegen. Danach
-ausschliesslich die Quotes-Batchroute kanonisieren. Keine parallele
-Stripe-Arbeit und keine Aenderung an BauPro.
+- PR, Pflicht-CI, Datenbank-CI und isolierte Vercel-Preview für Phase 2.2
+- geschützter Merge und automatisches StockPilot-Production-Deployment
+- Live-Abnahme des kanonischen Quote-Vertrags
+- danach verbleibende Legacy-Symbol-Aufrufer einzeln migrieren

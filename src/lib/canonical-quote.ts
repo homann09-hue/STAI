@@ -59,6 +59,7 @@ const quoteQualityStatuses = new Set<QuoteQualityStatus>([
 ]);
 
 export interface CanonicalQuoteInput {
+  canonicalId?: unknown;
   instrumentId?: unknown;
   symbol: unknown;
   name?: unknown;
@@ -195,6 +196,7 @@ function qualityScore(
     unavailable: 0,
   };
   const penalties: Record<string, number> = {
+    canonical_id_missing: 8,
     instrument_id_missing: 8,
     venue_missing: 8,
     currency_unknown: 15,
@@ -244,6 +246,7 @@ export function buildNormalizedQuote(
 
   const invalidIssues: string[] = [];
   const partialIssues: string[] = [];
+  const canonicalId = text(input.canonicalId, 200);
   const instrumentId = text(input.instrumentId, 160);
   const providerSymbol =
     text(input.providerSymbol, 80)?.toUpperCase() ?? symbol;
@@ -295,6 +298,7 @@ export function buildNormalizedQuote(
     ask = null;
   }
 
+  if (!canonicalId) partialIssues.push("canonical_id_missing");
   if (!instrumentId) partialIssues.push("instrument_id_missing");
   if (!venue) partialIssues.push("venue_missing");
   if (currency === "XXX") partialIssues.push("currency_unknown");
@@ -374,6 +378,7 @@ export function buildNormalizedQuote(
     qualityStatus !== "UNAVAILABLE";
 
   return {
+    canonicalId,
     instrumentId,
     symbol,
     name: text(input.name, 160) ?? undefined,
@@ -435,6 +440,7 @@ export function normalizeCanonicalQuoteRecord(
   try {
     return buildNormalizedQuote(
       {
+        canonicalId: quote.canonicalId,
         instrumentId: quote.instrumentId,
         symbol: quote.symbol,
         name: quote.name,

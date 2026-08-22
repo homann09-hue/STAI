@@ -1,6 +1,6 @@
 # StockPilot Operating Card
 
-<!-- ACTIVE_WORKPOINT: RELEASE-AUTO-DEPLOY -->
+<!-- ACTIVE_WORKPOINT: PHASE-2-2-CANONICAL-QUOTES -->
 
 Stand: 2026-08-22
 
@@ -15,28 +15,31 @@ Stand: 2026-08-22
 
 1. Main, Arbeitsbaum, offene PRs, CI und Production-Liveness prüfen.
 2. Fehler reproduzieren und Ursache, Verträge sowie Nebenwirkungen erfassen.
-3. Implementierung mit Unit-, Route-, Integration-, DB- und relevantem Browser-Test abschließen.
-4. Format, Typecheck, Lint, Vitest, Build, DB-Reset, pgTAP, Security- und License-Audit ausführen.
-5. Kritische geänderte Dateien auf mindestens 90 % Lines und 85 % Branches messen.
-6. Status, Ledger und Blocker mit echten Zahlen aktualisieren.
-7. Commit, Branch, PR, Pflicht-CI, Datenbank-CI und StockPilot-Preview prüfen.
-8. Erst nach grünem geschütztem Merge und realistischer Prüfung den nächsten Arbeitspunkt beginnen.
+3. Implementierung mit passenden Unit-, Route-, Integrations-, DB- und Browser-Tests abschließen.
+4. Format, Governance, Typecheck, Lint, Vitest und Build ausführen.
+5. Status, Ledger und Blocker mit echten Zahlen aktualisieren.
+6. Commit, Branch, PR, Pflicht-CI, Datenbank-CI und StockPilot-Preview prüfen.
+7. Erst nach grünem geschütztem Merge Production und Alias prüfen.
+
+## Daten-Invarianten
+
+- Das öffentliche Instrument ist die kanonische Listing-ID, nicht ein nacktes Symbol.
+- Symbolgleiche Listings werden nie geraten oder vermischt.
+- Provider-Symbol-Kollisionen schlagen kontrolliert fehl, bis ein belegtes Mapping existiert.
+- Jede Quote trägt Provider, Zeitpunkt, Qualität und nach kanonischer Auflösung die Listing-ID.
+- Der Legacy-Symbolpfad bleibt nur für noch nicht migrierte interne Aufrufer und wird als solcher ausgewiesen.
+- Externe Kurse bleiben gesperrt, bis öffentliche Anzeigerechte schriftlich belegt sind.
 
 ## Billing-Invarianten
 
-- Ledger und Entitlement eines Stripe-Events werden ausschließlich atomar mutiert.
-- Ein Provider-Event wirkt anhand `(event.created, event.id)` höchstens einmal; ältere Events überschreiben keinen neueren Zustand.
-- Unbekannte Price-IDs und unvollständige Zuordnungen sind fail-closed; Stripe-Metadaten autorisieren keinen Plan.
-- Vor Subscription-Checkout Stripe selbst nach allen Customers und nichtterminalen Subscriptions fragen.
-- Nur `canceled` und `incomplete_expired` sind terminal; Recovery-Zustände erzeugen keinen neuen Checkout.
 - Billing bleibt bis zum grünen Phase-1.5-Testmode-Gate und den externen Live-Freigaben deaktiviert.
-- Stripe ist auf Nutzerentscheidung vorerst uebersprungen; Phase 2.1 darf ohne Paid-Aktivierung fortgesetzt werden.
+- Stripe ist auf Nutzerentscheidung vorerst übersprungen; keine Paid-Aktivierung behaupten.
 
 ## Aktuelle externe Blocker
 
 - Supabase `STAI` ist `INACTIVE`; keine Remote-Migration oder authentifizierte Production-Abnahme.
-- Der Live-Zugang `Ovora` wird nicht verwendet; die isolierte StockPilot-Sandbox ist noch nicht beansprucht.
-- Ihr eingeschränkter Claimable-Key belegt den Lifecycle bis zur Test Clock. Für Test-Clock-Dunning fehlt der vollständige Testmode-Key; Paid-Aktivierung bleibt gesperrt.
+- Für externe FMP-/Finnhub-/Alpha-Vantage-Kurse fehlen belegte öffentliche Anzeigerechte.
+- Stripe-Test-Clock-Dunning ist mit dem vorhandenen eingeschränkten Testzugang nicht abschließbar.
 
 ## Incident-Regel
 

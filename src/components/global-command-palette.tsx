@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Activity, BarChart3, Bell, Briefcase, Command, LineChart, Search, Settings2, ShieldAlert, Star, X } from "lucide-react";
 import { formatCurrency, formatPercent } from "@/lib/scoring";
 import type { MarketUniverseInstrument, NormalizedQuote } from "@/lib/types";
+import { isCanonicalInstrumentId } from "@/lib/instrument-resolution";
 
 type CommandItem = {
   href: string;
@@ -65,12 +66,20 @@ function safeSymbol(value: unknown) {
   return SAFE_ASSET_SYMBOL_PATTERN.test(symbol) ? symbol : null;
 }
 
+function safeCanonicalId(value: unknown) {
+  if (typeof value !== "string") return null;
+  const canonicalId = value.trim().toLowerCase();
+  return isCanonicalInstrumentId(canonicalId) ? canonicalId : null;
+}
+
 function safeInstrument(value: MarketUniverseInstrument): MarketUniverseInstrument | null {
   const symbol = safeSymbol(value.symbol);
   if (!symbol) return null;
+  const canonicalId = safeCanonicalId(value.canonicalId);
 
   return {
     ...value,
+    canonicalId: canonicalId ?? undefined,
     symbol,
     name: safeText(value.name, `${symbol} Asset`, 120),
     exchange: safeText(value.exchange, "Exchange offen", 48),
@@ -80,7 +89,9 @@ function safeInstrument(value: MarketUniverseInstrument): MarketUniverseInstrume
     matchReasons: Array.isArray(value.matchReasons) ? value.matchReasons.map((item) => safeText(item, "", 80)).filter(Boolean).slice(0, 4) : [],
     analysisReadiness: value.analysisReadiness,
     searchScore: typeof value.searchScore === "number" && Number.isFinite(value.searchScore) ? Math.max(0, Math.min(100, value.searchScore)) : undefined,
-    detailHref: safeText(value.detailHref, `/assets/${encodeURIComponent(symbol)}`, 120)
+    detailHref: canonicalId
+      ? `/assets/${encodeURIComponent(symbol)}?canonicalId=${encodeURIComponent(canonicalId)}`
+      : safeText(value.detailHref, `/assets/${encodeURIComponent(symbol)}`, 120)
   };
 }
 
@@ -223,14 +234,14 @@ export function GlobalCommandPalette() {
         setInstrumentHits([]);
         setInstrumentCoverage(payload.data?.catalogCoverage ?? payload.catalogCoverage ?? null);
 
-        const symbols = instruments
-          .map((item) => item.symbol)
-          .filter((symbol) => SAFE_ASSET_SYMBOL_PATTERN.test(symbol))
+        const canonicalIds = instruments
+          .map((item) => safeCanonicalId(item.canonicalId))
+          .filter((canonicalId): canonicalId is string => Boolean(canonicalId))
           .slice(0, 8);
-        const allowedSymbols = new Set(symbols);
+        const allowedCanonicalIds = new Set(canonicalIds);
 
-        if (symbols.length) {
-          const quoteResponse = await fetch(`/api/market/quotes?symbols=${encodeURIComponent(symbols.join(","))}`, {
+        if (canonicalIds.length) {
+          const quoteResponse = await fetch(`/api/market/quotes?canonicalIds=${encodeURIComponent(canonicalIds.join(","))}`, {
             cache: "no-store",
             signal: controller.signal
           });
@@ -241,9 +252,9 @@ export function GlobalCommandPalette() {
             const quotePayload = (await quoteResponse.json()) as { quotes?: NormalizedQuote[] };
             if (controller.signal.aborted) return;
             setQuotes(Object.fromEntries((quotePayload.quotes ?? [])
-              .filter((quote) => allowedSymbols.has(safeSymbol(quote.symbol) ?? ""))
-              .slice(0, symbols.length)
-              .map((quote) => [safeSymbol(quote.symbol) ?? quote.symbol, quote])));
+              .filter((quote) => quote.canonicalId && allowedCanonicalIds.has(quote.canonicalId))
+              .slice(0, canonicalIds.length)
+              .map((quote) => [quote.canonicalId as string, quote])));
           } else {
             setQuotes({});
           }
@@ -345,7 +356,7 @@ export function GlobalCommandPalette() {
                 <div className="mb-2 border-b border-stroke pb-2">
                   <p className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan">Asset-Autocomplete</p>
                   {assetResults.map((item) => {
-                    const quote = quotes[item.symbol];
+                    const quote = item.canonicalId ? quotes[item.canonicalId] : undefined;
                     return (
                       <Link
                         key={`${item.symbol}-${item.exchange}`}
@@ -399,7 +410,7 @@ export function GlobalCommandPalette() {
                   {instrumentHits.map((hit) => (
                     <Link
                       key={hit.canonicalId}
-                      href={`/assets/${encodeURIComponent(hit.symbol)}`}
+                      href={`/assets/${encodeURIComponent(hit.symbol)}?canonicalId=${encodeURIComponent(hit.canonicalId)}`}
                       onClick={() => setOpen(false)}
                       className="grid gap-1 rounded-2xl px-4 py-3 transition hover:bg-panel"
                     >
