@@ -1,61 +1,61 @@
 # Execution Ledger
 
-<!-- ACTIVE_WORKPOINT: PHASE-2-1 -->
+<!-- ACTIVE_WORKPOINT: RELEASE-AUTO-DEPLOY -->
 
 Stand: 2026-08-22
 
 ## Aktiver Arbeitspunkt
 
-**Phase 2.1 - kanonische Instrument- und Listing-Aufloesung**
+**Release-Automation - geschuetzte Main-Merges automatisch live**
 
-Status: **COMPLETE - VERIFIED**
+Status: **IMPLEMENTED LOCALLY - PR/CI PENDING**
 
-Gepruefter Ausgangsstand: `48315206db9c24bd864ff9346ea4ab9e142cd684`
+Gepruefter Main: `01740e6ab4fca6830aaaa2b67aa7e9564a1f5af0`
 
 ## Reproduzierter Fehler
 
-Die Detailaufloesung akzeptierte ausschliesslich ein Symbol. Bei mehreren
-Listings desselben Symbols waehlt der Instrument Master bislang still die Zeile
-mit der hoechsten `confirmation_count`. Der Quote-Status wurde anschliessend
-symbolweit auf alle gleichnamigen Listings geschrieben. Handelsplatz, Waehrung
-und Instrumentidentitaet konnten dadurch falsch zugeordnet werden.
+Das Vercel-Projekt `stockpilot-ai` ist korrekt mit GitHub `homann09-hue/STAI`
+und dem Production-Branch `main` verbunden. Das Repository setzte jedoch in
+`vercel.json` ausdruecklich `git.deploymentEnabled.main=false`. Dadurch blieben
+erfolgreich gemergte und vollstaendig gepruefte Main-Commits aus Production
+ausgeschlossen; die Live-Seite war vier Tage hinter GitHub.
 
 ## Implementierte Loesung
 
-- reine, getestete Aufloesungslogik fuer kanonische Instrument-IDs
-- HTTP 409 mit belegten Listing-Kandidaten statt stiller Mehrdeutigkeitswahl
-- Asset- und Corporate-Action-Routen rufen bei Mehrdeutigkeit keinen Provider auf
-- Cache- und Quote-Status-Schluessel verwenden bei bekannter Identitaet die
-  kanonische ID
-- kein symbolweiter Quote-Status-Write mehr
-- Detail-, Such- und Kataloglinks transportieren `canonicalId`
-- mobile Listing-Auswahl zeigt Handelsplatz, Waehrung und MIC transparent
-- ungueltige oder veraltete kanonische IDs werden fail-closed abgewiesen
+- automatische Vercel-Deployments fuer den geschuetzten Branch `main` aktiviert
+- Projektbindung auf `stockpilot-ai` und Production-Branch `main` verifiziert
+- keine Aenderung an Projekt-ID, Team, Domain, Umgebungsvariablen oder BauPro
+- Stripe bleibt uebersprungen und Billing deaktiviert
 
-## Gemessene Evidenz
+## Live-Evidenz vor der Automatisierung
 
-- fokussierte Suite: 6 Dateien, 34/34 Tests
-- vollstaendige Suite: 167 Dateien, 1.308/1.308 Tests
-- Formatcheck, Governance, Typecheck und ESLint bestanden
-- Next.js-Produktionsbuild mit 35 statischen Seiten bestanden
-- PR #119: Code-CI einschliesslich Browser-E2E und Enterprise-Gates gruen
-- PR #119: isolierte Datenbank-CI/pgTAP und StockPilot-Vercel-Preview gruen
-- keine Migration, kein Deployment und keine Aenderung ausserhalb StockPilot
+- Main-Code-CI und Main-Datenbank-CI fuer `01740e6` bestanden
+- Production `dpl_2bRw6Xg78Fzx8F6QdnLG9XRMXbF6` ist `READY`
+- Alias `https://stockpilot-ai-beta.vercel.app` zeigt auf dieses Deployment
+- Dashboard, Maerkte, Aktien, ETFs, Krypto, Watchlist, AAPL-Seite, Manifest,
+  Service Worker und Health antworten mit HTTP 200
+- Browserkonsole sowie Vercel-Error- und Warning-Logs ohne Findings
 
-## Konservierter externer Blocker
+## Datenprovider-Blocker
 
-Phase 1.5 bleibt **TECHNICALLY COMPLETE - BLOCKED EXTERNAL**. Der isolierte
-Stripe-Schluessel darf keine Test Clocks erzeugen. Auf ausdruecklichen
-Nutzerwunsch wird Stripe vorerst uebersprungen; Billing bleibt deaktiviert.
+FMP, Finnhub und Alpha Vantage antworten mit den vorhandenen Schluesseln
+technisch erfolgreich. Production zeigt dennoch bewusst keine Kurse, weil
+keine externen Anzeigerechte in
+`MARKET_DATA_LICENSE_VERIFIED_PROVIDERS` und
+`MARKET_DATA_EXTERNAL_DISPLAY_PROVIDERS` belegt sind. Diese Sperre wird nicht
+umgangen; insbesondere erlaubt Finnhub persoenliche Tarife nicht fuer die
+oeffentliche Weitergabe ohne schriftliche Freigabe.
 
 ## Noch erforderlich
 
-- PR #119 geschuetzt mergen und den Source-Workspace konfliktfrei synchronisieren
-- in einem separaten Phase-2-Arbeitspunkt die Quotes-Batchroute und danach die
-  Provider-Symbolabbildung vollstaendig kanonisieren
+- PR-/CI-/Preview-Gates fuer die Release-Konfiguration abschliessen
+- nach geschuetztem Merge das automatisch erzeugte Production-Deployment und
+  den Alias pruefen
+- kommerzielle/externe Marktdatenrechte schriftlich belegen und erst dann die
+  jeweiligen Provider serverseitig freischalten
 
 ## Naechster zulaessiger Arbeitspunkt
 
-Zuerst Phase 2.1 durch PR/CI abschliessen. Danach ausschliesslich die
-Quotes-Batchroute bearbeiten. Keine parallele Stripe-Arbeit, keine
-Produktionsaktivierung und keine Aenderung an BauPro.
+Zuerst den automatischen StockPilot-Production-Deploy belegen. Danach
+ausschliesslich die Quotes-Batchroute kanonisieren. Keine parallele
+Stripe-Arbeit und keine Aenderung an BauPro.
