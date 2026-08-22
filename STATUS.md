@@ -21,6 +21,8 @@ Stand: 2026-08-22
 
 Phase 1.5 ergänzt einen strikt lokalen Stripe-Testmode-Harness. Er erzeugt temporäre Testressourcen, prüft Checkout, signierte Webhooks, aktiven Zugriff, Portal, `past_due`, Wiederherstellung, Kündigung, Duplikate und erneuten Checkout und räumt anschließend auf. Live-Schlüssel, Remote-App-URLs, Remote-Supabase-URLs und Liveobjekte werden technisch abgewiesen. Ein manueller GitHub-Workflow kapselt den Lauf in einer geschützten `stripe-testmode`-Environment.
 
+Der Harness umfasst außerdem die Kontolöschung mit aktivem Testabo: offene Checkout-Sessions und das Abo müssen beendet, die Supabase-Identität gelöscht, die Saga abgeschlossen und ein verspäteter aktiver Webhook ohne Entitlement-Wiederbelebung protokolliert werden.
+
 ## Phase-1.5-Evidenz
 
 - Sicherheitsvertrag des Harness: 6/6 Tests bestanden
@@ -30,6 +32,7 @@ Phase 1.5 ergänzt einen strikt lokalen Stripe-Testmode-Harness. Er erzeugt temp
 - Fail-closed-Probe: fehlender Testmode-Key wurde vor jedem Provideraufruf abgewiesen
 - `npm audit`: 0 bekannte Schwachstellen; Lizenzprüfung bestanden mit der bekannten indirekten `sharp/libvips`-Prüfliste
 - Echter Stripe-Testmode-Lifecycle: **NICHT GELAUFEN**, weil kein StockPilot-Testmode-Key verfügbar ist
+- Stripe CLI 1.50.4 installiert; automatische isolierte Sandbox vom Provider nicht provisioniert, Browser-/Kontofreigabe erforderlich
 
 ## Aktuelle Evidenz
 

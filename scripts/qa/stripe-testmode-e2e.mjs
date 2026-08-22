@@ -313,7 +313,67 @@ try {
     body: { plan: "pro" }
   });
   assert.equal(typeof resumedCheckout.payload?.url, "string");
-  resources.checkoutSessions.push(extractTestCheckoutSessionId(resumedCheckout.payload.url));
+  const resumedCheckoutId = extractTestCheckoutSessionId(resumedCheckout.payload.url);
+  resources.checkoutSessions.push(resumedCheckoutId);
+
+  const deletionSubscription = await stripe.subscriptions.create({
+    customer: resources.customerId,
+    items: [{ price: price.id }],
+    metadata: { stockpilot_plan: "pro", stockpilot_user_id: resources.userId },
+    payment_behavior: "error_if_incomplete"
+  });
+  resources.subscriptionId = deletionSubscription.id;
+  assert.equal(deletionSubscription.status, "active");
+  await sendWebhook(deletionSubscription, "customer.subscription.created", 6);
+  await waitForEntitlement(accessToken, "pro", true);
+
+  const deletedUserId = resources.userId;
+  const deletion = await appRequest("/api/account", {
+    method: "DELETE",
+    token: accessToken,
+    body: { confirmation: "KONTO LÖSCHEN" }
+  });
+  assert.equal(deletion.payload?.deleted, true, "Account deletion did not complete");
+  assert.equal(typeof deletion.payload?.deletionId, "string", "Deletion response did not contain its saga ID");
+
+  const canceledAfterDeletion = await stripe.subscriptions.retrieve(deletionSubscription.id);
+  assert.equal(canceledAfterDeletion.status, "canceled", "Account deletion left an active Stripe subscription");
+  const expiredAfterDeletion = await stripe.checkout.sessions.retrieve(resumedCheckoutId);
+  assert.equal(expiredAfterDeletion.status, "expired", "Account deletion left an open Checkout Session");
+
+  const { data: deletedUserLookup, error: deletedUserError } = await admin.auth.admin.getUserById(deletedUserId);
+  assert.ok(deletedUserError || !deletedUserLookup.user, "Supabase identity survived completed account deletion");
+
+  const { data: deletionJob, error: deletionJobError } = await admin
+    .from("account_deletion_jobs")
+    .select("id,status,user_id,stripe_customer_ids,cancelled_subscription_ids")
+    .eq("id", deletion.payload.deletionId)
+    .single();
+  if (deletionJobError) throw deletionJobError;
+  assert.equal(deletionJob.status, "completed");
+  assert.equal(deletionJob.user_id, null);
+  assert.ok(deletionJob.stripe_customer_ids.includes(resources.customerId));
+  assert.ok(deletionJob.cancelled_subscription_ids.includes(deletionSubscription.id));
+
+  const lateEventId = await sendWebhook(deletionSubscription, "customer.subscription.updated", 7);
+  const { data: revivedEntitlements, error: revivedEntitlementsError } = await admin
+    .from("entitlements")
+    .select("id")
+    .eq("user_id", deletedUserId);
+  if (revivedEntitlementsError) throw revivedEntitlementsError;
+  assert.deepEqual(revivedEntitlements, [], "Late webhook recreated an entitlement for a deleted account");
+
+  const { data: lateEvent, error: lateEventError } = await admin
+    .from("billing_events")
+    .select("applied,processing_reason,user_id")
+    .eq("provider", "stripe")
+    .eq("event_id", lateEventId)
+    .single();
+  if (lateEventError) throw lateEventError;
+  assert.equal(lateEvent.applied, false);
+  assert.equal(lateEvent.processing_reason, "account_deleted");
+  assert.equal(lateEvent.user_id, null);
+  resources.userId = null;
 } catch (error) {
   testFailure = error;
 }
@@ -331,5 +391,5 @@ if (testFailure) {
 }
 if (cleanupFailure) throw cleanupFailure;
 process.stdout.write(
-  "Stripe testmode E2E passed: checkout, active entitlement, portal, payment recovery, cancellation, duplicate webhook and new checkout.\n"
+  "Stripe testmode E2E passed: checkout, entitlement, portal, payment recovery, cancellation, duplicate webhook, account deletion and late-webhook isolation.\n"
 );

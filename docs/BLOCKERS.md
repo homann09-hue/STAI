@@ -86,6 +86,14 @@ nur ein ausschließlich für StockPilot bestimmter `rk_test_...`- oder
 `sk_test_...`-Schlüssel in der geschützten GitHub-Environment
 `stripe-testmode`; Live-Schlüssel und Remote-Ziele werden technisch abgewiesen.
 
+**Sandbox-Probe 2026-08-22:** Stripe CLI 1.50.4 wurde mit einem vollständig
+separaten Konfigurationsprofil ausgeführt. Die automatische claimable Sandbox
+wurde providerseitig nicht provisioniert und fiel auf eine Browserbestätigung
+zurück. Es wurden keine Testschlüssel gespeichert und das vorhandene
+Stripe-Profil blieb unverändert. Die verbleibende Freigabe ist damit konkret:
+ein StockPilot-Sandboxkonto im Browser bestätigen oder einen ausschließlich
+dafür bestimmten Testmode-Key in `stripe-testmode` hinterlegen.
+
 ### Phase-1.1-Produktion ist noch nicht aktualisiert
 
 **Nachweis:** Am 2026-08-21 antwortete
