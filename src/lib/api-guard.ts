@@ -179,7 +179,30 @@ export function requireSameOrigin(request: Request) {
 
   if (!origin) return null;
 
-  if (origin !== new URL(request.url).origin) {
+  let normalizedOrigin: string;
+  try {
+    normalizedOrigin = new URL(origin).origin;
+  } catch {
+    return jsonError("Cross-Origin Request abgelehnt.", 403);
+  }
+
+  const requestUrl = new URL(request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",", 1)[0]?.trim();
+  const host = forwardedHost || request.headers.get("host")?.trim();
+  const forwardedProtocol = request.headers.get("x-forwarded-proto")?.split(",", 1)[0]?.trim().toLowerCase();
+  const protocol =
+    forwardedProtocol === "http" || forwardedProtocol === "https" ? `${forwardedProtocol}:` : requestUrl.protocol;
+
+  let requestOrigin = requestUrl.origin;
+  if (host) {
+    try {
+      requestOrigin = new URL(`${protocol}//${host}`).origin;
+    } catch {
+      return jsonError("Cross-Origin Request abgelehnt.", 403);
+    }
+  }
+
+  if (normalizedOrigin !== requestOrigin) {
     return jsonError("Cross-Origin Request abgelehnt.", 403);
   }
 

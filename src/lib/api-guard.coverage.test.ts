@@ -96,6 +96,52 @@ describe("api guard observability headers", () => {
     );
     expect(rejectedOrigin?.status).toBe(403);
 
+    expect(
+      requireSameOrigin(
+        new Request("http://localhost:3012/api/watchlist", {
+          headers: {
+            host: "127.0.0.1:3012",
+            origin: "http://127.0.0.1:3012"
+          }
+        })
+      )
+    ).toBeNull();
+
+    expect(
+      requireSameOrigin(
+        new Request("http://localhost:3012/api/watchlist", {
+          headers: {
+            host: "internal:3012",
+            origin: "https://stockpilot.test",
+            "x-forwarded-host": "stockpilot.test",
+            "x-forwarded-proto": "https"
+          }
+        })
+      )
+    ).toBeNull();
+
+    const rejectedHeaders: HeadersInit[] = [
+      { host: "127.0.0.1:3012", origin: "http://localhost:3012" },
+      {
+        host: "internal:3012",
+        origin: "http://stockpilot.test",
+        "x-forwarded-host": "stockpilot.test",
+        "x-forwarded-proto": "https"
+      },
+      { host: "stockpilot.test", origin: "not-a-url" },
+      { host: "stockpilot.test", origin: "https://stockpilot.test", "sec-fetch-site": "cross-site" }
+    ];
+
+    for (const headers of rejectedHeaders) {
+      expect(
+        requireSameOrigin(
+          new Request("https://stockpilot.test/api/watchlist", {
+            headers
+          })
+        )?.status
+      ).toBe(403);
+    }
+
     const clientKey = `198.51.100.${Math.floor(Math.random() * 1000)}`;
     let limited: Response | null = null;
 
