@@ -189,6 +189,7 @@ export default async function AssetPage({ params, searchParams }: PageProps) {
   return (
     <AssetDetailView
       detail={detail}
+      canonicalId={known?.canonicalId ?? null}
       valuation={valuation}
       filings={filings}
       corporateActions={corporateActions}

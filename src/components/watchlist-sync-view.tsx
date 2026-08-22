@@ -172,7 +172,11 @@ export function WatchlistSyncView({ initialItems }: { initialItems: AssetSummary
     () => [...new Set(visibleItems.slice(0, 30).map((item) => item.asset.symbol))],
     [visibleItems]
   );
-  const stream = useMarketStream(visibleSymbols, visibleSymbols.length > 0, refreshInterval);
+  const stream = useMarketStream(
+    { symbols: visibleSymbols },
+    visibleSymbols.length > 0,
+    refreshInterval,
+  );
 
   useEffect(() => {
     if (!offlineReady || !hasUserWatchlistOverride) return;

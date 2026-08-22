@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { defaultRefreshIntervalMs } from "@/lib/refresh-config";
+import {
+  indexQuotesForStreamSubscription,
+  normalizeMarketStreamSubscription,
+  type MarketStreamIdentityMode,
+  type MarketStreamSubscription,
+} from "@/lib/market-stream-subscription";
 import type { MarketConnectionStatus, NormalizedQuote, RefreshInterval, RefreshMode } from "@/lib/types";
 
 type StreamStatus = "idle" | "streaming" | "polling" | "error";
@@ -21,13 +27,8 @@ const UI_THROTTLE_MS = 700;
 const BACKGROUND_POLL_MULTIPLIER = 6;
 const MAX_STREAM_EVENT_CHARS = 200000;
 
-function normalizeSymbols(symbols: string[]) {
-  return [...new Set(symbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean))].slice(0, 30);
-}
-
 function parseEventData<T>(event: MessageEvent, fallback: T | null = null) {
   if (typeof event.data !== "string" || event.data.length > MAX_STREAM_EVENT_CHARS) return fallback;
-
   try {
     return JSON.parse(event.data) as T;
   } catch {
@@ -35,12 +36,13 @@ function parseEventData<T>(event: MessageEvent, fallback: T | null = null) {
   }
 }
 
-function normalizeQuoteSymbol(symbol: unknown) {
-  return typeof symbol === "string" ? symbol.trim().toUpperCase() : "";
-}
-
-export function useMarketStream(symbols: string[], enabled = true, preferredIntervalMs: RefreshInterval = defaultRefreshIntervalMs) {
-  const symbolKey = useMemo(() => normalizeSymbols(symbols).join(","), [symbols]);
+export function useMarketStream(
+  subscription: MarketStreamSubscription,
+  enabled = true,
+  preferredIntervalMs: RefreshInterval = defaultRefreshIntervalMs,
+) {
+  const normalizedSubscription = normalizeMarketStreamSubscription(subscription);
+  const subscriptionKey = normalizedSubscription.key;
   const [state, setState] = useState<MarketStreamState>({
     quotes: {},
     status: "idle",
@@ -49,11 +51,12 @@ export function useMarketStream(symbols: string[], enabled = true, preferredInte
     intervalMs: defaultRefreshIntervalMs,
     provider: null,
     error: null,
-    lastHeartbeat: null
+    lastHeartbeat: null,
   });
 
   useEffect(() => {
-    if (!enabled || !symbolKey) {
+    const activeSubscription = normalizeMarketStreamSubscription(subscription);
+    if (!enabled || !activeSubscription.values.length) {
       setState((current) => ({
         ...current,
         quotes: {},
@@ -62,7 +65,7 @@ export function useMarketStream(symbols: string[], enabled = true, preferredInte
         refreshMode: "polling",
         provider: null,
         error: null,
-        lastHeartbeat: null
+        lastHeartbeat: null,
       }));
       return;
     }
@@ -72,64 +75,56 @@ export function useMarketStream(symbols: string[], enabled = true, preferredInte
     let commitTimer: number | null = null;
     let pollingStarted = false;
     let pendingQuotes: Record<string, NormalizedQuote> = {};
-    const allowedSymbols = new Set(symbolKey.split(","));
-    const encodedSymbols = encodeURIComponent(symbolKey);
+    const allowedKeys = new Set(activeSubscription.values);
     const activeIntervalMs = preferredIntervalMs;
     const abortController = new AbortController();
 
     setState((current) => ({
       ...current,
-      quotes: Object.fromEntries(Object.entries(current.quotes).filter(([symbol]) => allowedSymbols.has(symbol))),
-      error: null
+      quotes: Object.fromEntries(
+        Object.entries(current.quotes).filter(([key]) => allowedKeys.has(key)),
+      ),
+      error: null,
     }));
 
     function nextPollDelay() {
-      const backgroundMultiplier = document.visibilityState === "hidden" ? BACKGROUND_POLL_MULTIPLIER : 1;
-      return activeIntervalMs * backgroundMultiplier;
+      return activeIntervalMs * (document.visibilityState === "hidden" ? BACKGROUND_POLL_MULTIPLIER : 1);
     }
 
-    function commitQuotes(quotes: NormalizedQuote[]) {
-      const safeQuotes = quotes
-        .filter((quote) => allowedSymbols.has(normalizeQuoteSymbol(quote.symbol)))
-        .slice(0, allowedSymbols.size);
-
-      if (!safeQuotes.length) return;
-
-      pendingQuotes = {
-        ...pendingQuotes,
-        ...Object.fromEntries(safeQuotes.map((quote) => [normalizeQuoteSymbol(quote.symbol), quote]))
-      };
-
+    function commitQuotes(rawQuotes: readonly unknown[]) {
+      const indexed = indexQuotesForStreamSubscription(rawQuotes, activeSubscription);
+      if (!Object.keys(indexed).length) return;
+      pendingQuotes = { ...pendingQuotes, ...indexed };
       if (commitTimer !== null) return;
-
       commitTimer = window.setTimeout(() => {
-        setState((current) => ({
-          ...current,
-          quotes: {
-            ...current.quotes,
-            ...pendingQuotes
-          },
-          error: null
-        }));
+        const quotesToCommit = pendingQuotes;
         pendingQuotes = {};
         commitTimer = null;
+        setState((current) => ({
+          ...current,
+          quotes: { ...current.quotes, ...quotesToCommit },
+          error: null,
+        }));
       }, UI_THROTTLE_MS);
+    }
+
+    function identityMatches(mode: MarketStreamIdentityMode | undefined) {
+      return mode === activeSubscription.mode;
     }
 
     async function pollQuotes() {
       if (closed) return;
-
       try {
         setState((current) => ({
           ...current,
           status: "polling",
           connectionStatus: "polling",
           refreshMode: "polling",
-          intervalMs: activeIntervalMs
+          intervalMs: activeIntervalMs,
         }));
-        const response = await fetch(`/api/market/quotes?symbols=${encodedSymbols}`, {
+        const response = await fetch(`/api/market/quotes?${activeSubscription.query}`, {
           cache: "no-store",
-          signal: abortController.signal
+          signal: abortController.signal,
         });
         if (closed) return;
         if (response.status === 429) {
@@ -137,14 +132,19 @@ export function useMarketStream(symbols: string[], enabled = true, preferredInte
           throw new Error("Rate-Limit aktiv");
         }
         if (!response.ok) throw new Error("Polling fehlgeschlagen");
-        const payload = (await response.json()) as { quotes?: NormalizedQuote[]; provider?: string };
+        const payload = (await response.json()) as {
+          quotes?: NormalizedQuote[];
+          provider?: string;
+          identityMode?: MarketStreamIdentityMode;
+        };
         if (closed) return;
+        if (!identityMatches(payload.identityMode)) throw new Error("Identitätsmodus stimmt nicht überein");
         if (payload.quotes?.length) commitQuotes(payload.quotes);
         setState((current) => ({
           ...current,
           provider: payload.provider ?? current.provider,
           connectionStatus: "polling",
-          error: null
+          error: null,
         }));
       } catch {
         if (closed) return;
@@ -152,14 +152,16 @@ export function useMarketStream(symbols: string[], enabled = true, preferredInte
           ...current,
           status: "error",
           connectionStatus: current.connectionStatus === "rate_limited" ? "rate_limited" : "error",
-          error: current.connectionStatus === "rate_limited" ? "Rate-Limit aktiv, Polling wird verlangsamt." : "Marktdaten momentan nicht erreichbar."
+          error: current.connectionStatus === "rate_limited"
+            ? "Rate-Limit aktiv, Polling wird verlangsamt."
+            : "Marktdaten momentan nicht erreichbar.",
         }));
       } finally {
         if (!closed) pollTimer = window.setTimeout(pollQuotes, nextPollDelay());
       }
     }
 
-    const events = new EventSource(`/api/market/stream?symbols=${encodedSymbols}`);
+    const events = new EventSource(`/api/market/stream?${activeSubscription.query}`);
 
     function switchToPolling(message = "Stream unterbrochen, REST-Polling aktiv.") {
       if (closed) return;
@@ -171,7 +173,7 @@ export function useMarketStream(symbols: string[], enabled = true, preferredInte
         status: "polling",
         connectionStatus: "reconnecting",
         refreshMode: "polling",
-        error: message
+        error: message,
       }));
       pollQuotes();
     }
@@ -182,48 +184,51 @@ export function useMarketStream(symbols: string[], enabled = true, preferredInte
       connectionStatus: "connected",
       refreshMode: "sse",
       intervalMs: activeIntervalMs,
-      error: null
+      error: null,
     }));
 
     events.addEventListener("status", (event) => {
-      const payload = parseEventData<{ provider?: string }>(event);
-      if (!payload) {
-        switchToPolling("Streamstatus unlesbar, REST-Polling aktiv.");
+      const payload = parseEventData<{ provider?: string; identityMode?: MarketStreamIdentityMode }>(event);
+      if (!payload || !identityMatches(payload.identityMode)) {
+        switchToPolling("Streamstatus ohne passende Listing-Identität, REST-Polling aktiv.");
         return;
       }
-
       setState((current) => ({
         ...current,
         provider: payload.provider ?? current.provider,
         status: "streaming",
-        connectionStatus: "connected"
+        connectionStatus: "connected",
       }));
     });
 
     events.addEventListener("quotes", (event) => {
-      const payload = parseEventData<{ quotes?: NormalizedQuote[]; provider?: string }>(event);
-      if (!payload) {
-        switchToPolling("Streamdaten unlesbar, REST-Polling aktiv.");
+      const payload = parseEventData<{
+        quotes?: NormalizedQuote[];
+        provider?: string;
+        identityMode?: MarketStreamIdentityMode;
+      }>(event);
+      if (!payload || !identityMatches(payload.identityMode)) {
+        switchToPolling("Streamdaten ohne passende Listing-Identität, REST-Polling aktiv.");
         return;
       }
-
       if (payload.quotes?.length) commitQuotes(payload.quotes);
       setState((current) => ({
         ...current,
         provider: payload.provider ?? current.provider,
         status: "streaming",
-        connectionStatus: "connected"
+        connectionStatus: "connected",
       }));
     });
 
     events.addEventListener("heartbeat", (event) => {
       const payload = parseEventData<{ timestamp?: string }>(event, {}) ?? {};
-      setState((current) => ({ ...current, lastHeartbeat: payload.timestamp ?? new Date().toISOString() }));
+      setState((current) => ({
+        ...current,
+        lastHeartbeat: payload.timestamp ?? new Date().toISOString(),
+      }));
     });
 
-    events.addEventListener("error", () => {
-      switchToPolling();
-    });
+    events.addEventListener("error", () => switchToPolling());
 
     return () => {
       closed = true;
@@ -232,7 +237,7 @@ export function useMarketStream(symbols: string[], enabled = true, preferredInte
       if (pollTimer !== null) window.clearTimeout(pollTimer);
       if (commitTimer !== null) window.clearTimeout(commitTimer);
     };
-  }, [enabled, preferredIntervalMs, symbolKey]);
+  }, [enabled, preferredIntervalMs, subscriptionKey]);
 
   return state;
 }

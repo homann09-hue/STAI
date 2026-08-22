@@ -294,12 +294,15 @@ function ForecastPassportPanel({ passport }: { passport: ForecastPassport }) {
 
 export function AssetDetailView({
   detail,
+  canonicalId,
   valuation = null,
   filings = null,
   insider = null,
   corporateActions
 }: {
   detail: AssetDetail;
+  /** Listinggenaue Identität aus der serverseitigen Instrument-Auflösung. */
+  canonicalId: string | null;
   /**
    * Bewertung, Kennzahlen mit Einordnung, Peers und Analysten.
    *
@@ -336,9 +339,14 @@ export function AssetDetailView({
     { label: "Volumen", value: showVolume, set: setShowVolume }
   ];
   const candles = useMemo(() => (detail.candles[range] ?? []).filter(isUsableCandle), [detail.candles, range]);
-  const stream = useMarketStream([detail.asset.symbol]);
+  const streamQuoteKey = canonicalId ?? detail.asset.symbol;
+  const stream = useMarketStream(
+    canonicalId
+      ? { canonicalIds: [canonicalId] }
+      : { symbols: [detail.asset.symbol] },
+  );
   const displayedQuote = useMemo<Quote>(() => {
-    const liveQuote = stream.quotes[detail.asset.symbol];
+    const liveQuote = stream.quotes[streamQuoteKey];
     if (!liveQuote) return detail.quote;
 
     return {
@@ -368,7 +376,7 @@ export function AssetDetailView({
       latencyMs: liveQuote.latencyMs ?? undefined,
       marketStatus: liveQuote.marketStatus
     };
-  }, [detail.asset.symbol, detail.quote, stream.quotes]);
+  }, [detail.quote, stream.quotes, streamQuoteKey]);
   const displayedDetail = useMemo<AssetDetail>(() => ({ ...detail, quote: displayedQuote }), [detail, displayedQuote]);
   const readiness = useMemo(() => buildAssetReadiness(displayedDetail), [displayedDetail]);
   const fundamentalMetrics = useMemo(() => buildFundamentalMetrics(displayedDetail), [displayedDetail]);

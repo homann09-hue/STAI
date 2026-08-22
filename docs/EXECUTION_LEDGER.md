@@ -1,75 +1,61 @@
 # Execution Ledger
 
-<!-- ACTIVE_WORKPOINT: PHASE-2-2-COMPLETE -->
+<!-- ACTIVE_WORKPOINT: PHASE-2-3-CANONICAL-STREAM -->
 
 Stand: 2026-08-22
 
 ## Aktiver Arbeitspunkt
 
-**Phase 2.2 - kanonische Identität für Quote-Batches**
+**Phase 2.3 - kanonische Identität im Market-Stream**
 
-Status: **COMPLETE - MERGED, CI AND PRODUCTION VERIFIED**
+Status: **IMPLEMENTED LOCALLY - PR/CI PENDING**
 
-Geprüfter Main: `9d536243c8a930fb82e25922d4af3be2c8d9d741`
+Geprüfter Main: `255867e783c276335955a2b8925b5132dae006b5`
 
-## Reproduzierter Fehler
+## Reproduzierte Fehler
 
-`/api/market/quotes` deduplizierte, cachte und ordnete ausschließlich nach
-Ticker. Zwei Listings mit gleichem Symbol konnten deshalb im Request, Cache
-und Response nicht sicher unterschieden werden. Auch das Autocomplete fragte
-Kurse nur anhand des Symbols ab.
+`/api/market/stream`, der React-Hook und alle Client-Quote-Maps verwendeten
+ausschließlich Symbole. Ein kanonisch aufgelöstes Asset fiel beim SSE-Aufruf
+dadurch wieder auf `AAPL` zurück. Außerdem leerte der UI-Throttle seinen
+veränderlichen Pending-Puffer, bevor Reacts verzögerter State-Updater ihn las;
+Stream-Quotes konnten dadurch vollständig verloren gehen.
 
 ## Implementierte Lösung
 
-- `NormalizedQuote` um `canonicalId` erweitert und zentral normalisiert
-- neuer reiner Vertrag für `assetClass:exchange:symbol:currency`
-- kanonische Batch-Anfrage über `canonicalIds`
-- Listing-spezifischer Cache-Key statt reinem Symbol-Key
-- kontrollierter HTTP-409-Fehler bei Provider-Symbol-Kollisionen
-- Providerantwort wird exakt an eine kanonische Listing-ID gebunden
-- Response weist `canonical` oder `legacy_symbol` transparent als Identitätsmodus aus
-- Autocomplete nutzt kanonische IDs und Detail-Links transportieren die Listing-ID
-- Legacy-Symbolpfad bleibt vorübergehend kompatibel für Stream/Watchlist
+- expliziter Stream-Vertrag `{ canonicalIds }` oder `{ symbols }`
+- gemischte Selektoren und Provider-Symbol-Kollisionen fail-closed
+- kanonische Identität in Status-, Quote-, Heartbeat-, Complete- und Error-Events
+- Providerantworten vor SSE-Ausgabe an genau ein Listing gebunden
+- SSE- und REST-Fallback verwenden denselben Identitätsmodus
+- Client lehnt einen Identitäts-Downgrade ab und wechselt kontrolliert zum Polling
+- kanonische Quote-Maps ausschließlich nach `canonicalId`
+- Asset-Detailseite reicht die serverseitig aufgelöste Listing-ID an den Stream weiter
+- Dashboard und Watchlist bleiben transparent im `legacy_symbol`-Modus
+- React-Throttle sichert den Pending-Batch unveränderlich vor `setState`
 
-## Lokale Evidenz
+## Evidenz
 
-- TypeScript und ESLint bestanden
-- 3 fokussierte Testdateien mit 21/21 Tests bestanden
-- kritische Route/Identitätslogik: 99,07 % Lines und 95,69 % Branches
-- vollständige Vitest-Suite: 169 Dateien, 1.321/1.321 Tests bestanden
-- Format- und Governance-Prüfung bestanden
+- 14/14 fokussierte Route-, Domänen- und React-Hook-Tests bestanden
+- kritische Stream-Route: 99,02 % Lines und 95,08 % Branches
+- Route plus Subscription-Domäne: 99,19 % Lines und 94,8 % Branches
+- vollständige Vitest-Suite: 172 Dateien, 1.335/1.335 Tests bestanden
+- Format, Governance, TypeScript und ESLint bestanden
 - Next.js-Produktionsbuild mit 35 statischen Seiten bestanden
 
-## Release-Evidenz
+## Abgrenzung
 
-- PR #121 geschützt als `d2e06f14b40e0793dc1d4e963b4aee003e73da60` gemergt
-- PR-Code-CI, pgTAP und isolierte Vercel-Preview bestanden
-- Main-Code-CI `32567795719` einschließlich Browser-E2E, Performance,
-  Dependency-/Lizenz-Audit und SBOM bestanden
-- Main-Datenbank-CI `32567795677` bestanden
-- Production `dpl_9JfMaasLC5mDUbRBNMewGCduX2J8` ist `Ready`
-- Alias `https://stockpilot-ai-beta.vercel.app` zeigt auf dieses Deployment
-- Kernseiten, Manifest, Service Worker und Health liefern HTTP 200
-- kanonischer Quote-Vertrag liefert HTTP 200 und `identityMode=canonical`
-- Provider-Symbol-Kollisionen liefern kontrolliert HTTP 409
-- keine Production-Error- oder Warning-Logs im Prüfzeitraum
+Dieser Arbeitspunkt baut noch keinen zentralen Multi-Client-Realtime-Hub. Das
+ist Phase 3. Watchlist-Identitäten werden in einem eigenen Phase-2-Arbeitspunkt
+aus dem Datenmodell statt aus Symbolannahmen bezogen.
 
-## Abgeschlossene Release-Automation
+## Externe Blocker
 
-PR #120 wurde grün gemergt. Main-Commit
-`9d536243c8a930fb82e25922d4af3be2c8d9d741` löste automatisch das StockPilot-
-Production-Deployment `dpl_7qdUzszCbZqGsHmYrje7tQ1Ciwp6` aus. Alias,
-Kernrouten, Manifest, Service Worker und Health antworteten mit HTTP 200;
-Production-Logs enthielten keine Fehler. BauPro wurde nicht verändert.
+Öffentliche Anzeigerechte für externe Marktdaten sind weiterhin nicht belegt.
+Der Datenpfad bleibt in Production fail-closed; Tests verwenden klar isolierte
+Provider-Harnesses und sind kein Live-Marktdatennachweis.
 
-## Externe Datenblocker
+## Noch erforderlich
 
-FMP, Finnhub und Alpha Vantage antworten technisch, bleiben in Production aber
-bewusst gesperrt. Öffentliche Anzeige- und Weitergaberechte sind nicht belegt;
-die Lizenzschranke wird nicht durch Konfigurationstricks umgangen.
-
-## Nächster zulässiger Arbeitspunkt
-
-Die verbleibenden `legacy_symbol`-Aufrufer einzeln auf kanonische Listing-IDs
-migrieren. Stream, Watchlist und weitere Datenpfade bleiben getrennte,
-getestete Arbeitspunkte; externe Marktdatenrechte werden nicht vorgetäuscht.
+- PR, Pflicht-CI, pgTAP und isolierte Vercel-Preview
+- geschützter Merge und automatisches StockPilot-Production-Deployment
+- Live-Abnahme des kanonischen SSE-Vertrags und Logprüfung
