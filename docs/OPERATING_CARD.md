@@ -1,8 +1,8 @@
 # StockPilot Operating Card
 
-<!-- ACTIVE_WORKPOINT: PHASE-1-3 -->
+<!-- ACTIVE_WORKPOINT: PHASE-1-4 -->
 
-Stand: 2026-08-21
+Stand: 2026-08-22
 
 ## Arbeitsgrenzen
 
@@ -24,11 +24,11 @@ Stand: 2026-08-21
 
 ## Billing-Invarianten
 
-- Vor jedem Subscription-Checkout Stripe selbst nach allen zugeordneten Customers und nichtterminalen Subscriptions fragen.
-- `active`, `trialing`, `past_due`, `unpaid`, `incomplete`, `paused` und unbekannte Zustände erzeugen keinen neuen Checkout.
-- Nur `canceled` und `incomplete_expired` sind terminal.
-- Mehrere betroffene Customer niemals erraten; fail-closed und Support eskalieren.
-- Aktive manuelle Freischaltungen nicht zusätzlich verkaufen.
+- Ledger und Entitlement eines Stripe-Events werden ausschließlich atomar mutiert.
+- Ein Provider-Event wirkt anhand `(event.created, event.id)` höchstens einmal; ältere Events überschreiben keinen neueren Zustand.
+- Unbekannte Price-IDs und unvollständige Zuordnungen sind fail-closed; Stripe-Metadaten autorisieren keinen Plan.
+- Vor Subscription-Checkout Stripe selbst nach allen Customers und nichtterminalen Subscriptions fragen.
+- Nur `canceled` und `incomplete_expired` sind terminal; Recovery-Zustände erzeugen keinen neuen Checkout.
 - Billing bleibt bis Phase 1.5 und echtem Stripe-Testmode-E2E deaktiviert.
 
 ## Aktuelle externe Blocker

@@ -1,9 +1,5 @@
 import type Stripe from "stripe";
-import {
-  normalizeBillingStatus,
-  normalizePlanId,
-  type BillingStatus
-} from "@/lib/billing/entitlements";
+import { normalizeBillingStatus, type BillingStatus } from "@/lib/billing/entitlements";
 import type { PaidPlanId } from "@/lib/feature-gates";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -54,12 +50,11 @@ export function entitlementFromStripeSubscription(
 
   const item = subscription.items.data[0];
   const priceId = objectId(item?.price, "price_");
-  const metadataPlan = normalizePlanId(subscription.metadata.stockpilot_plan);
   const pricePlan = priceId ? resolvePricePlan(priceId) : null;
-  // Die Preis-ID hat Vorrang vor den Metadaten: Metadaten lassen sich in
-  // Stripe von Hand aendern, der bezahlte Preis nicht.
-  const plan: PaidPlanId | null =
-    pricePlan ?? (metadataPlan === "pro" || metadataPlan === "premium" ? metadataPlan : null);
+  // Nur die serverseitig konfigurierte Price-ID darf einen bezahlten Plan
+  // bestimmen. Stripe-Metadaten sind veraenderbar und deshalb keine
+  // Autorisierungsquelle oder Ausweichlogik.
+  const plan: PaidPlanId | null = priceId ? pricePlan : null;
   const { customerId, subscriptionId } = stripeSubscriptionIds(subscription);
 
   if (!plan || !customerId || !subscriptionId) return null;

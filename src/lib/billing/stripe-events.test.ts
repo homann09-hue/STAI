@@ -51,6 +51,24 @@ describe("Stripe subscription normalization", () => {
     expect(result?.plan).toBe("pro");
   });
 
+  it("fails closed when a present Stripe price is not configured", () => {
+    const result = entitlementFromStripeSubscription(
+      subscription({ metadata: { stockpilot_user_id: userId, stockpilot_plan: "premium" } }),
+      () => null
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it("fails closed when the subscription has no price", () => {
+    const result = entitlementFromStripeSubscription(
+      subscription({ items: { data: [] } as unknown as Stripe.ApiList<Stripe.SubscriptionItem> }),
+      () => "pro"
+    );
+
+    expect(result).toBeNull();
+  });
+
   it("rejects subscriptions without a trustworthy user mapping", () => {
     const result = entitlementFromStripeSubscription(
       subscription({ metadata: { stockpilot_user_id: "not-a-user", stockpilot_plan: "pro" } }),
