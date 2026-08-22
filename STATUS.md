@@ -65,7 +65,7 @@ noch nicht als live behoben bezeichnet.
 - Keine belegten öffentlichen Anzeigerechte für die vorhandenen Marktdatenzugänge
 - Supabase-Projekt `STAI` zuletzt `INACTIVE`; echte Instrument-Master-Auflösung in Production nicht prüfbar
 - Stripe-Test-Clock-Dunning mit vorhandenem eingeschränkten Zugang nicht abschließbar
-- Vercel-Preview für PR #126 wegen Buildlimit für 24 Stunden abgewiesen; Pflichtcheck bleibt rot
+- Vercel-Preview für PR #126 wegen des Free-Tageslimits von über 100 Deployments für 24 Stunden abgewiesen; auch Prebuilt ist blockiert
 
 ## Nächster zulässiger Schritt
 

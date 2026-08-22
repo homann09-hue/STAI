@@ -139,12 +139,13 @@ BauPro und alle anderen Projekte wurden nicht verändert.
 
 ## Aktuelle Lieferblocker
 
-### Vercel-Preview-Buildlimit für PR #126
+### Vercel-Deployment-Tageslimit für PR #126
 
 **Nachweis:** Der native Vercel-Status für PR #126 wurde am 2026-08-22 mit
-`Deployment rate limited - retry in 24 hours` und dem Verweis
-`upgradeToPro=build-rate-limit` abgewiesen. App-CI und pgTAP sind grün; ein
-neues Preview-Deployment wurde nicht erzeugt.
+`Deployment rate limited - retry in 24 hours` abgewiesen. Ein lokal erfolgreich
+gebautes echtes Prebuilt-Artefakt scheiterte beim Upload ebenfalls mit
+`api-deployments-free-per-day`: mehr als 100 Deployments. App-CI und pgTAP sind
+grün; ein neues Preview-Deployment wurde nicht erzeugt.
 
 **Auswirkung:** Die technisch lokal und in einer realistischen
 Production-Sandbox geprüfte Timeout-Remediation bleibt offen. Der rote

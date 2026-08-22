@@ -80,9 +80,12 @@ umzudeuten.
 Das Supabase-Projekt `STAI` war zuletzt `INACTIVE`. Der echte
 Instrument-Master-Lookup kann deshalb erst nach Reaktivierung remote geprüft
 werden. Öffentliche Anzeigerechte für externe Marktdaten sind weiterhin nicht
-belegt. Der native Vercel-Preview-Build für PR #126 wurde am 2026-08-22 wegen
-des Konto-Buildlimits für 24 Stunden abgewiesen; dieser Pflichtcheck wird nicht
-umgangen.
+belegt. Native Preview und echter Prebuilt-Upload für PR #126 wurden am
+2026-08-22 mit `api-deployments-free-per-day` wegen mehr als 100 Deployments
+für 24 Stunden abgewiesen; dieser Pflichtcheck wird nicht umgangen. Der eigene
+Preview-Workflow erkennt einen bereits roten nativen Vercel-Commitstatus nun
+sofort, statt bis zu zehn Minuten auf eine nicht erzeugte Deployment-Resource
+zu warten.
 
 ## Nächster Schritt
 

@@ -29,6 +29,15 @@ jobs:
 
           preview_url=""
           for attempt in $(seq 1 40); do
+            native_vercel_state="$(
+              gh api --method GET "repos/$GITHUB_REPOSITORY/commits/$STOCKPILOT_COMMIT_SHA/statuses" \
+                --jq 'map(select(.context == "Vercel"))[0].state // empty'
+            )"
+            if [[ "$native_vercel_state" == "failure" || "$native_vercel_state" == "error" ]]; then
+              echo "Native StockPilot preview commit status failed: $native_vercel_state" >&2
+              exit 1
+            fi
+
             deployment_id="$(
               gh api --method GET "repos/$GITHUB_REPOSITORY/deployments" \
                 -f sha="$STOCKPILOT_COMMIT_SHA" -f per_page=20 \
