@@ -13,10 +13,14 @@ import type { KnownInstrumentIdentity } from "@/lib/asset-availability";
 
 function identity(overrides: Partial<KnownInstrumentIdentity> = {}): KnownInstrumentIdentity {
   return {
+    internalInstrumentId: "11111111-1111-4111-8111-111111111111",
+    canonicalId: "etf:xnas:qqq:usd",
     symbol: "QQQ",
     name: "Invesco QQQ Trust",
     assetClass: "etf",
     exchange: "NASDAQ",
+    exchangeCode: "NASDAQ",
+    mic: "XNAS",
     currency: "USD",
     provider: "FMP",
     quoteStatus: "restricted",
@@ -95,5 +99,31 @@ describe("AssetUnavailableView", () => {
     const link = screen.getByRole("link", { name: /Zurück zu den Märkten/i });
 
     expect(link.getAttribute("href")).toBe("/markets");
+  });
+
+  it("zeigt Mehrfachlistings als auswählbare Handelsplätze", () => {
+    const first = identity({ symbol: "ABC", canonicalId: "stock:xnas:abc:usd" });
+    const second = identity({
+      symbol: "ABC",
+      canonicalId: "stock:xetr:abc:eur",
+      exchange: "XETRA",
+      mic: "XETR",
+      currency: "EUR",
+    });
+    render(
+      <AssetUnavailableView
+        symbol="ABC"
+        unavailability={resolveAssetUnavailability({
+          symbol: "ABC",
+          known: null,
+          ambiguous: [first, second],
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/Handelsplatz auswählen/i)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /XETRA · EUR · XETR/i }).getAttribute("href")).toContain(
+      "canonicalId=stock%3Axetr%3Aabc%3Aeur",
+    );
   });
 });

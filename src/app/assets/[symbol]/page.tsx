@@ -9,7 +9,8 @@ import { resolveAssetUnavailability } from "@/lib/asset-availability";
 import { fetchFundamentals } from "@/lib/providers/valuation-data";
 import { fetchCompanyFilings, fetchInsiderTransactions } from "@/lib/sec/edgar";
 import { summarizeInsiderActivity } from "@/lib/sec/form4";
-import { findInstrumentIdentityBySymbol } from "@/lib/instrument-master-store";
+import { resolveInstrumentIdentityBySymbol } from "@/lib/instrument-master-store";
+import { isCanonicalInstrumentId } from "@/lib/instrument-resolution";
 import { getMarketDataProvider } from "@/lib/providers/market-provider";
 import { fetchCorporateActions } from "@/lib/providers/corporate-actions-provider";
 import { absoluteUrl, siteConfig } from "@/lib/seo";
@@ -17,13 +18,22 @@ import { validateSymbol } from "@/lib/validation";
 
 type PageProps = {
   params: Promise<{ symbol: string }>;
+  searchParams: Promise<{ canonicalId?: string | string[] }>;
 };
 
 export const dynamic = "force-dynamic";
 
 const getAssetDetail = cache(async (symbol: string) => getMarketDataProvider().getAsset(symbol));
+const getIdentityResolution = cache((symbol: string, canonicalId: string | null) =>
+  resolveInstrumentIdentityBySymbol(symbol, canonicalId),
+);
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+function selectedCanonicalId(value: string | string[] | undefined) {
+  const candidate = typeof value === "string" ? value.trim() : "";
+  return candidate && isCanonicalInstrumentId(candidate) ? candidate : null;
+}
+
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { symbol } = await params;
   const parsedSymbol = validateSymbol(symbol);
 
@@ -38,6 +48,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const normalizedSymbol = parsedSymbol.data;
+  const canonicalId = selectedCanonicalId((await searchParams).canonicalId);
+  const identityResolution = await getIdentityResolution(normalizedSymbol, canonicalId);
+  if (identityResolution.status === "ambiguous" || (canonicalId && identityResolution.status !== "resolved")) {
+    return {
+      title: `${normalizedSymbol}: Listing auswählen`,
+      description: "Für dieses Symbol muss der Handelsplatz eindeutig ausgewählt werden.",
+      robots: { index: false, follow: false },
+    };
+  }
   const detail = await getAssetDetail(normalizedSymbol);
 
   if (!detail) {
@@ -97,11 +116,35 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function AssetPage({ params }: PageProps) {
+export default async function AssetPage({ params, searchParams }: PageProps) {
   const { symbol } = await params;
   const parsedSymbol = validateSymbol(symbol);
 
   if (!parsedSymbol.success) notFound();
+
+  const canonicalId = selectedCanonicalId((await searchParams).canonicalId);
+  const identityResolution = await getIdentityResolution(parsedSymbol.data, canonicalId);
+  if (identityResolution.status === "ambiguous") {
+    return (
+      <AssetUnavailableView
+        symbol={parsedSymbol.data}
+        unavailability={resolveAssetUnavailability({
+          symbol: parsedSymbol.data,
+          known: null,
+          ambiguous: identityResolution.candidates,
+        })}
+      />
+    );
+  }
+  const known = identityResolution.status === "resolved" ? identityResolution.identity : null;
+  if (canonicalId && !known) {
+    return (
+      <AssetUnavailableView
+        symbol={parsedSymbol.data}
+        unavailability={resolveAssetUnavailability({ symbol: parsedSymbol.data, known: null })}
+      />
+    );
+  }
 
   const detail = await getAssetDetail(parsedSymbol.data);
 
@@ -109,7 +152,6 @@ export default async function AssetPage({ params }: PageProps) {
     // Der Katalog ist suchgetrieben und nachweislich unvollstaendig. Deshalb
     // waere selbst ohne Master-Treffer ein 404 eine unbelegte Behauptung. Die
     // Ansicht zeigt stattdessen den bekannten Status und die Datenluecke.
-    const known = await findInstrumentIdentityBySymbol(parsedSymbol.data);
     const unavailability = resolveAssetUnavailability({ symbol: parsedSymbol.data, known });
 
     return <AssetUnavailableView symbol={parsedSymbol.data} unavailability={unavailability} />;

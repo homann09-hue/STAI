@@ -212,7 +212,7 @@ export function instrumentCatalogHitToUniverse(
     identityConfidence: hit.identityConfidence,
     resolutionStatus: hit.resolutionStatus,
     resolutionWarnings: hit.resolutionWarnings,
-    detailHref: `/assets/${encodeURIComponent(hit.symbol)}`,
+    detailHref: `/assets/${encodeURIComponent(hit.symbol)}?canonicalId=${encodeURIComponent(hit.canonicalId)}`,
     analysisReadiness: readiness.status,
     analysisBlockers: readiness.blockers,
     provider: hit.provider,

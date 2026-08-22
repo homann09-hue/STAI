@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, Lock, ServerCrash } from "lucide-react";
+import { AlertTriangle, ArrowLeft, GitBranch, Lock, ServerCrash } from "lucide-react";
+import { instrumentDetailHref } from "@/lib/instrument-resolution";
 import type { AssetUnavailability } from "@/lib/asset-availability";
 
 /**
@@ -17,11 +18,13 @@ export function AssetUnavailableView({
   symbol: string;
   unavailability: AssetUnavailability;
 }) {
-  const { reason, identity, remediation } = unavailability;
+  const { reason, identity, alternatives, remediation } = unavailability;
 
   const tone =
     reason === "quote_not_entitled"
       ? { border: "border-amber/25", bg: "bg-amber/10", text: "text-amber", Icon: Lock }
+      : reason === "listing_ambiguous"
+        ? { border: "border-blue/25", bg: "bg-blue/10", text: "text-blue", Icon: GitBranch }
       : reason === "provider_error" || reason === "identity_unverified"
         ? { border: "border-loss/25", bg: "bg-loss/10", text: "text-loss", Icon: ServerCrash }
         : { border: "border-stroke", bg: "bg-coal", text: "text-muted", Icon: AlertTriangle };
@@ -29,6 +32,8 @@ export function AssetUnavailableView({
   const headline =
     reason === "quote_not_entitled"
       ? "Instrument bekannt, Daten nicht freigeschaltet"
+      : reason === "listing_ambiguous"
+        ? "Handelsplatz auswählen"
       : reason === "provider_error"
         ? "Instrument bekannt, Abruf gerade nicht möglich"
         : "Instrument derzeit nicht verifizierbar";
@@ -54,6 +59,29 @@ export function AssetUnavailableView({
         </div>
       </section>
 
+      {alternatives.length > 1 ? (
+        <section className="rounded-3xl border border-stroke bg-panel p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+            Verfügbare Listings
+          </h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {alternatives.map((alternative) => (
+              <Link
+                key={alternative.canonicalId}
+                href={instrumentDetailHref(alternative)}
+                className="rounded-2xl border border-stroke bg-coal px-4 py-3 transition hover:border-blue/40"
+              >
+                <span className="block text-sm font-semibold text-mist">{alternative.name}</span>
+                <span className="mt-1 block text-xs text-muted">
+                  {alternative.exchange} · {alternative.currency}
+                  {alternative.mic ? ` · ${alternative.mic}` : ""}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {identity ? (
         <section className="rounded-3xl border border-stroke bg-panel p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
@@ -78,7 +106,7 @@ export function AssetUnavailableView({
             ))}
           </dl>
         </section>
-      ) : (
+      ) : alternatives.length <= 1 ? (
         <section className="rounded-3xl border border-stroke bg-panel p-5">
           <p className="text-sm text-muted">
             Für <span className="font-mono text-mist">{symbol}</span> liegt kein Eintrag im Instrument
@@ -86,7 +114,7 @@ export function AssetUnavailableView({
             über den vollständigen Namen kann das Instrument erschließen.
           </p>
         </section>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,6 @@
-import type { QuoteStatus } from "@/lib/quote-entitlement";
+import type { KnownInstrumentIdentity } from "@/lib/instrument-resolution";
+
+export type { KnownInstrumentIdentity } from "@/lib/instrument-resolution";
 
 /**
  * Warum eine Instrumentdetailseite keine Daten zeigen kann.
@@ -10,18 +12,9 @@ import type { QuoteStatus } from "@/lib/quote-entitlement";
  */
 export type AssetUnavailabilityReason =
   | "identity_unverified"
+  | "listing_ambiguous"
   | "quote_not_entitled"
   | "provider_error";
-
-export interface KnownInstrumentIdentity {
-  symbol: string;
-  name: string;
-  assetClass: string;
-  exchange: string;
-  currency: string;
-  provider: string;
-  quoteStatus: QuoteStatus;
-}
 
 export interface AssetUnavailability {
   reason: AssetUnavailabilityReason;
@@ -29,6 +22,8 @@ export interface AssetUnavailability {
   message: string;
   /** Was trotzdem bekannt ist. Leer, wenn das Instrument wirklich unbekannt ist. */
   identity: KnownInstrumentIdentity | null;
+  /** Konkrete Listings, wenn ein Symbol allein nicht eindeutig ist. */
+  alternatives: KnownInstrumentIdentity[];
   /** Konkreter naechster Schritt statt einer Sackgasse. */
   remediation: string | null;
 }
@@ -43,8 +38,21 @@ export interface AssetUnavailability {
 export function resolveAssetUnavailability(input: {
   symbol: string;
   known: KnownInstrumentIdentity | null;
+  ambiguous?: KnownInstrumentIdentity[];
 }): AssetUnavailability {
-  const { known } = input;
+  const { known, ambiguous = [] } = input;
+
+  if (ambiguous.length > 1) {
+    return {
+      reason: "listing_ambiguous",
+      httpStatus: 409,
+      message: `${input.symbol} bezeichnet mehrere Listings mit unterschiedlichen Handelsplätzen oder Währungen.`,
+      identity: null,
+      alternatives: ambiguous,
+      remediation:
+        "Wähle das gewünschte Listing ausdrücklich aus. StockPilot rät weder Handelsplatz noch Währung.",
+    };
+  }
 
   if (!known) {
     return {
@@ -52,6 +60,7 @@ export function resolveAssetUnavailability(input: {
       httpStatus: 503,
       message: `${input.symbol} konnte im unvollständigen Instrumentkatalog derzeit nicht verifiziert werden.`,
       identity: null,
+      alternatives: [],
       remediation:
         "Prüfe die Schreibweise oder suche nach dem vollständigen Namen. Ohne vollständigen Verzeichnis-Sync behauptet StockPilot nicht, dass das Instrument nicht existiert."
     };
@@ -65,6 +74,7 @@ export function resolveAssetUnavailability(input: {
       httpStatus: 403,
       message: `${known.symbol} existiert, wird aber vom aktiven Datentarif nicht abgedeckt.`,
       identity: known,
+      alternatives: [],
       remediation:
         "Der Providertarif gibt für dieses Symbol keinen Kurs frei. Identität, Handelsplatz und Währung bleiben verfügbar; Kurs- und Analysedaten nicht."
     };
@@ -77,6 +87,7 @@ export function resolveAssetUnavailability(input: {
     httpStatus: 503,
     message: `${known.symbol} ist derzeit nicht abrufbar.`,
     identity: known,
+    alternatives: [],
     remediation: "Vorübergehendes Providerproblem. Ein späterer Versuch kann erfolgreich sein."
   };
 }

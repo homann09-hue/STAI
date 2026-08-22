@@ -94,6 +94,11 @@ ihren geheimen Claim-Link dem Eigentümerkonto zuordnen und anschließend einen
 vollständigen Testmode-Key ausschließlich in `stripe-testmode` hinterlegen.
 Das vorhandene Livekonto und BauPro bleiben unberührt.
 
+**Priorisierungsentscheidung 2026-08-22:** Stripe wird auf ausdruecklichen
+Nutzerwunsch vorerst uebersprungen. Der Blocker bleibt unveraendert offen,
+Billing bleibt deaktiviert und keine Paid-Funktion wird als freigeschaltet
+dargestellt. Die Produktarbeit wird mit Phase 2 fortgesetzt.
+
 ### Phase-1.1-Produktion ist noch nicht aktualisiert
 
 **Nachweis:** Am 2026-08-21 antwortete

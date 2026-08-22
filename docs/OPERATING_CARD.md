@@ -1,6 +1,6 @@
 # StockPilot Operating Card
 
-<!-- ACTIVE_WORKPOINT: PHASE-1-5 -->
+<!-- ACTIVE_WORKPOINT: PHASE-2-1 -->
 
 Stand: 2026-08-22
 
@@ -30,6 +30,7 @@ Stand: 2026-08-22
 - Vor Subscription-Checkout Stripe selbst nach allen Customers und nichtterminalen Subscriptions fragen.
 - Nur `canceled` und `incomplete_expired` sind terminal; Recovery-Zustände erzeugen keinen neuen Checkout.
 - Billing bleibt bis zum grünen Phase-1.5-Testmode-Gate und den externen Live-Freigaben deaktiviert.
+- Stripe ist auf Nutzerentscheidung vorerst uebersprungen; Phase 2.1 darf ohne Paid-Aktivierung fortgesetzt werden.
 
 ## Aktuelle externe Blocker
 

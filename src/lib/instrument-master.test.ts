@@ -98,7 +98,9 @@ describe("instrument master", () => {
 
     expect(apple?.matchReasons).toEqual(expect.arrayContaining(["Name passt", "Börse passt"]));
     expect(apple?.analysisReadiness).toBe("ready");
-    expect(apple?.detailHref).toBe("/assets/AAPL");
+    expect(apple?.detailHref).toBe(
+      "/assets/AAPL?canonicalId=stock%3Anasdaq%3Aaapl%3Ausd",
+    );
     expect(future?.analysisReadiness).toBe("blocked");
     expect(future?.analysisBlockers?.join(" ")).toContain("Börsen- oder Datenlizenz");
   });

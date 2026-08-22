@@ -250,7 +250,9 @@ function searchContext(item: MarketUniverseInstrument, query?: string) {
   return {
     searchScore: Math.max(0, Math.min(100, score)),
     matchReasons: [...reasons].slice(0, 5),
-    detailHref: `/assets/${encodeURIComponent(item.symbol)}`,
+    detailHref: item.canonicalId
+      ? `/assets/${encodeURIComponent(item.symbol)}?canonicalId=${encodeURIComponent(item.canonicalId)}`
+      : `/assets/${encodeURIComponent(item.symbol)}`,
     analysisReadiness: readiness.status,
     analysisBlockers: readiness.blockers.slice(0, 5)
   };

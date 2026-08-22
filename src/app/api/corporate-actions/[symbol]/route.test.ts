@@ -3,7 +3,7 @@ import type { CorporateActionsResult } from "@/lib/corporate-actions";
 
 const fetchCorporateActions = vi.fn();
 const persistCorporateActions = vi.fn();
-const findInstrumentIdentityBySymbol = vi.fn();
+const resolveInstrumentIdentityBySymbol = vi.fn();
 
 vi.mock("@/lib/providers/corporate-actions-provider", () => ({
   fetchCorporateActions: (...args: unknown[]) => fetchCorporateActions(...args)
@@ -12,7 +12,7 @@ vi.mock("@/lib/corporate-action-store", () => ({
   persistCorporateActions: (...args: unknown[]) => persistCorporateActions(...args)
 }));
 vi.mock("@/lib/instrument-master-store", () => ({
-  findInstrumentIdentityBySymbol: (...args: unknown[]) => findInstrumentIdentityBySymbol(...args)
+  resolveInstrumentIdentityBySymbol: (...args: unknown[]) => resolveInstrumentIdentityBySymbol(...args)
 }));
 
 function providerResult(overrides: Partial<CorporateActionsResult> = {}): CorporateActionsResult {
@@ -45,7 +45,10 @@ beforeEach(() => {
   vi.resetModules();
   fetchCorporateActions.mockResolvedValue(providerResult());
   persistCorporateActions.mockResolvedValue({ status: "skipped", stored: 0 });
-  findInstrumentIdentityBySymbol.mockResolvedValue({ assetClass: "stock" });
+  resolveInstrumentIdentityBySymbol.mockResolvedValue({
+    status: "resolved",
+    identity: { assetClass: "stock" },
+  });
 });
 
 describe("GET /api/corporate-actions/[symbol]", () => {
@@ -68,10 +71,29 @@ describe("GET /api/corporate-actions/[symbol]", () => {
   });
 
   it("gibt die bekannte Assetklasse an den Provider-Gate weiter", async () => {
-    findInstrumentIdentityBySymbol.mockResolvedValue({ assetClass: "crypto" });
+    resolveInstrumentIdentityBySymbol.mockResolvedValue({
+      status: "resolved",
+      identity: { assetClass: "crypto" },
+    });
     await call("BTC-USD");
 
     expect(fetchCorporateActions).toHaveBeenCalledWith("BTC-USD", expect.any(Date), "crypto");
+  });
+
+  it("ruft bei Mehrfachlistings keinen Provider auf", async () => {
+    resolveInstrumentIdentityBySymbol.mockResolvedValue({
+      status: "ambiguous",
+      symbol: "ABC",
+      candidates: [{ canonicalId: "stock:xnas:abc:usd" }, { canonicalId: "stock:xetr:abc:eur" }],
+      truncated: false,
+    });
+
+    const response = await call("ABC");
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.reason).toBe("listing_ambiguous");
+    expect(fetchCorporateActions).not.toHaveBeenCalled();
   });
 
   it("cached eine fehlgeschlagene Providerauskunft nicht öffentlich", async () => {

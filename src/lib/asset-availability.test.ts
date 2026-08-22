@@ -4,10 +4,14 @@ import type { KnownInstrumentIdentity } from "./asset-availability";
 
 function identity(overrides: Partial<KnownInstrumentIdentity> = {}): KnownInstrumentIdentity {
   return {
+    internalInstrumentId: "11111111-1111-4111-8111-111111111111",
+    canonicalId: "etf:xnas:qqq:usd",
     symbol: "QQQ",
     name: "Invesco QQQ Trust",
     assetClass: "etf",
     exchange: "NASDAQ",
+    exchangeCode: "NASDAQ",
+    mic: "XNAS",
     currency: "USD",
     provider: "FMP",
     quoteStatus: "restricted",
@@ -73,5 +77,25 @@ describe("resolveAssetUnavailability", () => {
 
     expect(result.reason).toBe("provider_error");
     expect(result.reason).not.toBe("quote_not_entitled");
+  });
+
+  it("verlangt bei zwei Listings eine Auswahl statt zu raten", () => {
+    const result = resolveAssetUnavailability({
+      symbol: "ABC",
+      known: null,
+      ambiguous: [
+        identity({ symbol: "ABC", canonicalId: "stock:xnas:abc:usd" }),
+        identity({
+          symbol: "ABC",
+          canonicalId: "stock:xetr:abc:eur",
+          exchange: "XETRA",
+          currency: "EUR",
+        }),
+      ],
+    });
+
+    expect(result.reason).toBe("listing_ambiguous");
+    expect(result.httpStatus).toBe(409);
+    expect(result.alternatives).toHaveLength(2);
   });
 });

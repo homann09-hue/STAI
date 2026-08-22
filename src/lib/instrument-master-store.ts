@@ -6,7 +6,11 @@ import {
   assessInstrumentIdentity,
   buildCanonicalInstrumentId,
 } from "@/lib/instrument-identity";
-import type { KnownInstrumentIdentity } from "@/lib/asset-availability";
+import {
+  resolveInstrumentCandidates,
+  type InstrumentIdentityResolution,
+  type KnownInstrumentIdentity,
+} from "@/lib/instrument-resolution";
 import type { QuoteStatus } from "@/lib/quote-entitlement";
 import type { ProviderInstrumentHit } from "@/lib/providers/instrument-directory-provider";
 import type {
@@ -252,61 +256,38 @@ export async function recordInstrumentQuoteStatus(
  * nur das Symbol kennt. Schlaegt still fehl: eine fehlende Statusmessung darf
  * keinen Nutzerrequest beeintraechtigen.
  */
-export async function markInstrumentQuoteStatusBySymbol(
-  symbol: string,
-  status: QuoteStatus,
-) {
-  const supabase = createSupabaseServiceClient();
-  if (!supabase) return false;
-
-  const normalized = symbol.trim().toUpperCase();
-  if (!/^[A-Z0-9./:^-]{1,32}$/.test(normalized)) return false;
-
-  const { error } = await supabase
-    .from("instruments")
-    .update({
-      quote_status: status,
-      quote_checked_at: new Date().toISOString(),
-    })
-    .eq("symbol", normalized);
-
-  if (error) {
-    logEvent("warn", "instrument_master.quote_status_by_symbol_failed", {
-      symbol: normalized,
-      code: error.code,
-      message: error.message,
-    });
-    return false;
-  }
-
-  return true;
-}
-
 /**
  * Sucht die gespeicherte Identität zu einem Symbol.
  *
  * Wird gebraucht, um „Instrument unbekannt" von „Instrument bekannt, aber im
- * Tarif gesperrt" zu unterscheiden. Bei Mehrfachlistings gewinnt das zuletzt
- * bestätigte Listing.
+ * Tarif gesperrt" zu unterscheiden. Mehrfachlistings werden niemals gerankt
+ * oder erraten, sondern als kontrollierter Konflikt an den Aufrufer gegeben.
  */
-export async function findInstrumentIdentityBySymbol(
+export async function resolveInstrumentIdentityBySymbol(
   symbol: string,
-): Promise<KnownInstrumentIdentity | null> {
+  requestedCanonicalId?: string | null,
+): Promise<InstrumentIdentityResolution> {
   const supabase = createSupabaseServiceClient();
-  if (!supabase) return null;
-
   const normalized = symbol.trim().toUpperCase();
-  if (!/^[A-Z0-9./:^-]{1,32}$/.test(normalized)) return null;
+  if (!supabase) return { status: "unavailable", symbol: normalized };
 
-  const { data, error } = await supabase
+  if (!/^[A-Z0-9./:^-]{1,32}$/.test(normalized)) {
+    return { status: "not_found", symbol: normalized };
+  }
+
+  let query = supabase
     .from("instruments")
-    .select("symbol,name,asset_class,exchange,currency,provider,quote_status")
+    .select(
+      "id,canonical_id,symbol,name,asset_class,exchange,exchange_code,mic,currency,provider,quote_status",
+    )
     .eq("symbol", normalized)
-    .order("confirmation_count", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("canonical_id", { ascending: true });
+  if (requestedCanonicalId) {
+    query = query.eq("canonical_id", requestedCanonicalId.trim());
+  }
+  const { data, error } = await query.limit(21);
 
-  if (error || !data) {
+  if (error) {
     if (error) {
       logEvent("warn", "instrument_master.identity_lookup_failed", {
         symbol: normalized,
@@ -314,22 +295,33 @@ export async function findInstrumentIdentityBySymbol(
         message: error.message,
       });
     }
-    return null;
+    return { status: "unavailable", symbol: normalized };
   }
 
-  return {
-    symbol: String(data.symbol),
-    name: String(data.name),
-    assetClass: String(data.asset_class),
-    exchange: String(data.exchange),
-    currency: String(data.currency),
-    provider: String(data.provider),
-    quoteStatus: (
-      ["unknown", "available", "restricted", "error"] as const
-    ).includes(data.quote_status as QuoteStatus)
-      ? (data.quote_status as QuoteStatus)
-      : "unknown",
-  };
+  const identities = (data ?? []).slice(0, 20).map(
+    (row): KnownInstrumentIdentity => ({
+      internalInstrumentId: String(row.id),
+      canonicalId: String(row.canonical_id),
+      symbol: String(row.symbol),
+      name: String(row.name),
+      assetClass: String(row.asset_class),
+      exchange: String(row.exchange),
+      exchangeCode: row.exchange_code ? String(row.exchange_code) : null,
+      mic: row.mic ? String(row.mic) : null,
+      currency: String(row.currency),
+      provider: String(row.provider),
+      quoteStatus: (
+        ["unknown", "available", "restricted", "error"] as const
+      ).includes(row.quote_status as QuoteStatus)
+        ? (row.quote_status as QuoteStatus)
+        : "unknown",
+    }),
+  );
+
+  return resolveInstrumentCandidates(normalized, identities, {
+    requestedCanonicalId,
+    truncated: (data?.length ?? 0) > 20,
+  });
 }
 
 /**
