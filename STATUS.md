@@ -1,22 +1,23 @@
 # StockPilot AI Status
 
-Stand: 2026-08-21
+Stand: 2026-08-22
 
 ## Verbindlicher Stand
 
 - Repository: `homann09-hue/STAI`
-- Geprüfte Branchbasis: `main` bei `35ea0e716bf27e6e767f02dcb171c5e5bfcf68c9`
+- Geprüfte Branchbasis: `main` bei `db5ef697a10f27d1c8b022c9ce123cccdab2d24e`
 - Aktive Phase: **Phase 1.3 – Payment-Recovery und Doppelabo-Schutz**
-- Arbeitsbranch: `codex/phase-1-3-payment-recovery`
-- Code-Commit: `9448bdb`
+- Arbeitsbranch: `codex/phase-1-3-evidence`
+- Merge-Commit: `db5ef697a10f27d1c8b022c9ce123cccdab2d24e`
 - Pull Request: [#105](https://github.com/homann09-hue/STAI/pull/105)
-- Freigabestatus: **OPEN**, Pflicht-CI und Merge stehen noch aus
+- Freigabestatus: **TECHNISCH ABGESCHLOSSEN – EXTERN BLOCKIERT**
 
 ## Abgeschlossene Stabilisierung
 
 - Phase 0: Governance und belegbarer Ist-Stand
 - Phase 1.1: Stripe-sichere Kontolöschung, intern abgeschlossen; Produktionsabnahme extern blockiert
 - Phase 1.2: Einheitlicher Free/Pro/Premium-Limitvertrag, auf `main` gemergt; Produktionsmigration extern blockiert
+- Phase 1.3: Payment-Recovery und Doppelabo-Schutz, auf `main` gemergt; echter Stripe-Testmode-Lifecycle extern blockiert
 
 ## Aktueller Arbeitspunkt
 
@@ -32,6 +33,8 @@ Phase 1.3 verhindert neue Stripe-Checkouts bei bestehenden nichtterminalen Subsc
 - Format, Typecheck, ESLint, Next-Produktionsbuild und Dependency-Audit bestanden
 - `npm audit`: 0 bekannte Schwachstellen
 - License-Audit: indirekte `sharp/libvips`-LGPL-Pakete bleiben prüfpflichtig
+- PR #105: Code-CI, pgTAP und Vercel-Preview grün; Supabase-Preview wegen inaktivem Produktionsprojekt erwartungsgemäß übersprungen
+- Datenbankschema: unverändert, keine Migration für Phase 1.3 erforderlich
 
 ## Production
 
@@ -45,4 +48,4 @@ Phase 1.3 verhindert neue Stripe-Checkouts bei bestehenden nichtterminalen Subsc
 
 ## Nächster zulässiger Schritt
 
-PR #105 vollständig durch CI, Datenbank-CI und StockPilot-Preview führen, Fehler beheben und geschützt mergen. Phase 1.4 beginnt erst danach. BauPro und andere Projekte bleiben unberührt.
+Den dokumentarischen Abschluss von Phase 1.3 geschützt mergen. Danach darf Phase 1.4 zur atomaren und reihenfolgeunabhängigen Webhook-Verarbeitung beginnen. BauPro und andere Projekte bleiben unberührt.
