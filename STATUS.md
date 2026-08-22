@@ -6,8 +6,8 @@ Stand: 2026-08-22
 
 - Repository: `homann09-hue/STAI`
 - Geprüfter Ausgangsstand: `main` bei `9d536243c8a930fb82e25922d4af3be2c8d9d741`
-- Aktive Phase: **Phase 2.2 - kanonische Identität für Quote-Batches**
-- Arbeitsstatus: lokal implementiert und vollständig geprüft; PR/CI/Preview stehen aus
+- Aktive Phase: **Phase 2.2 - kanonische Identität für Quote-Batches abgeschlossen**
+- Arbeitsstatus: geschützt gemergt, Main-CI und Production verifiziert
 - Billing: deaktiviert; Stripe auf Nutzerwunsch vorerst übersprungen
 
 ## Aktuelle Verbesserung
@@ -35,8 +35,11 @@ ist der nächste getrennte Arbeitspunkt.
 
 Die Release-Automation ist abgeschlossen. Geschützte Main-Merges deployen
 wieder ausschließlich das Vercel-Projekt `stockpilot-ai`. Der aktuelle
-Production-Stand `9d53624` ist unter `https://stockpilot-ai-beta.vercel.app`
-verifiziert. BauPro und andere Projekte bleiben unberührt.
+Production-Stand `d2e06f14b40e0793dc1d4e963b4aee003e73da60` läuft als
+`dpl_9JfMaasLC5mDUbRBNMewGCduX2J8` unter
+`https://stockpilot-ai-beta.vercel.app`. Kernrouten, PWA-Dateien, Health und
+der neue kanonische Quote-Vertrag sind live verifiziert. BauPro und andere
+Projekte bleiben unberührt.
 
 ## Externe Blocker
 
@@ -46,6 +49,6 @@ verifiziert. BauPro und andere Projekte bleiben unberührt.
 
 ## Nächster zulässiger Schritt
 
-Phase 2.2 über PR, CI und Preview absichern, geschützt mergen und Production
-prüfen. Danach die verbleibenden Legacy-Symbol-Aufrufer jeweils in einem
-eigenen, getesteten Arbeitspunkt migrieren.
+Die verbleibenden Legacy-Symbol-Aufrufer jeweils in einem eigenen, getesteten
+Arbeitspunkt migrieren. Als Nächstes dürfen Stream und Watchlist kanonisiert
+werden; Lizenz- und Supabase-Blocker bleiben fail-closed.
