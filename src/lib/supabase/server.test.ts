@@ -24,6 +24,7 @@ const originalEnv = { ...process.env };
 
 beforeEach(() => {
   calls.length = 0;
+  delete process.env.STOCKPILOT_ALLOW_TEST_FIXTURES;
   process.env.NEXT_PUBLIC_SUPABASE_URL = VALID_URL;
   process.env.SUPABASE_SECRET_KEY = SERVICE_KEY;
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = PUBLISHABLE_KEY;
@@ -85,6 +86,32 @@ describe("createSupabaseUserClient", () => {
 
     expect(calls).toHaveLength(0);
   });
+
+  it("allows an exact loopback Supabase URL only in the explicit test fixture harness", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+    const { createSupabaseUserClient } = await loadServerModule();
+
+    expect(createSupabaseUserClient(ACCESS_TOKEN)).toBeNull();
+
+    process.env.STOCKPILOT_ALLOW_TEST_FIXTURES = "true";
+    expect(createSupabaseUserClient(ACCESS_TOKEN)).not.toBeNull();
+    expect(calls[0].url).toBe("http://127.0.0.1:54321");
+  });
+
+  it.each([
+    "http://attacker.example",
+    "http://127.0.0.1.attacker.example:54321",
+    "http://user:password@127.0.0.1:54321",
+    "http://127.0.0.1:54321/rest/v1",
+    "http://127.0.0.1:54321/?redirect=https://attacker.example"
+  ])("rejects unsafe fixture URL %s", async (url) => {
+    process.env.STOCKPILOT_ALLOW_TEST_FIXTURES = "true";
+    process.env.NEXT_PUBLIC_SUPABASE_URL = url;
+    const { createSupabaseUserClient } = await loadServerModule();
+
+    expect(createSupabaseUserClient(ACCESS_TOKEN)).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
 });
 
 describe("createSupabaseServiceClient", () => {
@@ -105,5 +132,14 @@ describe("createSupabaseServiceClient", () => {
 
     expect(createSupabaseServiceClient()).toBeNull();
     expect(calls).toHaveLength(0);
+  });
+
+  it("allows the local service client only inside the explicit test fixture harness", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
+    process.env.STOCKPILOT_ALLOW_TEST_FIXTURES = "true";
+    const { createSupabaseServiceClient } = await loadServerModule();
+
+    expect(createSupabaseServiceClient()).not.toBeNull();
+    expect(calls[0].url).toBe("http://localhost:54321");
   });
 });
