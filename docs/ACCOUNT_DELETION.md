@@ -62,3 +62,10 @@ Evidenz bestehen; der Recovery-Worker löscht danach Job und Audit-Ereignisse.
 - Noch erforderlich: vollständiger Stripe-Testmode-Durchlauf mit realem
   Customer, aktiver Subscription, signiertem Webhook und kontrolliertem
   Providerfehler.
+
+Der manuelle Phase-1.5-Sandboxlauf prüft zusätzlich denselben Customer mit
+aktivem Testabo gegen `DELETE /api/account`: offene Checkout-Sessions müssen
+ablaufen, das Abo muss gekündigt, die Identität gelöscht und ein verspäteter
+aktiver Webhook als `account_deleted` ohne neues Entitlement protokolliert
+werden. Der Ablauf ist implementiert, aber mangels freigegebener
+StockPilot-Sandbox noch nicht real ausgeführt.

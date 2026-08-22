@@ -24,7 +24,10 @@ Damit kann der Lauf weder das Vercel-Produktionsprojekt noch die Produktionsdate
 7. `past_due` zustellen, Paid-Zugriff entziehen und Doppelabo-Schutz prüfen.
 8. Wiederherstellung, Kündigung und idempotente doppelte Zustellung prüfen.
 9. Nach terminaler Kündigung einen neuen Checkout erlauben.
-10. Sessions, Subscription, Customer, Price, Produkt, Portal-Konfiguration und Testnutzer aufräumen beziehungsweise deaktivieren.
+10. Erneut ein aktives Testabo erzeugen und die produktive Account-Deletion-API mit frischer Sitzung ausführen.
+11. Belegen, dass offene Checkout-Sessions ablaufen, das Abo gekündigt, die Supabase-Identität gelöscht und die Saga abgeschlossen wird.
+12. Einen verspäteten aktiven Webhook zustellen und belegen, dass weder Nutzer noch Entitlement wiederbelebt werden.
+13. Sessions, Subscription, Customer, Price, Produkt und Portal-Konfiguration aufräumen beziehungsweise deaktivieren.
 
 Die Statusübergänge werden mit realen Testmode-Objekten und einer echten Stripe-Signatur durch die produktive Webhook-Route geprüft. Die Übermittlung wird lokal erzeugt; ein separater Stripe-Dashboard-Webhook-Endpunkt ist dafür nicht erforderlich.
 

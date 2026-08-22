@@ -20,6 +20,7 @@ Die Billing-Implementierung war durch Unit-, Browser-, PostgreSQL- und Concurren
 - lokaler Testmode-Harness mit technischen Sperren gegen Live-Keys, Remote-App und Remote-Supabase
 - temporäre Stripe-Testprodukte, Preise, Customers, Subscription und Portal-Konfiguration
 - echter Checkout-Routenaufruf, signierte Webhooks, Entitlement-, Portal-, Recovery-, Kündigungs- und Duplikatprüfung
+- Account-Löschung mit aktivem Testabo, Checkout-Expiry, Saga-Nachweis und verspätetem Webhook ohne Entitlement-Wiederbelebung
 - bestmögliches Cleanup auch bei Fehlschlägen
 - manueller GitHub-Workflow mit geschütztem Testmode-Secret und isolierter lokaler Supabase-Instanz
 
@@ -30,6 +31,7 @@ Die Billing-Implementierung war durch Unit-, Browser-, PostgreSQL- und Concurren
 - Format, Governance, Typecheck, ESLint, Coverage-Gate und Build mit 35 Seiten bestanden
 - fehlender Testmode-Key stoppt vor jedem Stripe- oder Supabase-Aufruf
 - echter Provider-Lifecycle nicht ausgeführt; ein StockPilot-Testmode-Key fehlt
+- Stripe CLI 1.50.4 ist installiert; die automatische claimable Sandbox wurde vom Provider abgewiesen und verlangt eine Browser-/Kontofreigabe
 - echte PostgREST-Concurrency-Prüfung im Datenbank-CI
 
 ## Evidenz
