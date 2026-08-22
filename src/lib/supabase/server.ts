@@ -1,12 +1,24 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
 
+const LOCAL_SUPABASE_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+
 function isSafeSupabaseUrl(url: string | undefined): url is string {
   if (!url) return false;
 
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "https:" && parsed.hostname.endsWith(".supabase.co");
+    if (parsed.username || parsed.password) return false;
+    if (parsed.protocol === "https:" && parsed.hostname.endsWith(".supabase.co")) return true;
+
+    return (
+      process.env.STOCKPILOT_ALLOW_TEST_FIXTURES === "true" &&
+      parsed.protocol === "http:" &&
+      LOCAL_SUPABASE_HOSTS.has(parsed.hostname) &&
+      parsed.pathname === "/" &&
+      !parsed.search &&
+      !parsed.hash
+    );
   } catch {
     return false;
   }
