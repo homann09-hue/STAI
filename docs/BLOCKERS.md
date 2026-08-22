@@ -78,6 +78,14 @@ Subscription und Webhook-Secret im isolierten StockPilot-Testprojekt anlegen;
 danach Löschung, Kündigung, Webhook-Rennen und kontrollierten Stripe-Ausfall
 ausführen und protokollieren.
 
+**Aktualisierung 2026-08-22:** Der verfügbare Stripe-Connector enthält nur das
+Konto `Ovora` im Live-Modus. Es ist weder ein StockPilot-Testkonto noch eine
+sichere Testmode-Umgebung und wurde nicht verändert. Das Repository enthält nun
+einen lokal und manuell in CI ausführbaren Testmode-Harness. Zum Ausführen fehlt
+nur ein ausschließlich für StockPilot bestimmter `rk_test_...`- oder
+`sk_test_...`-Schlüssel in der geschützten GitHub-Environment
+`stripe-testmode`; Live-Schlüssel und Remote-Ziele werden technisch abgewiesen.
+
 ### Phase-1.1-Produktion ist noch nicht aktualisiert
 
 **Nachweis:** Am 2026-08-21 antwortete

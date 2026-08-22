@@ -1,30 +1,35 @@
 # Execution Ledger
 
-<!-- ACTIVE_WORKPOINT: PHASE-1-4 -->
+<!-- ACTIVE_WORKPOINT: PHASE-1-5 -->
 
 Stand: 2026-08-22
 
 ## Aktiver Arbeitspunkt
 
-**Phase 1.4 – atomare und reihenfolgeunabhängige Stripe-Webhooks**
-Status: **TECHNISCH ABGESCHLOSSEN – EXTERN BLOCKIERT**
-Branch: `codex/phase-1-4-evidence`
-Merge-Commit: `ec3a9af74e3f0740a06a28308f4b4a975a7276c4`
-Commit: `2fd58bf`
-PR: [#107](https://github.com/homann09-hue/STAI/pull/107)
+**Phase 1.5 – vollständige Stripe-Testmode-E2E-Kette**
+Status: **IN ARBEIT**
+Branch: `codex/phase-1-5-stripe-testmode`
+Basis: `2ff1ef09edb8b1f8f960c846483203586e170bdd`
 
 ## Reproduzierter Fehler
 
-Die Webhook-Route prüfte Duplikate, mutierte `entitlements` und schrieb danach `billing_events` in getrennten PostgREST-Aufrufen. Ein Fehler zwischen den Aufrufen hinterließ Teilzustände. Parallele oder verspätete Stripe-Events konnten neuere Entitlements überschreiben. Eine unbekannte Price-ID konnte außerdem auf änderbare Stripe-Metadaten zurückfallen.
+Die Billing-Implementierung war durch Unit-, Browser-, PostgreSQL- und Concurrency-Tests belegt, aber nicht durch einen vollständigen Stripe-Testmode-Lifecycle. Der einzige verbundene Stripe-Connector zeigt `Ovora` im Live-Modus und darf für StockPilot nicht verwendet werden. Im lokalen Environment fehlen Stripe-Testmode-Schlüssel und Preise; Supabase `STAI` ist inaktiv.
 
 ## Implementierte Lösung
 
-- eine PostgreSQL-RPC für Ledger und Entitlement in derselben Transaktion
-- Unique-Constraint plus Transaktions-Lock je Stripe-Nutzer
-- Ordnungsvertrag aus `event.created` und deterministischer Event-ID-Kollisionauflösung
-- alte Events als unveränderbare, nicht angewendete Evidenz
-- DB-seitige Eingabevalidierung und ausschließlich `service_role`-gebundenes Ausführungsrecht
-- keine Metadata-Autorisierung bei unbekannter oder fehlender Price-ID
+- lokaler Testmode-Harness mit technischen Sperren gegen Live-Keys, Remote-App und Remote-Supabase
+- temporäre Stripe-Testprodukte, Preise, Customers, Subscription und Portal-Konfiguration
+- echter Checkout-Routenaufruf, signierte Webhooks, Entitlement-, Portal-, Recovery-, Kündigungs- und Duplikatprüfung
+- bestmögliches Cleanup auch bei Fehlschlägen
+- manueller GitHub-Workflow mit geschütztem Testmode-Secret und isolierter lokaler Supabase-Instanz
+
+## Gemessene interne Evidenz
+
+- 6/6 Harness-Sicherheitsverträge bestanden
+- vollständige Suite: 164 Testdateien, 1.271 Tests bestanden
+- Format, Governance, Typecheck, ESLint, Coverage-Gate und Build mit 35 Seiten bestanden
+- fehlender Testmode-Key stoppt vor jedem Stripe- oder Supabase-Aufruf
+- echter Provider-Lifecycle nicht ausgeführt; ein StockPilot-Testmode-Key fehlt
 - echte PostgREST-Concurrency-Prüfung im Datenbank-CI
 
 ## Evidenz
@@ -40,11 +45,12 @@ Die Webhook-Route prüfte Duplikate, mutierte `entitlements` und schrieb danach 
 
 ## Noch erforderlich
 
-- echte Stripe-Testmode-E2E-Kette in Phase 1.5
+- Testmode-Key für StockPilot sicher hinterlegen und den neuen Gate-Lauf belegen
+- gehostetes Checkout-UI, Dashboard-Webhook-Delivery/Retry, 3-D-Secure und Test-Clock-Dunning belegen
 - Remote-Migration und Production-Prüfung erst nach Reaktivierung des Supabase-Projekts
 
 ## Nächster zulässiger Arbeitspunkt
 
-Nach Merge dieses Evidenzstands: **Phase 1.5 – vollständige Stripe-Testmode-E2E-Kette**.
+Erst nach grünem Testmode-Gate: Phase 1.5 dokumentarisch abschließen. Keine Live-Aktivierung ohne separate Freigabe.
 
 Keine Providerphase und kein weiterer Arbeitspunkt ist parallel aktiv.

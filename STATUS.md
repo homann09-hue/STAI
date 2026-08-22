@@ -5,13 +5,10 @@ Stand: 2026-08-22
 ## Verbindlicher Stand
 
 - Repository: `homann09-hue/STAI`
-- Geprüfte Branchbasis: `main` bei `ec3a9af74e3f0740a06a28308f4b4a975a7276c4`
-- Aktive Phase: **Phase 1.4 – atomare und reihenfolgeunabhängige Stripe-Webhooks**
-- Arbeitsbranch: `codex/phase-1-4-evidence`
-- Code-Commit: `2fd58bf`
-- Merge-Commit: `ec3a9af74e3f0740a06a28308f4b4a975a7276c4`
-- Pull Request: [#107](https://github.com/homann09-hue/STAI/pull/107)
-- Freigabestatus: **TECHNISCH ABGESCHLOSSEN – EXTERN BLOCKIERT**
+- Geprüfte Branchbasis: `main` bei `2ff1ef09edb8b1f8f960c846483203586e170bdd`
+- Aktive Phase: **Phase 1.5 – vollständige Stripe-Testmode-E2E-Kette**
+- Arbeitsbranch: `codex/phase-1-5-stripe-testmode`
+- Freigabestatus: **IN ARBEIT – TESTMODE-SECRET EXTERN AUSSTEHEND**
 
 ## Abgeschlossene Stabilisierung
 
@@ -22,7 +19,17 @@ Stand: 2026-08-22
 
 ## Aktueller Arbeitspunkt
 
-Phase 1.4 ersetzt getrennte Webhook-Schreibvorgänge durch eine einzige service-role-gebundene PostgreSQL-RPC. Event-Ledger und Entitlement-Mutation committen oder rollen gemeinsam zurück. Ein kurzer Transaktions-Lock serialisiert Events je Nutzer. Neuere Providerzeit gewinnt; bei identischer Zeit entscheidet die Event-ID deterministisch. Duplikate und veraltete Events bleiben nachvollziehbar, wirken aber nicht erneut. Unbekannte Stripe-Price-IDs fallen nicht mehr auf änderbare Metadaten zurück.
+Phase 1.5 ergänzt einen strikt lokalen Stripe-Testmode-Harness. Er erzeugt temporäre Testressourcen, prüft Checkout, signierte Webhooks, aktiven Zugriff, Portal, `past_due`, Wiederherstellung, Kündigung, Duplikate und erneuten Checkout und räumt anschließend auf. Live-Schlüssel, Remote-App-URLs, Remote-Supabase-URLs und Liveobjekte werden technisch abgewiesen. Ein manueller GitHub-Workflow kapselt den Lauf in einer geschützten `stripe-testmode`-Environment.
+
+## Phase-1.5-Evidenz
+
+- Sicherheitsvertrag des Harness: 6/6 Tests bestanden
+- Vollständige Vitest-Suite: 164 Dateien, 1.271/1.271 Tests bestanden
+- Gesamtcoverage: 49,84 % Statements, 47,02 % Branches, 48,50 % Functions, 51,75 % Lines
+- Format, Governance, Typecheck, ESLint und Next-Production-Build mit 35 Seiten bestanden
+- Fail-closed-Probe: fehlender Testmode-Key wurde vor jedem Provideraufruf abgewiesen
+- `npm audit`: 0 bekannte Schwachstellen; Lizenzprüfung bestanden mit der bekannten indirekten `sharp/libvips`-Prüfliste
+- Echter Stripe-Testmode-Lifecycle: **NICHT GELAUFEN**, weil kein StockPilot-Testmode-Key verfügbar ist
 
 ## Aktuelle Evidenz
 
@@ -45,10 +52,10 @@ Phase 1.4 ersetzt getrennte Webhook-Schreibvorgänge durch eine einzige service-
 
 ## BLOCKED – EXTERNAL
 
-- Supabase-Projekt `STAI` ist `INACTIVE`; Remote-Migration und authentifizierte Produktionsprüfung sind nicht möglich.
-- Vollständiger Stripe-Testmode-Lifecycle mit echten Test-Customer, Test-Subscription, Portal und Webhooks bleibt bis zur verfügbaren externen Billing-/Supabase-Infrastruktur offen.
+- Supabase-Projekt `STAI` ist `INACTIVE`; Remote-Migration und authentifizierte Produktionsprüfung sind nicht möglich. Der Phase-1.5-Harness verwendet deshalb ausschließlich lokale Supabase-Infrastruktur.
+- Der einzige verbundene Stripe-Zugang ist `Ovora` im Live-Modus und wurde nicht verwendet. Ein isolierter StockPilot-Testmode-Key fehlt noch.
 - Billing bleibt deaktiviert. Keine Paid-Aktivierung vor Abschluss von Phase 1.5.
 
 ## Nächster zulässiger Schritt
 
-Den dokumentarischen Abschluss von Phase 1.4 geschützt mergen. Danach ist Phase 1.5 – die vollständige Stripe-Testmode-E2E-Kette – der einzige zulässige Arbeitspunkt. BauPro und andere Projekte bleiben unberührt.
+Einen StockPilot-Testmode-Key ausschließlich in der geschützten GitHub-Environment hinterlegen und den manuellen Lifecycle belegen. Keine Live-Aktivierung; BauPro und andere Projekte bleiben unberührt.

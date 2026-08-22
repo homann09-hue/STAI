@@ -23,6 +23,7 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:billing:concurrency": "node scripts/qa/billing-webhook-concurrency.mjs",
+    "test:billing:testmode": "node scripts/qa/stripe-testmode-e2e.mjs",
     "test:e2e": "playwright test",
     "test:e2e:deep": "playwright test tests/e2e/deep-stockpilot.spec.ts",
     "test:load": "node scripts/qa/load-test.mjs",

@@ -1,0 +1,79 @@
+name: Stripe Testmode E2E
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockpilot-stripe-testmode-e2e
+  cancel-in-progress: false
+
+jobs:
+  lifecycle:
+    name: Isolated Stripe subscription lifecycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: stripe-testmode
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      STRIPE_TESTMODE_E2E_SECRET_KEY: ${{ secrets.STOCKPILOT_STRIPE_TEST_SECRET_KEY }}
+      STRIPE_TESTMODE_E2E_APP_URL: http://127.0.0.1:3012
+    steps:
+      - name: Checkout StockPilot AI only
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2
+        with:
+          version: 2.109.1
+
+      - name: Require isolated Stripe testmode secret
+        shell: bash
+        run: |
+          if [[ ! "$STRIPE_TESTMODE_E2E_SECRET_KEY" =~ ^(sk|rk)_test_ ]]; then
+            echo "STOCKPILOT_STRIPE_TEST_SECRET_KEY is missing or not a testmode key." >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start isolated Supabase stack
+        run: >-
+          supabase start
+          --exclude edge-runtime,imgproxy,logflare,mailpit,postgres-meta,realtime,storage-api,studio,supavisor,vector
+
+      - name: Reset schema from migrations
+        run: supabase db reset --local --no-seed
+
+      - name: Export local-only Supabase credentials
+        shell: bash
+        run: |
+          eval "$(supabase status -o env)"
+          {
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "SUPABASE_SECRET_KEY=$SERVICE_ROLE_KEY"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Build production server
+        run: npm run build
+
+      - name: Run real Stripe testmode lifecycle
+        run: npm run test:billing:testmode
+
+      - name: Stop isolated Supabase stack
+        if: always()
+        run: supabase stop --no-backup || true
