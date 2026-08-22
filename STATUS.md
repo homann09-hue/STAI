@@ -6,11 +6,19 @@ Stand: 2026-08-22
 
 - Repository: `homann09-hue/STAI`
 - Gepruefter Ausgangsstand: `main` bei `48315206db9c24bd864ff9346ea4ab9e142cd684`
-- Aktive Phase: **Phase 2.1 - kanonische Instrument- und Listing-Aufloesung**
-- Aktiver Arbeitsstatus: Implementierung sowie lokale und externe Qualitaetsgates abgeschlossen
+- Aktive Phase: **Release-Automation - geschuetzte Main-Merges automatisch live**
+- Aktiver Arbeitsstatus: Production ist aktuell; automatische Main-Deployments werden aktiviert
 - Billing: deaktiviert; Phase 1.5 bleibt **TECHNICALLY COMPLETE - BLOCKED EXTERNAL**
 
 ## Aktueller Arbeitspunkt
+
+Der verifizierte Main-Commit `01740e6ab4fca6830aaaa2b67aa7e9564a1f5af0`
+ist als Vercel-Production-Deployment `dpl_2bRw6Xg78Fzx8F6QdnLG9XRMXbF6`
+unter `https://stockpilot-ai-beta.vercel.app` aktiv. Die bisherige
+`deploymentEnabled.main=false`-Sperre wird entfernt, damit geschuetzte
+Main-Merges kuenftig automatisch nur das Projekt `stockpilot-ai` aktualisieren.
+
+## Abgeschlossener Phase-2.1-Arbeitspunkt
 
 Symbolgleiche Listings duerfen nicht mehr stillschweigend anhand ihrer
 Bestaetigungszahl ausgewaehlt werden. Asset- und Corporate-Action-Routen loesen
@@ -43,6 +51,7 @@ explizite Auswahl statt einer geratenen Zuordnung.
 
 ## Naechster zulaessiger Schritt
 
-PR #119 geschuetzt nach `main` mergen. Danach als naechsten isolierten
-Arbeitspunkt die symbolbasierte Quotes-Batchroute auf kanonische Instrument-IDs
-umstellen. Keine Produktionsaktivierung und keine Aenderung an BauPro.
+Release-Automation durch PR-/CI-/Preview-Gates pruefen, geschuetzt mergen und
+belegen, dass Vercel den Main-Merge automatisch als StockPilot-Production
+ausliefert. Danach die symbolbasierte Quotes-Batchroute auf kanonische
+Instrument-IDs umstellen. Keine Aenderung an BauPro.

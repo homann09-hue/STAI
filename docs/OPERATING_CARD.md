@@ -1,6 +1,6 @@
 # StockPilot Operating Card
 
-<!-- ACTIVE_WORKPOINT: PHASE-2-1 -->
+<!-- ACTIVE_WORKPOINT: RELEASE-AUTO-DEPLOY -->
 
 Stand: 2026-08-22
 
